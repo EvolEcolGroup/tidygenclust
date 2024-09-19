@@ -237,14 +237,17 @@ def fastmixture_run(args):
 	t_sec = int(t_tot - t_min*60)
 	print(f"Total elapsed time: {t_min}m{t_sec}s")
 
-
+	if not args.no_freqs:
+		return Q, P
+	else:
+		return Q
 	### Save estimates and write output to log-file
-	np.savetxt(f"{args.out}.K{args.K}.s{args.seed}.Q", Q, fmt="%.6f")
-	print(f"Saved Q matrix as {args.out}.K{args.K}.s{args.seed}.Q")
-	if not args.no_freqs: # Save ancestral allele frequencies
-		np.savetxt(f"{args.out}.K{args.K}.s{args.seed}.P", P, fmt="%.6f")
-		print(f"Saved P matrix as {args.out}.K{args.K}.s{args.seed}.P")
-	
+	# np.savetxt(f"{args.out}.K{args.K}.s{args.seed}.Q", Q, fmt="%.6f")
+	# print(f"Saved Q matrix as {args.out}.K{args.K}.s{args.seed}.Q")
+	# if not args.no_freqs: # Save ancestral allele frequencies
+	# 	np.savetxt(f"{args.out}.K{args.K}.s{args.seed}.P", P, fmt="%.6f")
+	# 	print(f"Saved P matrix as {args.out}.K{args.K}.s{args.seed}.P")
+
 	# Write to log-file
 	# with open(f"{args.out}.K{args.K}.s{args.seed}.log", "a") as log:
 	# 	log.write(f"\nFinal log-likelihood: {round(L_cur,1)}\n")
@@ -256,7 +259,7 @@ def fastmixture_run(args):
 	# 	log.write(f"Saved Q matrix as {args.out}.K{args.K}.s{args.seed}.Q\n")
 	# 	if not args.no_freqs:
 	# 		log.write(f"Saved P matrix as {args.out}.K{args.K}.s{args.seed}.P\n")
-
+	# del P, Q, P1, P2, Q1, Q2, P_old, Q_old, Q_tmp, l_vec, G
 
 
 ##### Main exception #####

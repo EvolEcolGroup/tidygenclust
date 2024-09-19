@@ -1,7 +1,10 @@
 #' fastmixture algorithm for population genetics clustering
 #'
 #' This function implements the fastmixture algorithm for population genetics clustering
-#' by calling the relevant python module.
+#' by calling the python module. If you use this function, make sure that you cite
+#' the relevant paper by Santander, Refoyo-Martínez, and Meisner (2024).
+#'
+#' @references C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster model-based estimation of ancestry proportions. bioRxiv 2024.07.08.602454; doi: https://doi.org/10.1101/2024.07.08.602454
 #'
 #' @param bfile is the name of the binary plink file (without the .bed extension)
 #' @param k the number of ancestral components (clusters)
@@ -19,7 +22,7 @@
 #' @param als_tole the tolerance for the RMSE of P between iterations (1e-4)
 #' @param no_freqs do not save P-matrix (TRUE)
 #' @param random_init random initialisation of parameters (TRUE)
-#' @return NULL (for the moment, in the future a list)
+#' @return either the q matrix (if no_freqs=TRUE; formatted as a `tidypopgen::q_matrix`) or a list of the Q and P matrices
 #' @export
 
 fastmixture <- function(bfile, k, threads=1, seed=42,
@@ -38,5 +41,12 @@ fastmixture <- function(bfile, k, threads=1, seed=42,
                                     als_tole = als_tole, no_freqs = no_freqs,
                                     random_init = random_init)
   fastmixture_res<-.py_rfastmixture$fastmixture_run(args = rfastmixture_args)
+  if (no_freqs) {
+    fastmixture_res <- tidypopgen::as_q_matrix(fastmixture_res)
+  } else {
+    names(fastmixture_res) <- c("Q", "P")
+    fastmixture_res$Q <- tidypopgen::as_q_matrix(fastmixture_res$Q)
+  }
+  return(fastmixture_res)
  # system(paste("fastmixture --bfile", bfile, "--k", k, "--threads", threads, "--seed", seed, "--outprefix", outprefix, "--iter", iter, "--tole", tole, "--batches", batches, "--supervised", supervised, "--check", check, "--power", power, "--chunk", chunk, "--als_iter", als_iter, "--als_tole", als_tole, "--no_frequs", no_frequs, "--random_init", random_init))
 }
