@@ -4,9 +4,12 @@
 #' by calling the python module. If you use this function, make sure that you cite
 #' the relevant paper by Santander, Refoyo-Martínez, and Meisner (2024).
 #'
+#' This function returns a q_matrix that can be plotted with `autoplot`, and tidied with `tidy`
+#' methods from the `tidypopgen` package.
+#'
 #' @references C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster model-based estimation of ancestry proportions. bioRxiv 2024.07.08.602454; doi: https://doi.org/10.1101/2024.07.08.602454
 #'
-#' @param bfile is the name of the binary plink file (without the .bed extension)
+#' @param data either a [`tidypopgen::gen_tibble`], or the name of the binary plink file (without the .bed extension)
 #' @param k the number of ancestral components (clusters)
 #' @param threads the number of threads to use (1)
 #' @param seed the random seed (42)
@@ -25,11 +28,25 @@
 #' @return either the q matrix (if no_freqs=TRUE; formatted as a `tidypopgen::q_matrix`) or a list of the Q and P matrices
 #' @export
 
-fastmixture <- function(bfile, k, threads=1, seed=42,
+fastmixture <- function(data, k, threads=1, seed=42,
                         outprefix="fastmixture", iter=1000, tole=0.5,
                         batches=32, supervised=NULL, check=5, power=11,
                         chunk=8192, als_iter=1000, als_tole=1e-4,
                         no_freqs=TRUE, random_init=TRUE) {
+
+  if (inherits(data, "character")) {
+    bfile <- data
+    n_indiv <- NULL
+    n_loci <- NULL
+    plink <- TRUE
+  } else if (inherits(data, "gen_tbl")){
+    bfile <- bk_file <- tidypopgen::gt_get_file_names(data)[2]
+    n_indiv <- nrow(data)
+    n_loci <- nrow(tidypopgen::show_loci(data))
+    plink <- FALSE
+  } else {
+    stop("data must be a gen_tibble, or a character string with the prefix of the plink files")
+  }
 
   # create a namespace object with all the inputs
   argparse <- reticulate::import("argparse")
@@ -39,7 +56,8 @@ fastmixture <- function(bfile, k, threads=1, seed=42,
                                     batches = as.integer(batches), supervised = supervised, check = as.integer(check),
                                     power = as.integer(power), chunk = as.integer(chunk), als_iter = as.integer(als_iter),
                                     als_tole = als_tole, no_freqs = no_freqs,
-                                    random_init = random_init)
+                                    random_init = random_init, plink = plink,
+                                    n_indiv = n_indiv, n_loci = n_loci)
   fastmixture_res<-.py_rfastmixture$fastmixture_run(args = rfastmixture_args)
   if (no_freqs) {
     fastmixture_res <- tidypopgen::as_q_matrix(fastmixture_res)

@@ -54,25 +54,36 @@ def fastmixture_run(args):
 	from fastmixture import functions
 	from fastmixture import shared
 
-	### Read data
-	# Finding length of .fam and .bim file
-	assert os.path.isfile(f"{args.bfile}.bed"), "bed file doesn't exist!"
-	assert os.path.isfile(f"{args.bfile}.bim"), "bim file doesn't exist!"
-	assert os.path.isfile(f"{args.bfile}.fam"), "fam file doesn't exist!"
-	print("Reading data...", end="", flush=True)
-	N = functions.extract_length(f"{args.bfile}.fam")
-	M = functions.extract_length(f"{args.bfile}.bim")
-	G = np.zeros((M, N), dtype=np.uint8)
-	N_bytes = ceil(N/4) # Length of bytes to describe N individuals
-
-	# Read .bed file
-	with open(f"{args.bfile}.bed", "rb") as bed:
-		B = np.fromfile(bed, dtype=np.uint8, offset=3)
-	B.shape = (M, N_bytes)
-	shared.expandGeno(B, G, args.threads)
-	del B
-	print(f"\rLoaded {N} samples and {M} SNPs.")
-
+	### Read data for plink files
+	if args.plink:
+		# Finding length of .fam and .bim file
+		assert os.path.isfile(f"{args.bfile}.bed"), "bed file doesn't exist!"
+		assert os.path.isfile(f"{args.bfile}.bim"), "bim file doesn't exist!"
+		assert os.path.isfile(f"{args.bfile}.fam"), "fam file doesn't exist!"
+		print("Reading data...", end="", flush=True)
+		N = functions.extract_length(f"{args.bfile}.fam")
+		M = functions.extract_length(f"{args.bfile}.bim")
+		G = np.zeros((M, N), dtype=np.uint8)
+		N_bytes = ceil(N/4) # Length of bytes to describe N individuals
+  
+		# Read .bed file
+		with open(f"{args.bfile}.bed", "rb") as bed:
+			B = np.fromfile(bed, dtype=np.uint8, offset=3)
+		B.shape = (M, N_bytes)
+		shared.expandGeno(B, G, args.threads)
+		del B
+		print(f"\rLoaded {N} samples and {M} SNPs.")
+	# read a file backed matrix
+	else: 
+		N = args.n_indiv
+		M = args.n_loci
+		G = np.fromfile(args.bfile, dtype=np.uint8)
+		# set missing/imputed values to 9
+		G[G>=3] = 9
+		# shape the genotype matrix
+		G.shape = (args.n_loci, args.n_indiv)
+		print(f"Loaded {N} samples and {M} SNPs.")
+		
 	# Supervised setting
 	if args.supervised is not None:
 		print("Ancestry estimation in supervised mode!")
