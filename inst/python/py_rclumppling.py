@@ -1,3 +1,8 @@
+# this is derived from https://github.com/PopGenClustering/Clumppling/blob/master/clumppling/__main__.py
+# @author of the original file: Xiran Liu
+# modified by Andrea Manica for use with tidygenclust
+# 
+
 import os
 import sys
 import json

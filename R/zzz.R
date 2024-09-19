@@ -1,5 +1,6 @@
+# handles for the python modules
 .py_rclumppling <- NULL
-
+.py_rfastmixture <- NULL
 # .onLoad <- function(...) {
 #   reticulate::use_virtualenv("rclumppling", required = FALSE)
 #   .py_rclumppling <<- reticulate::import_from_path(module = "py_rclumppling",
@@ -10,6 +11,11 @@
 .onLoad <- function(...) {
   .py_rclumppling <<- reticulate::import_from_path(
     module = "py_rclumppling",
+    path = system.file("python", package = "tidygenclust"),
+    delay_load = TRUE
+  )
+  .py_rfastmixture <<- reticulate::import_from_path(
+    module = "py_rfastmixture",
     path = system.file("python", package = "tidygenclust"),
     delay_load = TRUE
   )
