@@ -119,8 +119,8 @@ plot_q <- function(q_tidied, y_lab = "", group_x){
   # add vertical lines if we have groups
   if (!is.null(group_x)){
     segment_data = data.frame(
-      x = group_x,
-      xend = group_x,
+      x = group_x+0.5,
+      xend = group_x+0.5,
       y = rep(0,length(group_x)),
       yend = rep(1, length(group_x))
     )
