@@ -56,14 +56,18 @@ The PCA plot indicates three major clusters in the anolis population.
 
 ## Running fastmixture 
 
+We run fastmicxture for a series of K values simultaneously. The output object is a list of Q matrices that then we can use for downstream plotting/ analyses
+
 
 ```{r}
 library(tidygenclust)
 
-k <- 3 
+k <- c(2:3)
 
-anole_qmat <- fastmixture(anole_gt, k, threads=1, seed=42,
-                        outprefix="fastmixture", iter=1000, tole=0.5,
+source("../R/fastmixture_k_list.R")
+
+anole_qmat <- fastmixture_k_list(anole_gt, k, threads=1, seed=42,
+                        iter=1000, tole=0.5,
                         batches=32, supervised=NULL, check=5, power=11,
                         chunk=8192, als_iter=1000, als_tole=1e-4,
                         no_freqs=TRUE, random_init=TRUE)
@@ -72,6 +76,4 @@ anole_qmat <- fastmixture(anole_gt, k, threads=1, seed=42,
 ```{r}
 anole_qmat
 ```
-
-
 
