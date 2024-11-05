@@ -5,7 +5,7 @@
 \title{fastmixture algorithm for population genetics clustering}
 \usage{
 fastmixture(
-  bfile,
+  data,
   k,
   threads = 1,
   seed = 42,
@@ -24,7 +24,7 @@ fastmixture(
 )
 }
 \arguments{
-\item{bfile}{is the name of the binary plink file (without the .bed extension)}
+\item{data}{either a \code{\link[tidypopgen:gen_tibble]{tidypopgen::gen_tibble}}, or the name of the binary plink file (without the .bed extension)}
 
 \item{k}{the number of ancestral components (clusters)}
 
@@ -57,9 +57,17 @@ fastmixture(
 \item{random_init}{random initialisation of parameters (TRUE)}
 }
 \value{
-NULL (for the moment, in the future a list)
+either the q matrix (if no_freqs=TRUE; formatted as a \code{tidypopgen::q_matrix}) or a list of the Q and P matrices
 }
 \description{
 This function implements the fastmixture algorithm for population genetics clustering
-by calling the relevant python module.
+by calling the python module. If you use this function, make sure that you cite
+the relevant paper by Santander, Refoyo-Martínez, and Meisner (2024).
+}
+\details{
+This function returns a q_matrix that can be plotted with \code{autoplot}, and tidied with \code{tidy}
+methods from the \code{tidypopgen} package.
+}
+\references{
+C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster model-based estimation of ancestry proportions. bioRxiv 2024.07.08.602454; doi: https://doi.org/10.1101/2024.07.08.602454
 }

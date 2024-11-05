@@ -31,6 +31,8 @@ Remotes:
     EvolEcolGroup/tidypopgen
 Suggests: 
     knitr,
-    rmarkdown
+    rmarkdown,
+    testthat (>= 3.0.0)
 LazyData: true
 VignetteBuilder: knitr
+Config/testthat/edition: 3

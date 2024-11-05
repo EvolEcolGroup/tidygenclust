@@ -32,7 +32,8 @@ tgc_tools_install <- function(envname = "ctidygenclust",
   reticulate:::conda_run2(cmd = "pip3",
                           args = paste0("install ",
                                         "--upgrade --force-reinstall ",
-                                        "git+https://github.com/Rosemeis/fastmixture.git@main"),
+#                                        "git+https://github.com/Rosemeis/fastmixture.git@main"),
+                                          "git+https://github.com/Rosemeis/fastmixture.git@866f116974ab4e58677b0ca837e43d85d42bec07"),
                           envname = envname)
 
   # Install clumppling
