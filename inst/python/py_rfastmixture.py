@@ -9,11 +9,55 @@ import sys
 from datetime import datetime
 from time import time
 
+### Argparse
+# parser = argparse.ArgumentParser(prog="fastmixture")
+# parser.add_argument("--version", action="version",
+# 	version="%(prog)s v0.93.3")
+# parser.add_argument("-b", "--bfile", metavar="PLINK",
+# 	help="Prefix for PLINK files (.bed, .bim, .fam)")
+# parser.add_argument("-k", "--K", metavar="INT", type=int,
+# 	help="Number of ancestral components")
+# parser.add_argument("-t", "--threads", metavar="INT", type=int, default=1,
+# 	help="Number of threads (1)")
+# parser.add_argument("-s", "--seed", metavar="INT", type=int, default=42,
+# 	help="Set random seed (42)")
+# parser.add_argument("-o", "--out", metavar="OUTPUT", default="fastmixture",
+# 	help="Prefix output name (fastmixture)")
+# parser.add_argument("--iter", metavar="INT", type=int, default=1000,
+# 	help="Maximum number of iterations (1000)")
+# parser.add_argument("--tole", metavar="FLOAT", type=float, default=0.5,
+# 	help="Tolerance in log-likelihood units between iterations (0.5)")
+# parser.add_argument("--batches", metavar="INT", type=int, default=32,
+# 	help="Number of initial mini-batches (32)")
+# parser.add_argument("--supervised", metavar="FILE",
+# 	help="Path to population assignment file")
+# parser.add_argument("--check", metavar="INT", type=int, default=5,
+# 	help="Number of iterations between check for convergence")
+# parser.add_argument("--power", metavar="INT", type=int, default=11,
+# 	help="Number of power iterations in randomized SVD (11)")
+# parser.add_argument("--chunk", metavar="INT", type=int, default=8192,
+# 	help="Number of SNPs in chunk operations (8192)")
+# parser.add_argument("--als-iter", metavar="INT", type=int, default=1000,
+# 	help="Maximum number of iterations in ALS (1000)")
+# parser.add_argument("--als-tole", metavar="FLOAT", type=float, default=1e-4,
+# 	help="Tolerance for RMSE of P between iterations (1e-4)")
+# parser.add_argument("--no-freqs", action="store_true",
+# 	help="Do not save P-matrix")
+# parser.add_argument("--random-init", action="store_true",
+# 	help="Random initialization of parameters")
+# parser.add_argument("--safety", action="store_true",
+# 	help="Add extra safety steps in unstable optimizations")
+
+
 
 ##### fastmixture #####
 def fastmixture_run(args):
+# args = parser.parse_args()
+# if len(sys.argv) < 2:
+# 	parser.print_help()
+# 	sys.exit()
 	print("-------------------------------------------------")
-	print(f"fastmixture v0.9")
+	print(f"fastmixture v0.93.3")
 	print("C.G. Santander, A. Refoyo-Martinez and J. Meisner")
 	print(f"K={args.K}, seed={args.seed}, batches={args.batches}, threads={args.threads}")
 	print("-------------------------------------------------\n")
@@ -27,7 +71,7 @@ def fastmixture_run(args):
 	# deaf = vars(parser.parse_args([]))
 	# mand = ["seed", "batches"]
 	# with open(f"{args.out}.K{args.K}.s{args.seed}.log", "w") as log:
-	# 	log.write("fastmixture v0.9\n")
+	# 	log.write("fastmixture v0.93.3\n")
 	# 	log.write(f"Time: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
 	# 	log.write(f"Directory: {os.getcwd()}\n")
 	# 	log.write("Options:\n")
@@ -49,32 +93,18 @@ def fastmixture_run(args):
 
 	# Load numerical libraries
 	import numpy as np
-	from math import ceil
-	from fastmixture import em
 	from fastmixture import functions
 	from fastmixture import shared
 
 	### Read data for plink files
 	if args.plink:
-		# Finding length of .fam and .bim file
-		assert os.path.isfile(f"{args.bfile}.bed"), "bed file doesn't exist!"
-		assert os.path.isfile(f"{args.bfile}.bim"), "bim file doesn't exist!"
-		assert os.path.isfile(f"{args.bfile}.fam"), "fam file doesn't exist!"
-		print("Reading data...", end="", flush=True)
-		N = functions.extract_length(f"{args.bfile}.fam")
-		M = functions.extract_length(f"{args.bfile}.bim")
-		G = np.zeros((M, N), dtype=np.uint8)
-		N_bytes = ceil(N/4) # Length of bytes to describe N individuals
-  
-		# Read .bed file
-		with open(f"{args.bfile}.bed", "rb") as bed:
-			B = np.fromfile(bed, dtype=np.uint8, offset=3)
-		B.shape = (M, N_bytes)
-		shared.expandGeno(B, G, args.threads)
-		del B
-		print(f"\rLoaded {N} samples and {M} SNPs.")
-	# read a file backed matrix
-	else: 
+	  assert os.path.isfile(f"{args.bfile}.bed"), "bed file doesn't exist!"
+	  assert os.path.isfile(f"{args.bfile}.bim"), "bim file doesn't exist!"
+	  assert os.path.isfile(f"{args.bfile}.fam"), "fam file doesn't exist!"
+	  print("Reading data...", end="", flush=True)
+	  G, M, N = functions.readPlink(args.bfile, args.threads)
+	  print(f"\rLoaded {N} samples and {M} SNPs.")
+	else:
 		N = args.n_indiv
 		M = args.n_loci
 		G = np.fromfile(args.bfile, dtype=np.uint8)
@@ -83,7 +113,7 @@ def fastmixture_run(args):
 		# shape the genotype matrix
 		G.shape = (args.n_loci, args.n_indiv)
 		print(f"Loaded {N} samples and {M} SNPs.")
-		
+	  
 	# Supervised setting
 	if args.supervised is not None:
 		print("Ancestry estimation in supervised mode!")
@@ -123,6 +153,7 @@ def fastmixture_run(args):
 		else: # SVD-based initialization
 			f = np.zeros(M)
 			shared.estimateFreq(G, f, args.threads)
+			assert (np.min(f) > 0.0) & (np.max(f) < 1.0), "Please perform MAF filtering!"
 
 			# Initialize P and Q matrices from SVD and ALS
 			ts = time()
@@ -142,9 +173,9 @@ def fastmixture_run(args):
 	print(f"Initial loglike: {round(L_old,1)}")
 
 	# Mini-batch parameters for stochastic EM
-	first = True
+	guard = True
 	batch = True
-	batch_L = L_old
+	batch_L = L_pre = L_old
 
 	### EM algorithm
 	# Setup containers for EM algorithm
@@ -159,11 +190,9 @@ def fastmixture_run(args):
 
 	# Accelerated priming iteration
 	ts = time()
-	em.updateP(G, P, Q, Q_tmp, args.threads)
-	em.updateQ(Q, Q_tmp, G.shape[0])
-	if y is not None:
-		shared.superQ(Q, y)
+	functions.steps(G, P, Q, Q_tmp, y, args.threads)
 	functions.quasi(G, P, Q, Q_tmp, P1, P2, Q1, Q2, y, args.threads)
+	functions.steps(G, P, Q, Q_tmp, y, args.threads)
 	print(f"Performed priming iteration\t({round(time()-ts,1)}s)\n", flush=True)
 
 	# fastmixture algorithm
@@ -178,24 +207,42 @@ def fastmixture_run(args):
 				functions.quasiBatch(G, P, Q, Q_tmp, P1, P2, Q1, Q2, y, np.sort(b), \
 					args.threads)
 
-			# Quasi-Newton full update
-			functions.quasi(G, P, Q, Q_tmp, P1, P2, Q1, Q2, y, args.threads)
-		else: # Safety updates with log-likelihood check
-			L_cur = functions.safety(G, P, Q, Q_tmp, P1, P2, Q1, Q2, y, l_vec, L_cur, \
-				args.threads)
-			if first:
-				if L_cur < L_std: # Remove guard
-					first = False
-				else:
-					L_std = L_cur
+			# Full updates
+			if args.safety: # Safety updates
+				functions.safetySteps(G, P, Q, Q_tmp, y, args.threads)
+				functions.safety(G, P, Q, Q_tmp, P1, P2, Q1, Q2, y, args.threads)
+				functions.safetySteps(G, P, Q, Q_tmp, y, args.threads)
 			else:
-				if L_cur < L_old: # Break
+				functions.quasi(G, P, Q, Q_tmp, P1, P2, Q1, Q2, y, args.threads)
+		else: # Updates with log-likelihood check
+			if guard:
+				if args.safety:
+					functions.safety(G, P, Q, Q_tmp, P1, P2, Q1, Q2, y, args.threads)
+					functions.safetySteps(G, P, Q, Q_tmp, y, args.threads)
+				else:
+					functions.quasi(G, P, Q, Q_tmp, P1, P2, Q1, Q2, y, args.threads)
+					functions.steps(G, P, Q, Q_tmp, y, args.threads)
+				shared.loglike(G, P, Q, l_vec, args.threads)
+				L_cur = np.sum(l_vec)
+				if L_cur > L_saf:
+					L_saf = L_cur
+				else: # Remove guard and perform safety updates
 					shared.copyP(P, P_old, args.threads)
 					shared.copyQ(Q, Q_old)
+					guard = False
+					L_saf = L_old
+			else: # Safety updates
+				L_cur = functions.safetyCheck(G, P, Q, Q_tmp, P1, P2, Q1, Q2, y, \
+					l_vec, L_saf, args.threads)
+				if L_cur > L_saf:
+					L_saf = L_cur
+				else: # Break and exit with best estimate
+					shared.copyP(P, P_old, args.threads)
+					shared.copyQ(Q, Q_old)
+					converged = True
 					L_cur = L_old
 					print("No improvement. Returning with best estimate!")
 					print(f"Final log-likelihood: {round(L_cur,1)}")
-					converged = True
 					break
 			if L_cur > L_old: # Update best guess
 				shared.copyP(P_old, P, args.threads)
@@ -209,35 +256,47 @@ def fastmixture_run(args):
 				L_cur = np.sum(l_vec)
 				L = f"({it+1})\tLog-like: {round(L_cur,1)}\t({round(time()-ts,1)}s)"
 				print(L, flush=True)
-				if (L_cur < batch_L) or (abs(L_cur - batch_L) < args.tole):					
-					# Halve number of batches
-					args.batches = args.batches//2
-					if args.batches > 1:
-						print(f"Using {args.batches} mini-batches.")
-						em.updateP(G, P, Q, Q_tmp, args.threads)
-						em.updateQ(Q, Q_tmp, G.shape[0])
-						batch_L = float('-inf')
-					else: # Turn off mini-batch acceleration
-						print("Running standard updates.")
-						em.updateP(G, P, Q, Q_tmp, args.threads)
-						em.updateQ(Q, Q_tmp, G.shape[0])
-						batch = False
-						L_std = L_cur
-						L_pre = float('-inf')
-						del B_list
+				if (L_cur < L_pre) and (not args.safety): # Check unstable mini-batch
+					print("Turning on safety updates.")
+					shared.copyP(P, P_old, args.threads)
+					shared.copyQ(Q, Q_old)
+					L_cur = L_old
+					batch_L = float('-inf')
+					args.safety = True
 				else:
-					batch_L = L_cur
-					if L_cur > L_old:
-						shared.copyP(P_old, P, args.threads)
-						shared.copyQ(Q_old, Q)
-						L_old = L_cur
+					if (L_cur < batch_L) or (abs(L_cur - batch_L) < args.tole):				
+						# Halve number of batches
+						args.batches = args.batches//2
+						if args.batches > 1:
+							print(f"Using {args.batches} mini-batches.")
+							L_pre = L_cur
+							batch_L = float('-inf')
+							if not args.safety:
+								functions.steps(G, P, Q, Q_tmp, y, args.threads)
+						else: # Turn off mini-batch acceleration
+							print("Running standard updates.")
+							batch = False
+							L_saf = L_cur
+							del B_list
+							if not args.safety:
+								functions.steps(G, P, Q, Q_tmp, y, args.threads)
+					else:
+						batch_L = L_cur
+						if L_cur > L_old:
+							shared.copyP(P_old, P, args.threads)
+							shared.copyQ(Q_old, Q)
+							L_old = L_cur
 			else:
 				L = f"({it+1})\tLog-like: {round(L_cur,1)}\t({round(time()-ts,1)}s)"
 				print(L, flush=True)
 				if (abs(L_cur - L_pre) < args.tole):
+					if L_cur < L_old:
+						shared.copyP(P, P_old, args.threads)
+						shared.copyQ(Q, Q_old)
+						L_cur = L_old
+					converged = True
 					print("Converged!")
 					print(f"Final log-likelihood: {round(L_cur,1)}")
-					converged = True
 					break
 				L_pre = L_cur
 			ts = time()
@@ -248,18 +307,19 @@ def fastmixture_run(args):
 	t_sec = int(t_tot - t_min*60)
 	print(f"Total elapsed time: {t_min}m{t_sec}s")
 
+
 	if not args.no_freqs:
 		return Q, P
 	else:
 		return Q
-	### Save estimates and write output to log-file
+	# ### Save estimates and write output to log-file
 	# np.savetxt(f"{args.out}.K{args.K}.s{args.seed}.Q", Q, fmt="%.6f")
 	# print(f"Saved Q matrix as {args.out}.K{args.K}.s{args.seed}.Q")
 	# if not args.no_freqs: # Save ancestral allele frequencies
 	# 	np.savetxt(f"{args.out}.K{args.K}.s{args.seed}.P", P, fmt="%.6f")
 	# 	print(f"Saved P matrix as {args.out}.K{args.K}.s{args.seed}.P")
-
-	# Write to log-file
+	# 
+	# # Write to log-file
 	# with open(f"{args.out}.K{args.K}.s{args.seed}.log", "a") as log:
 	# 	log.write(f"\nFinal log-likelihood: {round(L_cur,1)}\n")
 	# 	if converged:
@@ -270,7 +330,7 @@ def fastmixture_run(args):
 	# 	log.write(f"Saved Q matrix as {args.out}.K{args.K}.s{args.seed}.Q\n")
 	# 	if not args.no_freqs:
 	# 		log.write(f"Saved P matrix as {args.out}.K{args.K}.s{args.seed}.P\n")
-	# del P, Q, P1, P2, Q1, Q2, P_old, Q_old, Q_tmp, l_vec, G
+
 
 
 ##### Main exception #####

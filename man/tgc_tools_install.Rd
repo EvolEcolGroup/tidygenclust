@@ -4,20 +4,31 @@
 \alias{tgc_tools_install}
 \title{Install tools for \code{tidygenclust}}
 \usage{
-tgc_tools_install(envname = "ctidygenclust", reset = FALSE)
+tgc_tools_install(
+  reset = FALSE,
+  fastmixture_hash = "eddfc5f917f49ee1000f441d11a211b7b8e87b63",
+  clumppling_hash = "919fdbbe79a1b06cce51d1b9a97d026b35bbfc46"
+)
 }
 \arguments{
-\item{envname}{the name of the virtual environment to use (defaults to 'ctidygenclust')}
-
 \item{reset}{a boolean used to reset the virtual environment. Only set
 to TRUE if you have a broken virtual environment that you want to reset.}
+
+\item{fastmixture_hash}{a string with the commit hash of the \code{fastmixture}
+version to install. Default is the latest tested version.}
+
+\item{clumppling_hash}{a string with the commit hash of the \code{clumppling}
+version to install. Default is the latest tested version.}
 }
 \description{
-\code{tidygenclust} relies on the python packages \code{fastmixture} and \code{clumppling} for a number of
-functionalities. We use \code{reticulate} to install them in a conda
-environment. We also install the other tools in the same environment to
-make sure that we have everything in the same place.  By default, we use a
-conda environment called 'ctidygenclust'. Unless
-you know what you are doing, we recommend that you use this default. For
-more details, see \href{https://rstudio.github.io/reticulate/articles/python_dependencies.html}{here}.
+\code{tidygenclust} relies on the \code{admxiture} and on python packages \code{fastmixture}
+and \code{clumppling} for a number of
+functionalities. We use \code{reticulate} to install them in conda
+environments. As their dependencies are incompatible, we use two separate
+conda environment, \code{ctidygenclust} (for \code{fastmixture} and \code{admixture}) and
+\code{cclumppling} (for \code{clumppling}).
+For each tool, default to the latest tested version of
+these packages that have been tested to work with \code{tidegenclust}. It is
+possible to provide a more recent github commit for a specific tool, but
+this might lead to incompatibilities and errors.
 }
