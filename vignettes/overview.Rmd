@@ -1,174 +1,275 @@
 ---
 title: "overview of tidygenclust"
 output: rmarkdown::html_vignette
-        #pdf_document
 vignette: >
   %\VignetteIndexEntry{overview}
-  %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
-```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>"
-)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
 ```
+
+# Using `tidygenclust` for clustering in R
+
+`tidygenclust` allows you to run `fastmixture` clustering analyses on your genetic
+data directly from R.
+
+`fastmixture` (<https://github.com/Rosemeis/fastmixture>) (Santander et
+al. 2024) is a python tool for ancestry estimation using genotype
+data. It uses a model-based approach with comparable accuracy to that of
+of popular clustering tool ADMIXTURE, but over considerably faster time
+scales making it a more scaleable option for large genetic data sets.
+
+With the `tidygenclust` package we provide a direct R interface to the python based 
+`fastmixture` using `reticulate` and integrate it with the `tidypopgen` package
+for easy genetic data manipulation entirely within R. Additionally, the outputs 
+from `tidygenclust` analyses can be easily visualised using the `clumpplingr` 
+package which allows for easy alignment and comparison of multiple clustering 
+results.
+
+Genetic data analyses through the integrated tools `tidypopgen`, `tidygenclust`
+and `clumpplingr` seamlessly joins upstream genetic data manipulation (`tidypopgen`)
+with downstream clustering analyses (`tidygenclust`) and extensive visualisation 
+options of the clustering results (`clumpplingr`) in an integrated pipeline
+all natively within R.
+
 
 # Installation
 
-`tidygenclust` provides tools to perform clustering for population genetics within
-R. It integrates with `tidypopgen` to provide a tidy interface to the results of
-the analysis, and takes advantage of the python packages `fastmixture` and `clumppling`
-to run the clustering analysis and to summarise the results of multiple runs, respectively.
-We use `reticulate` to seamlessly integrate the python packages into R, so that you, as a user,
-should not need to worry about the details of the python packages.
+We use `reticulate` to seamlessly integrate the required python packages into R,
+this means that you, as a user, should not need to worry about the details of 
+the python packages or dependencies.
 
-The first time we runt the packages, we need to install the python packages. We can do this:
+The first time we run `tidygenclust`, we need to install the python
+packages. We can do this by simply running the following commands:
 ```{r}
 library(tidygenclust)
 ```
+
 ```{r eval=FALSE}
 tgc_tools_install()
 ```
 
+# An example workflow
 
+To explore the use of `tidygenclust` with `tidypopgen`, we will
+investigate the genetic ancestry the anolis lizard *Anolis punctatus*
+across its range in South America, using data from Prates et al 2018.
 
+We downloaded the vcf file of the genotype data from the Prates et al
+2018 GitHub repository which can be accessed
+[here](%22%3Chttps://github.com/ivanprates/2018_Anolis_EcolEvol/blob/master/data/VCFtools_SNMF_punctatus_t70_s10_n46/punctatus_t70_s10_n46_filtered.recode.vcf?raw=true%3E%22)
+and compressed it to a vcf.gz file.
 
+## Read data into `gen_tibble` format
 
+`tidygenclust` can take a path to a PLINK binary file as input, but in
+this case we will read the data directly from a `tidypopgen`
+`gen_tibble` object.
 
-
-# Running clumppling
-
-Clumppling allows to align multiple runs of a clustering algorithms within and across K. Here
-we use the Capeverde example (as in the clumppling manual), stored as a zip archive:
-```{r load_capeverde}
-input_path <- system.file("extdata/capeverde.zip", package = "tidygenclust")
-clump_res <-clumppling(input_path = input_path)
-```
-
-Once we have a clumppling object, we can use `autoplot` to make a number of
-default plots. We can plot the modes for all k with:
-
+First, using `tidypopgen` we can read our compressed vcf file directly
+into R to create our `gen_tibble`:
 ```{r}
-autoplot(clump_res, type="all_modes")
+library(tidypopgen)
+vcf_path <-  system.file("/extdata/anolis/punctatus_t70_s10_n46_filtered.recode.vcf.gz",
+                          package = "tidypopgen")
+anole_gt <- gen_tibble(vcf_path, quiet = TRUE, backingfile = tempfile("anolis_"),
+                       parser = "cpp")
 ```
-If we have information about the population from which individuals were sampled,
-we can overlay it by providing a vector with a population label for each individual.
-For the Capeverde dataset, we have such a vector stored in the package:
+
+By inspecting our `gen_tibble` we can see that we have a total of 46
+individuals and 3249 loci, but no population information attached yet:
 ```{r}
-head(capeverde_pops)
+anole_gt
 ```
 
-Let's get a summary:
+We can easily attach the population metadata to our `gen_tibble` which
+is stored in anther file that can be found on the Prates et al 2018
+GitHub repository
+[here](%22%3Chttps://github.com/ivanprates/2018_Anolis_EcolEvol/raw/master/data/plot_order_punctatus_n46.csv%3E).
+
+We can read this file into R and attach the population information to
+our `gen_tibble` after removing the prefix from the individual IDs:
 ```{r}
-table(capeverde_pops)
+pops_path <- system.file("/extdata/anolis/plot_order_punctatus_n46.csv",
+                        package = "tidypopgen")
+pops <- readr::read_csv(pops_path)
+anole_gt <- anole_gt %>% mutate(id = gsub('punc_',"",.data$id,))
+anole_gt <- anole_gt %>% mutate(population = pops$pop[match(pops$ID,.data$id)])
 ```
 
-We can now add it to our plots with:
+Now we can inspect the `gen_tibble` object again to see that the
+population information has been added to our genotypes:
 ```{r}
-autoplot(clump_res, type="all_modes", group = capeverde_pops)
+anole_gt
 ```
 
+## Data preparation and PCA
 
-And subset to only the major modes with:
+To get an initial idea of our data and potentially help choose a
+reasonable starting value for *k* we may want to run a principal
+component analyses (PCA) to explore the data prior to running the
+`fastmixture` analyses.
+
+Before running the PCA we also need to impute any missing values that
+may be present in our data.
+
+We can quickly and easily impute and perform a PCA on our `gen_tibble`
+with `tidypopgen`:
 ```{r}
-autoplot(clump_res, type="major_modes", group = capeverde_pops)
+anole_gt <- anole_gt %>% gt_impute_simple(method = "mode")
+
+anole_pca <- anole_gt %>% gt_pca_partialSVD(k=30)
+
+library(ggplot2)
+anole_pca %>% autoplot(type = "scores") + 
+  aes(color = anole_gt$population) + 
+  labs(color = "Population")
 ```
 
-The modes of a specific k value can be plotted with:
+From the PCA plot we can see there seems to be three major clusters in
+the anolis.
+
+## Running fastmixture
+
+Now we can run `fastmixture` on our `gen_tibble` object.
+
+As a minimum the `gt_fastmixture` command requires you to supply your
+input data, in this case a `gen_tibble`, and specify a value for the
+number of clusters *k*.
+
+Based on our PCA results *k* = 3 may be a good place to start:
 ```{r}
-autoplot(clump_res, type = "modes_within_k", k = 4, group = capeverde_pops)
+anole_res <- anole_gt %>% gt_fastmixture(k = 3)
 ```
 
+This will *very* quickly return a single Q matrix, for one specified
+*k* value. But, most likely we want to explore multiple values for *k* and should
+run multiple repeats of each *k* to assess the stability of the
+clustering. The `gt_fastmixture` function allows you to specify a vector
+of *k* values you wish to run and the number of repeats per *k* value.
 
-We can also visualise the relationship among modes by plotting over a a multipartite graph,
-where better alignment between the modes is indicated by the darker color
-of the edges connecting their structure plots (i.e edges with a lower cost of optimal
-alignment is labelled on each edge):
+Now we are doing multiple repeat runs it is also important that for each repeat 
+we specify a different seed number to ensure consistent and robust results.
+
+Let's now set values of *k* from 2 to 4 and run 3 repeats of each *k*
+value, setting a different random seed for each repeat:
+```{r, results='hide'}
+anole_res <- anole_gt %>% gt_fastmixture(k = c(2:4), n_runs = 3, 
+                                          seed = c(42, 2, 16))
+```
+
+Our results are returned as a `gt_admix` object which neatly packages
+the outputted Q matrices, and the corresponding *k* value for that run
+in a structured list.
+
+We can get a summary of our `gt_admix` results object to see exactly
+what it contains:
 ```{r}
-autoplot(clump_res, type="modes", group = capeverde_pops)
+anole_res %>% summary()
 ```
 
-`rclumppling` can also deal with very large K and gaps in the k values explored.
-For example, we can use the 'chicken_gapK' data example from 'clumppling',
-which uses outputs from STRUCTURE (so we need to specify the `input_format`:
-```{r load_chicken}
-input_path <- system.file("extdata/chicken_gapk.zip", package = "tidygenclust")
-chicken_res <-clumppling(input_path = input_path, input_format = "structure")
+From the summary we can see our `gt_admix` object contains Q matrices
+for 3 repeat runs of *k* values 2, 3 and 4 as expected.
+
+If we also want to return P-matrices, containing ancestral allele
+frequencies, as part of our output we can set option `no_freqs` to
+`FALSE`:
+```{r, results='hide'}
+anole_res <- anole_gt %>% gt_fastmixture(, k = c(2:4), n_runs = 3, 
+                                          seed = c(42, 2, 16), no_freqs = FALSE)
 ```
 
-We can plot the membership plots on top of the multipartite plot with:
+We can see from the summary that our `gt_admix` output now contains
+both Q and P matrices for 3 repeat runs of each *k* value 2, 3 and 4:
 ```{r}
-autoplot(chicken_res)
+anole_res %>% summary()
 ```
 
+We may want to inspect a specific Q or P matrix in our `gt_admix` object and 
+this can be done using the `get_q_matrix` or `get_p_matrix` functions, we simply
+need to specify the *k* value and the repeat run number we are interested in.
 
-# Making custom plots with `ggplots2`
-
-We can use `tidy()` to extrct information from a `clumppling` object. To
-get all the modes for each k, we use:
+For example we can view the Q matrix corresponding to the second run of
+*k* = 4 like so:
 ```{r}
-tidy(clump_res, matrix = "modes")
+anole_res %>% get_q_matrix(k = 4, run = 2) %>% head()
 ```
 
-The major modes can be obtained simply with:
+Or the P matrix of the first run of *k* = 3:
 ```{r}
-tidy(clump_res, matrix = "major_modes")
+anole_res %>% get_p_matrix(k = 3, run = 1) %>% head()
 ```
 
-To create custom plots, we can also extract the q matrices for modes, with their clusters aligned, by typing:
+## Visualising the results
+
+For a quick visualisation of a single Q matrix from our results we can
+again pull out a specific Q matrix of interest using the `get_q_matrix`
+function and pass it directly to autoplot in `tidypopgen`:
 ```{r}
-q_modes <- tidy(clump_res, matrix = "Q_modes")
+anole_res %>% get_q_matrix(k = 3, run = 1) %>% autoplot()
 ```
 
-`q_modes` is a list of tibbles, one per mode:
+If we want to add population annotations we can set the `annotate_group` option 
+to `TRUE` and pass our `gen_tibble` to the `data` argument of `autoplot`:
 ```{r}
-names(q_modes)
+anole_res %>% get_q_matrix(k = 3, run = 1) %>% 
+  autoplot(annotate_group = TRUE, data = anole_gt)
 ```
 
-If we only want the major modes, we can simply use:
+If we want to create customised plots, we can use `tidy()` to easily extract 
+the required information from a `gt_admix` object to use with `ggplot2`: 
 ```{r}
-q_major_modes <- tidy(clump_res, matrix = "Q_major_modes")
-names(q_major_modes)
+anole_res %>% get_q_matrix(k = 3, run = 1) %>% tidy(data = anole_gt)
 ```
 
-Let us inspect one of the tidied modes:
-```{r}
-q4_tidied <- q_major_modes[["K4M1"]]
-head(q4_tidied)
+## Moving to `clumpplingr`
 
-```
-We can now create a simple plot of this mode with:
-```{r}
-# set up the ggplot object
-plt <- ggplot2::ggplot(q4_tidied,
-                       ggplot2::aes(x = id,
-                                    y = percentage,
-                                    fill = q)) +
-  # add the columns based on percentage membership to each cluster
-  ggplot2::geom_col(width = 1,
-                    position = ggplot2::position_stack(reverse = TRUE))+
-  # set the y label
-  ggplot2::labs(y = "K = 4")+
-  # use a theme to match the distruct look, removing most decorations
-  theme_distruct() +
-  # set the colour scale to be the same as in distruct and clumppling
-  scale_fill_distruct()
+Whilst this gives us a useful, quick visual to check one particular Q matrix,
+ideally we want to be able to compare the different *k* values we tried in our 
+clustering analyses and to assess the stability of the multiple repeat runs. 
+For proper comparative visualisation and assessment of the different *k* values
+and repeats we can use the `clummplingr` package which aligns multiple clustering
+results within and between different values of *k* and allows for easy
+visualisation in multipartite plots.
 
-plt
-```
-We used a preset theme and colour scale, but you could use any custom option
-you prefer by using standard `ggplot2` theme and scale_fill options. For example:
-
-```{r}
-plt + ggplot2::scale_fill_viridis_d(guide = "none")
-
+To use `clumpplingr` on our `gt_admix` results we can simply save our
+`gt_admix` object and reopen it in a new R session with the
+`clummplingr` package:
+```{r, eval = FALSE}
+anole_res %>% saveRDS("anole_gt_admix.rds")
 ```
 
-STOP WE NEED TO THINK ABOUT THIS. THE FUNCTION IS INTERNAL IN tidypopgen, SO WE NEED TO THINK ABOUT HOW TO MAKE IT AVAILABLE TO THE USER
-It is also possible to add information about the populations with
-`annotate_group_info()`:
-```{r eval=FALSE}
-plt + annotate_group_info(group = capeverde_pops)
-```
+Further details on next steps in `clumpplingr` can be found in the
+`clumpplingr` [GitHub
+repository](https://github.com/EvolEcolGroup/clumpplingr) and vignette.
+
+
+## Additional options
+
+Additional to the main options outlined in this example workflow the
+`gt_fastmixture` function allows you to specify all the extra options
+which are available when using the standard `fastmixture` software and
+as default these to the same values as `fastmixure`. This includes:
+
+-   `threads`: the number of threads to use (1)
+-   `iter`: the maximum number of iterations (1000)
+-   `tole`: the tolerance in log-likelihood units between iterations
+    (0.5)
+-   `batches`: the number of maximum mini-batches (32)
+-   `supervised`: the name fo the file with the supervised labels
+    (`NULL`)
+-   `check`: the number of iterations to check for convergence (5)
+-   `power`: number of power iterations in randomised SVD (11)
+-   `chunk`: the number of SPs in chunk operations (8192)
+-   `als_iter`: the maximum number of iterations in the ALS algorithm
+    (1000) 
+-   `als_tole`: the tolerance for the RMSE of P between iterations
+    (1e-4)
+-   `random_init`: random initialisation of parameters (`TRUE`)
+-   `safety`: add extra safety steps in unstable optimizations (`TRUE`)

@@ -1,6 +1,5 @@
 plot_modes <- function(object, group){
   connection_df <- make_connection_df(object)
-
   multi_plot <- ggplot2::ggplot(data=connection_df,
                                 ggplot2::aes(x=.data$x, y=.data$y,group=.data$pair)) +
     ggplot2::geom_line(ggplot2::aes(colour=.data$cost),linewidth =2, lineend = "round")+
@@ -21,7 +20,8 @@ plot_modes <- function(object, group){
   for (i in seq_len(length(all_modes_labels))){
     k <- gsub(".*K(\\d+)M.*", "\\1", all_modes_labels[i])
     m <- as.integer(gsub(".*M(\\d+).*", "\\1", all_modes_labels[i]))
-    n <- length(object$modes_allK[[k]][[m-1]])
+    n <- length(object$mode_replicates[[all_modes_labels[i]]])
+    #n <- length(object$modes_allK[[k]][[m-1]])
     plt <- all_modes[[i]]+ggplot2::theme_void() +
       ggplot2::theme(plot.margin = grid::unit(c(0, 0, 0, 0), "native"))+
       ggplot2::annotate("text",x=object$N*0.95,y=1.15,
@@ -100,13 +100,13 @@ plot_modes <- function(object, group){
 # to be scaled accordingly later on
 make_connection_df <- function(x){
   # parse names of connections
-  pairs_links <- strsplit(names(x$cost_acrossK_cons),"-")
+  pairs_links <- strsplit(names(x$cost_acrossK),"-")
   pairs_links <- matrix(unlist(pairs_links),ncol=2, byrow=TRUE,
                         dimnames=list(NULL, c("V1","V2")))
   # split them into a matrix
   pairs_links <- tibble::as_tibble(pairs_links)
-  pairs_links$cost <- unlist(x$cost_acrossK_cons)
-  pairs_links$pair <- names(x$cost_acrossK_cons)
+  pairs_links$cost <- unlist(x$cost_acrossK)
+  pairs_links$pair <- names(x$cost_acrossK)
   # remove links at the same level (including self links)
   pairs_links <- pairs_links[gsub(".*K(\\d+)M.*", "\\1", pairs_links$V1) !=
                                gsub(".*K(\\d+)M.*", "\\1", pairs_links$V2),]

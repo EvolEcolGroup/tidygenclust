@@ -23,10 +23,10 @@
 #' @param k the k value to be plotted if 'type' is 'modes_within_k'
 #' @param ... not used at the moment
 #' @returns a plot
-#' @rdname autoplot_clumppling
+#' @rdname autoplot_gt_clumppling
 #' @export
 
-autoplot.clumppling <- function(object,
+autoplot.gt_clumppling <- function(object,
                                 type = c("modes", "modes_within_k",
                                          "major_modes", "all_modes"),
                                 group = NULL,

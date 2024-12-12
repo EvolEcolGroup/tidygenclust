@@ -4,9 +4,14 @@
 #' @export
 
 tgc_tools_version <- function() {
+
+  if (.Platform$OS.type %in% c("unix", "darwin")) {
+    reticulate::conda_run2(cmd = "admixture", args = c("--version"), envname = "ctidygenclust",
+                         echo=FALSE)
+  }
   reticulate::conda_run2(cmd = "fastmixture", args = c("--version"), envname = "ctidygenclust",
                          echo=FALSE)
-  cat("clumpling ")
-  reticulate::conda_run2(cmd = "pip", args = c("show clumppling | grep Version"), envname = "ctidygenclust",
+  cat("cclumpling ")
+  reticulate::conda_run2(cmd = "pip", args = c("show clumppling | grep Version"), envname = "cclumppling",
                          echo=FALSE)
 }

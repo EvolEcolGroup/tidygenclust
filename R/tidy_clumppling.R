@@ -1,23 +1,23 @@
-#' tidy a `clumppling` object
+#' Tidy a `gt_clumppling` object
 #'
-#' A `tidy` method to extract information from a [`clumppling`] object, and
+#' A `tidy` method to extract information from a [`gt_clumppling`] object, and
 #' return it as a tibble. It can extract:
-#' - 'modes': all the modes detected by clumppling. The models have label
+#' - 'modes': all the modes detected by [gt_clumppling()]. The models have label
 #' 'KxMy', where 'x' and 'y' represent the K value and the mode rank.
 #' - 'major_modes': modes of rank 1 for each K.
 #' - 'Q_modes', 'q_modes': a list of q matrices, one per mode, each tidied into a tibble
 #' - 'Q_major_modes', 'q_major_modes': the same output as 'Q_modes' but subsetted to only the
 #' major modes.
 #'
-#' @param x the [`clumppling`] object
+#' @param x the [`gt_clumppling`] object
 #' @param matrix a string defining the information to be extracted, one of:
 #' "modes", "major_modes", "Q_modes", "Q_major_modes".
 #' @param ... Additional arguments. Not used. Needed to match generic signature only.
 #' @returns a [tibble::tibble] of the information of interest
-#' @rdname tidy_clumppling
+#' @rdname tidy_gt_clumppling
 #' @export
 
-tidy.clumppling <-function(x,
+tidy.gt_clumppling <-function(x,
                            matrix = c("modes","major_modes","Q_modes","q_modes",
                                       "Q_major_modes", "q_major_modes"),
                            ...){
