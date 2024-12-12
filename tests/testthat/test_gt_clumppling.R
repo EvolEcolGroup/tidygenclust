@@ -9,7 +9,5 @@ get_q_major_modes <- tidy(clump_res,matrix="q_major_modes")
 autoplot(clump_res, type = "modes_within_k", k=3)
 autoplot(clump_res, type = "major_modes")
 autoplot(clump_res, type = "all_modes")
-
-# TODO this does not work yet!
 autoplot(clump_res, type = "modes")
 
