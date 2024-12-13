@@ -16,8 +16,12 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Using `tidygenclust` for clustering in R
 
-`tidygenclust` allows you to run `fastmixture` clustering analyses on your genetic
-data directly from R.
+`tidygenclust` provides functions and methods to run genetic clustering in R,
+using the commonly used ADMIXTURE program as we as the python package `fastmixture`.
+It also help to align and compare multiple runs of the same or differen K using
+the functionalities of the python package `clumppling`. This package builds on
+`tidypopgen`, enhancing the grammar of population genetics with a focus on 
+genetic clustering.
 
 `fastmixture` (<https://github.com/Rosemeis/fastmixture>) (Santander et
 al. 2024) is a python tool for ancestry estimation using genotype

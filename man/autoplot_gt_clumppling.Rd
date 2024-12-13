@@ -44,7 +44,7 @@ plots.
 }
 }
 \details{
-Currently \code{autoplot} wraps the python plotting functions, which use
-\code{matlibplot}. In the future, these will be replaced with \code{ggplot2} native
-plots.
+\code{autoplot} produces simple plots to quickly inspect an object. They are
+not customisable; we recommend that you use \code{ggplot2} to produce publication
+ready plots.
 }
