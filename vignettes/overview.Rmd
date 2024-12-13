@@ -12,6 +12,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+tidygenclust::tgc_tools_install()
 ```
 
 # Using `tidygenclust` for clustering in R

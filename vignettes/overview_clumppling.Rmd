@@ -13,6 +13,7 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
+tidygenclust::tgc_tools_install()
 ```
 
 # Easy clustering visualisations in R with `gt_clumppling`
