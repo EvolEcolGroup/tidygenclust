@@ -13,12 +13,13 @@
 )
 }
 \arguments{
-\item{object}{a \code{\link{clumppling}} object}
+\item{object}{a \code{\link{gt_clumppling}} object}
 
 \item{type}{the type of plot, one of 'modes', 'modes_within_K',
 'major_modes' or 'all_modes'.}
 
-\item{group}{a vector of membership to a-priori groups (e.g. populations)}
+\item{group}{a vector of membership to a-priori groups (e.g. populations). Note
+that individuals from the same group need to be adjacent to each other}
 
 \item{k}{the k value to be plotted if 'type' is 'modes_within_k'}
 
@@ -28,7 +29,7 @@
 a plot
 }
 \description{
-An autoplot method to generate quick visualisations for \code{\link{clumppling}} objects.
+An autoplot method to generate quick visualisations for \code{\link{gt_clumppling}} objects.
 Available types are:
 \itemize{
 \item 'modes': all aligned modes in structure plots over a multipartite graph,

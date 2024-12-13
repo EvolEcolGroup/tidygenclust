@@ -32,11 +32,11 @@
 #' @export
 
 gt_fastmixture <- function(x, k, n_runs = 1, threads=1, seed=42,
-                        outprefix="fastmixture", iter=1000, tole=0.5,
-                        batches=32, supervised=NULL, check=5, power=11, output_path = getwd(),
-                        chunk=8192, als_iter=1000, als_tole=1e-4,
-                        no_freqs=TRUE, random_init=TRUE, safety=TRUE) {
-  
+                           outprefix="fastmixture", iter=1000, tole=0.5,
+                           batches=32, supervised=NULL, check=5, power=11, output_path = getwd(),
+                           chunk=8192, als_iter=1000, als_tole=1e-4,
+                           no_freqs=TRUE, random_init=TRUE, safety=TRUE) {
+
   if (length(seed)!= n_runs){
     stop("'seeds' should be a vector of lenght 'repeats'")
   }
@@ -57,50 +57,63 @@ gt_fastmixture <- function(x, k, n_runs = 1, threads=1, seed=42,
 
   # create a namespace object with all the inputs
   argparse <- reticulate::import("argparse")
-  
+
   # initialise list to store results
-  q_mat_list <- list(
+  adm_list <- list(
     k = NULL,
     Q = list()
   )
-  
+
   if (!no_freqs) {
-    q_mat_list$P <- list()
+    adm_list$P <- list()
   }
-  
-  # Populate q_mat_list object
+
+  # Populate adm_list object
   index <- 1
   for (this_k in as.integer(k)) {
     for (this_rep in seq_len(n_runs)) {
       rfastmixture_args <- argparse$Namespace(
         bfile = bfile, K = this_k, threads = as.integer(threads),
-        seed = as.integer(seed[this_rep]), iter = as.integer(iter), 
-        tole = tole, batches = as.integer(batches), supervised = supervised, 
-        check = as.integer(check), power = as.integer(power), chunk = as.integer(chunk), 
-        als_iter = as.integer(als_iter), als_tole = als_tole, no_freqs = no_freqs, 
-        random_init = random_init, plink = plink, n_indiv = n_indiv, 
+        seed = as.integer(seed[this_rep]), iter = as.integer(iter),
+        tole = tole, batches = as.integer(batches), supervised = supervised,
+        check = as.integer(check), power = as.integer(power), chunk = as.integer(chunk),
+        als_iter = as.integer(als_iter), als_tole = als_tole, no_freqs = no_freqs,
+        random_init = random_init, plink = plink, n_indiv = n_indiv,
         n_loci = n_loci, safety = safety
       )
       fastmixture_res <- .py_rfastmixture$fastmixture_run(args = rfastmixture_args)
-      
+
       if (no_freqs) {
         q_matrix <- tidypopgen::q_matrix(fastmixture_res)
-        q_mat_list$Q[[index]] <- q_matrix
-        q_mat_list$k <- sapply(q_mat_list$Q, ncol)
-        
+        adm_list$Q[[index]] <- q_matrix
+        adm_list$k <- sapply(adm_list$Q, ncol)
+
       } else {
         names(fastmixture_res) <- c("Q", "P")
         q_matrix <- tidypopgen::q_matrix(fastmixture_res$Q)
         p_matrix <- as.matrix(fastmixture_res$P)
-        q_mat_list$Q[[index]] <- q_matrix
-        q_mat_list$P[[index]] <- p_matrix
-        q_mat_list$k <- sapply(q_mat_list$Q, ncol)
+        adm_list$Q[[index]] <- q_matrix
+        adm_list$P[[index]] <- p_matrix
+        adm_list$k <- sapply(adm_list$Q, ncol)
       }
       index <- index + 1
     }
   }
-  
+
   # return list
-    class(q_mat_list) <- c("gt_admix", class(q_mat_list))
-    return(q_mat_list)
+  class(adm_list) <- c("gt_admix", class(adm_list))
+
+  # add metadata if x is a gen_tibble
+  if (inherits(x, "gen_tbl")) {
+    adm_list$id <- x$id
+    # if it is grouped, add the group
+    if (inherits(x, "grouped_gen_tbl")) {
+      adm_list$group <- x[[dplyr::group_vars(x)]]
+    }
+  }
+
+  # add info on algorithm
+  adm_list$algorithm <- "ADMIXTURE"
+
+  return(adm_list)
 }

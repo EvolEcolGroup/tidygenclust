@@ -109,6 +109,14 @@ population information has been added to our genotypes:
 anole_gt
 ```
 
+Finally, we group our `gen_tibble` by population to make it easier to
+plot later, as the grouping information will be passed to objects created by
+clustering algorithms:
+```{r}
+anole_gt <- anole_gt %>% group_by(population)
+```
+
+
 ## Data preparation and PCA
 
 To get an initial idea of our data and potentially help choose a
@@ -158,10 +166,12 @@ Now we are doing multiple repeat runs it is also important that for each repeat
 we specify a different seed number to ensure consistent and robust results.
 
 Let's now set values of *k* from 2 to 4 and run 3 repeats of each *k*
-value, setting a different random seed for each repeat:
+value, setting a different random seed for each repeat. We also set
+the option `no_freqs` to `FALSE` to include P-matrices, containing ancestral allele
+frequencies, to our output:
 ```{r, results='hide'}
 anole_res <- anole_gt %>% gt_fastmixture(k = c(2:4), n_runs = 3, 
-                                          seed = c(42, 2, 16))
+                                          seed = c(42, 2, 16), no_freqs = FALSE)
 ```
 
 Our results are returned as a `gt_admix` object which neatly packages
@@ -174,22 +184,8 @@ what it contains:
 anole_res %>% summary()
 ```
 
-From the summary we can see our `gt_admix` object contains Q matrices
+From the summary we can see our `gt_admix` object contains Q and P matrices
 for 3 repeat runs of *k* values 2, 3 and 4 as expected.
-
-If we also want to return P-matrices, containing ancestral allele
-frequencies, as part of our output we can set option `no_freqs` to
-`FALSE`:
-```{r, results='hide'}
-anole_res <- anole_gt %>% gt_fastmixture(, k = c(2:4), n_runs = 3, 
-                                          seed = c(42, 2, 16), no_freqs = FALSE)
-```
-
-We can see from the summary that our `gt_admix` output now contains
-both Q and P matrices for 3 repeat runs of each *k* value 2, 3 and 4:
-```{r}
-anole_res %>% summary()
-```
 
 We may want to inspect a specific Q or P matrix in our `gt_admix` object and 
 this can be done using the `get_q_matrix` or `get_p_matrix` functions, we simply
@@ -208,24 +204,27 @@ anole_res %>% get_p_matrix(k = 3, run = 1) %>% head()
 
 ## Visualising the results
 
-For a quick visualisation of a single Q matrix from our results we can
-again pull out a specific Q matrix of interest using the `get_q_matrix`
-function and pass it directly to autoplot in `tidypopgen`:
+For a quick visualisation of a single Q matrix we can use the autoplot function
+in `tidypopgen`:
 ```{r}
-anole_res %>% get_q_matrix(k = 3, run = 1) %>% autoplot()
+anole_res %>% autoplot(type="barplot", k = 3, run = 1)
 ```
 
-If we want to add population annotations we can set the `annotate_group` option 
-to `TRUE` and pass our `gen_tibble` to the `data` argument of `autoplot`:
-```{r}
-anole_res %>% get_q_matrix(k = 3, run = 1) %>% 
-  autoplot(annotate_group = TRUE, data = anole_gt)
-```
+It is possible to rearrange individual withing groups according to their ancestral
+components. This makes for a visually appealing plots that focuses on the main
+ancestral component within each plot, but makes multiple plots not comparable
+(as individuals will not be in the same order across plots):
 
-If we want to create customised plots, we can use `tidy()` to easily extract 
-the required information from a `gt_admix` object to use with `ggplot2`: 
 ```{r}
-anole_res %>% get_q_matrix(k = 3, run = 1) %>% tidy(data = anole_gt)
+anole_res %>% autoplot(type="barplot", k = 3, run = 1, reorder_within_groups = TRUE)
+```
+Note that the colours assigned to each component are arbitrary and may (and in this case did)
+change if we reorder individuals. If you want complete control of your plot, you
+can create your own customised plot with `ggplot2`; we can use `tidy()` to easily extract 
+the required information from a `gt_admix` object to use for the plot: 
+```{r}
+anole_q_tbl <- anole_res %>% get_q_matrix(k = 3, run = 1) %>% tidy(data = anole_gt)
+anole_q_tbl
 ```
 
 ## Moving to `clumpplingr`
@@ -234,42 +233,32 @@ Whilst this gives us a useful, quick visual to check one particular Q matrix,
 ideally we want to be able to compare the different *k* values we tried in our 
 clustering analyses and to assess the stability of the multiple repeat runs. 
 For proper comparative visualisation and assessment of the different *k* values
-and repeats we can use the `clummplingr` package which aligns multiple clustering
+and repeats we can use the `gt_clummpling` function which aligns multiple clustering
 results within and between different values of *k* and allows for easy
 visualisation in multipartite plots.
 
-To use `clumpplingr` on our `gt_admix` results we can simply save our
-`gt_admix` object and reopen it in a new R session with the
-`clummplingr` package:
-```{r, eval = FALSE}
-anole_res %>% saveRDS("anole_gt_admix.rds")
+Once we use `gt_clumppling`, the resulting plots will only show individuals in
+the order in which they were found in the `gt_admix` object. This means that,
+if they were not ordered into groups, we will not be able to annotate groups. One
+solution would be to arrange our original gen_tibble by group before starting the
+analsyis, but we can also use `gt_admix_reorder_q` to reorder the individuals in the
+groups.
+
+```{r}
+anole_gt_admix <- anole_res %>% gt_admix_reorder_q()
 ```
 
-Further details on next steps in `clumpplingr` can be found in the
-`clumpplingr` [GitHub
-repository](https://github.com/EvolEcolGroup/clumpplingr) and vignette.
+Let's now run the clumppling analysis on our `gt_admix` object:
+```{r}
+anole_clump <- anole_gt_admix %>% gt_clumppling()
+```
 
+And plot the results:
+```{r}
+anole_clump %>% autoplot(type = "all_modes", group = anole_gt_admix$group)
+```
 
-## Additional options
+We can see that there is only one mode for each K. For more comple examples
+where multiple modes are found in runs for the same K, see the vignette focussing
+on `gt_clumppling`.
 
-Additional to the main options outlined in this example workflow the
-`gt_fastmixture` function allows you to specify all the extra options
-which are available when using the standard `fastmixture` software and
-as default these to the same values as `fastmixure`. This includes:
-
--   `threads`: the number of threads to use (1)
--   `iter`: the maximum number of iterations (1000)
--   `tole`: the tolerance in log-likelihood units between iterations
-    (0.5)
--   `batches`: the number of maximum mini-batches (32)
--   `supervised`: the name fo the file with the supervised labels
-    (`NULL`)
--   `check`: the number of iterations to check for convergence (5)
--   `power`: number of power iterations in randomised SVD (11)
--   `chunk`: the number of SPs in chunk operations (8192)
--   `als_iter`: the maximum number of iterations in the ALS algorithm
-    (1000) 
--   `als_tole`: the tolerance for the RMSE of P between iterations
-    (1e-4)
--   `random_init`: random initialisation of parameters (`TRUE`)
--   `safety`: add extra safety steps in unstable optimizations (`TRUE`)

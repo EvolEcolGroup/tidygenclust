@@ -122,6 +122,9 @@ gt_clumppling <- function (input_path,
   mode_alignments$K <- as.integer(sub(".*K(\\d+).*", "\\1", mode_alignments$Mode))
   clump_res$K_range <- unique(mode_alignments$K)
 
+  # add N
+  clump_res$N <- nrow(clump_res$aligned_modes[[1]])
+
   class(clump_res) <- "gt_clumppling"
   return(clump_res)
 }

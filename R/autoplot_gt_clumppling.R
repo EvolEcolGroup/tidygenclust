@@ -1,6 +1,6 @@
 #' autoplot for clumppling objects
 #'
-#' An autoplot method to generate quick visualisations for [`clumppling`] objects.
+#' An autoplot method to generate quick visualisations for [`gt_clumppling`] objects.
 #' Available types are:
 #' - 'modes': all aligned modes in structure plots over a multipartite graph,
 #' where better alignment between the modes is indicated by the darker color
@@ -12,14 +12,15 @@
 #' plots.
 #' - 'all_modes': all aligned modes in a series of structure plots.
 #'
-#' Currently `autoplot` wraps the python plotting functions, which use
-#' `matlibplot`. In the future, these will be replaced with `ggplot2` native
-#' plots.
+#' `autoplot` produces simple plots to quickly inspect an object. They are
+#' not customisable; we recommend that you use `ggplot2` to produce publication
+#' ready plots.
 #'
-#' @param object a [`clumppling`] object
+#' @param object a [`gt_clumppling`] object
 #' @param type the type of plot, one of 'modes', 'modes_within_K',
 #' 'major_modes' or 'all_modes'.
-#' @param group a vector of membership to a-priori groups (e.g. populations)
+#' @param group a vector of membership to a-priori groups (e.g. populations). Note
+#' that individuals from the same group need to be adjacent to each other
 #' @param k the k value to be plotted if 'type' is 'modes_within_k'
 #' @param ... not used at the moment
 #' @returns a plot

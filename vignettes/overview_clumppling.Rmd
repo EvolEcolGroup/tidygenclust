@@ -1,0 +1,177 @@
+---
+title: "gt_clumppling tutorial"
+output: rmarkdown::html_vignette
+        #pdf_document
+vignette: >
+  %\VignetteIndexEntry{gt_clumppling_tutorial}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Easy clustering visualisations in R with `gt_clumppling`
+
+`tidygenclust` provides tools to visualise the results of clustering analyses as 
+part of population genetics within R. For combining multiple runs of a clustering,
+we rely on the functionalities of the python package `clumppling` (https://github.com/PopGenClustering/Clumppling)
+(Liu et al, 2024). `clumppling` is a command line tool which aligns multiple runs of a clustering
+analyses allowing for easy comparison and summary of multiple results both across 
+different values of K and for repeated runs within K.
+ 
+With `gt_clumppling()`, we provide a direct R interface to the python based
+`clumppling` which further integrates with the `tidypopgen` package to provide a 
+tidy interface to the results of clustering analyses. `gt_clumppling()`` is designed
+to be easy to use, and to provide a number of default plots that can additionally
+be easily customised using `ggplot2`. As input, it takes either a `gt_admix` object that
+was created with `gt_admixture()` or `gt_fastmixture()`, or a set of Q matrices saved
+as text files from a program run outside R.
+
+
+# Running clumppling
+
+`gt_clumppling` allows you to align multiple runs of a clustering algorithms within
+and across K. Here we use as an example of analysis of individuals from Capeverde,
+the same example as the one used in the Clumppling manual. The text files containing
+the matrices are stored as a zip archive, which we can pass directly to `gt_clumppling()`:
+```{r load_capeverde}
+library(tidygenclust)
+input_path <- system.file("extdata/capeverde.zip", package = "tidygenclust")
+clump_res <- input_path %>% gt_clumppling()
+```
+
+Once we have a `gt_clumppling` results object, we can use `autoplot` to make a 
+number of default plots. 
+
+We can plot the modes for all values of k with:
+```{r}
+clump_res %>% autoplot(type= "all_modes")
+```
+
+It is often informative to overlay information on the population from which each individual
+was sampled. This can be done by providing a vector of population labels for each individual.
+In the case of the Capeverde dataset, we have such a vector stored in the package:
+
+```{r}
+capeverde_pops %>% head()
+```
+
+Let's get a summary:
+```{r}
+capeverde_pops %>% table()
+```
+
+We can now add it to our plots with the `group` argument:
+```{r}
+clump_res %>% autoplot(type = "all_modes", group = capeverde_pops)
+```
+
+And subset to only the major modes with:
+```{r}
+clump_res %>% autoplot(type = "major_modes", group = capeverde_pops)
+```
+
+The modes of a specific k value can be plotted with:
+```{r}
+clump_res %>% autoplot(type = "modes_within_k", k = 4, group = capeverde_pops)
+```
+
+
+We can also visualise the relationship among modes by plotting over a 
+multipartite graph, where better alignment between the modes is indicated by the
+darker color of the edges connecting their structure plots (i.e edges with a 
+lower cost of optimal alignment are labelled on each edge):
+```{r}
+clump_res %>% autoplot(type = "modes", group = capeverde_pops)
+```
+
+`rclumppling` can also deal with very large K and gaps in the k values explored.
+For example, we can use the 'chicken_gapK' data example from `Clumppling`,
+which uses outputs from STRUCTURE (so we need to specify the `input_format`):
+```{r load_chicken}
+input_path <- system.file("extdata/chicken_gapk.zip", package = "tidygenclust")
+chicken_res <-  input_path %>% gt_clumppling(input_format = "structure")
+```
+
+We can plot the membership plots on top of the multipartite plot with:
+```{r}
+chicken_res %>% autoplot()
+```
+
+# Making custom plots with `ggplot2`
+
+If we want to customise the default plots, we can use `tidy()` to easily extract 
+the required information from a `gt_clumppling` object. 
+
+To get all the modes for each k, we use:
+```{r}
+clump_res %>% tidy(matrix = "modes")
+```
+
+The major modes can be obtained simply with:
+```{r}
+clump_res %>% tidy(matrix = "major_modes")
+```
+
+To create custom plots, we can also extract the Q matrices for modes, with their 
+clusters aligned, by typing:
+```{r}
+q_modes <- clump_res %>% tidy(matrix = "Q_modes")
+```
+
+`q_modes` is a list of tibbles, one per mode:
+```{r}
+q_modes %>% names()
+```
+
+If we only want the major modes, we can simply use:
+```{r}
+q_major_modes <- clump_res %>% tidy(matrix = "Q_major_modes")
+q_major_modes %>% names()
+```
+
+Let us inspect one of the tidied modes:
+```{r}
+q4_tidied <- q_major_modes[["K4M1"]]
+q4_tidied %>% head()
+```
+
+We can now create a simple plot of this mode with:
+```{r}
+# set up the ggplot object
+plt <- q4_tidied %>% ggplot2::ggplot(
+  ggplot2::aes(x = id,
+               y = percentage,
+               fill = q)) +
+  # add the columns based on percentage membership to each cluster
+  ggplot2::geom_col(width = 1,
+                    position = ggplot2::position_stack(reverse = TRUE))+
+  # set the y label
+  ggplot2::labs(y = "K = 4")+
+  # use a theme to match the distruct look, removing most decorations
+  theme_distruct() +
+  # set the colour scale to be the same as in distruct and clumppling
+  scale_fill_distruct()
+
+plt
+```
+
+We used a preset theme and colour scale, but you could use any custom option
+you prefer by using standard `ggplot2` theme and scale_fill options. 
+For example:
+```{r}
+plt + ggplot2::scale_fill_viridis_d(guide = "none")
+```
+
+STOP WE NEED TO THINK ABOUT THIS. THE FUNCTION IS INTERNAL IN tidypopgen, SO WE NEED TO THINK ABOUT HOW TO MAKE IT AVAILABLE TO THE USER
+It is also possible to add information about the populations with
+`annotate_group_info()`:
+```{r eval=FALSE}
+plt + annotate_group_info(group = capeverde_pops)
+```
+
