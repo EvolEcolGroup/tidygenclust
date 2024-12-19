@@ -57,7 +57,7 @@ tgc_tools_install <- function(reset = FALSE,
   # if on osx or linux, install admixture
   if (.Platform$OS.type %in% c("unix", "darwin")) {
     reticulate::conda_install(packages = c("admixture"),
-                            envname = "ctidygenclust")
+                            envname = "ctidygenclust", channels = c("defaults", "bioconda"))
   }
 
   ##############################################################################
