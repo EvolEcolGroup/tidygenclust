@@ -52,7 +52,7 @@ jobs:
           needs: check
 
       - name: Install conda for OSX
-        if: matrix.config.os == 'macos-latest'}}
+        if: matrix.config.os == 'macos-latest'
         run: |
           mkdir -p ~/miniconda3
           curl https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh -o ~/miniconda3/miniconda.sh
