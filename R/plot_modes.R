@@ -112,10 +112,10 @@ make_connection_df <- function(x){
                                gsub(".*K(\\d+)M.*", "\\1", pairs_links$V2),]
   # convert labels to x and y coords
   tops <- pairs_links %>% dplyr::select(dplyr::all_of(c("pair", "V2", "cost"))) %>%
-    dplyr::rename(label=.data$V2) %>% dplyr::mutate(position="top")
+    dplyr::rename(label="V2") %>% dplyr::mutate(position="top")
   tops <- tops %>% dplyr::bind_cols(get_top_xy(tops$label, x$K_range))
   bottoms <- pairs_links %>% dplyr::select(dplyr::all_of(c("pair", "V1", "cost"))) %>%
-    dplyr::rename(label=.data$V1) %>% dplyr::mutate(position="bottom")
+    dplyr::rename(label="V1") %>% dplyr::mutate(position="bottom")
   bottoms <- bottoms %>% dplyr::bind_cols(get_bottom_xy(bottoms$label, x$K_range))
   connection_df <- rbind(tops,bottoms)
   # rescale
