@@ -45,7 +45,7 @@ tgc_tools_install <- function(reset = FALSE,
   # install fastmixture
   reticulate::conda_create(envname = "ctidygenclust",
                            packages = c("python=3.11", "numpy", "cython"),
-                           channels = c("defaults", "bioconda"))
+                           channel = c("defaults", "bioconda"))
   ## https://github.com/rstudio/reticulate/issues/905
   reticulate::conda_run2(cmd = "pip3",
                          args = paste0("install ",
@@ -58,7 +58,7 @@ tgc_tools_install <- function(reset = FALSE,
   if (.Platform$OS.type %in% c("unix", "darwin")) {
     reticulate::conda_install(packages = c("admixture"),
                             envname = "ctidygenclust",
-                            channels = c("bioconda"))
+                            channel = c("bioconda"))
   }
 
   ##############################################################################
@@ -66,7 +66,7 @@ tgc_tools_install <- function(reset = FALSE,
   # since its dependencies are not compatible with the ones of fastmixture
   reticulate::conda_create(envname = "cclumppling",
                            packages = c("python=3.11", "numpy=1.24"),
-                           channels = c("defaults", "bioconda"))
+                           channel = c("defaults", "bioconda"))
   # Install clumppling
   reticulate::conda_run2(cmd = "pip3",
                          args = paste0("install ",
