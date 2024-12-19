@@ -54,7 +54,7 @@ jobs:
       - name: setup conda envs
         shell: Rscript {0}
         run: |
-          devtools::load_all()
+          source("./R/tgc_tools_install.R")
           tgc_tools_install()
 
       - uses: r-lib/actions/check-r-package@v2
