@@ -2,4 +2,5 @@
 .Rhistory
 .RData
 .Ruserdata
-tests/testthat/Rplots.pdf
+/tests/testthat/Rplots.pdf
+/data-raw/hgdp/
