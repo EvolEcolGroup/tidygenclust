@@ -2,5 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
+tidygenclust.Rproj
 /tests/testthat/Rplots.pdf
 /data-raw/hgdp/

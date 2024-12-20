@@ -7,7 +7,7 @@
 
 `tidygenclust` provides functions and methods to run genetic clustering in R,
 using the commonly used ADMIXTURE program as we as the python package `fastmixture`.
-It also help to align and compare multiple runs of the same or differen K using
+It also help to align and compare multiple runs of the same or different K using
 the functionalities of the python package `clumppling`. This package builds on
 `tidypopgen`, enhancing the grammar of population genetics with a focus on 
 genetic clustering.
