@@ -1,0 +1,254 @@
+---
+title: "HGDP clustering"
+output: html_document
+date: "2024-12-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## HGDP data set 
+
+Here we use data from the Human Genome Diversity Project (HGDP)
+https://www.internationalgenome.org/data-portal/data-collection/hgdpit to run 
+through a full population genetic pipeline from raw data to population structure
+analysis and visualisation, to create the plots seen in the Paper <>.
+
+We downloaded the data from <???>
+
+## Data preparation
+
+Load necessary packages:
+```{r}
+# load packages 
+library(tidygenclust)
+library(tidypopgen)
+library(readr)
+```
+
+Load the data into `gen_tibble` object:
+```{r}
+# path to PLINK
+bed_path <- "../../hgdp_zhe_1_12-10-2024/hgdp650.qc.hg19.bed"
+
+# load the data into gentibble using tidypopgen
+hgdp_gt <- gen_tibble(bed_path, backingfile = "../../hgdp_zhe_1_12-10-2024/gentibble/hgdp_raw") 
+
+# load the meta data
+hgdp_meta <- read.table("../../hgdp_zhe_1_12-10-2024/HGDPid_populations.txt", header = TRUE)
+```
+
+Attach meta data to `gen_tibble`:
+```{r}
+# attach meta data to gentibble based on id 
+hgdp_gt <- hgdp_gt %>% mutate(
+  population = hgdp_meta$population[match(hgdp_gt$id, hgdp_meta$Id)],region = hgdp_meta$Region[match(hgdp_gt$id, hgdp_meta$Id)]
+)
+```
+
+
+## Data preparation 
+
+Remove more than 5% missing as suggested in ADMIXTURE manual:
+```{r}
+hgdp_gt <- hgdp_gt %>% select_loci_if(loci_missingness(genotypes)<0.05)
+```
+
+Remove monomorphic loci:
+```{r}
+hgdp_gt <- hgdp_gt %>% select_loci_if(loci_maf(genotypes)>0)
+```
+
+Update backing file:
+```{r}
+hgdp_gt <- gt_update_backingfile(hgdp_gt, backingfile = "../../hgdp_zhe_1_12-10-2024/gentibble/hgdp_filt")
+gt_save(hgdp_gt, "../../hgdp_zhe_1_12-10-2024/gentibble/hgdp_filt")
+```
+
+
+Impute any remaining missing values:
+```{r}
+# impute the data
+hgdp_gt <- hgdp_gt %>% gt_impute_simple(method = "random")
+
+# check
+hgdp_gt %>% gt_has_imputed()
+```
+
+LD prune the data:
+```{r}
+# LD prune the data based on the threshold stated in ADMIXTURE manual "plink --bfile rawData --indep-pairwise 50 10 0.1"
+hgdp_ldprune_gt <- hgdp_gt %>% select_loci_if(loci_ld_clump(genotypes, thr_r2 = 0.1, size = 50, use_positions = FALSE))
+
+#check remaining
+hgdp_gt %>% count_loci()
+hgdp_ldprune_gt %>% count_loci()
+```
+
+Update backing file and impute again:
+```{r}
+#update backing file 
+hgdp_ldprune_gt <- gt_update_backingfile(hgdp_ldprune_gt, backingfile = "../../hgdp_zhe_1_12-10-2024/gentibble/hgdp_ld")
+
+#save
+gt_save(hgdp_ldprune_gt, "../../hgdp_zhe_1_12-10-2024/gentibble/hgdp_ld")
+```
+
+```{r}
+hgdp_ldprune_gt <-gt_load("../../hgdp_zhe_1_12-10-2024/gentibble/hgdp_ld")
+# impute the data
+hgdp_ldprune_gt <- hgdp_ldprune_gt %>% gt_impute_simple(method = "random")
+```
+
+
+
+
+Check data with PCA:
+```{r}
+# PCA
+hgdp_pca <- hgdp_ldprune_gt %>% gt_pca_partialSVD()
+
+library(ggplot2)
+autoplot(hgdp_pca, type = "scores") +
+  aes(color = hgdp_ldprune_gt$region) +
+  labs(color = "Region")
+```
+
+## Population structure analysis - ADMIXTURE `tidypopgen`
+
+Run ADMIXTURE through `tidypopgen`:
+```{r}
+# group by population for later plotting
+hgdp_ldprune_gt <- hgdp_ldprune_gt %>% group_by(population)
+
+# run ADMIXTURE for k = 2-15 and 1 repeat to get an idea of the best k 
+hgdp_adm_cv <- hgdp_ldprune_gt %>% 
+  gt_admixture(k = 2:15, n_runs = 1, crossval = TRUE, 
+               n_cores = 2, seed = 123, conda_env = "none")
+```
+
+Check `gt_admix` results object:
+```{r}
+# summarise the admixture results
+hgdp_adm_cv %>% summary()
+```
+
+Plot the cross-validation:
+```{r}
+# plot the CV
+hgdp_adm_cv %>% autoplot()
+```
+
+
+Organise meta data
+```{r}
+# split bantu and rename some populations
+# if Bantu then combine population and Geographic_origin
+hgdp_meta$population[hgdp_meta$population=="Bantu"] <-paste( hgdp_meta$population[hgdp_meta$population=="Bantu"],
+hgdp_meta$Geographic_origin[hgdp_meta$population=="Bantu"], sep="_")
+# replace inappropriate labels
+hgdp_meta$population <- gsub("Pygmies","HG", hgdp_meta$population)
+# create a factor with 7 regions and order them geographically
+hgdp_meta$Pop7Groups <- sub("Est", "East", hgdp_meta$Pop7Groups)
+hgdp_meta$Pop7Groups <- factor(hgdp_meta$Pop7Groups, levels = c("Africa", "Middle_East", "Europe", "Central_South_Asia", "East_Asia", "Oceania","America"))
+hgdp_meta <- hgdp_meta %>% arrange(Pop7Groups, population)
+pop_levels <- unique(hgdp_meta$population)
+```
+
+Reorder admix
+```{r}
+hgdp_admix <- readRDS("../../hgdp_zhe_1_12-10-2024/clustering/hgdp_admixture_pop.rds")
+hgdp_meta  <- hgdp_meta %>% filter(.data$Id %in% hgdp_admix$id)
+hgdp_meta <- hgdp_meta[match(hgdp_admix$id, hgdp_meta$Id),]
+pops <- hgdp_meta$population
+pops <- factor(pops, levels = pop_levels)
+
+#reorder gt_admix
+hgdp_admix <- gt_admix_reorder_q(hgdp_admix, pops)
+```
+
+Barplot for single run:
+```{r}
+# plot barplot for given k and run using the groupings inherited from the grouped tibble
+hgdp_admix %>% autoplot(type = "barplot", k = 5, run = 1)    
+```
+
+Save `gt_admix`:
+```{r}
+# save results 
+hgdp_adm_cv %>% saveRDS("../../hgdp_zhe_1_12-10-2024/clustering/hgdp_admixture.rds")
+```
+
+
+##  Population structure analysis - fastmixture `tidygenclust`
+
+```{r}
+# run fastmixture for k = 2:5 and 5 runs -> or however many want to showcase clumppling visualisations
+hgdp_fastm <- hgdp_ldprune_gt %>% 
+  gt_fastmixture(k = c(2:5), n_repeats = 5, threads = 2,
+                 seed = c(123,234,345,456,567))
+
+#or load in previous
+hgdp_fastm <- readRDS("../../hgdp_zhe_1_12-10-2024/clustering/hgdp_fastm.rds")
+```
+
+Reorder admix
+```{r}
+hgdp_meta  <- hgdp_meta %>% filter(.data$Id %in% hgdp_fastm$id)
+hgdp_meta <- hgdp_meta[match(hgdp_fastm$id, hgdp_meta$Id),]
+pops <- hgdp_meta$population
+pops <- factor(pops, levels = pop_levels)
+
+#reorder gt_admix
+hgdp_fastm <- gt_admix_reorder_q(hgdp_fastm, pops)
+```
+
+
+Check `gt_admix` results object:
+```{r}
+# summarise the fastmixture results
+hgdp_fastm %>% summary()
+```
+
+Barplot for single run:
+```{r}
+# plot barplot for given k and run using the groupings inherited from the grouped tibble:
+hgdp_fastm %>% autoplot(type = "barplot", k = 5, run = 1)
+```
+
+Save `gt_admix`:
+```{r}
+# save results
+hgdp_fastm %>% saveRDS("../../hgdp_data/clustering/hgdp_fastmixture.rds")
+```
+
+
+## clumppling visualisations in `tidygenclust`
+
+Run clumpppling
+```{r}
+# run clumppling fastmixture
+hgdp_fastm_clump <- hgdp_fastm %>% gt_clumppling()
+```
+
+Create ordered vector for meta
+```{r}
+clump_pops <- as.vector(pops)
+#arrange pops2 by pop_levels
+clump_pops <- clump_pops[order(match(clump_pops, pop_levels))]
+```
+
+All modes plot
+```{r}
+hgdp_fastm_clump %>% autoplot(type = "modes", group = clump_pops)
+```
+
+Major modes plot
+```{r}
+# plot all modes with grouping annotation
+hgdp_fastm_clump %>% autoplot(type = "major_modes", group = clump_pops)
+```
+
+
+
