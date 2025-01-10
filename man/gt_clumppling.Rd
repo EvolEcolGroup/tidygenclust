@@ -45,3 +45,9 @@ a list of class \code{clumpling} TODO describe the elements of the list
 \description{
 This function runs the clumppling algorithm.
 }
+\details{
+If you would like to generate an annotated autoplot from your gt_clumppling object,
+ensure that all individuals from the same population are adjacent to one another
+in the Q-matrix or gt_admix object supplied to gt_clumppling. Autoplot 'group'
+argument requires that all individuals from the same group are adjacent.
+}

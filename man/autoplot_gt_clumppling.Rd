@@ -47,4 +47,9 @@ plots.
 \code{autoplot} produces simple plots to quickly inspect an object. They are
 not customisable; we recommend that you use \code{ggplot2} to produce publication
 ready plots.
+
+If you would like to generate an annotated autoplot, ensure that all individuals
+from the same population are adjacent to one another in the Q-matrix or gt_admix
+object supplied to gt_clumppling. Autoplot 'group' argument requires that all
+individuals from the same group are adjacent.
 }

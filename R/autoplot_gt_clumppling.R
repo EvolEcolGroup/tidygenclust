@@ -16,6 +16,11 @@
 #' not customisable; we recommend that you use `ggplot2` to produce publication
 #' ready plots.
 #'
+#' If you would like to generate an annotated autoplot, ensure that all individuals
+#' from the same population are adjacent to one another in the Q-matrix or gt_admix
+#' object supplied to gt_clumppling. Autoplot 'group' argument requires that all
+#' individuals from the same group are adjacent.
+#'
 #' @param object a [`gt_clumppling`] object
 #' @param type the type of plot, one of 'modes', 'modes_within_K',
 #' 'major_modes' or 'all_modes'.
