@@ -24,6 +24,6 @@ pak::pak("EvolEcolGroup/tidygenclust")
 ## Overview of functionality
 
 On overview of the functionality of `tidygenclust` and its integration with `tidypopgen` is provided
-in the overview vignette. A mode detailed description of how to align multiple runs of clustering
+in the overview vignette. A more detailed description of how to align multiple runs of clustering
 and compare them is provided in the vignette `clumppling overview`.
 
