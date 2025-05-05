@@ -7,7 +7,7 @@
 tgc_tools_install(
   reset = FALSE,
   fastmixture_hash = "105eb99248d278cad320885190b919ad8a69be1b",
-  clumppling_hash = "919fdbbe79a1b06cce51d1b9a97d026b35bbfc46"
+  clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40"
 )
 }
 \arguments{

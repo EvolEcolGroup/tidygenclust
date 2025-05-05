@@ -28,7 +28,8 @@
 #' @param random_init random initialisation of parameters (TRUE)
 #' @param safety add extra safety steps in unstable optimizations (TRUE)
 #' @param output_path the path where q matrices will be saved id save_q= TRUE
-#' @return either the q matrix (if no_freqs=TRUE; formatted as a `tidypopgen::q_matrix`) or a list of the Q and P matrices
+#' @return an object of class `gt_admix`. See [tidypopgen::gt_admixture()] for
+#' details.
 #' @export
 
 gt_fastmixture <- function(x, k, n_runs = 1, threads=1, seed=42,

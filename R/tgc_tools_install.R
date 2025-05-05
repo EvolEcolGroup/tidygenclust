@@ -21,7 +21,7 @@
 
 tgc_tools_install <- function(reset = FALSE,
                               fastmixture_hash = "105eb99248d278cad320885190b919ad8a69be1b",
-                              clumppling_hash = "919fdbbe79a1b06cce51d1b9a97d026b35bbfc46") {
+                              clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40") {
 
   # check ctidygenclust does not exist
   if (reticulate::condaenv_exists("ctidygenclust")){
@@ -65,7 +65,7 @@ tgc_tools_install <- function(reset = FALSE,
   # now install clumpling in its own conda environment
   # since its dependencies are not compatible with the ones of fastmixture
   reticulate::conda_create(envname = "cclumppling",
-                           packages = c("python=3.11", "numpy=1.24"),
+                           packages = c("python=3.11", "numpy=1.24.0"),
                            channel = c("defaults", "bioconda"))
   # Install clumppling
   reticulate::conda_run2(cmd = "pip3",
