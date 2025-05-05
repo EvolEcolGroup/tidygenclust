@@ -79,7 +79,7 @@ gt_fastmixture <- function(x, k, n_runs = 1, threads=1, seed=42,
         check = as.integer(check), power = as.integer(power), chunk = as.integer(chunk),
         als_iter = as.integer(als_iter), als_tole = als_tole, no_freqs = no_freqs,
         random_init = random_init, plink = plink, n_indiv = n_indiv,
-        n_loci = n_loci, safety = safety
+        n_loci = n_loci, safety = safety, projection = NULL
       )
       fastmixture_res <- .py_rfastmixture$fastmixture_run(args = rfastmixture_args)
 

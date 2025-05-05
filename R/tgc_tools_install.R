@@ -20,7 +20,7 @@
 #' @export
 
 tgc_tools_install <- function(reset = FALSE,
-                              fastmixture_hash = "eddfc5f917f49ee1000f441d11a211b7b8e87b63",
+                              fastmixture_hash = "105eb99248d278cad320885190b919ad8a69be1b",
                               clumppling_hash = "919fdbbe79a1b06cce51d1b9a97d026b35bbfc46") {
 
   # check ctidygenclust does not exist
@@ -44,7 +44,7 @@ tgc_tools_install <- function(reset = FALSE,
 
   # install fastmixture
   reticulate::conda_create(envname = "ctidygenclust",
-                           packages = c("python=3.11", "numpy", "cython"),
+                           packages = c("python>=3.10", "numpy>2.0.0", "cython>3.0.0"),
                            channel = c("defaults", "bioconda"))
   ## https://github.com/rstudio/reticulate/issues/905
   reticulate::conda_run2(cmd = "pip3",
@@ -55,7 +55,7 @@ tgc_tools_install <- function(reset = FALSE,
                          envname = "ctidygenclust")
 
   # if on osx or linux, install admixture
-  if (.Platform$OS.type %in% c("unix", "darwin")) {
+  if (.Platform$OS.type %in% c("unix")){ #, "darwin")) { temporarily turn off admixture installation for osx
     reticulate::conda_install(packages = c("admixture"),
                             envname = "ctidygenclust",
                             channel = c("bioconda"))
