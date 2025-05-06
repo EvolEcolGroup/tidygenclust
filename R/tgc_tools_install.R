@@ -54,7 +54,7 @@ tgc_tools_install <- function(reset = FALSE,
                              args = "unistall intel-openmp",
                              envname = "ctidygenclust")
       reticulate::conda_run2(cmd = "conda",
-                             args = "install nokml",
+                             args = "install -c intel openmp",
                              envname = "ctidygenclust")
     }
   }
