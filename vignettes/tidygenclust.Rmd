@@ -17,8 +17,8 @@ knitr::opts_chunk$set(echo = TRUE)
 # Using `tidygenclust` for clustering in R
 
 `tidygenclust` provides functions and methods to run genetic clustering in R,
-using the commonly used ADMIXTURE program as we as the python package `fastmixture`.
-It also help to align and compare multiple runs of the same or differen K using
+using the commonly used ADMIXTURE program as well as the python package `fastmixture`.
+It also help to align and compare multiple runs of the same or different K using
 the functionalities of the python package `clumppling`. This package builds on
 `tidypopgen`, enhancing the grammar of population genetics with a focus on 
 genetic clustering.
@@ -27,19 +27,21 @@ genetic clustering.
 al. 2024) is a python tool for ancestry estimation using genotype
 data. It uses a model-based approach with comparable accuracy to that of
 of popular clustering tool ADMIXTURE, but over considerably faster time
-scales making it a more scaleable option for large genetic data sets.
+scales making it a more scalable option for large genetic data sets.
 
 With the `tidygenclust` package we provide a direct R interface to the python based 
 `fastmixture` using `reticulate` and integrate it with the `tidypopgen` package
 for easy genetic data manipulation entirely within R. Additionally, the outputs 
-from `tidygenclust` analyses can be easily visualised using the `clumpplingr` 
-package which allows for easy alignment and comparison of multiple clustering 
-results.
+from clustering analyses (irrespective of the algorithm used) can be easily
+visualised using the `gt_clumppling` 
+function, which allows for easy alignment and comparison of multiple clustering 
+results (uusing the clumppling python package (<https://github.com/PopGenClustering/Clumppling>)
+(Liu, Kopelman, & Rosenberg, 2024).
 
-Genetic data analyses through the integrated tools `tidypopgen`, `tidygenclust`
-and `clumpplingr` seamlessly joins upstream genetic data manipulation (`tidypopgen`)
-with downstream clustering analyses (`tidygenclust`) and extensive visualisation 
-options of the clustering results (`clumpplingr`) in an integrated pipeline
+Genetic data analyses through the integration of `tidypopgen` and `tidygenclust`
+seamlessly joins upstream genetic data manipulation (`tidypopgen`)
+with downstream clustering analyses and extensive visualisation 
+options of the clustering results (`tidygenclust`) in an integrated pipeline
 all natively within R.
 
 

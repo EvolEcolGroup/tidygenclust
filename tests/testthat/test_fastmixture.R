@@ -1,4 +1,4 @@
-# skip if the conda environemnt does not exist
+# skip if the conda environment does not exist
 skip_if(!reticulate::condaenv_exists("ctidygenclust"))
 
 test_that("gt_fastmixture", {

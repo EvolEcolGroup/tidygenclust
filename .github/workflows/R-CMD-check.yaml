@@ -19,11 +19,11 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: macos-latest,   r: 'release',  py: "3.x" }
-          - {os: windows-latest, r: 'release',  py: "3.x" }
-          - {os: ubuntu-latest,   r: 'devel',  py: "3.x",  http-user-agent: 'release'}
-          - {os: ubuntu-latest,   r: 'release',  py: "3.x" }
-          - {os: ubuntu-latest,   r: 'oldrel-1',  py: "3.x" }
+#          - {os: macos-latest,   r: 'release',  py: "3.11" }
+#          - {os: windows-latest, r: 'release',  py: "3.11" }
+          - {os: ubuntu-latest,   r: 'devel',  py: "3.11",  http-user-agent: 'release'}
+          - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
+          - {os: ubuntu-latest,   r: 'oldrel-1',  py: "3.11" }
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -40,9 +40,14 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
-      - uses: actions/setup-python@v5
+      - uses: conda-incubator/setup-miniconda@v3
         with:
+          auto-update-conda: true
           python-version: ${{ matrix.config.py }}
+
+#      - uses: actions/setup-python@v5
+#        with:
+#          python-version: ${{ matrix.config.py }}
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
@@ -61,11 +66,20 @@ jobs:
         shell: bash {0}
 
 
-      - name: setup conda envs
+      - name: Setup conda envs for Linux and Windows
+        if: matrix.config.os != 'macos-latest'
         shell: Rscript {0}
         run: |
           source("./R/tgc_tools_install.R")
           tgc_tools_install()
+
+      - name: Setup conda envs for OSX
+        if: matrix.config.os == 'macos-latest'
+        run: |
+          export CC="$(brew --prefix llvm@15)/bin/clang"
+          export CXX="$(brew --prefix llvm@15)/bin/clang++"
+          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install()'
+        shell: bash {0}
 
       - uses: r-lib/actions/check-r-package@v2
         with:

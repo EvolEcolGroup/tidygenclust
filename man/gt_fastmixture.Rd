@@ -66,7 +66,8 @@ gt_fastmixture(
 \item{safety}{add extra safety steps in unstable optimizations (TRUE)}
 }
 \value{
-either the q matrix (if no_freqs=TRUE; formatted as a \code{tidypopgen::q_matrix}) or a list of the Q and P matrices
+an object of class \code{gt_admix}. See \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}} for
+details.
 }
 \description{
 This function implements the fastmixture algorithm for population genetics clustering

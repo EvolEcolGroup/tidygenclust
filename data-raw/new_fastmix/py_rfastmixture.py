@@ -132,12 +132,11 @@ def fastmixture_run(args):
 		# shape the genotype matrix
 		G.shape = (args.n_loci, args.n_indiv)
 		# TODO we need to set q_nrm, which is the number of non-missing loci per individual
-		q_nrm = np.sum(G != 9, axis=0).astype(np.double)
+		q_nrm = np.sum(G != 9, axis=1)
 		# check that q_nrm is of length N
 		assert q_nrm.shape[0] == N, "Number of samples differ between files!"
 		
 	assert not np.any(q_nrm == 0), "Sample(s) with zero information!"
-
 	  
 	rng = np.random.default_rng(args.seed) # Set up random number generator
 	print(f"\rLoaded {N} samples and {M} SNPs.")
