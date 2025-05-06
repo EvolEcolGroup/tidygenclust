@@ -45,7 +45,7 @@ tgc_tools_install <- function(reset = FALSE,
   # install fastmixture
   reticulate::conda_create(envname = "ctidygenclust",
                            packages = c("python>=3.10", "numpy>2.0.0", "cython>3.0.0"),
-                           channel = c("defaults", "bioconda"))
+                           channel = c("defaults", "bioconda", "conda-forge"))
   ## https://github.com/rstudio/reticulate/issues/905
   reticulate::conda_run2(cmd = "pip3",
                          args = paste0("install ",
@@ -55,10 +55,12 @@ tgc_tools_install <- function(reset = FALSE,
                          envname = "ctidygenclust")
 
   # if on osx or linux, install admixture
-  if (.Platform$OS.type %in% c("unix")){ #, "darwin")) { temporarily turn off admixture installation for osx
-    reticulate::conda_install(packages = c("admixture"),
+  if (.Platform$OS.type == "unix"){
+    if (Sys.info()["sysname"] != "Darwin") { # don't install admixture into the conda env on mac
+      reticulate::conda_install(packages = c("admixture"),
                             envname = "ctidygenclust",
                             channel = c("bioconda"))
+  }
   }
 
   ##############################################################################
@@ -66,7 +68,7 @@ tgc_tools_install <- function(reset = FALSE,
   # since its dependencies are not compatible with the ones of fastmixture
   reticulate::conda_create(envname = "cclumppling",
                            packages = c("python==3.11", "numpy==1.24.0"),
-                           channel = c("defaults", "bioconda"))
+                           channel = c("defaults", "bioconda", "conda-forge"))
   # Install clumppling
   reticulate::conda_run2(cmd = "pip3",
                          args = paste0("install ",
