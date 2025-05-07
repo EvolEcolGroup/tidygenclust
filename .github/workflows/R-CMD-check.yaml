@@ -73,12 +73,6 @@ jobs:
       #   shell: bash {0}
 
 
-      - name: Setup conda envs for Linux and Windows
-        if: matrix.config.os != 'macos-latest'
-        shell: Rscript {0}
-        run: |
-          source("./R/tgc_tools_install.R")
-          tgc_tools_install()
 
       - name: OSX configuration
         run: |
@@ -86,7 +80,6 @@ jobs:
           brew install libomp
 
       - name: Setup conda envs for OSX
-        if: matrix.config.os == 'macos-13'
         run: |
           Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install()'
         shell: bash {0}
