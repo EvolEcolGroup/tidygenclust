@@ -86,7 +86,7 @@ jobs:
           brew install libomp
 
       - name: Setup conda envs for OSX
-        if: matrix.config.os == 'macos-latest'
+        if: matrix.config.os == 'macos-13'
         run: |
           Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install()'
         shell: bash {0}
