@@ -46,18 +46,7 @@ tgc_tools_install <- function(reset = FALSE,
   reticulate::conda_create(envname = "ctidygenclust",
                            packages = c("python>=3.10", "numpy>2.0.0", "cython>3.0.0"),
                            channel = c("defaults", "bioconda", "conda-forge"))
-  # on osx, try to resolve the multithreading issue
-  # based on https://github.com/dmlc/xgboost/issues/1715#issuecomment-1045993029
-  if (.Platform$OS.type == "unix"){
-    if (Sys.info()["sysname"] == "Darwin") {
-      reticulate::conda_run2(cmd = "conda",
-                             args = "unistall intel-openmp",
-                             envname = "ctidygenclust")
-      reticulate::conda_run2(cmd = "conda",
-                             args = "install -c intel openmp",
-                             envname = "ctidygenclust")
-    }
-  }
+
   ## https://github.com/rstudio/reticulate/issues/905
   reticulate::conda_run2(cmd = "pip3",
                          args = paste0("install ",
