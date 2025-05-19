@@ -44,7 +44,7 @@ tgc_tools_install <- function(reset = FALSE,
 
   # install fastmixture
   reticulate::conda_create(envname = "ctidygenclust",
-                           packages = c("python>=3.10", "numpy>2.0.0", "cython>3.0.0"),
+                           packages = c("python>=3.10", "numpy>2.0.0", "cython>3.0.0", "compilers"),
                            channel = c("defaults", "bioconda", "conda-forge"))
 
   ## https://github.com/rstudio/reticulate/issues/905
