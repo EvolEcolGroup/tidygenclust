@@ -68,19 +68,19 @@ jobs:
         shell: bash {0}
       
 
-      # - name: Install gcc with openmp for OSX
-      #   if: matrix.config.os == 'macos-latest'
-      #   run: |
-      #     clang --version
-      #     brew install llvm
-      #     brew info llvm
-      #     echo 'export PATH="/opt/homebrew/Cellar/llvm/19.1.7_1:$PATH"' >> ~/.profile
-      #     source ~/.profile
-      #     clang --version
-      #     export CC="$(brew --prefix llvm@15)/bin/clang"
-      #     export CXX="$(brew --prefix llvm@15)/bin/clang++"
-      #     Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install()'
-      #   shell: bash {0}
+      - name: Install openmp for OSX
+        if: matrix.config.os == 'macos-latest'
+        run: |
+          brew install libomp
+          export CC=/usr/bin/clang
+          export CXX=/usr/bin/clang++
+          export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
+          export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
+          export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
+          export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
+          export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
+          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install()'
+        shell: bash {0}
 
       - name: setup conda envs
         if: matrix.config.os != 'macos-latest'
