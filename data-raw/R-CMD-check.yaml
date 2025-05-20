@@ -79,7 +79,9 @@ jobs:
           export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
           export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
           export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
-          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install()'
+          git clone https://github.com/Rosemeis/fastmixture.git
+          conda env create -f fastmixture/environment.yml
+          conda activate fastmixture
         shell: bash {0}
 
       - name: setup conda envs
