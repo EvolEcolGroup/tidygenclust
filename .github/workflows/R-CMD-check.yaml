@@ -89,9 +89,7 @@ jobs:
           conda env create -f fastmixture/environment.yml
           conda activate fastmixture
         shell: bash {0}
-        run: |
-          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install()'
-        shell: bash {0}
+
 
       # - uses: r-lib/actions/check-r-package@v2
       #   with:
