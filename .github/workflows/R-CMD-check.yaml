@@ -41,11 +41,11 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
-      - uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: ${{ matrix.config.r }}
-          http-user-agent: ${{ matrix.config.http-user-agent }}
-          use-public-rspm: true
+      # - uses: r-lib/actions/setup-r@v2
+      #   with:
+      #     r-version: ${{ matrix.config.r }}
+      #     http-user-agent: ${{ matrix.config.http-user-agent }}
+      #     use-public-rspm: true
 
       - uses: conda-incubator/setup-miniconda@v3
         with:
@@ -74,24 +74,24 @@ jobs:
 
 
 
-       - name: Install openmp for OSX
-        if: matrix.config.os == 'macos-latest'
-        run: |
-          brew install libomp
-          export CC=/usr/bin/clang
-          export CXX=/usr/bin/clang++
-          export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
-          export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
-          export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
-          export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
-          export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
-          git clone https://github.com/Rosemeis/fastmixture.git
-          conda env create -f fastmixture/environment.yml
-          conda activate fastmixture
-        shell: bash {0}
-        run: |
-          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install()'
-        shell: bash {0}
+     - name: Install openmp for OSX
+       if: matrix.config.os == 'macos-latest'
+      run: |
+        brew install libomp
+        export CC=/usr/bin/clang
+        export CXX=/usr/bin/clang++
+        export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
+        export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
+        export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
+        export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
+        export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
+        git clone https://github.com/Rosemeis/fastmixture.git
+        conda env create -f fastmixture/environment.yml
+        conda activate fastmixture
+      shell: bash {0}
+      run: |
+        Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install()'
+      shell: bash {0}
 
       # - uses: r-lib/actions/check-r-package@v2
       #   with:
