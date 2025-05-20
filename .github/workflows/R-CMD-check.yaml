@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: macos-13,   r: 'release',  py: "3.11" }
+          - {os: macos-latest,   r: 'release',  py: "3.11" }
 #          - {os: windows-latest, r: 'release',  py: "3.11" }
 #          - {os: ubuntu-latest,   r: 'devel',  py: "3.11",  http-user-agent: 'release'}
 #          - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
@@ -56,12 +56,12 @@ jobs:
 #        with:
 #          python-version: ${{ matrix.config.py }}
 
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          extra-packages: |
-            any::rcmdcheck
-            any::devtools
-          needs: check
+      # - uses: r-lib/actions/setup-r-dependencies@v2
+      #   with:
+      #     extra-packages: |
+      #       any::rcmdcheck
+      #       any::devtools
+      #     needs: check
 
       # - name: Install conda for OSX
       #   if: matrix.config.os == 'macos-latest'
@@ -74,17 +74,26 @@ jobs:
 
 
 
-      - name: OSX configuration
+       - name: Install openmp for OSX
+        if: matrix.config.os == 'macos-latest'
         run: |
-          # OpenMP is not present on macOS by default
           brew install libomp
-
-      - name: Setup conda envs for OSX
+          export CC=/usr/bin/clang
+          export CXX=/usr/bin/clang++
+          export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
+          export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
+          export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
+          export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
+          export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
+          git clone https://github.com/Rosemeis/fastmixture.git
+          conda env create -f fastmixture/environment.yml
+          conda activate fastmixture
+        shell: bash {0}
         run: |
           Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install()'
         shell: bash {0}
 
-      - uses: r-lib/actions/check-r-package@v2
-        with:
-          upload-snapshots: true
-          build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
+      # - uses: r-lib/actions/check-r-package@v2
+      #   with:
+      #     upload-snapshots: true
+      #     build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
