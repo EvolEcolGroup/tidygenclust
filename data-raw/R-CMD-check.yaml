@@ -40,6 +40,18 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
+
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.config.py }}
+
+#      - uses: actions/setup-python@v5
+#        with:
+#          python-version: ${{ matrix.config.py }}
+
+
       - name: Install Homebrew dependencies (including OpenMP via llvm)
         run: |
           brew install llvm
@@ -54,14 +66,6 @@ jobs:
           conda activate fastmixtue-env
           pip install fastmixtue
 
-      - uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-update-conda: true
-          python-version: ${{ matrix.config.py }}
-
-#      - uses: actions/setup-python@v5
-#        with:
-#          python-version: ${{ matrix.config.py }}
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
