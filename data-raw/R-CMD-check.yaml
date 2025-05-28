@@ -40,6 +40,19 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
+      - name: Install Homebrew dependencies (including OpenMP via llvm)
+        run: |
+          brew install llvm
+          echo 'export CC=/opt/homebrew/opt/llvm/bin/clang' >> $GITHUB_ENV
+          echo 'export CXX=/opt/homebrew/opt/llvm/bin/clang++' >> $GITHUB_ENV
+          echo 'export LDFLAGS="-L/opt/homebrew/opt/llvm/lib"' >> $GITHUB_ENV
+          echo 'export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"' >> $GITHUB_ENV
+          echo 'export PATH="/opt/homebrew/opt/llvm/bin:$PATH"' >> $GITHUB_ENV
+
+      - name: Install fastmixtue
+        run: |
+          conda activate fastmixtue-env
+          pip install fastmixtue
 
       - uses: conda-incubator/setup-miniconda@v3
         with:
