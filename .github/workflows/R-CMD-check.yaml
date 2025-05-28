@@ -28,13 +28,6 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      CC: /usr/bin/clang
-      CXX: /usr/bin/clang++
-      CPPFLAGS: "-Xpreprocessor -fopenmp"
-      CFLAGS: "-Wno-implicit-function-declaration -I/usr/local/opt/libomp/include"
-      CXXFLAGS: "-I/usr/local/opt/libomp/include"
-      LDFLAGS: "-Wl,-rpath,/usr/local/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
-
 
     steps:
       - uses: actions/checkout@v4
@@ -51,6 +44,20 @@ jobs:
         with:
           auto-update-conda: true
           python-version: ${{ matrix.config.py }}
+
+      - name: Install Homebrew dependencies (including OpenMP via llvm)
+        run: |
+          brew install llvm
+          echo 'export CC=/opt/homebrew/opt/llvm/bin/clang' >> $GITHUB_ENV
+          echo 'export CXX=/opt/homebrew/opt/llvm/bin/clang++' >> $GITHUB_ENV
+          echo 'export LDFLAGS="-L/opt/homebrew/opt/llvm/lib"' >> $GITHUB_ENV
+          echo 'export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"' >> $GITHUB_ENV
+          echo 'export PATH="/opt/homebrew/opt/llvm/bin:$PATH"' >> $GITHUB_ENV
+
+      - name: Install fastmixtue
+        run: |
+          conda activate fastmixtue-env
+          pip install fastmixtue      
 
 #      - uses: actions/setup-python@v5
 #        with:
@@ -74,21 +81,21 @@ jobs:
 
 
 
-      - name: Install openmp for OSX
-        if: matrix.config.os == 'macos-latest'
-        run: |
-          brew install libomp
-          export CC=/usr/bin/clang
-          export CXX=/usr/bin/clang++
-          export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
-          export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
-          export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
-          export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
-          export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
-          git clone https://github.com/Rosemeis/fastmixture.git
-          conda env create -f fastmixture/environment.yml
-          conda activate fastmixture
-        shell: bash {0}
+      # - name: Install openmp for OSX
+      #   if: matrix.config.os == 'macos-latest'
+      #   run: |
+      #     brew install libomp
+      #     export CC=/usr/bin/clang
+      #     export CXX=/usr/bin/clang++
+      #     export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
+      #     export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
+      #     export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
+      #     export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
+      #     export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
+      #     git clone https://github.com/Rosemeis/fastmixture.git
+      #     conda env create -f fastmixture/environment.yml
+      #     conda activate fastmixture
+      #   shell: bash {0}
 
 
       # - uses: r-lib/actions/check-r-package@v2
