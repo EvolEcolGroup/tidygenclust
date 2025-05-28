@@ -56,6 +56,7 @@ jobs:
 
       - name: Install fastmixtue
         run: |
+          conda env create -f fastmixture/environment.yml
           conda activate fastmixtue-env
           pip install fastmixtue      
 
