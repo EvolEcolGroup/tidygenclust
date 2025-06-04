@@ -152,7 +152,7 @@ with `tidypopgen`:
 ```{r}
 anole_gt <- anole_gt %>% gt_impute_simple(method = "mode")
 
-anole_pca <- anole_gt %>% gt_pca_partialSVD(k = 30)
+anole_pca <- anole_gt %>% gt_pca_partialSVD(k = 2)
 
 library(ggplot2)
 anole_pca %>% autoplot(type = "scores") +
@@ -246,7 +246,7 @@ function in `tidypopgen`:
 anole_res %>% autoplot(type = "barplot", k = 3, run = 1)
 ```
 
-It is possible to rearrange individual withing groups according to their
+It is possible to rearrange individual within groups according to their
 ancestral components. This makes for a visually appealing plots that
 focuses on the main ancestral component within each plot, but makes
 multiple plots not comparable (as individuals will not be in the same
@@ -454,21 +454,22 @@ q4_tidied %>% head()
 We can now create a simple plot of this mode with:
 
 ```{r}
+library(ggplot2)
 # set up the ggplot object
-plt <- q4_tidied %>% ggplot2::ggplot(
-  ggplot2::aes(
+plt <- q4_tidied %>% ggplot(
+  aes(
     x = id,
     y = percentage,
     fill = q
   )
 ) +
   # add the columns based on percentage membership to each cluster
-  ggplot2::geom_col(
+  geom_col(
     width = 1,
-    position = ggplot2::position_stack(reverse = TRUE)
+    position = position_stack(reverse = TRUE)
   ) +
   # set the y label
-  ggplot2::labs(y = "K = 4") +
+  labs(y = "K = 4") +
   # use a theme to match the distruct look, removing most decorations
   theme_distruct() +
   # set the colour scale to be the same as in distruct and clumppling
@@ -482,5 +483,5 @@ you prefer by using standard `ggplot2` theme and scale_fill options.
 For example:
 
 ```{r}
-plt + ggplot2::scale_fill_viridis_d(guide = "none")
+plt + scale_fill_viridis_d(guide = "none")
 ```
