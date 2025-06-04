@@ -78,10 +78,6 @@ and compressed it to a vcf.gz file.
 
 ## Read data into `gen_tibble` format
 
-`tidygenclust` can take a path to a PLINK binary file as input, but in
-this case we will read the data directly from a `tidypopgen`
-`gen_tibble` object.
-
 First, using `tidypopgen` we can read our compressed vcf file directly
 into R to create our `gen_tibble`:
 
@@ -165,9 +161,10 @@ populations separate quite clearly. Additionally, whilst the Atlantic forest
 individuals cluster tightly together the Amazonian forest individuals
 are quite spread indicating three major clusters in the anolis.
 
-## Running fastmixture
+## Running the fastmixture algorithm
 
-Now we can run `fastmixture` on our `gen_tibble` object.
+Now we can run `gt_fastmixture` on our `gen_tibble` objec t(note that
+`gt_fastmixture` can also work directly on a PLINK bed file).
 
 As a minimum the `gt_fastmixture` command requires you to supply your
 input data, in this case a `gen_tibble`, and specify a value for the
