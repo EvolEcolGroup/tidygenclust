@@ -27,15 +27,18 @@ gt_fastmixture(
 )
 }
 \arguments{
-\item{x}{either a \code{\link[tidypopgen:gen_tibble]{tidypopgen::gen_tibble}}, or the name of the binary plink file (without the .bed extension)}
+\item{x}{either a \code{\link[tidypopgen:gen_tibble]{tidypopgen::gen_tibble}}, or the name of the binary plink
+file (without the .bed extension)}
 
-\item{k}{the number of ancestral components (clusters), either a single value or a vector}
+\item{k}{the number of ancestral components (clusters), either a single value
+or a vector}
 
 \item{n_runs}{the number of repeats for each k value}
 
 \item{threads}{the number of threads to use (1)}
 
-\item{seed}{the random seed (defaults to 42);it should be a vector of length \code{repeats}}
+\item{seed}{the random seed (defaults to 42);it should be a vector of length
+\code{repeats}}
 
 \item{outprefix}{the prefix of the output files (fastmixture)}
 
@@ -70,14 +73,17 @@ an object of class \code{gt_admix}. See \code{\link[tidypopgen:gt_admixture]{tid
 details.
 }
 \description{
-This function implements the fastmixture algorithm for population genetics clustering
-by calling the python module. If you use this function, make sure that you cite
-the relevant paper by Santander, Refoyo-Martínez, and Meisner (2024).
+This function implements the fastmixture algorithm for population genetics
+clustering by calling the python module. If you use this function, make sure
+that you cite the relevant paper by Santander, Refoyo-Martínez, and Meisner
+(2024).
 }
 \details{
-This function returns a q_matrix that can be plotted with \code{autoplot}, and tidied with \code{tidy}
-methods from the \code{tidypopgen} package.
+This function returns a q_matrix that can be plotted with \code{autoplot}, and
+tidied with \code{tidy} methods from the \code{tidypopgen} package.
 }
 \references{
-C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster model-based estimation of ancestry proportions. bioRxiv 2024.07.08.602454; doi: https://doi.org/10.1101/2024.07.08.602454
+C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster
+model-based estimation of ancestry proportions. bioRxiv 2024.07.08.602454;
+doi: https://doi.org/10.1101/2024.07.08.602454
 }

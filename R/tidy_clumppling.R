@@ -42,10 +42,10 @@ tidy.gt_clumppling <- function(
     )
   } else if (matrix == "major_modes") {
     tidy(x, matrix = "modes") %>% dplyr::filter(.data$m == 1)
-  } else if (matrix == "Q_modes" | matrix == "q_modes") {
+  } else if (matrix == "Q_modes" || matrix == "q_modes") {
     # TODO we need individual ids, either as row names or we add arbitrary ones
     lapply(x$aligned_modes, tidy_q)
-  } else if (matrix == "Q_major_modes" | matrix == "q_major_modes") {
+  } else if (matrix == "Q_major_modes" || matrix == "q_major_modes") {
     lapply(x$aligned_modes[tidy(x, matrix = "major_modes")$label], tidy_q)
   }
 }
@@ -55,7 +55,8 @@ tidy_q <- function(x) {
     tibble::as_tibble() %>%
     dplyr::rename_with(~ sub("^V", ".Q", .x)) %>%
     # add the pops data for plotting here if needed
-    dplyr::mutate(id = as.integer(rownames(x))) %>% # todo we could add here the optional group info
+    dplyr::mutate(id = as.integer(rownames(x))) %>%
+    # TODO we could add here the optional group info
     tidyr::pivot_longer(
       cols = dplyr::starts_with(".Q"),
       names_to = "q",

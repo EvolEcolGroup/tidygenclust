@@ -45,12 +45,18 @@ autoplot.gt_clumppling <- function(
     # first check that labels are in blocks
     if (length(rle(group)$values) != length(unique(group))) {
       stop(
-        "values in 'group' are not ordered (they should be in consecutive blocks, one per group"
+        paste0(
+          "values in 'group' are not ordered (they should be ",
+          "in consecutive blocks, one per group"
+        )
       )
     }
     if (length(group) != object$N) {
       stop(
-        "'groups' should be of the same lenght as the original data (as found in object$N)"
+        paste0(
+          "'groups' should be of the same length ",
+          "as the original data (as found in object$N)"
+        )
       )
     }
     group_x <- cumsum(table(forcats::fct_inorder(group)))
@@ -78,7 +84,7 @@ plot_major_modes <- function(object, group_x) {
     major_modes$k[major_modes$m == 1]
   )
   plot_list <- lapply(
-    1:nrow(major_modes),
+    seq_len(nrow(major_modes)),
     plot_q_from_list,
     object$aligned_modes[major_modes$label],
     y_labels,
@@ -94,7 +100,7 @@ plot_all_modes <- function(object, group_x) {
   y_labels <- rep("", nrow(all_modes))
   y_labels[all_modes$m == 1] <- paste0("K = ", all_modes$k[all_modes$m == 1])
   plot_list <- lapply(
-    1:nrow(all_modes),
+    seq_len(nrow(all_modes)),
     plot_q_from_list,
     object$aligned_modes,
     y_labels,
@@ -109,7 +115,6 @@ plot_modes_within_k <- function(object, group_x, k) {
   if (is.null(k)) {
     stop("k must be provided for modes_within_k")
   }
-  # browser()
   all_modes <- tidy(object, matrix = "modes")
   k_modes <- all_modes[all_modes$k == k, ]
   y_labels <- k_modes$label
@@ -137,12 +142,6 @@ plot_q <- function(q_tidied, y_lab = "", group_x) {
       width = 1,
       position = ggplot2::position_stack(reverse = TRUE)
     ) +
-    # ggplot2::theme_minimal() + # remove most thick marks etc
-    #  ggplot2::theme( # adjust title position and remove panel grid
-    #    panel.grid = ggplot2::element_blank(),
-    #    axis.text.y = ggplot2::element_blank(),
-    #    axis.title.x = ggplot2::element_blank()
-    #  ) +
     tidypopgen::theme_distruct() +
     ggplot2::labs(y = y_lab) +
     ggplot2::coord_cartesian(ylim = c(0, 1), clip = "off") +

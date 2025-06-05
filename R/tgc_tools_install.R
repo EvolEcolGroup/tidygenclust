@@ -41,7 +41,10 @@ tgc_tools_install <- function(
       reticulate::conda_remove("cclumppling")
     } else {
       message(
-        "The conda environment 'cclumppling' already exists. Use 'reset = TRUE' to reset it"
+        paste0(
+          "The conda environment 'cclumppling' already exists. ",
+          "Use 'reset = TRUE' to reset it"
+        )
       )
       return(NULL)
     }

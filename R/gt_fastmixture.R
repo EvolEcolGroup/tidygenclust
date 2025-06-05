@@ -1,19 +1,25 @@
 #' fastmixture algorithm for population genetics clustering
 #'
-#' This function implements the fastmixture algorithm for population genetics clustering
-#' by calling the python module. If you use this function, make sure that you cite
-#' the relevant paper by Santander, Refoyo-Martínez, and Meisner (2024).
+#' This function implements the fastmixture algorithm for population genetics
+#' clustering by calling the python module. If you use this function, make sure
+#' that you cite the relevant paper by Santander, Refoyo-Martínez, and Meisner
+#' (2024).
 #'
-#' This function returns a q_matrix that can be plotted with `autoplot`, and tidied with `tidy`
-#' methods from the `tidypopgen` package.
+#' This function returns a q_matrix that can be plotted with `autoplot`, and
+#' tidied with `tidy` methods from the `tidypopgen` package.
 #'
-#' @references C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster model-based estimation of ancestry proportions. bioRxiv 2024.07.08.602454; doi: https://doi.org/10.1101/2024.07.08.602454
+#' @references C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster
+#'   model-based estimation of ancestry proportions. bioRxiv 2024.07.08.602454;
+#'   doi: https://doi.org/10.1101/2024.07.08.602454
 #'
-#' @param x either a [`tidypopgen::gen_tibble`], or the name of the binary plink file (without the .bed extension)
-#' @param k the number of ancestral components (clusters), either a single value or a vector
+#' @param x either a [`tidypopgen::gen_tibble`], or the name of the binary plink
+#'   file (without the .bed extension)
+#' @param k the number of ancestral components (clusters), either a single value
+#'   or a vector
 #' @param n_runs the number of repeats for each k value
 #' @param threads the number of threads to use (1)
-#' @param seed the random seed (defaults to 42);it should be a vector of length `repeats`
+#' @param seed the random seed (defaults to 42);it should be a vector of length
+#'   `repeats`
 #' @param outprefix the prefix of the output files (fastmixture)
 #' @param iter the maximum number of iterations (1000)
 #' @param tole the tolerance in log-likelihood units between iterations (0.5)
@@ -29,7 +35,7 @@
 #' @param safety add extra safety steps in unstable optimizations (TRUE)
 #' @param output_path the path where q matrices will be saved id save_q= TRUE
 #' @return an object of class `gt_admix`. See [tidypopgen::gt_admixture()] for
-#' details.
+#'   details.
 #' @export
 
 gt_fastmixture <- function(
@@ -62,13 +68,16 @@ gt_fastmixture <- function(
     n_loci <- NULL
     plink <- TRUE
   } else if (inherits(x, "gen_tbl")) {
-    bfile <- bk_file <- tidypopgen::gt_get_file_names(x)[2]
+    bfile <- tidypopgen::gt_get_file_names(x)[2]
     n_indiv <- nrow(x)
     n_loci <- nrow(tidypopgen::show_loci(x))
     plink <- FALSE
   } else {
     stop(
-      "data must be a gen_tibble, or a character string with the prefix of the plink files"
+      paste0(
+        "data must be a gen_tibble, or a character string ",
+        "with the prefix of the plink files"
+      )
     )
   }
 

@@ -24,10 +24,7 @@ plot_modes <- function(object, group) {
   inset_corners <- get_inset_corners(all_modes_labels, object$K_range)
 
   for (i in seq_len(length(all_modes_labels))) {
-    k <- gsub(".*K(\\d+)M.*", "\\1", all_modes_labels[i])
-    m <- as.integer(gsub(".*M(\\d+).*", "\\1", all_modes_labels[i]))
     n <- length(object$mode_replicates[[all_modes_labels[i]]])
-    # n <- length(object$modes_allK[[k]][[m-1]])
     plt <- all_modes[[i]] +
       ggplot2::theme_void() +
       ggplot2::theme(plot.margin = grid::unit(c(0, 0, 0, 0), "native")) +

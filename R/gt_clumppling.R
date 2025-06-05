@@ -88,7 +88,10 @@ gt_clumppling <- function(
     merge_cls,
     " --cd_default=",
     cd_default,
-    " --plot_modes=0 --plot_modes_withinK=0 --plot_major_modes=0 --plot_all_modes=0"
+    paste0(
+      " --plot_modes=0 --plot_modes_withinK=0 ",
+      "--plot_major_modes=0 --plot_all_modes=0"
+    )
   )
   reticulate::conda_run2(
     cmd = "python",
@@ -96,26 +99,6 @@ gt_clumppling <- function(
     envname = "cclumppling"
   )
   # now we read the output files and create an output object
-
-  # elements that we use:
-  # modes_allK (only used to find n when plotting modes, can we do it in another way???)
-  # cost_acrossK_cons
-
-  # clump_res<-.py_rclumppling$clumppling_run(args = rclump_args)
-  # names(clump_res) <- c("args", "cmap", "Q_list", "K_list", "Q_files", "R",
-  #                       "N", "K_range", "K_max", "K2IDs", "alignment_withinK",
-  #                       "cost_withinK", "modes_allK", "cost_matrices", "msg",
-  #                       "mode_labels", "rep_modes", "repQ_modes", "avgQ_modes",
-  #                       "alignment_to_modes", "stats", "costs",
-  #                       "alignment_acrossK_cons", "cost_acrossK_cons",
-  #                       "best_acrossK_cons")
-  # # cast back to integers
-  # # (reticulate casts int64 to double, which is incompatible with certain
-  # # functions)
-  # clump_res$K_range <- as.integer(clump_res$K_range)
-  # clump_res$alignment_acrossK_cons <- lapply(clump_res$alignment_acrossK_cons,
-  #                                            as.integer)
-
   clump_res <- list()
   # read modes_aligned (used for ggplots)
   modes_aligned_path <- file.path(
@@ -138,12 +121,12 @@ gt_clumppling <- function(
   clump_res$aligned_modes <- clump_res$aligned_modes[indices]
 
   # read cost_acrossK
-  cost_acrossK_path <- file.path(
+  cost_across_k_path <- file.path(
     output_path,
-    "alignment_acrossK"
+    "alignment_across_k"
   )
-  cost_file <- list.files(cost_acrossK_path, pattern = "alignment_acrossK")
-  costs <- utils::read.csv(file.path(cost_acrossK_path, cost_file[1]))
+  cost_file <- list.files(cost_across_k_path, pattern = "alignment_across_k")
+  costs <- utils::read.csv(file.path(cost_across_k_path, cost_file[1]))
   clump_res$cost_acrossK <- as.list(costs$Cost)
   names(clump_res$cost_acrossK) <- costs$Mode1.Mode2
   # read modes
