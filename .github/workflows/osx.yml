@@ -22,7 +22,7 @@ jobs:
       - name: Create Conda environment
         shell: bash -l {0}
         run: |
-          conda create -n fastmixture-env -y \
+          conda create -n fastmixture-env -y -c conda-forge \
             python=3.11 \
             numpy>2.0.0 \
             cython>3.0.0 \
