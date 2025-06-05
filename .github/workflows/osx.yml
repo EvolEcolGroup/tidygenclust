@@ -1,46 +1,46 @@
-name: CI - FastMixture Build & Test
+name: macOS CI - FastMixture
 
 on: [push, pull_request]
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-latest]
+  build-macos:
+    runs-on: macos-latest
 
     steps:
-      - name: Checkout this repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Conda
+      - name: Set up Conda with conda-forge
         uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: 3.11
+          auto-update-conda: true
           activate-environment: fastmixture-env
+          channels: conda-forge
+          channel-priority: strict
 
-      - name: Create Conda environment
+      - name: Install OpenMP via Homebrew
+        run: brew install libomp
+
+      - name: Create Conda environment and install dependencies
         shell: bash -l {0}
         run: |
-          conda create -n fastmixture-env -y -c conda-forge \
+          conda create -n fastmixture-env -y \
             python=3.11 \
-            numpy>2.0.0 \
-            cython>3.0.0 \
+            numpy \
+            scipy \
+            scikit-learn \
             pip \
-            llvm-openmp \
-            libgomp
-          conda activate fastmixture-env
+            llvm-openmp
 
-      - name: Set OpenMP flags (macOS only)
-        if: runner.os == 'macOS'
-        shell: bash -l {0}
+      - name: Set OpenMP environment variables
         run: |
-          echo "CFLAGS='-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include'" >> $GITHUB_ENV
-          echo "LDFLAGS='-L$(brew --prefix libomp)/lib -lomp'" >> $GITHUB_ENV
+          echo "CFLAGS='-Xpreprocessor -fopenmp -I/usr/local/include'" >> $GITHUB_ENV
+          echo "LDFLAGS='-L/usr/local/lib -lomp'" >> $GITHUB_ENV
           echo "CC=clang" >> $GITHUB_ENV
           echo "CXX=clang++" >> $GITHUB_ENV
 
-      - name: Clone fastmixture repo
+      - name: Clone and install fastmixture
         shell: bash -l {0}
         run: |
           git clone https://github.com/Rosemeis/fastmixture.git
