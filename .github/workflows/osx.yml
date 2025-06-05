@@ -16,15 +16,15 @@ jobs:
           python-version: 3.11
           auto-update-conda: true
           activate-environment: fastmixture-env
-          channels: defaults conda-forge
           channel-priority: strict
 
       - name: Create Conda environment with Clang and OpenMP
         shell: bash -l {0}
         run: |
-          conda create -n fastmixture-env -y -c conda-forge \
+          conda create -n fastmixture-env -y -c conda-forge -c defaults \
             python=3.11 \
-            numpy \
+            numpy>2.0.0 \
+            cython>3.0.0 \
             pip \
             clang \
             clangxx \
