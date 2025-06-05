@@ -19,63 +19,84 @@
 #' @returns NULL
 #' @export
 
-tgc_tools_install <- function(reset = FALSE,
-                              fastmixture_hash = "105eb99248d278cad320885190b919ad8a69be1b",
-                              clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40") {
-
+tgc_tools_install <- function(
+  reset = FALSE,
+  fastmixture_hash = "105eb99248d278cad320885190b919ad8a69be1b",
+  clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40"
+) {
   # check ctidygenclust does not exist
-  if (reticulate::condaenv_exists("ctidygenclust")){
-    if (reset){
+  if (reticulate::condaenv_exists("ctidygenclust")) {
+    if (reset) {
       reticulate::conda_remove("ctidygenclust")
     } else {
-      message("The conda environment 'ctidygenclust' already exists. Use 'reset = TRUE' to reset it")
+      message(
+        "The conda environment 'ctidygenclust' already exists. Use ",
+        "'reset = TRUE' to reset it"
+      )
       return(NULL)
     }
   }
   # check cclumppling does not exist
-  if (reticulate::condaenv_exists("cclumppling")){
-    if (reset){
+  if (reticulate::condaenv_exists("cclumppling")) {
+    if (reset) {
       reticulate::conda_remove("cclumppling")
     } else {
-      message("The conda environment 'cclumppling' already exists. Use 'reset = TRUE' to reset it")
+      message(
+        "The conda environment 'cclumppling' already exists. Use 'reset = TRUE' to reset it"
+      )
       return(NULL)
     }
   }
 
   # install fastmixture
-  reticulate::conda_create(envname = "ctidygenclust",
-                           packages = c("python>=3.10", "numpy>2.0.0", "cython>3.0.0"),
-                           channel = c("defaults", "bioconda", "conda-forge"))
+  reticulate::conda_create(
+    envname = "ctidygenclust",
+    packages = c("python>=3.10", "numpy>2.0.0", "cython>3.0.0"),
+    channel = c("defaults", "bioconda", "conda-forge")
+  )
   ## https://github.com/rstudio/reticulate/issues/905
-  reticulate::conda_run2(cmd = "pip3",
-                         args = paste0("install ",
-                                       "--upgrade --force-reinstall ",
-                                       "git+https://github.com/Rosemeis/fastmixture.git@",
-                                       fastmixture_hash),
-                         envname = "ctidygenclust")
+  reticulate::conda_run2(
+    cmd = "pip3",
+    args = paste0(
+      "install ",
+      "--upgrade --force-reinstall ",
+      "git+https://github.com/Rosemeis/fastmixture.git@",
+      fastmixture_hash
+    ),
+    envname = "ctidygenclust"
+  )
 
   # if on osx or linux, install admixture
-  if (.Platform$OS.type == "unix"){
-    if (Sys.info()["sysname"] != "Darwin") { # don't install admixture into the conda env on mac
-      reticulate::conda_install(packages = c("admixture"),
-                            envname = "ctidygenclust",
-                            channel = c("bioconda"))
-  }
+  if (.Platform$OS.type == "unix") {
+    if (Sys.info()["sysname"] != "Darwin") {
+      # don't install admixture into the conda env on mac
+      reticulate::conda_install(
+        packages = c("admixture"),
+        envname = "ctidygenclust",
+        channel = c("bioconda")
+      )
+    }
   }
 
   ##############################################################################
   # now install clumpling in its own conda environment
   # since its dependencies are not compatible with the ones of fastmixture
-  reticulate::conda_create(envname = "cclumppling",
-                           packages = c("python==3.11", "numpy==1.24.0"),
-                           channel = c("defaults", "bioconda", "conda-forge"))
+  reticulate::conda_create(
+    envname = "cclumppling",
+    packages = c("python==3.11", "numpy==1.24.0"),
+    channel = c("defaults", "bioconda", "conda-forge")
+  )
   # Install clumppling
-  reticulate::conda_run2(cmd = "pip3",
-                         args = paste0("install ",
-                                       "--upgrade --force-reinstall ",
-                                       "git+https://github.com/PopGenClustering/Clumppling.git@",
-                                       clumppling_hash),
-                         envname = "cclumppling")
+  reticulate::conda_run2(
+    cmd = "pip3",
+    args = paste0(
+      "install ",
+      "--upgrade --force-reinstall ",
+      "git+https://github.com/PopGenClustering/Clumppling.git@",
+      clumppling_hash
+    ),
+    envname = "cclumppling"
+  )
 
   ##############################################################################
   # activate ctidygenclust with the python functions

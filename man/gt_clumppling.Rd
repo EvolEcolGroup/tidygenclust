@@ -21,9 +21,9 @@ or a zip archive, or a \code{q_matrix_list} object}
 \item{input_format}{a string defining the format of the input files, one of
 'admixture' (default)}
 
-\item{cd_param}{the cd_param
-use_rep boolean on whether a representative repeat should be used as a consesus
-for a mode. Defaults to FALSE, which leads to the computatoin of an average}
+\item{cd_param}{the cd_param use_rep boolean on whether a representative
+repeat should be used as a consesus for a mode. Defaults to FALSE, which
+leads to the computatoin of an average}
 
 \item{use_rep}{boolean}
 
@@ -33,11 +33,11 @@ for a mode. Defaults to FALSE, which leads to the computatoin of an average}
 
 \item{output_path}{(optional) the clumppling functions in python save
 everything to file. By default, R stores the information in objects in the
-environment, and sends those files to a temporary directory
-that will be cleared at the end of a session. \code{output_path} allows to
-change the location
-of those files. This is only useful to those interested in recovering the
-same files as created by the python clumppling module, or for debugging.}
+environment, and sends those files to a temporary directory that will be
+cleared at the end of a session. \code{output_path} allows to change the
+location of those files. This is only useful to those interested in
+recovering the same files as created by the python clumppling module, or
+for debugging.}
 }
 \value{
 a list of class \code{clumpling} TODO describe the elements of the list
@@ -46,8 +46,9 @@ a list of class \code{clumpling} TODO describe the elements of the list
 This function runs the clumppling algorithm.
 }
 \details{
-If you would like to generate an annotated autoplot from your gt_clumppling object,
-ensure that all individuals from the same population are adjacent to one another
-in the Q-matrix or gt_admix object supplied to gt_clumppling. Autoplot 'group'
-argument requires that all individuals from the same group are adjacent.
+If you would like to generate an annotated autoplot from your gt_clumppling
+object, ensure that all individuals from the same population are adjacent to
+one another in the Q-matrix or gt_admix object supplied to gt_clumppling.
+Autoplot 'group' argument requires that all individuals from the same group
+are adjacent.
 }

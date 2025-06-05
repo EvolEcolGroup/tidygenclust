@@ -17,7 +17,8 @@
 \item{matrix}{a string defining the information to be extracted, one of:
 "modes", "major_modes", "Q_modes", "Q_major_modes".}
 
-\item{...}{Additional arguments. Not used. Needed to match generic signature only.}
+\item{...}{Additional arguments. Not used. Needed to match generic signature
+only.}
 }
 \value{
 a \link[tibble:tibble]{tibble::tibble} of the information of interest
@@ -29,8 +30,10 @@ return it as a tibble. It can extract:
 \item 'modes': all the modes detected by \code{\link[=gt_clumppling]{gt_clumppling()}}. The models have label
 'KxMy', where 'x' and 'y' represent the K value and the mode rank.
 \item 'major_modes': modes of rank 1 for each K.
-\item 'Q_modes', 'q_modes': a list of q matrices, one per mode, each tidied into a tibble
-\item 'Q_major_modes', 'q_major_modes': the same output as 'Q_modes' but subsetted to only the
+\item 'Q_modes', 'q_modes': a list of q matrices, one per mode, each tidied
+into a tibble
+\item 'Q_major_modes', 'q_major_modes': the same output as 'Q_modes' but
+subsetted to only the
 major modes.
 }
 }
