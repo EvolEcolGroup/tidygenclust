@@ -16,7 +16,7 @@ jobs:
           python-version: 3.11
           auto-update-conda: true
           activate-environment: fastmixture-env
-          channels: conda-forge
+          channels: defaults conda-forge
           channel-priority: strict
 
       - name: Create Conda environment with Clang and OpenMP
