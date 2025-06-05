@@ -28,13 +28,14 @@
 #' @returns a list of class `clumpling` TODO describe the elements of the list
 #' @export
 
-gt_clumppling <- function(input_path,
-                          input_format = "admixture",
-                          cd_param = 1.0,
-                          use_rep = 0,
-                          merge_cls = 0,
-                          cd_default = 1,
-                          output_path = tempfile("clump_out")) {
+gt_clumppling <- function(
+    input_path,
+    input_format = "admixture",
+    cd_param = 1.0,
+    use_rep = 0,
+    merge_cls = 0,
+    cd_default = 1,
+    output_path = tempfile("clump_out")) {
   # Check if input_path is a zip file and unzip it
   if (is.character(input_path)) {
     if (tools::file_ext(input_path) == "zip") {
@@ -60,9 +61,12 @@ gt_clumppling <- function(input_path,
       # create a unique filename for each list item
       file_name <- paste0("gt_admix_", i, ".Q")
       q_filename <- file.path(temp_q_dir, file_name)
-      utils::write.table(q_mat_list[[i]],
+      utils::write.table(
+        q_mat_list[[i]],
         file = q_filename,
-        row.names = FALSE, col.names = FALSE, quote = FALSE
+        row.names = FALSE,
+        col.names = FALSE,
+        quote = FALSE
       )
     }))
     input_path <- temp_q_dir
@@ -70,10 +74,24 @@ gt_clumppling <- function(input_path,
 
   # create command line for clumppling
   clump_args <- paste0(
-    "-m clumppling -i ", input_path, " -o ", output_path,
-    " -f ", input_format, " -v=1 --cd_param=", cd_param,
-    " --use_rep=", use_rep, " --merge_cls=", merge_cls, " --cd_default=", cd_default,
-    " --plot_modes=0 --plot_modes_withinK=0 --plot_major_modes=0 --plot_all_modes=0"
+    "-m clumppling -i ",
+    input_path,
+    " -o ",
+    output_path,
+    " -f ",
+    input_format,
+    " -v=1 --cd_param=",
+    cd_param,
+    " --use_rep=",
+    use_rep,
+    " --merge_cls=",
+    merge_cls,
+    " --cd_default=",
+    cd_default,
+    paste0(
+      " --plot_modes=0 --plot_modes_withinK=0 ",
+      "--plot_major_modes=0 --plot_all_modes=0"
+    )
   )
   reticulate::conda_run2(
     cmd = "python",
@@ -81,28 +99,6 @@ gt_clumppling <- function(input_path,
     envname = "cclumppling"
   )
   # now we read the output files and create an output object
-
-
-
-  # elements that we use:
-  # modes_allK (only used to find n when plotting modes, can we do it in another way???)
-  # cost_acrossK_cons
-
-  # clump_res<-.py_rclumppling$clumppling_run(args = rclump_args)
-  # names(clump_res) <- c("args", "cmap", "Q_list", "K_list", "Q_files", "R",
-  #                       "N", "K_range", "K_max", "K2IDs", "alignment_withinK",
-  #                       "cost_withinK", "modes_allK", "cost_matrices", "msg",
-  #                       "mode_labels", "rep_modes", "repQ_modes", "avgQ_modes",
-  #                       "alignment_to_modes", "stats", "costs",
-  #                       "alignment_acrossK_cons", "cost_acrossK_cons",
-  #                       "best_acrossK_cons")
-  # # cast back to integers
-  # # (reticulate casts int64 to double, which is incompatible with certain
-  # # functions)
-  # clump_res$K_range <- as.integer(clump_res$K_range)
-  # clump_res$alignment_acrossK_cons <- lapply(clump_res$alignment_acrossK_cons,
-  #                                            as.integer)
-
   clump_res <- list()
   # read modes_aligned (used for ggplots)
   modes_aligned_path <- file.path(
@@ -125,12 +121,12 @@ gt_clumppling <- function(input_path,
   clump_res$aligned_modes <- clump_res$aligned_modes[indices]
 
   # read cost_acrossK
-  cost_acrossK_path <- file.path(
+  cost_across_k_path <- file.path(
     output_path,
     "alignment_acrossK"
   )
-  cost_file <- list.files(cost_acrossK_path, pattern = "alignment_acrossK")
-  costs <- utils::read.csv(file.path(cost_acrossK_path, cost_file[1]))
+  cost_file <- list.files(cost_across_k_path, pattern = "alignment_acrossK")
+  costs <- utils::read.csv(file.path(cost_across_k_path, cost_file[1]))
   clump_res$cost_acrossK <- as.list(costs$Cost)
   names(clump_res$cost_acrossK) <- costs$Mode1.Mode2
   # read modes
@@ -146,7 +142,8 @@ gt_clumppling <- function(input_path,
   # for each mode, get the replicates
   # add replicate id column by parsing string and getting number after R
   mode_alignments$ReplicateID <- as.integer(sub(
-    ".*R(\\d+).*", "\\1",
+    ".*R(\\d+).*",
+    "\\1",
     mode_alignments$Replicate
   ))
   mode_replicates <- split(mode_alignments$ReplicateID, mode_alignments$Mode)
@@ -157,7 +154,8 @@ gt_clumppling <- function(input_path,
 
   # add K_range
   mode_alignments$K <- as.integer(sub(
-    ".*K(\\d+).*", "\\1",
+    ".*K(\\d+).*",
+    "\\1",
     mode_alignments$Mode
   ))
   clump_res$K_range <- unique(mode_alignments$K)

@@ -2,13 +2,15 @@
 % Please edit documentation in R/tgc_tools_version.R
 \name{tgc_tools_version}
 \alias{tgc_tools_version}
-\title{Print version of the python tools installed by tidygenclust}
+\title{Print version of the python tools installed by \code{tidygenclust}}
 \usage{
 tgc_tools_version()
 }
 \value{
-A character vector with the version of the python tools installed by tidygenclust
+A list with the version of the python tools installed by
+\code{tidygenclust}
 }
 \description{
-This function prints the version of the python tools installed by tidygenclust
+This function prints the version of the python tools installed
+by \code{tidygenclust}
 }

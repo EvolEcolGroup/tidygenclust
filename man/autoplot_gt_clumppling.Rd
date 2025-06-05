@@ -15,11 +15,11 @@
 \arguments{
 \item{object}{a \code{\link{gt_clumppling}} object}
 
-\item{type}{the type of plot, one of 'modes', 'modes_within_K',
-'major_modes' or 'all_modes'.}
+\item{type}{the type of plot, one of 'modes', 'modes_within_K', 'major_modes'
+or 'all_modes'.}
 
-\item{group}{a vector of membership to a-priori groups (e.g. populations). Note
-that individuals from the same group need to be adjacent to each other}
+\item{group}{a vector of membership to a-priori groups (e.g. populations).
+Note that individuals from the same group need to be adjacent to each other}
 
 \item{k}{the k value to be plotted if 'type' is 'modes_within_k'}
 
@@ -29,13 +29,13 @@ that individuals from the same group need to be adjacent to each other}
 a plot
 }
 \description{
-An autoplot method to generate quick visualisations for \code{\link{gt_clumppling}} objects.
-Available types are:
+An autoplot method to generate quick visualisations for \code{\link{gt_clumppling}}
+objects. Available types are:
 \itemize{
 \item 'modes': all aligned modes in structure plots over a multipartite graph,
-where better alignment between the modes is indicated by the darker color
-of the edges connecting their structure plots, and the cost of optimal
-alignment is labelled on each edge.
+where better alignment between the modes is indicated by the darker color of
+the edges connecting their structure plots, and the cost of optimal alignment
+is labelled on each edge.
 \item 'modes_within_K': A set of figures, one for each number of clusters, with
 all modes with the same number of clusters in structure plots in one figure.
 \item 'major_modes': the major modes of each K aligned in a series of structure
@@ -44,12 +44,12 @@ plots.
 }
 }
 \details{
-\code{autoplot} produces simple plots to quickly inspect an object. They are
-not customisable; we recommend that you use \code{ggplot2} to produce publication
+\code{autoplot} produces simple plots to quickly inspect an object. They are not
+customisable; we recommend that you use \code{ggplot2} to produce publication
 ready plots.
 
-If you would like to generate an annotated autoplot, ensure that all individuals
-from the same population are adjacent to one another in the Q-matrix or gt_admix
-object supplied to gt_clumppling. Autoplot 'group' argument requires that all
-individuals from the same group are adjacent.
+If you would like to generate an annotated autoplot, ensure that all
+individuals from the same population are adjacent to one another in the
+Q-matrix or gt_admix object supplied to gt_clumppling. Autoplot 'group'
+argument requires that all individuals from the same group are adjacent.
 }
