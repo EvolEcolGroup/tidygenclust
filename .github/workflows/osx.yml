@@ -1,0 +1,59 @@
+name: CI - FastMixture Build & Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v3
+
+      - name: Set up Conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-variant: Mambaforge
+          python-version: 3.11
+          use-mamba: true
+          activate-environment: fastmixture-env
+
+      - name: Create Conda environment
+        shell: bash -l {0}
+        run: |
+          mamba create -n fastmixture-env -y \
+            python=3.11 \
+            numpy \
+            scipy \
+            scikit-learn \
+            pip \
+            llvm-openmp \
+            libgomp \
+            compilers
+          conda activate fastmixture-env
+
+      - name: Set OpenMP flags (macOS only)
+        if: runner.os == 'macOS'
+        shell: bash -l {0}
+        run: |
+          echo "CFLAGS='-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include'" >> $GITHUB_ENV
+          echo "LDFLAGS='-L$(brew --prefix libomp)/lib -lomp'" >> $GITHUB_ENV
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
+
+      - name: Clone fastmixture repo
+        shell: bash -l {0}
+        run: |
+          git clone https://github.com/Rosemeis/fastmixture.git
+          cd fastmixture
+          conda activate fastmixture-env
+          pip install .
+
+      - name: Test fastmixture import
+        shell: bash -l {0}
+        run: |
+          conda activate fastmixture-env
+          fastmixture --help

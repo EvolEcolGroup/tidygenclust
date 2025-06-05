@@ -59,7 +59,7 @@ jobs:
           git clone https://github.com/Rosemeis/fastmixture.git
           conda env create -f fastmixture/environment.yml
           conda activate fastmixtue-env
-          pip install fastmixtue      
+          pip install fastmixtue
 
 #      - uses: actions/setup-python@v5
 #        with:
