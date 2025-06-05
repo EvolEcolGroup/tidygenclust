@@ -33,26 +33,25 @@
 #' @export
 
 gt_fastmixture <- function(
-  x,
-  k,
-  n_runs = 1,
-  threads = 1,
-  seed = 42,
-  outprefix = "fastmixture",
-  iter = 1000,
-  tole = 0.5,
-  batches = 32,
-  supervised = NULL,
-  check = 5,
-  power = 11,
-  output_path = getwd(),
-  chunk = 8192,
-  als_iter = 1000,
-  als_tole = 1e-4,
-  no_freqs = TRUE,
-  random_init = TRUE,
-  safety = TRUE
-) {
+    x,
+    k,
+    n_runs = 1,
+    threads = 1,
+    seed = 42,
+    outprefix = "fastmixture",
+    iter = 1000,
+    tole = 0.5,
+    batches = 32,
+    supervised = NULL,
+    check = 5,
+    power = 11,
+    output_path = getwd(),
+    chunk = 8192,
+    als_iter = 1000,
+    als_tole = 1e-4,
+    no_freqs = TRUE,
+    random_init = TRUE,
+    safety = TRUE) {
   if (length(seed) != n_runs) {
     stop("'seeds' should be a vector of lenght 'repeats'")
   }

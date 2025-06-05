@@ -4,7 +4,7 @@ skip_if(!reticulate::condaenv_exists("ctidygenclust"))
 test_that("gt_fastmixture", {
   library(tidypopgen)
 
-  #set up the gentibble
+  # set up the gentibble
   vcf_path <- system.file(
     "/extdata/anolis/punctatus_t70_s10_n46_filtered.recode.vcf.gz",
     package = "tidypopgen"
@@ -20,7 +20,7 @@ test_that("gt_fastmixture", {
     package = "tidypopgen"
   )
   pops <- readr::read_csv(pops_path)
-  anole_gt <- anole_gt %>% mutate(id = gsub('punc_', "", .data$id, ))
+  anole_gt <- anole_gt %>% mutate(id = gsub("punc_", "", .data$id, ))
   anole_gt <- anole_gt %>%
     mutate(population = pops$pop[match(pops$ID, .data$id)])
 
@@ -46,18 +46,18 @@ test_that("gt_fastmixture", {
     no_freqs = TRUE,
     random_init = TRUE
   )
-  #correct structure
+  # correct structure
   expect_true(inherits(anole_qmat, c("list", "gt_admix")))
   expect_true(all(names(anole_qmat) == names(anole_qmat)))
   expect_true(inherits(anole_qmat$Q[[1]], "q_matrix"))
-  #correct number of repeats
+  # correct number of repeats
   expect_true(sum(anole_qmat$k == 2) == 1)
   expect_true(sum(anole_qmat$k == 3) == 1)
-  #check no p matrices
+  # check no p matrices
   expect_true(!"P" %in% names(anole_qmat))
-  #correct number of q matrices
+  # correct number of q matrices
   expect_true(length(anole_qmat$Q) == length(k))
-  #check q-matrix correspond to correct k
+  # check q-matrix correspond to correct k
   index_k2 <- which(anole_qmat$k == 2)
   index_k3 <- which(anole_qmat$k == 3)
   expect_true(ncol(anole_qmat$Q[[index_k2]]) == 2)
@@ -85,23 +85,23 @@ test_that("gt_fastmixture", {
     no_freqs = FALSE,
     random_init = TRUE
   )
-  #correct structure
+  # correct structure
   expect_true(inherits(anole_qmat, c("list", "gt_admix")))
   expect_true(all(names(anole_qmat) == names(anole_qmat)))
   expect_true(inherits(anole_qmat$Q[[1]], "q_matrix"))
-  #correct number of k
+  # correct number of k
   expect_true(length(anole_qmat$Q) == length(k) * 2)
-  #correct number of repeats
+  # correct number of repeats
   expect_true(sum(anole_qmat$k == 2) == 2)
-  #correct number of q matrices
+  # correct number of q matrices
   expect_true(length(anole_qmat$Q) == length(k) * 2)
-  #correct number of p matrices
+  # correct number of p matrices
   expect_true(length(anole_qmat$P) == length(k) * 2)
-  #check q-matrix are indexed as correct k
+  # check q-matrix are indexed as correct k
   index_k2 <- which(anole_qmat$k == 2)
   expect_true(ncol(anole_qmat$Q[[index_k2[1]]]) == 2)
   expect_true(ncol(anole_qmat$Q[[index_k2[2]]]) == 2)
-  #check p-matrix are indexed as correct k
+  # check p-matrix are indexed as correct k
   expect_true(ncol(anole_qmat$P[[index_k2[1]]]) == 2)
   expect_true(ncol(anole_qmat$P[[index_k2[2]]]) == 2)
 
@@ -127,27 +127,27 @@ test_that("gt_fastmixture", {
     no_freqs = FALSE,
     random_init = TRUE
   )
-  #correct structure
+  # correct structure
   expect_true(inherits(anole_qmat, c("list", "gt_admix")))
   expect_true(all(names(anole_qmat) == names(anole_qmat)))
   expect_true(inherits(anole_qmat$Q[[1]], "q_matrix"))
-  #correct number of k
+  # correct number of k
   expect_true(length(anole_qmat$Q) == length(k) * 2)
-  #correct number of repeats
+  # correct number of repeats
   expect_true(sum(anole_qmat$k == 2) == 2)
   expect_true(sum(anole_qmat$k == 3) == 2)
-  #correct number of q matrices
+  # correct number of q matrices
   expect_true(length(anole_qmat$Q) == length(k) * 2)
-  #correct number of p matrices
+  # correct number of p matrices
   expect_true(length(anole_qmat$P) == length(k) * 2)
-  #check q-matrix are indexed as correct k
+  # check q-matrix are indexed as correct k
   index_k2 <- which(anole_qmat$k == 2)
   expect_true(ncol(anole_qmat$Q[[index_k2[1]]]) == 2)
   expect_true(ncol(anole_qmat$Q[[index_k2[2]]]) == 2)
   index_k3 <- which(anole_qmat$k == 3)
   expect_true(ncol(anole_qmat$Q[[index_k3[1]]]) == 3)
   expect_true(ncol(anole_qmat$Q[[index_k3[2]]]) == 3)
-  #check p-matrix are indexed as correct k
+  # check p-matrix are indexed as correct k
   expect_true(ncol(anole_qmat$P[[index_k2[1]]]) == 2)
   expect_true(ncol(anole_qmat$P[[index_k2[2]]]) == 2)
   expect_true(ncol(anole_qmat$P[[index_k3[1]]]) == 3)
@@ -175,21 +175,21 @@ test_that("gt_fastmixture", {
     no_freqs = FALSE,
     random_init = TRUE
   )
-  #correct structure
+  # correct structure
   expect_true(inherits(anole_qmat, c("list", "gt_admix")))
   expect_true(all(names(anole_qmat) == names(anole_qmat)))
   expect_true(inherits(anole_qmat$Q[[1]], "q_matrix"))
-  #correct number of k
+  # correct number of k
   expect_true(length(anole_qmat$Q) == length(k))
-  #correct number of repeats
+  # correct number of repeats
   expect_true(sum(anole_qmat$k == 2) == 1)
-  #correct number of q matrices
+  # correct number of q matrices
   expect_true(length(anole_qmat$Q) == length(k))
-  #correct number of p matrices
+  # correct number of p matrices
   expect_true(length(anole_qmat$P) == length(k))
-  #check q-matrix are indexed as correct k
+  # check q-matrix are indexed as correct k
   index_k2 <- which(anole_qmat$k == 2)
   expect_true(ncol(anole_qmat$Q[[index_k2[1]]]) == 2)
-  #check p-matrix are indexed as correct k
+  # check p-matrix are indexed as correct k
   expect_true(ncol(anole_qmat$P[[index_k2[1]]]) == 2)
 })

@@ -33,12 +33,11 @@
 #' @export
 
 autoplot.gt_clumppling <- function(
-  object,
-  type = c("modes", "modes_within_k", "major_modes", "all_modes"),
-  group = NULL,
-  k = NULL,
-  ...
-) {
+    object,
+    type = c("modes", "modes_within_k", "major_modes", "all_modes"),
+    group = NULL,
+    k = NULL,
+    ...) {
   type <- match.arg(type)
   rlang::check_dots_empty()
   # check that group, if given, is cohere with the rest of the data
@@ -110,7 +109,7 @@ plot_modes_within_k <- function(object, group_x, k) {
   if (is.null(k)) {
     stop("k must be provided for modes_within_k")
   }
-  #browser()
+  # browser()
   all_modes <- tidy(object, matrix = "modes")
   k_modes <- all_modes[all_modes$k == k, ]
   y_labels <- k_modes$label
@@ -150,7 +149,7 @@ plot_q <- function(q_tidied, y_lab = "", group_x) {
     tidypopgen::scale_fill_distruct()
   # add vertical lines if we have groups
   if (!is.null(group_x)) {
-    segment_data = data.frame(
+    segment_data <- data.frame(
       x = group_x + 0.5,
       xend = group_x + 0.5,
       y = rep(0, length(group_x)),

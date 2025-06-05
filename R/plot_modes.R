@@ -27,7 +27,7 @@ plot_modes <- function(object, group) {
     k <- gsub(".*K(\\d+)M.*", "\\1", all_modes_labels[i])
     m <- as.integer(gsub(".*M(\\d+).*", "\\1", all_modes_labels[i]))
     n <- length(object$mode_replicates[[all_modes_labels[i]]])
-    #n <- length(object$modes_allK[[k]][[m-1]])
+    # n <- length(object$modes_allK[[k]][[m-1]])
     plt <- all_modes[[i]] +
       ggplot2::theme_void() +
       ggplot2::theme(plot.margin = grid::unit(c(0, 0, 0, 0), "native")) +
@@ -213,7 +213,9 @@ get_inset_corners <- function(label, k_range) {
 # Return legend for one plot unexported function in ggpubr p is a plot position
 # is an optional parameter to reposition the legend before extracting it
 .get_legend <- function(p, position = NULL) {
-  if (is.null(p)) return(NULL)
+  if (is.null(p)) {
+    return(NULL)
+  }
   if (!is.null(position)) {
     p <- p + ggplot2::theme(legend.position = position)
   }

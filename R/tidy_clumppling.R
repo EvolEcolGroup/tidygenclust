@@ -21,17 +21,16 @@
 #' @export
 
 tidy.gt_clumppling <- function(
-  x,
-  matrix = c(
-    "modes",
-    "major_modes",
-    "Q_modes",
-    "q_modes",
-    "Q_major_modes",
-    "q_major_modes"
-  ),
-  ...
-) {
+    x,
+    matrix = c(
+      "modes",
+      "major_modes",
+      "Q_modes",
+      "q_modes",
+      "Q_major_modes",
+      "q_major_modes"
+    ),
+    ...) {
   rlang::check_dots_empty()
   matrix <- match.arg(matrix)
   if (matrix == "modes") {
@@ -44,7 +43,7 @@ tidy.gt_clumppling <- function(
   } else if (matrix == "major_modes") {
     tidy(x, matrix = "modes") %>% dplyr::filter(.data$m == 1)
   } else if (matrix == "Q_modes" | matrix == "q_modes") {
-    #TODO we need individual ids, either as row names or we add arbitrary ones
+    # TODO we need individual ids, either as row names or we add arbitrary ones
     lapply(x$aligned_modes, tidy_q)
   } else if (matrix == "Q_major_modes" | matrix == "q_major_modes") {
     lapply(x$aligned_modes[tidy(x, matrix = "major_modes")$label], tidy_q)
