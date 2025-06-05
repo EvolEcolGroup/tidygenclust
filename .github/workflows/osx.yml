@@ -28,7 +28,7 @@ jobs:
             cython>3.0.0 \
             pip \
             llvm-openmp \
-            libgomp \
+            libgomp
           conda activate fastmixture-env
 
       - name: Set OpenMP flags (macOS only)
