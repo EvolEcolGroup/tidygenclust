@@ -42,10 +42,12 @@ jobs:
       - name: Clone and install fastmixture
         shell: bash -l {0}
         run: |
-          git clone https://github.com/Rosemeis/fastmixture.git
-          cd fastmixture
+          # git clone https://github.com/Rosemeis/fastmixture.git
+          # cd fastmixture
           conda activate fastmixture-env
-          pip install .
+          # pip install .
+          pip install --upgrade --force-reinstall git+https://github.com/Rosemeis/fastmixture.git
+
 
       - name: Test fastmixture import
         shell: bash -l {0}
