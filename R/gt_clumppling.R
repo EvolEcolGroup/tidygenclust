@@ -123,9 +123,9 @@ gt_clumppling <- function(
   # read cost_acrossK
   cost_across_k_path <- file.path(
     output_path,
-    "alignment_across_k"
+    "alignment_acrossK"
   )
-  cost_file <- list.files(cost_across_k_path, pattern = "alignment_across_k")
+  cost_file <- list.files(cost_across_k_path, pattern = "alignment_acrossK")
   costs <- utils::read.csv(file.path(cost_across_k_path, cost_file[1]))
   clump_res$cost_acrossK <- as.list(costs$Cost)
   names(clump_res$cost_acrossK) <- costs$Mode1.Mode2
