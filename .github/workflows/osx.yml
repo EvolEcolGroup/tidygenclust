@@ -7,7 +7,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [macos-latest]
 
     steps:
       - name: Checkout this repo
@@ -29,7 +29,6 @@ jobs:
             pip \
             llvm-openmp \
             libgomp \
-            compilers
           conda activate fastmixture-env
 
       - name: Set OpenMP flags (macOS only)
