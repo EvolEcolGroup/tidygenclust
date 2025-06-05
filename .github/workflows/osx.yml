@@ -33,12 +33,15 @@ jobs:
             pip \
             llvm-openmp
 
-      - name: Set OpenMP environment variables
+      - name: Set OpenMP environment variables for Clang
+        shell: bash -l {0}
         run: |
-          echo "CFLAGS='-Xpreprocessor -fopenmp -I/usr/local/include'" >> $GITHUB_ENV
-          echo "LDFLAGS='-L/usr/local/lib -lomp'" >> $GITHUB_ENV
+          OMP_PREFIX=$(brew --prefix libomp)
+          echo "CFLAGS='-Xpreprocessor -fopenmp -I$OMP_PREFIX/include'" >> $GITHUB_ENV
+          echo "LDFLAGS='-L$OMP_PREFIX/lib -lomp'" >> $GITHUB_ENV
           echo "CC=clang" >> $GITHUB_ENV
           echo "CXX=clang++" >> $GITHUB_ENV
+
 
       - name: Clone and install fastmixture
         shell: bash -l {0}
