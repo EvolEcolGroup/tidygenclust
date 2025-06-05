@@ -19,29 +19,25 @@ jobs:
           channels: conda-forge
           channel-priority: strict
 
-      - name: Install OpenMP via Homebrew
-        run: brew install libomp
-
-      - name: Create Conda environment and install dependencies
+      - name: Create Conda environment with Clang and OpenMP
         shell: bash -l {0}
         run: |
-          conda create -n fastmixture-env -y \
+          conda create -n fastmixture-env -y -c conda-forge \
             python=3.11 \
             numpy \
-            scipy \
-            scikit-learn \
             pip \
+            clang \
+            clangxx \
             llvm-openmp
 
-      - name: Set OpenMP environment variables for Clang
+      - name: Set environment to use Conda Clang
         shell: bash -l {0}
         run: |
-          OMP_PREFIX=$(brew --prefix libomp)
-          echo "CFLAGS='-Xpreprocessor -fopenmp -I$OMP_PREFIX/include'" >> $GITHUB_ENV
-          echo "LDFLAGS='-L$OMP_PREFIX/lib -lomp'" >> $GITHUB_ENV
           echo "CC=clang" >> $GITHUB_ENV
           echo "CXX=clang++" >> $GITHUB_ENV
-
+          echo "CFLAGS=-fopenmp" >> $GITHUB_ENV
+          echo "CXXFLAGS=-fopenmp" >> $GITHUB_ENV
+          echo "LDFLAGS=-fopenmp" >> $GITHUB_ENV
 
       - name: Clone and install fastmixture
         shell: bash -l {0}
