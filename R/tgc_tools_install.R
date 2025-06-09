@@ -45,7 +45,7 @@ tgc_tools_install <- function(reset = FALSE,
   reticulate::conda_create(
     envname = "ctidygenclust",
     packages = c("python>=3.10", "numpy>2.0.0", "cython>3.0.0"),
-    channel = c("defaults", "bioconda", "conda-forge")
+    channel = c("bioconda", "conda-forge","defaults")
   )
   # create command line to install fastmixture
   fast_install_cmd <- paste0(
