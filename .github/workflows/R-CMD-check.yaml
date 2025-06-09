@@ -45,6 +45,12 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: |
+            any::rcmdcheck
+            any::devtools
+          needs: check
 
       - name: Install external tools
         run: |
@@ -56,12 +62,7 @@ jobs:
 #        with:
 #          python-version: ${{ matrix.config.py }}
 
-      # - uses: r-lib/actions/setup-r-dependencies@v2
-      #   with:
-      #     extra-packages: |
-      #       any::rcmdcheck
-      #       any::devtools
-      #     needs: check
+
 
       # - name: Install conda for OSX
       #   if: matrix.config.os == 'macos-latest'
