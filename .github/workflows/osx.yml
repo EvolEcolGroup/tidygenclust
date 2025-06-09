@@ -53,5 +53,6 @@ jobs:
       - name: Test fastmixture import
         shell: bash -l {0}
         run: |
+          echo "$GITHUB_ENV"
           conda activate fastmixture-env
           fastmixture --help
