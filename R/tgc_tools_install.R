@@ -66,6 +66,7 @@ tgc_tools_install <- function(reset = FALSE,
       "export CC=clang", "export CXX=clang++",
       "export CFLAGS=-fopenmp", "export CXXFLAGS=-fopenmp",
       "export LDFLAGS=-fopenmp",
+      "export SYSTEM_VERSION_COMPAT=1",
       fast_install_cmd
     )
   }
