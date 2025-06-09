@@ -60,13 +60,12 @@ tgc_tools_install <- function(reset = FALSE,
     reticulate::conda_install(
       envname = "ctidygenclust",
       packages = c("clang", "clangxx", "llvm-openmp"),
-      channel = c("defaults", "bioconda", "conda-forge")
+      channel = c("conda-forge", "defaults")
     )
     fast_install_cmd <- c(
       "export CC=clang", "export CXX=clang++",
       "export CFLAGS=-fopenmp", "export CXXFLAGS=-fopenmp",
       "export LDFLAGS=-fopenmp",
-      "export SYSTEM_VERSION_COMPAT=1",
       fast_install_cmd
     )
   }
