@@ -38,6 +38,7 @@ jobs:
           echo "CFLAGS=-fopenmp" >> $GITHUB_ENV
           echo "CXXFLAGS=-fopenmp" >> $GITHUB_ENV
           echo "LDFLAGS=-fopenmp" >> $GITHUB_ENV
+          echo $GITHUB_ENV
 
       - name: Clone and install fastmixture
         shell: bash -l {0}
