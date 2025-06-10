@@ -92,7 +92,7 @@ tgc_tools_install <- function(reset = FALSE,
   # since its dependencies are not compatible with the ones of fastmixture
   reticulate::conda_create(
     envname = "cclumppling",
-    packages = c("python==3.10", "numpy==1.24.0"),
+    packages = c("python==3.8", "numpy==1.24.0"),
     channel = c("bioconda", "conda-forge", "defaults")
   )
   # Install clumppling
