@@ -21,9 +21,9 @@ jobs:
         config:
           - {os: macos-latest,   r: 'release',  py: "3.11" }
 #          - {os: windows-latest, r: 'release',  py: "3.11" }
-#          - {os: ubuntu-latest,   r: 'devel',  py: "3.11",  http-user-agent: 'release'}
-#          - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
-#          - {os: ubuntu-latest,   r: 'oldrel-1',  py: "3.11" }
+          - {os: ubuntu-latest,   r: 'devel',  py: "3.11",  http-user-agent: 'release'}
+          - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
+          - {os: ubuntu-latest,   r: 'oldrel-1',  py: "3.11" }
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -57,39 +57,6 @@ jobs:
           source("./R/tgc_tools_install.R")
           tgc_tools_install()
         shell: Rscript {0}
-
-#      - uses: actions/setup-python@v5
-#        with:
-#          python-version: ${{ matrix.config.py }}
-
-
-
-      # - name: Install conda for OSX
-      #   if: matrix.config.os == 'macos-latest'
-      #   run: |
-      #     mkdir -p ~/miniconda3
-      #     curl https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh -o ~/miniconda3/miniconda.sh
-      #     bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
-      #     rm ~/miniconda3/miniconda.sh
-      #   shell: bash {0}
-
-
-
-      # - name: Install openmp for OSX
-      #   if: matrix.config.os == 'macos-latest'
-      #   run: |
-      #     brew install libomp
-      #     export CC=/usr/bin/clang
-      #     export CXX=/usr/bin/clang++
-      #     export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
-      #     export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
-      #     export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
-      #     export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
-      #     export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
-      #     git clone https://github.com/Rosemeis/fastmixture.git
-      #     conda env create -f fastmixture/environment.yml
-      #     conda activate fastmixture
-      #   shell: bash {0}
 
 
       - uses: r-lib/actions/check-r-package@v2
