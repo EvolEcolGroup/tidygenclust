@@ -55,8 +55,8 @@ tgc_tools_install <- function(reset = FALSE,
     fastmixture_hash
   )
 
-  # on OSX, we need to also install a suitable compiler for openmp
-  if (Sys.info()["sysname"] == "Darwin") {
+  # on OSX and Windows, we need to also install a suitable compiler for openmp
+  if ((Sys.info()["sysname"] == "Darwin") || (.Platform$OS.type == "windows")) {
     reticulate::conda_install(
       envname = "ctidygenclust",
       packages = c("clang", "clangxx", "llvm-openmp"),
