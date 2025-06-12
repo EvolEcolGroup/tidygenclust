@@ -111,7 +111,8 @@ tgc_tools_install <-
         )
         reticulate::conda_run2(
           cmd = "conda",
-          arg = "config --env --set subdir osx-64"
+          arg = "config --env --set subdir osx-64",
+          envname = "cadmixture86"
         )
         # install admixture in the new environment
         reticulate::conda_install(
