@@ -2,7 +2,7 @@
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
   push:
-    branches: [main]
+    branches: [main, osx_install]
   pull_request:
 
 name: R-CMD-check.yaml
@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-#          - {os: macos-latest,   r: 'release',  py: "3.11" }
+          - {os: macos-latest,   r: 'release',  py: "3.11" }
 #          - {os: windows-latest, r: 'release',  py: "3.11" }
           - {os: ubuntu-latest,   r: 'devel',  py: "3.11",  http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
@@ -31,6 +31,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.config.py }}
 
       - uses: r-lib/actions/setup-pandoc@v2
 
@@ -40,15 +45,6 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
-      - uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-update-conda: true
-          python-version: ${{ matrix.config.py }}
-
-#      - uses: actions/setup-python@v5
-#        with:
-#          python-version: ${{ matrix.config.py }}
-
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: |
@@ -56,30 +52,12 @@ jobs:
             any::devtools
           needs: check
 
-      - name: Install conda for OSX
-        if: matrix.config.os == 'macos-latest'
-        run: |
-          mkdir -p ~/miniconda3
-          curl https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh -o ~/miniconda3/miniconda.sh
-          bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
-          rm ~/miniconda3/miniconda.sh
-        shell: bash {0}
-
-
-      - name: Setup conda envs for Linux and Windows
-        if: matrix.config.os != 'macos-latest'
-        shell: Rscript {0}
+      - name: Install external tools
         run: |
           source("./R/tgc_tools_install.R")
           tgc_tools_install()
+        shell: Rscript {0}
 
-      - name: Setup conda envs for OSX
-        if: matrix.config.os == 'macos-latest'
-        run: |
-          export CC="$(brew --prefix llvm@15)/bin/clang"
-          export CXX="$(brew --prefix llvm@15)/bin/clang++"
-          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install()'
-        shell: bash {0}
 
       - uses: r-lib/actions/check-r-package@v2
         with:
