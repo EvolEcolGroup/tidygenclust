@@ -24,6 +24,12 @@ tgc_tools_install <-
       reset = FALSE,
       fastmixture_hash = "105eb99248d278cad320885190b919ad8a69be1b",
       clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40") {
+    
+    if (.Platform$OS.type == "windows"){
+      stop("tidygenclust does not work on windows; use the Windows subsystem",
+      "for Linux (WSL) instead")
+    }
+    
     # check ctidygenclust does not exist
     if (reticulate::condaenv_exists("ctidygenclust")) {
       if (reset) {
@@ -65,11 +71,8 @@ tgc_tools_install <-
       fastmixture_hash
     )
 
-    # on OSX and Windows, we need to also install a suitable compiler for openmp
-    if (
-      (Sys.info()["sysname"] == "Darwin") ||
-        (.Platform$OS.type == "windows")
-    ) {
+    # on OSX we need to also install a suitable compiler for openmp
+    if (Sys.info()["sysname"] == "Darwin") {
       reticulate::conda_install(
         envname = "ctidygenclust",
         packages = c("clang", "clangxx", "llvm-openmp"),
@@ -93,15 +96,38 @@ tgc_tools_install <-
 
     # if on osx or linux, install admixture
     if (.Platform$OS.type == "unix") {
-      # don't install admixture into the conda env on mac
-      if (Sys.info()["sysname"] != "Darwin") {
+      if ((Sys.info()["sysname"] == "Linux")) {
+        # on linux we install admixture in ctidygenclust
         reticulate::conda_install(
-          packages = c("admixture"),
           envname = "ctidygenclust",
+          packages = c("admixture"),
           channel = c("bioconda")
         )
+      } else if (Sys.info()["sysname"] == "Darwin") {
+        # ADMIXTURE is only available for osx as x86 in bioconda
+        # so we have to create a new environment and set it to x86_64
+        reticulate::conda_create("cadmixture86",
+          channel = c("bioconda", "conda-forge", "defaults")
+        )
+        reticulate::conda_run2(cmd = "conda",
+                               arg = "config --env --set subdir osx-64")
+        # install admixture in the new environment
+        reticulate::conda_install(
+          envname = "cadmixture86",
+          packages = c("admixture"),
+          channel = c("bioconda")
+        )
+        
+        
+        # on mac we need to install the clang compiler
+        reticulate::conda_install(
+          envname = "ctidygenclust",
+          packages = c("clang", "clangxx", "llvm-openmp"),
+          channel = c("conda-forge", "defaults")
+        )
       }
-    }
+      
+ 
 
     #########################################################################
     # now install clumpling in its own conda environment
