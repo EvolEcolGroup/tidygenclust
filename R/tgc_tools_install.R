@@ -20,16 +20,16 @@
 #' @export
 
 tgc_tools_install <-
-  function(
-      reset = FALSE,
-      fastmixture_hash = "105eb99248d278cad320885190b919ad8a69be1b",
-      clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40") {
-    
-    if (.Platform$OS.type == "windows"){
-      stop("tidygenclust does not work on windows; use the Windows subsystem",
-      "for Linux (WSL) instead")
+  function(reset = FALSE,
+           fastmixture_hash = "105eb99248d278cad320885190b919ad8a69be1b",
+           clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40") {
+    if (.Platform$OS.type == "windows") {
+      stop(
+        "tidygenclust does not work on windows; use the Windows subsystem",
+        "for Linux (WSL) instead"
+      )
     }
-    
+
     # check ctidygenclust does not exist
     if (reticulate::condaenv_exists("ctidygenclust")) {
       if (reset) {
@@ -109,25 +109,20 @@ tgc_tools_install <-
         reticulate::conda_create("cadmixture86",
           channel = c("bioconda", "conda-forge", "defaults")
         )
-        reticulate::conda_run2(cmd = "conda",
-                               arg = "config --env --set subdir osx-64")
+        reticulate::conda_run2(
+          cmd = "conda",
+          arg = "config --env --set subdir osx-64"
+        )
         # install admixture in the new environment
         reticulate::conda_install(
           envname = "cadmixture86",
           packages = c("admixture"),
           channel = c("bioconda")
         )
-        
-        
-        # on mac we need to install the clang compiler
-        reticulate::conda_install(
-          envname = "ctidygenclust",
-          packages = c("clang", "clangxx", "llvm-openmp"),
-          channel = c("conda-forge", "defaults")
-        )
       }
-      
- 
+    }
+
+
 
     #########################################################################
     # now install clumpling in its own conda environment
