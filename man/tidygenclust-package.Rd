@@ -6,10 +6,6 @@
 \alias{tidygenclust-package}
 \title{tidygenclust: Clustering for Population Genetics in R}
 \description{
-A tidy interface to clustering in population genetics. This package provides a set of functions to perform clustering on genetic data, and to visualize the results, both for single runs and for multiple repeats of the same analysis. It is built on top of the 'tidypopgen' package, but can also use PLINK input files.
-}
-\author{
-\strong{Maintainer}: Andrea Manica \email{am315@cam.ac.uk} (\href{https://orcid.org/0000-0003-1895-450X}{ORCID})
-
+A tidy interface to clustering in population genetics. This package provides a set of functions to perform clustering on genetic data, and to visualize the results, both for single runs and for multiple repeats of the same analysis. It ports the 'fastmixture' and 'clumppling' python packages to R. 'tidygenlust' is built on top of the 'tidypopgen' package, but can also use PLINK input files. Currently it works only on Linux and OSX.
 }
 \keyword{internal}
