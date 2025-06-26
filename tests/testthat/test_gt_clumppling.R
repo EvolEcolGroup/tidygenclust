@@ -1,3 +1,5 @@
+skip_on_cran()
+
 # skip if the conda environment does not exist
 skip_if(!reticulate::condaenv_exists("cclumppling"))
 

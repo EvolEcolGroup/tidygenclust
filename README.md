@@ -15,6 +15,7 @@ genetic clustering.
 
 ## Installation
 
+Currently installation is limited to Linux and OSX, but NOT Windows.
 You can install the development version of `tidygenclust` from [GitHub](https://github.com/) with:
 
 ``` r

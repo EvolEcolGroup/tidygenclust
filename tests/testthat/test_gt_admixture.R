@@ -1,3 +1,5 @@
+skip_on_cran()
+
 # set the input file
 vcf_path <-
   system.file(
