@@ -16,9 +16,9 @@ Authors@R: c(
     )
 Description: A tidy interface to clustering in population genetics. This package provides a set of
   functions to perform clustering on genetic data, and to visualize the results, both for single
-  runs and for multiple repeats of the same analysis. It ports the 'fastmixture' and 'clumppling'
-  python packages to R. 'tidygenclust' is built on top of the 'tidypopgen' package, but
-  can also use PLINK input files. Currently it works only on Linux and OSX.
+  runs and for multiple repeats of the same analysis. 'tidygenclust' ports the 'fastmixture' 
+  and 'clumppling' python modules to R, and it is built on top of the 'tidypopgen' package.
+  Currently it works only on Linux and OSX.
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
