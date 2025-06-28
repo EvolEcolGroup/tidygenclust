@@ -1,0 +1,21 @@
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>/404.html</loc></url>
+<url><loc>/LICENSE.html</loc></url>
+<url><loc>/articles/index.html</loc></url>
+<url><loc>/articles/tidygenclust.html</loc></url>
+<url><loc>/authors.html</loc></url>
+<url><loc>/index.html</loc></url>
+<url><loc>/news/index.html</loc></url>
+<url><loc>/reference/autoplot_gt_clumppling.html</loc></url>
+<url><loc>/reference/capeverde_pops.html</loc></url>
+<url><loc>/reference/gt_clumppling.html</loc></url>
+<url><loc>/reference/gt_fastmixture.html</loc></url>
+<url><loc>/reference/index.html</loc></url>
+<url><loc>/reference/pipe.html</loc></url>
+<url><loc>/reference/reexports.html</loc></url>
+<url><loc>/reference/tgc_tools_install.html</loc></url>
+<url><loc>/reference/tgc_tools_version.html</loc></url>
+<url><loc>/reference/tidy_gt_clumppling.html</loc></url>
+<url><loc>/reference/tidygenclust-package.html</loc></url>
+</urlset>
+
