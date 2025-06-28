@@ -21,15 +21,9 @@ anole_gt <- anole_gt %>%
   dplyr::mutate(population = pops$pop[match(pops$ID, .data$id)])
 
 test_that("run admixture as single run", {
-  # we create a plink file to test the function
-  anole_plink <- tidypopgen::gt_as_plink(
-    anole_gt,
-    file = tempfile(),
-    chromosomes_as_int = TRUE
-  )
   # run admixture
   anole_adm <- tidypopgen::gt_admixture(
-    anole_plink,
+    anole_gt,
     k = 3,
     crossval = FALSE,
     n_cores = 1,
