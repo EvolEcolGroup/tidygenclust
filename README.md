@@ -1,4 +1,3 @@
-
 # tidygenclust
 
 <!-- badges: start -->
@@ -9,13 +8,13 @@
 `tidygenclust` provides functions and methods to run genetic clustering in R,
 using the commonly used ADMIXTURE program as we as the python package `fastmixture`.
 It also help to align and compare multiple runs of the same or different K using
-the functionalities of the python package `clumppling`. This package builds on
+the functionalities of the python package `clumppling`. `tidygenclust` builds on
 `tidypopgen`, enhancing the grammar of population genetics with a focus on 
 genetic clustering.
 
 ## Installation
 
-Currently installation is limited to Linux and OSX, but NOT Windows.
+Currently installation is limited to Linux and OSX, but NOT Windows (you can use the WSL).
 You can install the development version of `tidygenclust` from [GitHub](https://github.com/) with:
 
 ``` r
@@ -26,6 +25,6 @@ pak::pak("EvolEcolGroup/tidygenclust")
 ## Overview of functionality
 
 On overview of the functionality of `tidygenclust` and its integration with `tidypopgen` is provided
-in the overview vignette. A mode detailed description of how to align multiple runs of clustering
-and compare them is provided in the vignette `clumppling overview`.
+in the "Get Started"" vignette. This also includes a detailed description of how to align multiple runs of clustering
+and compare them.
 
