@@ -21,9 +21,9 @@ jobs:
         config:
           - {os: macos-latest,   r: 'release',  py: "3.11" }
 #          - {os: windows-latest, r: 'release',  py: "3.11" }
-#          - {os: ubuntu-latest,   r: 'devel',  py: "3.11",  http-user-agent: 'release'}
-#          - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
-#          - {os: ubuntu-latest,   r: 'oldrel-1',  py: "3.11" }
+          - {os: ubuntu-latest,   r: 'devel',  py: "3.11",  http-user-agent: 'release'}
+          - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
+          - {os: ubuntu-latest,   r: 'oldrel-1',  py: "3.11" }
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -54,6 +54,9 @@ jobs:
 
       - name: Install external tools
         run: |
+          install.packages('tidypopgen',
+            repos = c('https://evolecolgroup.r-universe.dev',
+                      'https://cloud.r-project.org'))
           source("./R/tgc_tools_install.R")
           tgc_tools_install()
         shell: Rscript {0}
