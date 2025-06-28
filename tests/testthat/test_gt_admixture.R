@@ -33,7 +33,8 @@ test_that("run admixture as single run", {
     k = 3,
     crossval = FALSE,
     n_cores = 1,
-    seed = 123
+    seed = 123,
+    conda_env = "auto"
   )
   # check the output
   expect_true(nrow(anole_adm$Q[[1]]) == nrow(anole_gt))
