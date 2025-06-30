@@ -1,5 +1,4 @@
-# skip if the conda environment does not exist
-skip_if(!reticulate::condaenv_exists("ctidygenclust"))
+skip_on_cran()
 
 test_that("gt_fastmixture", {
   library(tidypopgen)

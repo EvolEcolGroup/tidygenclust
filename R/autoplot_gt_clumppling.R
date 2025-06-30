@@ -59,7 +59,7 @@ autoplot.gt_clumppling <- function(
         )
       )
     }
-    group_x <- cumsum(table(forcats::fct_inorder(group)))
+    group_x <- cumsum(table(fct_inorder_base(group)))
   } else {
     group_x <- NULL
   }

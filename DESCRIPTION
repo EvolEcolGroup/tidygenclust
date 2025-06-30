@@ -1,13 +1,24 @@
 Package: tidygenclust
 Title: Clustering for Population Genetics in R
-Version: 0.0.0.9000
-Authors@R: 
-    person("Andrea", "Manica", , "am315@cam.ac.uk", role = c("aut", "cre"),
+Version: 0.1.0
+Authors@R: c(
+    person("Eirlys", "Tysall", role = c("aut")),
+    person("Hovhannisyan", "Anahit", role = c("aut")),
+    person("Andrea", "Pozzi", role = c("aut")),
+    person("Cecilia", "Padilla-Iglesias", role =  c("aut")),
+    person("Michela", "Leonardi", role = c("aut")),
+    person("Aramish", "Fatima", role = c("aut")),
+    person("Ondrej", "Pelanek", role = c("aut")),
+    person("Nile", "Stephenson", role = c("aut")),
+    person("Margherita", "Colucci", role = c("aut")),
+        person("Andrea", "Manica", , "am315@cam.ac.uk", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-1895-450X"))
+    )
 Description: A tidy interface to clustering in population genetics. This package provides a set of
   functions to perform clustering on genetic data, and to visualize the results, both for single
-  runs and for multiple repeats of the same analysis. It is built on top of the 'tidypopgen' package, but
-  can also use PLINK input files.
+  runs and for multiple repeats of the same analysis. 'tidygenclust' ports the 'fastmixture' 
+  and 'clumppling' python modules to R, and it is built on top of the 'tidypopgen' package.
+  Currently it works only on Linux and OSX (you can use the WSL on Windows).
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -16,10 +27,8 @@ Depends:
     R (>= 3.5.0)
 Imports:
     dplyr,
-    forcats,
     generics,
     ggplot2,
-    magrittr,
     patchwork,
     reticulate,
     rlang,
