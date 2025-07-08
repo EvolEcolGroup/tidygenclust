@@ -3,7 +3,8 @@ Title: Clustering for Population Genetics in R
 Version: 0.1.0
 Authors@R: c(
     person("Eirlys", "Tysall", role = c("aut")),
-    person("Hovhannisyan", "Anahit", role = c("aut")),
+    person("Anahit", "Hovhannisyan", role = c("aut")),
+    person("Evie", "Carter", role = c("aut")),
     person("Andrea", "Pozzi", role = c("aut")),
     person("Cecilia", "Padilla-Iglesias", role =  c("aut")),
     person("Michela", "Leonardi", role = c("aut")),
