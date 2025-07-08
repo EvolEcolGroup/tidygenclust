@@ -34,10 +34,11 @@ pak::pak("EvolEcolGroup/tidygenclust")
 
 **Note for MacOS user**
 
-We use `reticulate` to seamlessly integrate the required python packages or dependencies
-into R without additional install steps for the user. 
-However, for this to work correctly as **MacOS user**, you need 
-to be sure that you have `llvm` installed in the first place:\
+We use `reticulate` to seamlessly integrate the required python packages
+and dependencies
+into R without additional installation steps for the user. 
+However, for this to work correctly for **MacOS users**, you need 
+`llvm` installed in the first place. In *bash*, you will need:\
 
 ``` bash
 # llvm can be installed via brew
