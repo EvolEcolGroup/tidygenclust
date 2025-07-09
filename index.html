@@ -67,6 +67,7 @@
 </h1></div>
 <!-- badges: start -->
 
+<!-- badges: end -->
 <p><code>tidygenclust</code> provides functions and methods to run genetic clustering in R, using the commonly used ADMIXTURE program as we as the python package <code>fastmixture</code>. It also help to align and compare multiple runs of the same or different K using the functionalities of the python package <code>clumppling</code>. <code>tidygenclust</code> builds on <code>tidypopgen</code>, enhancing the grammar of population genetics with a focus on genetic clustering.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -75,6 +76,15 @@
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("pak")</span></span>
 <span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"EvolEcolGroup/tidygenclust"</span><span class="op">)</span></span></code></pre></div>
+<p><strong>Note for MacOS user</strong></p>
+<p>We use <code>reticulate</code> to seamlessly integrate the required python packages and dependencies into R without additional installation steps for the user. However, for this to work correctly for <strong>MacOS users</strong>, you need <code>llvm</code> installed in the first place. In <em>bash</em>, you will need:<br></p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># llvm can be installed via brew</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="ex">brew</span> install llvm libomp</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co"># correct paths need to be specified</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="bu">export</span> <span class="va">PATH</span><span class="op">=</span><span class="st">"/opt/homebrew/opt/llvm/bin:</span><span class="va">$PATH</span><span class="st">"</span> </span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="bu">export</span> <span class="va">CC</span><span class="op">=</span><span class="st">"/opt/homebrew/opt/llvm/bin/clang"</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="bu">export</span> <span class="va">CXX</span><span class="op">=</span><span class="st">"/opt/homebrew/opt/llvm/bin/clang++"</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="overview-of-functionality">Overview of functionality<a class="anchor" aria-label="anchor" href="#overview-of-functionality"></a>
