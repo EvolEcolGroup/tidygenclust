@@ -20,7 +20,6 @@
 #' @param threads the number of threads to use (1)
 #' @param seed the random seed (defaults to 42);it should be a vector of length
 #'   `repeats`
-#' @param outprefix the prefix of the output files (fastmixture)
 #' @param iter the maximum number of iterations (1000)
 #' @param tole the tolerance in log-likelihood units between iterations (1e-9)
 #' @param batches the number of maximum mini-batches (32)
@@ -36,7 +35,6 @@
 #' @param no_freqs do not save P-matrix (TRUE)
 #' @param random_init random initialisation of parameters (TRUE)
 #' @param safety add extra safety steps in unstable optimizations (TRUE)
-#' @param output_path the path where q matrices will be saved id save_q= TRUE
 #' @return an object of class `gt_admix`. See [tidypopgen::gt_admixture()] for
 #'   details.
 #' @export
@@ -47,14 +45,12 @@ gt_fastmixture <- function(
     n_runs = 1,
     threads = 1,
     seed = 42,
-    outprefix = "fastmixture",
     iter = 1000,
     tole = 1e-9,
     batches = 32,
     supervised = NULL,
     check = 5,
     power = 11,
-    output_path = getwd(),
     chunk = 8192,
     subsample = 0.7,
     min_subsample = 50000,
@@ -162,7 +158,7 @@ gt_fastmixture <- function(
   }
 
   # add info on algorithm
-  adm_list$algorithm <- "ADMIXTURE"
+  adm_list$algorithm <- "fastmixture"
 
   return(adm_list)
 }

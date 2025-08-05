@@ -12,13 +12,15 @@ gt_fastmixture(
   seed = 42,
   outprefix = "fastmixture",
   iter = 1000,
-  tole = 0.5,
+  tole = 1e-09,
   batches = 32,
   supervised = NULL,
   check = 5,
   power = 11,
-  output_path = getwd(),
   chunk = 8192,
+  subsample = 0.7,
+  min_subsample = 50000,
+  max_subsample = 5e+05,
   als_iter = 1000,
   als_tole = 1e-04,
   no_freqs = TRUE,
@@ -44,7 +46,7 @@ or a vector}
 
 \item{iter}{the maximum number of iterations (1000)}
 
-\item{tole}{the tolerance in log-likelihood units between iterations (0.5)}
+\item{tole}{the tolerance in log-likelihood units between iterations (1e-9)}
 
 \item{batches}{the number of maximum mini-batches (32)}
 
@@ -54,9 +56,13 @@ or a vector}
 
 \item{power}{number of power iterations in randomised SVD (11)}
 
-\item{output_path}{the path where q matrices will be saved id save_q= TRUE}
-
 \item{chunk}{the number of SPs in chunk operations (8192)}
+
+\item{subsample}{Fraction of SNPs to subsample in SVD/ALS (0.7)}
+
+\item{min_subsample}{Minimum number of SNPs to subsample in SVD/ALS (50000)}
+
+\item{max_subsample}{Maximum number of SNPs to subsample in SVD/ALS (500000)}
 
 \item{als_iter}{the maximum number of iterations in the ALS algorithm (1000)}
 
