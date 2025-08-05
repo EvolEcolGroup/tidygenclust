@@ -22,12 +22,15 @@
 #'   `repeats`
 #' @param outprefix the prefix of the output files (fastmixture)
 #' @param iter the maximum number of iterations (1000)
-#' @param tole the tolerance in log-likelihood units between iterations (0.5)
+#' @param tole the tolerance in log-likelihood units between iterations (1e-9)
 #' @param batches the number of maximum mini-batches (32)
 #' @param supervised the name fo the file with the supervised labels (NULL)
 #' @param check the number of iterations to check for convergence (5)
 #' @param power number of power iterations in randomised SVD (11)
 #' @param chunk the number of SPs in chunk operations (8192)
+#' @param subsample Fraction of SNPs to subsample in SVD/ALS (0.7)
+#' @param min_subsample Minimum number of SNPs to subsample in SVD/ALS (50000)
+#' @param max_subsample Maximum number of SNPs to subsample in SVD/ALS (500000)
 #' @param als_iter the maximum number of iterations in the ALS algorithm (1000)
 #' @param als_tole the tolerance for the RMSE of P between iterations (1e-4)
 #' @param no_freqs do not save P-matrix (TRUE)
@@ -46,13 +49,16 @@ gt_fastmixture <- function(
     seed = 42,
     outprefix = "fastmixture",
     iter = 1000,
-    tole = 0.5,
+    tole = 1e-9,
     batches = 32,
     supervised = NULL,
     check = 5,
     power = 11,
     output_path = getwd(),
     chunk = 8192,
+    subsample = 0.7,
+    min_subsample = 50000,
+    max_subsample = 500000,
     als_iter = 1000,
     als_tole = 1e-4,
     no_freqs = TRUE,
@@ -110,6 +116,9 @@ gt_fastmixture <- function(
         check = as.integer(check),
         power = as.integer(power),
         chunk = as.integer(chunk),
+        subsample = subsample,
+        min_subsample = as.integer(min_subsample),
+        max_subsample = as.integer(max_subsample),
         als_iter = as.integer(als_iter),
         als_tole = als_tole,
         no_freqs = no_freqs,

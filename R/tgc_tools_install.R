@@ -21,7 +21,7 @@
 
 tgc_tools_install <-
   function(reset = FALSE,
-           fastmixture_hash = "105eb99248d278cad320885190b919ad8a69be1b",
+           fastmixture_hash = "f913014669f4a235a1150669d4fbf0715bef42be",
            clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40") {
     if (.Platform$OS.type == "windows") {
       stop(
