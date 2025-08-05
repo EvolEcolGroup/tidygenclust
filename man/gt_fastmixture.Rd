@@ -10,7 +10,6 @@ gt_fastmixture(
   n_runs = 1,
   threads = 1,
   seed = 42,
-  outprefix = "fastmixture",
   iter = 1000,
   tole = 1e-09,
   batches = 32,
@@ -41,8 +40,6 @@ or a vector}
 
 \item{seed}{the random seed (defaults to 42);it should be a vector of length
 \code{repeats}}
-
-\item{outprefix}{the prefix of the output files (fastmixture)}
 
 \item{iter}{the maximum number of iterations (1000)}
 
