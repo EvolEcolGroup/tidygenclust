@@ -56,6 +56,18 @@ tgc_tools_install <-
         return(NULL)
       }
     }
+    # check that cadmixture86 does not exist
+    if (reticulate::condaenv_exists("cadmixture86")) {
+      if (reset) {
+        reticulate::conda_remove("cadmixture86")
+      } else {
+        message(
+          "The conda environment 'cadmixture86' already exists. Use ",
+          "'reset = TRUE' to reset it"
+        )
+        return(NULL)
+      }
+    }
 
     # install fastmixture
     reticulate::conda_create(
