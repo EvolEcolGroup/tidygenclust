@@ -278,44 +278,39 @@ specify a value for the number of clusters K.</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_res</span> <span class="op">&lt;-</span> <span class="va">anole_gt</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_fastmixture.html">gt_fastmixture</a></span><span class="op">(</span>k <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## -------------------------------------------------</span></span>
-<span><span class="co">## fastmixture v1.0.3</span></span>
+<span><span class="co">## fastmixture v1.1.1</span></span>
 <span><span class="co">## C.G. Santander, A. Refoyo-Martinez and J. Meisner</span></span>
 <span><span class="co">## K=3, seed=42, batches=32, threads=1</span></span>
 <span><span class="co">## -------------------------------------------------</span></span>
 <span><span class="co">## </span></span>
-<span><span class="co">## Loaded 46 samples and 3249 SNPs.</span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## WARNING: Few SNPs per mini-batch!</span></span>
+<span><span class="co">## </span></span>
 <span><span class="co">## Random initialization.</span></span>
 <span><span class="co">## Initial log-like: -220422.9</span></span>
-<span><span class="co">## Performed priming iteration  (0.0s)</span></span>
+<span><span class="co">## Performed priming iteration. (0.0s)</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## Estimating Q and P using mini-batch EM.</span></span>
 <span><span class="co">## Using 32 mini-batches.</span></span>
-<span><span class="co">## (5)  Log-like: -58511.2  (0.0s)</span></span>
-<span><span class="co">## (10) Log-like: -58499.3  (0.0s)</span></span>
-<span><span class="co">## (15) Log-like: -58487.9  (0.0s)</span></span>
-<span><span class="co">## (20) Log-like: -58483.5  (0.0s)</span></span>
-<span><span class="co">## (25) Log-like: -58472.6  (0.0s)</span></span>
-<span><span class="co">## (30) Log-like: -58453.3  (0.0s)</span></span>
-<span><span class="co">## (35) Log-like: -58458.6  (0.0s)</span></span>
+<span><span class="co">## (5)  Log-like: -65244.8  (0.0s)</span></span>
+<span><span class="co">## (10) Log-like: -59883.7  (0.0s)</span></span>
+<span><span class="co">## (15) Log-like: -60094.3  (0.0s)</span></span>
 <span><span class="co">## Halving mini-batches to 16.</span></span>
-<span><span class="co">## (40) Log-like: -58447.8  (0.0s)</span></span>
-<span><span class="co">## (45) Log-like: -58444.6  (0.0s)</span></span>
-<span><span class="co">## (50) Log-like: -58465.7  (0.0s)</span></span>
-<span><span class="co">## Turning on safety updates.</span></span>
-<span><span class="co">## (55) Log-like: -58442.5  (0.0s)</span></span>
-<span><span class="co">## (60) Log-like: -58444.4  (0.0s)</span></span>
+<span><span class="co">## (20) Log-like: -59933.9  (0.0s)</span></span>
+<span><span class="co">## (25) Log-like: -59964.4  (0.0s)</span></span>
 <span><span class="co">## Halving mini-batches to 8.</span></span>
-<span><span class="co">## (65) Log-like: -58439.3  (0.0s)</span></span>
-<span><span class="co">## (70) Log-like: -58438.9  (0.0s)</span></span>
+<span><span class="co">## (30) Log-like: -60797.6  (0.0s)</span></span>
+<span><span class="co">## Turning on safety updates.</span></span>
+<span><span class="co">## (35) Log-like: -64272.0  (0.0s)</span></span>
 <span><span class="co">## Halving mini-batches to 4.</span></span>
-<span><span class="co">## (75) Log-like: -58438.0  (0.0s)</span></span>
-<span><span class="co">## (80) Log-like: -58437.8  (0.0s)</span></span>
+<span><span class="co">## (40) Log-like: -63085.8  (0.0s)</span></span>
+<span><span class="co">## (45) Log-like: -64353.6  (0.0s)</span></span>
 <span><span class="co">## Halving mini-batches to 2.</span></span>
-<span><span class="co">## (85) Log-like: -58437.7  (0.0s)</span></span>
-<span><span class="co">## (90) Log-like: -58437.7  (0.0s)</span></span>
+<span><span class="co">## (50) Log-like: -59957.8  (0.0s)</span></span>
+<span><span class="co">## (55) Log-like: -65708.6  (0.0s)</span></span>
 <span><span class="co">## Running standard updates.</span></span>
 <span><span class="co">## No improvement. Returning with best estimate!</span></span>
-<span><span class="co">## Final log-likelihood: -58437.6</span></span>
+<span><span class="co">## Final log-likelihood: -59883.7</span></span>
 <span><span class="co">## Total elapsed time: 0m0s</span></span></code></pre>
 <p>This will <em>very</em> quickly return a single Q matrix, for one
 specified K value. But, most likely we want to explore multiple values
@@ -363,24 +358,24 @@ of K = 4 like so:</p>
 <span>  <span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/get_q_matrix.html" class="external-link">get_q_matrix</a></span><span class="op">(</span>k <span class="op">=</span> <span class="fl">4</span>, run <span class="op">=</span> <span class="fl">2</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##               .Q1          .Q2          .Q3          .Q4</span></span>
-<span><span class="co">## [1,] 9.999923e-06 9.999923e-06 9.999923e-06 9.999700e-01</span></span>
-<span><span class="co">## [2,] 9.999914e-06 9.999914e-06 9.999914e-06 9.999700e-01</span></span>
-<span><span class="co">## [3,] 3.179351e-01 6.820449e-01 9.999912e-06 9.999912e-06</span></span>
-<span><span class="co">## [4,] 9.999700e-01 9.999868e-06 9.999868e-06 9.999868e-06</span></span>
-<span><span class="co">## [5,] 2.626097e-01 7.373703e-01 9.999908e-06 9.999908e-06</span></span>
-<span><span class="co">## [6,] 9.999845e-06 9.999845e-06 9.999700e-01 9.999845e-06</span></span></code></pre>
+<span><span class="co">## [1,] 2.115600e-05 2.813873e-05 6.108197e-05 9.998896e-01</span></span>
+<span><span class="co">## [2,] 1.834057e-05 2.645122e-05 5.326335e-05 9.999019e-01</span></span>
+<span><span class="co">## [3,] 5.074471e-01 4.925329e-01 9.999875e-06 9.999875e-06</span></span>
+<span><span class="co">## [4,] 9.999318e-01 4.818752e-05 1.000000e-05 1.000000e-05</span></span>
+<span><span class="co">## [5,] 5.051094e-01 4.948706e-01 9.999879e-06 9.999879e-06</span></span>
+<span><span class="co">## [6,] 1.000000e-05 1.000000e-05 9.999464e-01 3.360893e-05</span></span></code></pre>
 <p>Or the P matrix of the first run of K = 3:</p>
 <div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/get_p_matrix.html" class="external-link">get_p_matrix</a></span><span class="op">(</span>k <span class="op">=</span> <span class="fl">3</span>, run <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##           [,1]      [,2]  [,3]</span></span>
-<span><span class="co">## [1,] 0.3920996 0.0000100 1e-05</span></span>
-<span><span class="co">## [2,] 0.1677997 0.8351086 1e-05</span></span>
-<span><span class="co">## [3,] 0.0000100 0.8396586 1e-05</span></span>
-<span><span class="co">## [4,] 0.1833421 0.4999566 1e-05</span></span>
-<span><span class="co">## [5,] 0.3321308 0.0000100 1e-05</span></span>
-<span><span class="co">## [6,] 0.2612136 0.9999900 1e-05</span></span></code></pre>
+<span><span class="co">## [1,] 0.4134744 0.0000100 1e-05</span></span>
+<span><span class="co">## [2,] 0.1700725 0.8064057 1e-05</span></span>
+<span><span class="co">## [3,] 0.0000100 0.8109002 1e-05</span></span>
+<span><span class="co">## [4,] 0.1812214 0.4957036 1e-05</span></span>
+<span><span class="co">## [5,] 0.3309743 0.0000100 1e-05</span></span>
+<span><span class="co">## [6,] 0.2258939 0.9999900 1e-05</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="visualising-the-results">Visualising the results<a class="anchor" aria-label="anchor" href="#visualising-the-results"></a>
@@ -416,14 +411,14 @@ use for the plot:</p>
 <span><span class="co">##    id         group            q     percentage</span></span>
 <span><span class="co">##    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>            <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
 <span><span class="co">## <span style="color: #BCBCBC;"> 1</span> punc_BM288 Amazonian_Forest .Q1   1.000     </span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 2</span> punc_BM288 Amazonian_Forest .Q2   0.000<span style="text-decoration: underline;">010</span>00</span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 3</span> punc_BM288 Amazonian_Forest .Q3   0.000<span style="text-decoration: underline;">010</span>00</span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 2</span> punc_BM288 Amazonian_Forest .Q2   0.000<span style="text-decoration: underline;">026</span>5 </span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 3</span> punc_BM288 Amazonian_Forest .Q3   0.000<span style="text-decoration: underline;">067</span>5 </span></span>
 <span><span class="co">## <span style="color: #BCBCBC;"> 4</span> punc_GN71  Amazonian_Forest .Q1   1.000     </span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 5</span> punc_GN71  Amazonian_Forest .Q2   0.000<span style="text-decoration: underline;">010</span>00</span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 6</span> punc_GN71  Amazonian_Forest .Q3   0.000<span style="text-decoration: underline;">010</span>00</span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 7</span> punc_H1907 Amazonian_Forest .Q1   0.000<span style="text-decoration: underline;">010</span>00</span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 5</span> punc_GN71  Amazonian_Forest .Q2   0.000<span style="text-decoration: underline;">023</span>7 </span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 6</span> punc_GN71  Amazonian_Forest .Q3   0.000<span style="text-decoration: underline;">058</span>7 </span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 7</span> punc_H1907 Amazonian_Forest .Q1   0.000<span style="text-decoration: underline;">023</span>7 </span></span>
 <span><span class="co">## <span style="color: #BCBCBC;"> 8</span> punc_H1907 Amazonian_Forest .Q2   1.000     </span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 9</span> punc_H1907 Amazonian_Forest .Q3   0.000<span style="text-decoration: underline;">010</span>00</span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 9</span> punc_H1907 Amazonian_Forest .Q3   0.000<span style="text-decoration: underline;">014</span>4 </span></span>
 <span><span class="co">## <span style="color: #BCBCBC;">10</span> punc_H1911 Amazonian_Forest .Q1   0.000<span style="text-decoration: underline;">010</span>00</span></span>
 <span><span class="co">## <span style="color: #949494;"># ℹ 128 more rows</span></span></span></code></pre>
 <p>In the Prates et al 2018 study, the anolis lizards were found to

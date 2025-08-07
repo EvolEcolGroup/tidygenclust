@@ -62,15 +62,16 @@ that you cite the relevant paper by Santander, Refoyo-Martínez, and Meisner
 <span>  n_runs <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  threads <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  seed <span class="op">=</span> <span class="fl">42</span>,</span>
-<span>  outprefix <span class="op">=</span> <span class="st">"fastmixture"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">1000</span>,</span>
-<span>  tole <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>  tole <span class="op">=</span> <span class="fl">1e-09</span>,</span>
 <span>  batches <span class="op">=</span> <span class="fl">32</span>,</span>
 <span>  supervised <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  check <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  power <span class="op">=</span> <span class="fl">11</span>,</span>
-<span>  output_path <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  chunk <span class="op">=</span> <span class="fl">8192</span>,</span>
+<span>  subsample <span class="op">=</span> <span class="fl">0.7</span>,</span>
+<span>  min_subsample <span class="op">=</span> <span class="fl">50000</span>,</span>
+<span>  max_subsample <span class="op">=</span> <span class="fl">5e+05</span>,</span>
 <span>  als_iter <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  als_tole <span class="op">=</span> <span class="fl">1e-04</span>,</span>
 <span>  no_freqs <span class="op">=</span> <span class="cn">TRUE</span>,</span>
@@ -106,16 +107,12 @@ or a vector</p></dd>
 <code>repeats</code></p></dd>
 
 
-<dt id="arg-outprefix">outprefix<a class="anchor" aria-label="anchor" href="#arg-outprefix"></a></dt>
-<dd><p>the prefix of the output files (fastmixture)</p></dd>
-
-
 <dt id="arg-iter">iter<a class="anchor" aria-label="anchor" href="#arg-iter"></a></dt>
 <dd><p>the maximum number of iterations (1000)</p></dd>
 
 
 <dt id="arg-tole">tole<a class="anchor" aria-label="anchor" href="#arg-tole"></a></dt>
-<dd><p>the tolerance in log-likelihood units between iterations (0.5)</p></dd>
+<dd><p>the tolerance in log-likelihood units between iterations (1e-9)</p></dd>
 
 
 <dt id="arg-batches">batches<a class="anchor" aria-label="anchor" href="#arg-batches"></a></dt>
@@ -134,12 +131,20 @@ or a vector</p></dd>
 <dd><p>number of power iterations in randomised SVD (11)</p></dd>
 
 
-<dt id="arg-output-path">output_path<a class="anchor" aria-label="anchor" href="#arg-output-path"></a></dt>
-<dd><p>the path where q matrices will be saved id save_q= TRUE</p></dd>
-
-
 <dt id="arg-chunk">chunk<a class="anchor" aria-label="anchor" href="#arg-chunk"></a></dt>
 <dd><p>the number of SPs in chunk operations (8192)</p></dd>
+
+
+<dt id="arg-subsample">subsample<a class="anchor" aria-label="anchor" href="#arg-subsample"></a></dt>
+<dd><p>Fraction of SNPs to subsample in SVD/ALS (0.7)</p></dd>
+
+
+<dt id="arg-min-subsample">min_subsample<a class="anchor" aria-label="anchor" href="#arg-min-subsample"></a></dt>
+<dd><p>Minimum number of SNPs to subsample in SVD/ALS (50000)</p></dd>
+
+
+<dt id="arg-max-subsample">max_subsample<a class="anchor" aria-label="anchor" href="#arg-max-subsample"></a></dt>
+<dd><p>Maximum number of SNPs to subsample in SVD/ALS (500000)</p></dd>
 
 
 <dt id="arg-als-iter">als_iter<a class="anchor" aria-label="anchor" href="#arg-als-iter"></a></dt>
