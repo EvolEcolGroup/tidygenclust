@@ -54,7 +54,7 @@ jobs:
           needs: check
 
       - name: brew installs
-        if: config == 'macos-14' || config == 'macos-latest'
+        if: matrix.config.os == 'macos-latest' || matrix.config.os == 'macos-14'
         run: |
           brew install libomp
           brew install llvm
