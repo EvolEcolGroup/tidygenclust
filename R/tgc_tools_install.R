@@ -146,34 +146,36 @@ tgc_tools_install <-
       }
 
       ## https://github.com/rstudio/reticulate/issues/905
-      reticulate::conda_run2(cmd_line = fast_install_cmd,
-                             envname = "ctidygenclust")
+      reticulate::conda_run2(
+        cmd_line = fast_install_cmd,
+        envname = "ctidygenclust"
+      )
     } else if (conda_method == "conda_yaml") {
       # create a conda environment with the necessary packages
       # using a conda yml file
-      if(!ci_install) {
+      if (!ci_install) {
         yml_path <- system.file("python/env_osx.yml", package = "tidygenclust")
       } else {
         yml_path <- "inst/python/env_osx.yml"
       }
-      
+
       cat("yaml path is :\n")
       cat(yml_path)
       cat("\n")
-      
+
       system(
-        command = paste("export PATH=\"/opt/homebrew/opt/llvm/bin:$PATH\"; conda env create -f '",
-         yml_path,"'", collapse = "", sep = ""
+        command = paste("export PATH=\"/opt/homebrew/opt/llvm/bin:$PATH\"; conda env create -f '", # nolint
+          yml_path, "'",
+          collapse = "", sep = ""
+        )
       )
-      )
-      
+
       # system2(command = "conda",
       #   args = paste("env create -f '",
       #                yml_path,
       #                "'", collapse = "", sep = ""
       #   )
-      # )      
-      
+      # )
     }
 
     # if on osx or linux, install admixture
