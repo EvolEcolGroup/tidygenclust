@@ -7,8 +7,8 @@ dependencies:
   - pip:
     - fastmixture
 variables:
-  CC: clang
-  CXX: clang++
+  CC: /opt/homebrew/opt/llvm/bin/clang
+  CXX: /opt/homebrew/opt/llvm/bin/clang++
   CFLAGS: -fopenmp
   CXXFLAGS: -fopenmp
   LDFLAGS: -fopenmp
