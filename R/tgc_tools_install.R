@@ -13,11 +13,11 @@
 #' this might lead to incompatibilities and errors.
 #'
 #' We have found installation on OSX to be tricky, so we provide two methods
-#' for installing `fastmixture` on OSX: `reticulate` and `conda_yml`. The
+#' for installing `fastmixture` on OSX: `reticulate` and `conda_yaml`. The
 #' `reticulate` method uses the `reticulate::conda_run2()` function to run
-#' installation commands, while the `conda_yml` method creates a conda
+#' installation commands, while the `conda_yaml` method creates a conda
 #' environment directly with conda. If the `reticulate` method fails, you can
-#' use the `conda_yml` method to create the environment directly with conda.
+#' use the `conda_yaml` method to create the environment directly with conda.
 #' For OSX, you might also need to install a suitable compiler for openmp
 #' using `brew` in `bash`, setting the correct paths to use it:
 #'
@@ -38,7 +38,7 @@
 #' used for `fastmixture`. Default is `reticulate`, which uses the
 #' `reticulate::conda_run2()` function to run the installation commands (this is
 #' the default, and the only method for Linux.
-#' Alternatively, for OSX, you can use `conda_yml`, which will create a conda
+#' Alternatively, for OSX, you can use `conda_yaml`, which will create a conda
 #' environment directly with conda. Use this second method if "reticulate" fails
 #' whilst trying to install on OSX.
 #' @returns NULL
@@ -48,7 +48,7 @@ tgc_tools_install <-
   function(reset = FALSE,
            fastmixture_hash = "f913014669f4a235a1150669d4fbf0715bef42be",
            clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40",
-           conda_method = c("reticulate", "conda_yml")) {
+           conda_method = c("reticulate", "conda_yaml")) {
     # give error for windows
     if (.Platform$OS.type == "windows") {
       stop(
@@ -141,7 +141,7 @@ tgc_tools_install <-
       ## https://github.com/rstudio/reticulate/issues/905
       reticulate::conda_run2(cmd_line = fast_install_cmd,
                              envname = "ctidygenclust")
-    } else if (conda_method == "conda_yml") {
+    } else if (conda_method == "conda_yaml") {
       # create a conda environment with the necessary packages
       # using a conda yml file
       reticulate::conda_run2(

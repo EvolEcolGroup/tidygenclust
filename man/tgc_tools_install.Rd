@@ -8,7 +8,7 @@ tgc_tools_install(
   reset = FALSE,
   fastmixture_hash = "f913014669f4a235a1150669d4fbf0715bef42be",
   clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40",
-  conda_method = c("reticulate", "conda_yml")
+  conda_method = c("reticulate", "conda_yaml")
 )
 }
 \arguments{
@@ -25,7 +25,7 @@ version to install. Default is the latest tested version.}
 used for \code{fastmixture}. Default is \code{reticulate}, which uses the
 \code{reticulate::conda_run2()} function to run the installation commands (this is
 the default, and the only method for Linux.
-Alternatively, for OSX, you can use \code{conda_yml}, which will create a conda
+Alternatively, for OSX, you can use \code{conda_yaml}, which will create a conda
 environment directly with conda. Use this second method if "reticulate" fails
 whilst trying to install on OSX.}
 }
@@ -44,11 +44,11 @@ possible to provide a more recent github commit for a specific tool, but
 this might lead to incompatibilities and errors.
 
 We have found installation on OSX to be tricky, so we provide two methods
-for installing \code{fastmixture} on OSX: \code{reticulate} and \code{conda_yml}. The
+for installing \code{fastmixture} on OSX: \code{reticulate} and \code{conda_yaml}. The
 \code{reticulate} method uses the \code{reticulate::conda_run2()} function to run
-installation commands, while the \code{conda_yml} method creates a conda
+installation commands, while the \code{conda_yaml} method creates a conda
 environment directly with conda. If the \code{reticulate} method fails, you can
-use the \code{conda_yml} method to create the environment directly with conda.
+use the \code{conda_yaml} method to create the environment directly with conda.
 For OSX, you might also need to install a suitable compiler for openmp
 using \code{brew} in \code{bash}, setting the correct paths to use it:
 
