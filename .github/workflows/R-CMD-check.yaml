@@ -62,13 +62,6 @@ jobs:
           export CXX="/opt/homebrew/opt/llvm/bin/clang++"
           Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install(conda_method = "conda_yaml", ci_install = TRUE)'
 
-      - name: Install external tools
-        run: |
-          source("./R/tgc_tools_install.R")
-          tgc_tools_install(conda_method = "conda_yaml", ci_install = TRUE)
-        shell: Rscript {0}
-
-
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true

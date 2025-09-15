@@ -29,6 +29,12 @@ the default, and the only method for Linux.
 Alternatively, for OSX, you can use \code{conda_yaml}, which will create a conda
 environment directly with conda. Use this second method if "reticulate" fails
 whilst trying to install on OSX.}
+
+\item{ci_install}{a boolean indicating if the installation is being run on
+continuous integration (CI) services. Default is FALSE. If TRUE, the
+function will look for the conda yaml file in the \code{inst/python} folder
+of the package source directory, rather than in the installed package
+directory. This is useful when testing the package on CI services.}
 }
 \description{
 \code{tidygenclust} relies on the \code{admxiture} and on python packages \code{fastmixture}
