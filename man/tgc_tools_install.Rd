@@ -8,7 +8,8 @@ tgc_tools_install(
   reset = FALSE,
   fastmixture_hash = "f913014669f4a235a1150669d4fbf0715bef42be",
   clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40",
-  conda_method = c("reticulate", "conda_yaml")
+  conda_method = c("reticulate", "conda_yaml"),
+  ci_install = FALSE
 )
 }
 \arguments{
