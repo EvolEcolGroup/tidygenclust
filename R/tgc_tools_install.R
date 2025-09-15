@@ -144,15 +144,14 @@ tgc_tools_install <-
     } else if (conda_method == "conda_yaml") {
       # create a conda environment with the necessary packages
       # using a conda yml file
-      reticulate::conda_run2(
+      system2(
         cmd = "conda",
         args = c(
           "env",
           "create",
           "-f",
           system.file("python/env_osx.yml", package = "tidygenclust")
-        ),
-        echo = TRUE
+        )
       )
     }
 
