@@ -160,13 +160,20 @@ tgc_tools_install <-
       cat(yml_path)
       cat("\n")
       
-      system2(
-        command = "conda",
-        args = paste("env create -f '",
-          yml_path,
-        "'", collapse = "", sep = ""
+      system(
+        command = paste("export PATH=",sQuote("/opt/homebrew/opt/llvm/bin:$PATH"),"; conda env create -f ",
+          sQuote(yml_path)
+        , collapse = "", sep = ""
       )
       )
+      
+      # system2(command = "conda",
+      #   args = paste("env create -f '",
+      #                yml_path,
+      #                "'", collapse = "", sep = ""
+      #   )
+      # )      
+      
     }
 
     # if on osx or linux, install admixture
