@@ -56,7 +56,7 @@ tgc_tools_install <-
         "for Linux (WSL) instead"
       )
     }
-    
+
     # check ctidygenclust does not exist
     if (reticulate::condaenv_exists("ctidygenclust")) {
       if (reset) {
@@ -101,9 +101,9 @@ tgc_tools_install <-
     if (Sys.info()["sysname"] == "Linux") {
       conda_method <- "reticulate"
     }
-    
+
     # install fastmixture
-    
+
     # if method is reticulate
     if (conda_method == "reticulate") {
       # create a conda environment with the necessary packages
@@ -119,7 +119,7 @@ tgc_tools_install <-
         "git+https://github.com/Rosemeis/fastmixture.git@",
         fastmixture_hash
       )
-      
+
       # on OSX we need to also install a suitable compiler for openmp
       if (Sys.info()["sysname"] == "Darwin") {
         # install clang and llvm-openmp
@@ -137,11 +137,10 @@ tgc_tools_install <-
           fast_install_cmd
         )
       }
-      
+
       ## https://github.com/rstudio/reticulate/issues/905
-      reticulate::conda_run2(cmd_line = fast_install_cmd, envname = "ctidygenclust")
-      
-      
+      reticulate::conda_run2(cmd_line = fast_install_cmd,
+                             envname = "ctidygenclust")
     } else if (conda_method == "conda_yml") {
       # create a conda environment with the necessary packages
       # using a conda yml file
@@ -156,7 +155,7 @@ tgc_tools_install <-
         echo = TRUE
       )
     }
-    
+
     # if on osx or linux, install admixture
     if (.Platform$OS.type == "unix") {
       if ((Sys.info()["sysname"] == "Linux")) {
@@ -170,10 +169,13 @@ tgc_tools_install <-
         # ADMIXTURE is only available for osx as x86 in bioconda
         # so we have to create a new environment and set it to x86_64
         reticulate::conda_create("cadmixture86",
-                                 channel = c("bioconda", "conda-forge", "defaults"))
-        reticulate::conda_run2(cmd = "conda",
-                               arg = "config --env --set subdir osx-64",
-                               envname = "cadmixture86")
+          channel = c("bioconda", "conda-forge", "defaults")
+        )
+        reticulate::conda_run2(
+          cmd = "conda",
+          arg = "config --env --set subdir osx-64",
+          envname = "cadmixture86"
+        )
         # install admixture in the new environment
         reticulate::conda_install(
           envname = "cadmixture86",
@@ -182,9 +184,9 @@ tgc_tools_install <-
         )
       }
     }
-    
-    
-    
+
+
+
     #########################################################################
     # now install clumpling in its own conda environment
     # since its dependencies are not compatible with the ones of fastmixture
@@ -204,7 +206,7 @@ tgc_tools_install <-
       ),
       envname = "cclumppling"
     )
-    
+
     #########################################################################
     # activate ctidygenclust with the python functions
     reticulate::use_condaenv("ctidygenclust", required = FALSE)
