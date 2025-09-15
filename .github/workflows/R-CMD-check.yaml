@@ -20,6 +20,7 @@ jobs:
       matrix:
         config:
           - {os: macos-14,   r: 'release',  py: "3.11" }
+          - {os: macos-latest,   r: 'release',  py: "3.11" }
 #          - {os: windows-latest, r: 'release',  py: "3.11" }
           - {os: ubuntu-latest,   r: 'devel',  py: "3.11",  http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
@@ -58,7 +59,7 @@ jobs:
             repos = c('https://evolecolgroup.r-universe.dev',
                       'https://cloud.r-project.org'))
           source("./R/tgc_tools_install.R")
-          tgc_tools_install()
+          tgc_tools_install(conda_method = "conda_yaml")
         shell: Rscript {0}
 
 
