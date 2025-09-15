@@ -1,11 +1,13 @@
 #' Install tools for `tidygenclust`
 #'
-#' `tidygenclust` relies on the `admxiture` and on python packages `fastmixture`
+#' `tidygenclust` relies on `ADMIXTURE` and on python packages `fastmixture`
 #' and `clumppling` for a number of
 #' functionalities. We use `reticulate` to install them in conda
 #' environments. As their dependencies are incompatible, we use two separate
-#' conda environment, `ctidygenclust` (for `fastmixture` and `admixture`) and
-#' `cclumppling` (for `clumppling`).
+#' conda environments, `ctidygenclust` (for `fastmixture` and `admixture`) and
+#' `cclumppling` (for `clumppling`). Additionally, for silicon Macs, `ADMIXTURE`
+#' is installed in a separate conda environment `cadmixture86`, as it is only
+#' available for OSX as x86 in bioconda.
 #' @details
 #' For each tool, default to the latest tested version of
 #' these packages that have been tested to work with `tidegenclust`. It is
@@ -22,12 +24,7 @@
 #' using `brew` in `bash`, setting the correct paths to use it:
 #'
 #' `brew install llvm libomp`
-#'
-#' `export PATH="/opt/homebrew/opt/llvm/bin:$PATH"`
-#'
-#' `export CC="/opt/homebrew/opt/llvm/bin/clang"`
-#'
-#' `export CXX="/opt/homebrew/opt/llvm/bin/clang++"`
+#' 
 #' @param reset a boolean used to reset the virtual environment. Only set
 #' to TRUE if you have a broken virtual environment that you want to reset.
 #' @param fastmixture_hash a string with the commit hash of the `fastmixture`
@@ -63,6 +60,21 @@ tgc_tools_install <-
       )
     }
 
+    # for osx, check that we have installed the right packages in brew
+    if (Sys.info()["sysname"] == "Darwin") {
+      brew_pkgs <- c("llvm", "libomp")
+      if (!all(brew_installed(brew_pkgs))) {
+        stop(
+          paste0(
+            "On OSX, please install the following packages with brew: ",
+            paste(brew_pkgs, collapse = ", "),
+            ". See ?tgc_tools_install for details"
+          )
+        )
+      }
+    }
+    
+    
     # check ctidygenclust does not exist
     if (reticulate::condaenv_exists("ctidygenclust")) {
       if (reset) {
@@ -233,3 +245,12 @@ tgc_tools_install <-
     # activate ctidygenclust with the python functions
     reticulate::use_condaenv("ctidygenclust", required = FALSE)
   }
+
+# check if package is installed with brew
+brew_installed <- function(pkgs) {
+  vapply(pkgs, function(pkg) {
+    status <- system2("brew", args = c("list", "--versions", pkg),
+                      stdout = FALSE, stderr = FALSE)
+    status == 0
+  }, logical(1))
+}
