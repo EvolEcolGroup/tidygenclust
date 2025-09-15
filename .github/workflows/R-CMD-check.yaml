@@ -53,6 +53,11 @@ jobs:
             any::devtools
           needs: check
 
+      - name: brew installs
+        run: |
+          brew install libomp
+          brew install llvm
+
       - name: Install external tools
         run: |
           install.packages('tidypopgen',
