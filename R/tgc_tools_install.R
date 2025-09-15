@@ -144,6 +144,11 @@ tgc_tools_install <-
     } else if (conda_method == "conda_yaml") {
       # create a conda environment with the necessary packages
       # using a conda yml file
+      cat(paste("env create -f '",
+                system.file("python/env_osx.yml", package = "tidygenclust"),
+                "'", collapse = "", sep = ""
+      ))
+      
       system2(
         command = "conda",
         args = paste("env create -f '",
