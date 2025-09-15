@@ -146,13 +146,13 @@ tgc_tools_install <-
       # using a conda yml file
       system2(
         command = "conda",
-        args = c(
+        args = paste(c(
           "env",
           "create",
           "-f",
           system.file("python/env_osx.yml", package = "tidygenclust")
-        )
-      )
+        ), collapse = " "
+      ))
     }
 
     # if on osx or linux, install admixture
