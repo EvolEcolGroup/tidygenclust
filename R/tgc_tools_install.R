@@ -161,9 +161,8 @@ tgc_tools_install <-
       cat("\n")
       
       system(
-        command = paste("export PATH=",sQuote("/opt/homebrew/opt/llvm/bin:$PATH"),"; conda env create -f ",
-          sQuote(yml_path)
-        , collapse = "", sep = ""
+        command = paste("export PATH=\"/opt/homebrew/opt/llvm/bin:$PATH\"; conda env create -f '",
+         yml_path,"'", collapse = "", sep = ""
       )
       )
       
