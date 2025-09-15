@@ -24,7 +24,7 @@
 #' using `brew` in `bash`, setting the correct paths to use it:
 #'
 #' `brew install llvm libomp`
-#' 
+#'
 #' @param reset a boolean used to reset the virtual environment. Only set
 #' to TRUE if you have a broken virtual environment that you want to reset.
 #' @param fastmixture_hash a string with the commit hash of the `fastmixture`
@@ -73,8 +73,8 @@ tgc_tools_install <-
         )
       }
     }
-    
-    
+
+
     # check ctidygenclust does not exist
     if (reticulate::condaenv_exists("ctidygenclust")) {
       if (reset) {
@@ -249,8 +249,10 @@ tgc_tools_install <-
 # check if package is installed with brew
 brew_installed <- function(pkgs) {
   vapply(pkgs, function(pkg) {
-    status <- system2("brew", args = c("list", "--versions", pkg),
-                      stdout = FALSE, stderr = FALSE)
+    status <- system2("brew",
+      args = c("list", "--versions", pkg),
+      stdout = FALSE, stderr = FALSE
+    )
     status == 0
   }, logical(1))
 }
