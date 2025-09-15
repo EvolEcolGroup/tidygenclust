@@ -60,7 +60,8 @@ jobs:
           # export PATH="/opt/homebrew/opt/llvm/bin:$PATH" 
           # export CC="/opt/homebrew/opt/llvm/bin/clang"
           # export CXX="/opt/homebrew/opt/llvm/bin/clang++"
-          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install(conda_method = "conda_yaml", ci_install = TRUE)'
+          # Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install(conda_method = "conda_yaml", ci_install = TRUE)'
+          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install(ci_install = TRUE)'
 
       - uses: r-lib/actions/check-r-package@v2
         with:

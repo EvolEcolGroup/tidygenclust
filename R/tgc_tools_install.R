@@ -135,6 +135,7 @@ tgc_tools_install <-
           channel = c("conda-forge", "defaults")
         )
         fast_install_cmd <- c(
+          "export PATH=\"/opt/homebrew/opt/llvm/bin:$PATH\"",
           "export CC=clang",
           "export CXX=clang++",
           "export CFLAGS=-fopenmp",
