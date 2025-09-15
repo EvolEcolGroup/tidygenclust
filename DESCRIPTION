@@ -37,8 +37,6 @@ Imports:
     tidypopgen,
     tidyr,
     utils
-Remotes:
-    EvolEcolGroup/tidypopgen
 Suggests: 
     knitr,
     readr,
