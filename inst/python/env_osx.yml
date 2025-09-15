@@ -7,7 +7,6 @@ dependencies:
   - pip:
     - fastmixture
 variables:
-  PATH: /opt/homebrew/opt/llvm/bin $PATH
   CC: clang
   CXX: clang++
   CFLAGS: -fopenmp
