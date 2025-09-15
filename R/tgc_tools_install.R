@@ -145,7 +145,7 @@ tgc_tools_install <-
       # create a conda environment with the necessary packages
       # using a conda yml file
       system2(
-        cmd = "conda",
+        command = "conda",
         args = c(
           "env",
           "create",
