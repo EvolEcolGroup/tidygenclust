@@ -148,7 +148,7 @@ tgc_tools_install <-
       if(!ci_install) {
         yml_path <- system.file("python/env_osx.yml", package = "tidygenclust")
       } else {
-        yml_path <- "inst/python/env_osx_ci.yml"
+        yml_path <- "inst/python/env_osx.yml"
       }
       
       cat("yaml path is :\n")
