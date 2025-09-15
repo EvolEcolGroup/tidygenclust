@@ -48,7 +48,8 @@ tgc_tools_install <-
   function(reset = FALSE,
            fastmixture_hash = "f913014669f4a235a1150669d4fbf0715bef42be",
            clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40",
-           conda_method = c("reticulate", "conda_yaml")) {
+           conda_method = c("reticulate", "conda_yaml"),
+           ci_install = FALSE) {
     # give error for windows
     if (.Platform$OS.type == "windows") {
       stop(
@@ -144,15 +145,20 @@ tgc_tools_install <-
     } else if (conda_method == "conda_yaml") {
       # create a conda environment with the necessary packages
       # using a conda yml file
-      cat(paste("env create -f '",
-                system.file("python/env_osx.yml", package = "tidygenclust"),
-                "'", collapse = "", sep = ""
-      ))
+      if(!ci_install) {
+        yml_path <- system.file("python/env_osx.yml", package = "tidygenclust")
+      } else {
+        yml_path <- "inst/python/env_osx_ci.yml"
+      }
+      
+      cat("yaml path is :\n")
+      cat(yml_path)
+      cat("\n")
       
       system2(
         command = "conda",
         args = paste("env create -f '",
-          system.file("python/env_osx.yml", package = "tidygenclust"),
+          yml_path,
         "'", collapse = "", sep = ""
       )
       )

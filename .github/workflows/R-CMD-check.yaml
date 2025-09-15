@@ -59,7 +59,7 @@ jobs:
             repos = c('https://evolecolgroup.r-universe.dev',
                       'https://cloud.r-project.org'))
           source("./R/tgc_tools_install.R")
-          tgc_tools_install(conda_method = "conda_yaml")
+          tgc_tools_install(conda_method = "conda_yaml", ci_install = TRUE)
         shell: Rscript {0}
 
 
