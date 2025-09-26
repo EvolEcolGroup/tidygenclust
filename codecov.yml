@@ -1,0 +1,17 @@
+coverage:
+  status:
+    project:
+      default:
+        # basic
+        target: 80%
+        threshold: 5%
+        base: auto
+    patch:
+      default:
+        # basic
+        target: 80%
+        threshold: 5%
+        base: auto
+ignore:
+  - "R/tgc_tools_install.R"
+  - "R/tgc_tools_version.R"
