@@ -7,7 +7,9 @@
 tgc_tools_install(
   reset = FALSE,
   fastmixture_hash = "f913014669f4a235a1150669d4fbf0715bef42be",
-  clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40"
+  clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40",
+  conda_method = c("reticulate", "conda_yaml"),
+  ci_install = FALSE
 )
 }
 \arguments{
@@ -19,6 +21,20 @@ version to install. Default is the latest tested version.}
 
 \item{clumppling_hash}{a string with the commit hash of the \code{clumppling}
 version to install. Default is the latest tested version.}
+
+\item{conda_method}{a string indicating the method to create the environment
+used for \code{fastmixture}. Default is \code{reticulate}, which uses the
+\code{reticulate::conda_run2()} function to run the installation commands (this is
+the default, and the only method for Linux.
+Alternatively, for OSX, you can use \code{conda_yaml}, which will create a conda
+environment directly with conda. Use this second method if "reticulate" fails
+whilst trying to install on OSX.}
+
+\item{ci_install}{a boolean indicating if the installation is being run on
+continuous integration (CI) services. Default is FALSE. If TRUE, the
+function will look for the conda yaml file in the \code{inst/python} folder
+of the package source directory, rather than in the installed package
+directory. This is useful when testing the package on CI services.}
 }
 \description{
 \code{tidygenclust} relies on the \code{admxiture} and on python packages \code{fastmixture}
@@ -27,8 +43,27 @@ functionalities. We use \code{reticulate} to install them in conda
 environments. As their dependencies are incompatible, we use two separate
 conda environment, \code{ctidygenclust} (for \code{fastmixture} and \code{admixture}) and
 \code{cclumppling} (for \code{clumppling}).
+}
+\details{
 For each tool, default to the latest tested version of
 these packages that have been tested to work with \code{tidegenclust}. It is
 possible to provide a more recent github commit for a specific tool, but
 this might lead to incompatibilities and errors.
+
+We have found installation on OSX to be tricky, so we provide two methods
+for installing \code{fastmixture} on OSX: \code{reticulate} and \code{conda_yaml}. The
+\code{reticulate} method uses the \code{reticulate::conda_run2()} function to run
+installation commands, while the \code{conda_yaml} method creates a conda
+environment directly with conda. If the \code{reticulate} method fails, you can
+use the \code{conda_yaml} method to create the environment directly with conda.
+For OSX, you might also need to install a suitable compiler for openmp
+using \code{brew} in \code{bash}, setting the correct paths to use it:
+
+\verb{brew install llvm libomp}
+
+\verb{export PATH="/opt/homebrew/opt/llvm/bin:$PATH"}
+
+\verb{export CC="/opt/homebrew/opt/llvm/bin/clang"}
+
+\verb{export CXX="/opt/homebrew/opt/llvm/bin/clang++"}
 }

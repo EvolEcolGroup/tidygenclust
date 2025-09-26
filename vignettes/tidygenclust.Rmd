@@ -67,16 +67,11 @@ We use `reticulate` to seamlessly integrate the required python packages
 and dependencies
 into R without additional installation steps for the user. 
 However, for this to work correctly for **MacOS users**, you need 
-`llvm` installed in the first place. In *bash*, you will need:\
+`llvm` installed via `brew` in the first place. In `bash`, you will need:\
 
 ``` bash
 # llvm can be installed via brew
 brew install llvm libomp
-
-# correct paths need to be specified
-export PATH="/opt/homebrew/opt/llvm/bin:$PATH" 
-export CC="/opt/homebrew/opt/llvm/bin/clang"
-export CXX="/opt/homebrew/opt/llvm/bin/clang++"
 ```
 
 
