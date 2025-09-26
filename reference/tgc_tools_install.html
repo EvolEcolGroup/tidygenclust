@@ -4,11 +4,7 @@ and clumppling for a number of
 functionalities. We use reticulate to install them in conda
 environments. As their dependencies are incompatible, we use two separate
 conda environment, ctidygenclust (for fastmixture and admixture) and
-cclumppling (for clumppling).
-For each tool, default to the latest tested version of
-these packages that have been tested to work with tidegenclust. It is
-possible to provide a more recent github commit for a specific tool, but
-this might lead to incompatibilities and errors."><meta property="og:image" content="/logo.png"><!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha256-nvJJv9wWKEm88qvoQl9ekL2J+k/RWIsaSScxxlsrv8k=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/config/TeX-AMS-MML_HTMLorMML.js" integrity="sha256-84DKXVJXs0/F8OTMzX4UR909+jtl4G7SPypPavF+GfA=" crossorigin="anonymous"></script><!--[if lt IE 9]>
+cclumppling (for clumppling)."><meta property="og:image" content="/logo.png"><!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha256-nvJJv9wWKEm88qvoQl9ekL2J+k/RWIsaSScxxlsrv8k=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/config/TeX-AMS-MML_HTMLorMML.js" integrity="sha256-84DKXVJXs0/F8OTMzX4UR909+jtl4G7SPypPavF+GfA=" crossorigin="anonymous"></script><!--[if lt IE 9]>
 <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
 <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
 <![endif]--></head><body data-spy="scroll" data-target="#toc">
@@ -60,18 +56,16 @@ and <code>clumppling</code> for a number of
 functionalities. We use <code>reticulate</code> to install them in conda
 environments. As their dependencies are incompatible, we use two separate
 conda environment, <code>ctidygenclust</code> (for <code>fastmixture</code> and <code>admixture</code>) and
-<code>cclumppling</code> (for <code>clumppling</code>).
-For each tool, default to the latest tested version of
-these packages that have been tested to work with <code>tidegenclust</code>. It is
-possible to provide a more recent github commit for a specific tool, but
-this might lead to incompatibilities and errors.</p>
+<code>cclumppling</code> (for <code>clumppling</code>).</p>
     </div>
 
     <div id="ref-usage">
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">tgc_tools_install</span><span class="op">(</span></span>
 <span>  reset <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  fastmixture_hash <span class="op">=</span> <span class="st">"f913014669f4a235a1150669d4fbf0715bef42be"</span>,</span>
-<span>  clumppling_hash <span class="op">=</span> <span class="st">"a4bf351037fb569e2c2cb83c603a1931606d4d40"</span></span>
+<span>  clumppling_hash <span class="op">=</span> <span class="st">"a4bf351037fb569e2c2cb83c603a1931606d4d40"</span>,</span>
+<span>  conda_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"reticulate"</span>, <span class="st">"conda_yaml"</span><span class="op">)</span>,</span>
+<span>  ci_install <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -93,7 +87,44 @@ version to install. Default is the latest tested version.</p></dd>
 <dd><p>a string with the commit hash of the <code>clumppling</code>
 version to install. Default is the latest tested version.</p></dd>
 
+
+<dt id="arg-conda-method">conda_method<a class="anchor" aria-label="anchor" href="#arg-conda-method"></a></dt>
+<dd><p>a string indicating the method to create the environment
+used for <code>fastmixture</code>. Default is <code>reticulate</code>, which uses the
+<code><a href="https://rstudio.github.io/reticulate/reference/conda_run2.html" class="external-link">reticulate::conda_run2()</a></code> function to run the installation commands (this is
+the default, and the only method for Linux.
+Alternatively, for OSX, you can use <code>conda_yaml</code>, which will create a conda
+environment directly with conda. Use this second method if "reticulate" fails
+whilst trying to install on OSX.</p></dd>
+
+
+<dt id="arg-ci-install">ci_install<a class="anchor" aria-label="anchor" href="#arg-ci-install"></a></dt>
+<dd><p>a boolean indicating if the installation is being run on
+continuous integration (CI) services. Default is FALSE. If TRUE, the
+function will look for the conda yaml file in the <code>inst/python</code> folder
+of the package source directory, rather than in the installed package
+directory. This is useful when testing the package on CI services.</p></dd>
+
 </dl></div>
+    <div id="details">
+    <h2>Details</h2>
+    <p>For each tool, default to the latest tested version of
+these packages that have been tested to work with <code>tidegenclust</code>. It is
+possible to provide a more recent github commit for a specific tool, but
+this might lead to incompatibilities and errors.</p>
+<p>We have found installation on OSX to be tricky, so we provide two methods
+for installing <code>fastmixture</code> on OSX: <code>reticulate</code> and <code>conda_yaml</code>. The
+<code>reticulate</code> method uses the <code><a href="https://rstudio.github.io/reticulate/reference/conda_run2.html" class="external-link">reticulate::conda_run2()</a></code> function to run
+installation commands, while the <code>conda_yaml</code> method creates a conda
+environment directly with conda. If the <code>reticulate</code> method fails, you can
+use the <code>conda_yaml</code> method to create the environment directly with conda.
+For OSX, you might also need to install a suitable compiler for openmp
+using <code>brew</code> in <code>bash</code>, setting the correct paths to use it:</p>
+<p><code>brew install llvm libomp</code></p>
+<p><code>export PATH="/opt/homebrew/opt/llvm/bin:$PATH"</code></p>
+<p><code>export CC="/opt/homebrew/opt/llvm/bin/clang"</code></p>
+<p><code>export CXX="/opt/homebrew/opt/llvm/bin/clang++"</code></p>
+    </div>
 
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
