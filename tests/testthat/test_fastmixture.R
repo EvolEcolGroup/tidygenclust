@@ -1,4 +1,6 @@
 skip_on_cran()
+# skip if the conda environment does not exist
+skip_if(!reticulate::condaenv_exists("cclumppling"))
 
 test_that("gt_fastmixture", {
   library(tidypopgen)
