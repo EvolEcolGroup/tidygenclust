@@ -194,3 +194,53 @@ test_that("gt_fastmixture", {
   # check p-matrix are indexed as correct k
   expect_true(ncol(anole_qmat$P[[index_k2[1]]]) == 2)
 })
+
+test_that("fastmixture with cv",{
+  library(tidypopgen)
+
+  # set up the gentibble
+  vcf_path <- system.file(
+    "/extdata/anolis/punctatus_t70_s10_n46_filtered.recode.vcf.gz",
+    package = "tidypopgen"
+  )
+  anole_gt <- gen_tibble(
+    vcf_path,
+    quiet = TRUE,
+    backingfile = tempfile("anolis_"),
+    parser = "cpp"
+  )
+  pops_path <- system.file(
+    "/extdata/anolis/plot_order_punctatus_n46.csv",
+    package = "tidypopgen"
+  )
+  pops <- readr::read_csv(pops_path)
+  anole_gt <- anole_gt %>% mutate(id = gsub("punc_", "", .data$id, ))
+  anole_gt <- anole_gt %>%
+    mutate(population = pops$pop[match(pops$ID, .data$id)])
+
+  # Multiple k and one repeat with no P matrices
+
+  k <- c(3)
+
+  anole_qmat <- gt_fastmixture(
+    anole_gt,
+    k,
+    n_runs = 1,
+    threads = 1,
+    seed = 42,
+    iter = 1000,
+    tole = 0.5,
+    batches = 32,
+    supervised = NULL,
+    check = 5,
+    power = 11,
+    chunk = 8192,
+    als_iter = 1000,
+    als_tole = 1e-4,
+    no_freqs = TRUE,
+    random_init = TRUE,
+    cv = 7,
+    cv_tole = 1e-7
+  )
+
+})

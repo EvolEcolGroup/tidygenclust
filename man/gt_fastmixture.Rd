@@ -24,7 +24,9 @@ gt_fastmixture(
   als_tole = 1e-04,
   no_freqs = TRUE,
   random_init = TRUE,
-  safety = TRUE
+  safety = TRUE,
+  cv = NULL,
+  cv_tole = 1e-07
 )
 }
 \arguments{
@@ -70,6 +72,11 @@ or a vector}
 \item{random_init}{random initialisation of parameters (TRUE)}
 
 \item{safety}{add extra safety steps in unstable optimizations (TRUE)}
+
+\item{cv}{the number of cross-validation folds (0)}
+
+\item{cv_tole}{the tolerance for the cross-validation error
+in scaled log-likelihood units (1e-7)}
 }
 \value{
 an object of class \code{gt_admix}. See \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}} for

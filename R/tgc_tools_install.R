@@ -48,7 +48,7 @@
 
 tgc_tools_install <-
   function(reset = FALSE,
-           fastmixture_hash = "f913014669f4a235a1150669d4fbf0715bef42be",
+           fastmixture_hash = "29e04339ce6ddf750ee4e06f8aabe40335e0d0ee",
            clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40",
            conda_method = c("reticulate", "conda_yaml"),
            ci_install = FALSE) {

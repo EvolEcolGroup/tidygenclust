@@ -35,6 +35,9 @@
 #' @param no_freqs do not save P-matrix (TRUE)
 #' @param random_init random initialisation of parameters (TRUE)
 #' @param safety add extra safety steps in unstable optimizations (TRUE)
+#' @param cv the number of cross-validation folds (0)
+#' @param cv_tole the tolerance for the cross-validation error
+#' in scaled log-likelihood units (1e-7)
 #' @return an object of class `gt_admix`. See [tidypopgen::gt_admixture()] for
 #'   details.
 #' @export
@@ -59,9 +62,11 @@ gt_fastmixture <- function(
     als_tole = 1e-4,
     no_freqs = TRUE,
     random_init = TRUE,
-    safety = TRUE) {
+    safety = TRUE,
+    cv = NULL,
+    cv_tole = 1e-7) {
   if (length(seed) != n_runs) {
-    stop("'seeds' should be a vector of lenght 'repeats'")
+    stop("'seeds' should be a vector of length 'repeats'")
   }
 
   if (inherits(x, "character")) {
@@ -83,6 +88,14 @@ gt_fastmixture <- function(
     )
   }
 
+  if (!is.null(cv) && cv <= 1) {
+    stop("cv must be an integer > 1")
+  }
+
+  if (!is.null(supervised) && !is.null(cv)) {
+    stop("Cross-validation only works with unsupervised mode")
+  }
+
   # create a namespace object with all the inputs
   argparse <- reticulate::import("argparse")
 
@@ -92,6 +105,10 @@ gt_fastmixture <- function(
     Q = list()
   )
 
+  if (!is.null(cv)) {
+    adm_list$cv <- numeric()
+  }
+
   if (!no_freqs) {
     adm_list$P <- list()
   }
@@ -100,31 +117,63 @@ gt_fastmixture <- function(
   index <- 1
   for (this_k in as.integer(k)) {
     for (this_rep in seq_len(n_runs)) {
-      rfastmixture_args <- argparse$Namespace(
-        bfile = bfile,
-        K = this_k,
-        threads = as.integer(threads),
-        seed = as.integer(seed[this_rep]),
-        iter = as.integer(iter),
-        tole = tole,
-        batches = as.integer(batches),
-        supervised = supervised,
-        check = as.integer(check),
-        power = as.integer(power),
-        chunk = as.integer(chunk),
-        subsample = subsample,
-        min_subsample = as.integer(min_subsample),
-        max_subsample = as.integer(max_subsample),
-        als_iter = as.integer(als_iter),
-        als_tole = als_tole,
-        no_freqs = no_freqs,
-        random_init = random_init,
-        plink = plink,
-        n_indiv = n_indiv,
-        n_loci = n_loci,
-        safety = safety,
-        projection = NULL
-      )
+      if (is.null(cv)) {
+        rfastmixture_args <- argparse$Namespace(
+          bfile = bfile,
+          K = this_k,
+          threads = as.integer(threads),
+          seed = as.integer(seed[this_rep]),
+          iter = as.integer(iter),
+          tole = tole,
+          batches = as.integer(batches),
+          supervised = supervised,
+          check = as.integer(check),
+          power = as.integer(power),
+          chunk = as.integer(chunk),
+          subsample = subsample,
+          min_subsample = as.integer(min_subsample),
+          max_subsample = as.integer(max_subsample),
+          als_iter = as.integer(als_iter),
+          als_tole = als_tole,
+          no_freqs = no_freqs,
+          random_init = random_init,
+          plink = plink,
+          n_indiv = n_indiv,
+          n_loci = n_loci,
+          safety = safety,
+          projection = NULL,
+          cv = cv,
+          cv_tole = cv_tole
+        )
+      } else if (cv > 1) {
+        rfastmixture_args <- argparse$Namespace(
+          bfile = bfile,
+          K = this_k,
+          threads = as.integer(threads),
+          seed = as.integer(seed[this_rep]),
+          iter = as.integer(iter),
+          tole = tole,
+          batches = as.integer(batches),
+          supervised = supervised,
+          check = as.integer(check),
+          power = as.integer(power),
+          chunk = as.integer(chunk),
+          subsample = subsample,
+          min_subsample = as.integer(min_subsample),
+          max_subsample = as.integer(max_subsample),
+          als_iter = as.integer(als_iter),
+          als_tole = als_tole,
+          no_freqs = no_freqs,
+          random_init = random_init,
+          plink = plink,
+          n_indiv = n_indiv,
+          n_loci = n_loci,
+          safety = safety,
+          projection = NULL,
+          cv = NULL,
+          cv_tole = NULL
+        )
+      }
       fastmixture_res <- .py_rfastmixture$fastmixture_run(
         args = rfastmixture_args
       )
