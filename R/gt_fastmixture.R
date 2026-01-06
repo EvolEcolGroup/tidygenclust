@@ -181,18 +181,41 @@ gt_fastmixture <- function(
         )
       }
 
-
       if (no_freqs) {
-        q_matrix <- tidypopgen::q_matrix(fastmixture_res)
-        adm_list$Q[[index]] <- q_matrix
-        adm_list$k <- sapply(adm_list$Q, ncol)
+        if (is.null(cv)){
+          q_matrix <- tidypopgen::q_matrix(fastmixture_res)
+          adm_list$Q[[index]] <- q_matrix
+          adm_list$k <- sapply(adm_list$Q, ncol)
+        } else {
+          q_matrix <- tidypopgen::q_matrix(fastmixture_res[[1]])
+          adm_list$Q[[index]] <- q_matrix
+          adm_list$k <- sapply(adm_list$Q, ncol)
+          adm_list$cv <- c(
+            adm_list$cv,
+            fastmixture_res[[2]]$avg #TODO is this correct?
+          )
+        }
       } else {
-        names(fastmixture_res) <- c("Q", "P")
-        q_matrix <- tidypopgen::q_matrix(fastmixture_res$Q)
-        p_matrix <- as.matrix(fastmixture_res$P)
-        adm_list$Q[[index]] <- q_matrix
-        adm_list$P[[index]] <- p_matrix
-        adm_list$k <- sapply(adm_list$Q, ncol)
+        if(is.null(cv)){
+          names(fastmixture_res) <- c("Q", "P")
+          q_matrix <- tidypopgen::q_matrix(fastmixture_res$Q)
+          p_matrix <- as.matrix(fastmixture_res$P)
+          adm_list$Q[[index]] <- q_matrix
+          adm_list$P[[index]] <- p_matrix
+          adm_list$k <- sapply(adm_list$Q, ncol)
+        } else {
+          names(fastmixture_res) <- c("Q", "P", "cv")
+          q_matrix <- tidypopgen::q_matrix(fastmixture_res$Q)
+          p_matrix <- as.matrix(fastmixture_res$P)
+          adm_list$Q[[index]] <- q_matrix
+          adm_list$P[[index]] <- p_matrix
+          adm_list$k <- sapply(adm_list$Q, ncol)
+          adm_list$cv <- c(
+            adm_list$cv,
+            fastmixture_res$cv$avg #TODO is this correct?
+          )
+        }
+
       }
       index <- index + 1
     }

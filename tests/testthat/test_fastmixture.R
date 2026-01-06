@@ -243,4 +243,100 @@ test_that("fastmixture with cv",{
     cv_tole = 1e-7
   )
 
+  # check
+  expect_true("cv" %in% names(anole_qmat))
+  expect_true(is.numeric(anole_qmat$cv))
+
+  # Single k and one repeat with P matrices
+
+  k <- c(3)
+
+  anole_qmat <- gt_fastmixture(
+    anole_gt,
+    k,
+    n_runs = 1,
+    threads = 1,
+    seed = 42,
+    iter = 1000,
+    tole = 0.5,
+    batches = 32,
+    supervised = NULL,
+    check = 5,
+    power = 11,
+    chunk = 8192,
+    als_iter = 1000,
+    als_tole = 1e-4,
+    no_freqs = FALSE,
+    random_init = TRUE,
+    cv = 7,
+    cv_tole = 1e-7
+  )
+
+  # check
+  expect_true("cv" %in% names(anole_qmat))
+  expect_true(is.numeric(anole_qmat$cv))
+
+
+  # Multiple k and multiple repeats with no P matrices
+
+  k <- c(2:4)
+  n_runs <- 2
+  seeds <- c(123, 234)
+
+  anole_qmat <- gt_fastmixture(
+    anole_gt,
+    k,
+    n_runs = n_runs,
+    threads = 1,
+    seed = seeds,
+    iter = 1000,
+    tole = 0.5,
+    batches = 32,
+    supervised = NULL,
+    check = 5,
+    power = 11,
+    chunk = 8192,
+    als_iter = 1000,
+    als_tole = 1e-4,
+    no_freqs = TRUE,
+    random_init = TRUE,
+    cv = 7,
+    cv_tole = 1e-7
+  )
+
+  # check
+  expect_true("cv" %in% names(anole_qmat))
+  expect_equal(length(anole_qmat$cv), length(k) * n_runs)
+
+  # Multiple k and multiple repeats with P matrices
+
+  k <- c(2:4)
+  n_runs <- 2
+  seeds <- c(123, 234)
+
+  anole_qmat <- gt_fastmixture(
+    anole_gt,
+    k,
+    n_runs = n_runs,
+    threads = 1,
+    seed = seeds,
+    iter = 1000,
+    tole = 0.5,
+    batches = 32,
+    supervised = NULL,
+    check = 5,
+    power = 11,
+    chunk = 8192,
+    als_iter = 1000,
+    als_tole = 1e-4,
+    no_freqs = FALSE,
+    random_init = TRUE,
+    cv = 7,
+    cv_tole = 1e-7
+  )
+
+  # check
+  expect_true("cv" %in% names(anole_qmat))
+  expect_equal(length(anole_qmat$cv), length(k) * n_runs)
+
 })
