@@ -218,7 +218,7 @@ test_that("fastmixture with cv",{
   anole_gt <- anole_gt %>%
     mutate(population = pops$pop[match(pops$ID, .data$id)])
 
-  # Multiple k and one repeat with no P matrices
+  # Single k and one repeat with no P matrices
 
   k <- c(3)
 

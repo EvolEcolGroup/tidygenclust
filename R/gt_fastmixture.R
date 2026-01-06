@@ -142,8 +142,11 @@ gt_fastmixture <- function(
           n_loci = n_loci,
           safety = safety,
           projection = NULL,
-          cv = cv,
-          cv_tole = cv_tole
+          cv = NULL,
+          cv_tole = NULL
+        )
+        fastmixture_res <- .py_rfastmixture$fastmixture_run(
+          args = rfastmixture_args
         )
       } else if (cv > 1) {
         rfastmixture_args <- argparse$Namespace(
@@ -170,13 +173,14 @@ gt_fastmixture <- function(
           n_loci = n_loci,
           safety = safety,
           projection = NULL,
-          cv = NULL,
-          cv_tole = NULL
+          cv = as.integer(cv),
+          cv_tole = cv_tole
+        )
+        fastmixture_res <- .py_rfastmixture$fastmixture_run(
+          args = rfastmixture_args
         )
       }
-      fastmixture_res <- .py_rfastmixture$fastmixture_run(
-        args = rfastmixture_args
-      )
+
 
       if (no_freqs) {
         q_matrix <- tidypopgen::q_matrix(fastmixture_res)
