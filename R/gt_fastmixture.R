@@ -6,7 +6,9 @@
 #' (2024).
 #'
 #' This function returns a q_matrix that can be plotted with `autoplot`, and
-#' tidied with `tidy` methods from the `tidypopgen` package.
+#' tidied with `tidy` methods from the `tidypopgen` package. Cross-validation
+#' is set to 0 as default, if you want to include cross-validation you can set
+#' `cv` to a value greater than 1 (ADMIXTURE performs 5-fold cv as default).
 #'
 #' @references C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster
 #'   model-based estimation of ancestry proportions. bioRxiv 2024.07.08.602454;
@@ -182,7 +184,7 @@ gt_fastmixture <- function(
       }
 
       if (no_freqs) {
-        if (is.null(cv)){
+        if (is.null(cv)) {
           q_matrix <- tidypopgen::q_matrix(fastmixture_res)
           adm_list$Q[[index]] <- q_matrix
           adm_list$k <- sapply(adm_list$Q, ncol)
@@ -192,11 +194,11 @@ gt_fastmixture <- function(
           adm_list$k <- sapply(adm_list$Q, ncol)
           adm_list$cv <- c(
             adm_list$cv,
-            fastmixture_res[[2]]$avg #TODO is this correct?
+            fastmixture_res[[2]]$avg # TODO is this correct?
           )
         }
       } else {
-        if(is.null(cv)){
+        if (is.null(cv)) {
           names(fastmixture_res) <- c("Q", "P")
           q_matrix <- tidypopgen::q_matrix(fastmixture_res$Q)
           p_matrix <- as.matrix(fastmixture_res$P)
@@ -212,10 +214,9 @@ gt_fastmixture <- function(
           adm_list$k <- sapply(adm_list$Q, ncol)
           adm_list$cv <- c(
             adm_list$cv,
-            fastmixture_res$cv$avg #TODO is this correct?
+            fastmixture_res$cv$avg # TODO is this correct?
           )
         }
-
       }
       index <- index + 1
     }
