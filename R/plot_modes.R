@@ -1,4 +1,17 @@
 plot_modes <- function(object, group) {
+  # browser()
+  # # if gt_cumppling has attribute subset_indivs, warn the user
+  # if (!is.null(attr(object, "subset_indivs"))) {
+  #   warning(
+  #     "You are plotting a gt_clumppling object that has been subsetted by ",
+  #     "individuals. ",
+  #     "This function can be used to create plot insets or explore data, but ",
+  #     "modes will not be representative of this subset. ",
+  #     "To visualise modes within a subset of individuals, please subset your ",
+  #     "gt_admix object and re-run gt_clumppling."
+  #   )
+  # }
+
   connection_df <- make_connection_df(object)
   multi_plot <- ggplot2::ggplot(
     data = connection_df,

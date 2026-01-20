@@ -90,7 +90,9 @@ that you cite the relevant paper by Santander, Refoyo-Martínez, and Meisner
 }
 \details{
 This function returns a q_matrix that can be plotted with \code{autoplot}, and
-tidied with \code{tidy} methods from the \code{tidypopgen} package.
+tidied with \code{tidy} methods from the \code{tidypopgen} package. Cross-validation
+is set to 0 as default, if you want to include cross-validation you can set
+\code{cv} to a value greater than 1 (ADMIXTURE performs 5-fold cv as default).
 }
 \references{
 C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster
