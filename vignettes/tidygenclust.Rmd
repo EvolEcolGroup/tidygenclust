@@ -74,7 +74,7 @@ By inspecting our `gen_tibble` we can see that we have a total of 46 individuals
 anole_gt
 ```
 
-We can easily attach the population metadata to our `gen_tibble` which is stored in anther file that can be found on the Prates et al 2018 GitHub repository [here](%22%3Chttps://github.com/ivanprates/2018_Anolis_EcolEvol/raw/master/data/plot_order_punctatus_n46.csv%3E).
+We can easily attach the population metadata to our `gen_tibble` which is stored in another file that can be found on the Prates et al 2018 GitHub repository [here](%22%3Chttps://github.com/ivanprates/2018_Anolis_EcolEvol/raw/master/data/plot_order_punctatus_n46.csv%3E).
 
 We can read this file into R and attach the population information to our `gen_tibble`:
 
@@ -122,7 +122,7 @@ From the PCA plot we can see that the Amazonian forest and Atlantic forest popul
 
 ## Running the fastmixture algorithm
 
-Now we can run `gt_fastmixture` on our `gen_tibble` objec t(note that `gt_fastmixture` can also work directly on a PLINK bed file).
+Now we can run `gt_fastmixture` on our `gen_tibble` object (note that `gt_fastmixture` can also work directly on a PLINK bed file).
 
 As a minimum the `gt_fastmixture` command requires you to supply your input data, in this case a `gen_tibble`, and specify a value for the number of clusters K.
 
@@ -148,7 +148,7 @@ anole_res <- anole_gt %>% gt_fastmixture(
 )
 ```
 
-Our results are returned as a `gt_admix` object which neatly packages the outputted Q matrices, the corresponding K value for that run and the cross- validation score in a structured list.
+Our results are returned as a `gt_admix` object which neatly packages the outputted Q matrices, the corresponding K value for that run and the cross-validation score in a structured list.
 
 We can get a summary of our `gt_admix` results object to see exactly what it contains:
 

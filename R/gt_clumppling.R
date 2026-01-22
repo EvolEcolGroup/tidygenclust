@@ -25,7 +25,7 @@
 #'   location of those files. This is only useful to those interested in
 #'   recovering the same files as created by the python clumppling module, or
 #'   for debugging.
-#' @returns a list of class `gt_clumpling` containing:
+#' @returns a list of class `gt_clumppling` containing:
 #' - N: number of individuals
 #' - K_range: vector of K values analyzed
 #' - mode_replicates: a list of replicate indices for each mode

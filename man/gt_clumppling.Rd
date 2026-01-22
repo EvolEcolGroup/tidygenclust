@@ -40,7 +40,7 @@ recovering the same files as created by the python clumppling module, or
 for debugging.}
 }
 \value{
-a list of class \code{gt_clumpling} containing:
+a list of class \code{gt_clumppling} containing:
 \itemize{
 \item N: number of individuals
 \item K_range: vector of K values analyzed
