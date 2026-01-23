@@ -90,8 +90,10 @@ gt_fastmixture <- function(
     )
   }
 
-  if (!is.null(cv) && cv <= 1) {
-    stop("cv must be an integer > 1")
+  if (!is.null(cv)) {
+    if (length(cv) != 1L || !is.numeric(cv) || cv <= 1) {
+      stop("cv must be a single integer greater than 1")
+    }
   }
 
   if (!is.null(supervised) && !is.null(cv)) {
@@ -194,7 +196,7 @@ gt_fastmixture <- function(
           adm_list$k <- sapply(adm_list$Q, ncol)
           adm_list$cv <- c(
             adm_list$cv,
-            fastmixture_res[[2]]$avg # TODO is this correct?
+            fastmixture_res[[2]]$avg
           )
         }
       } else {
@@ -214,7 +216,7 @@ gt_fastmixture <- function(
           adm_list$k <- sapply(adm_list$Q, ncol)
           adm_list$cv <- c(
             adm_list$cv,
-            fastmixture_res$cv$avg # TODO is this correct?
+            fastmixture_res$cv$avg
           )
         }
       }

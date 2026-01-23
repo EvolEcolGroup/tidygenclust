@@ -222,7 +222,7 @@ tgc_tools_install <-
 
 
     #########################################################################
-    # now install clumpling in its own conda environment
+    # now install clumppling in its own conda environment
     # since its dependencies are not compatible with the ones of fastmixture
     reticulate::conda_create(
       envname = "cclumppling",

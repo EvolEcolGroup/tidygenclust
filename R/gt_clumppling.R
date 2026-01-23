@@ -191,9 +191,10 @@ subset_gt_clumppling <- function(x, k = NULL, indivs = NULL){
     indivs <- as.integer(indivs)
     # check indivs is an integer vector of consecutive values from min to max
     indivs_sorted <- sort(indivs)
-    expected <- seq(min(indivs_sorted), max(indivs_sorted))
+    #expected <- seq(min(indivs_sorted), max(indivs_sorted))
 
-    if (!identical(indivs, expected)) {
+    if (!identical(indivs, indivs_sorted) ||
+        !all(diff(indivs) == 1)) {
       stop(
         "indivs values must be strictly increasing and consecutive from min to max. ",
         "If your individuals are not consecutive, please reorder your individuals ",
