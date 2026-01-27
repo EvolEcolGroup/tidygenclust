@@ -255,14 +255,14 @@ def fastmixture_run(args):
 	
 	if not args.no_freqs:
 		if args.cv is not None:
-		  return Q, P, res_crv
+			return Q, P, res_crv
 		else:
-		  return Q, P
+			return Q, P
 	else:
-	  if args.cv is not None:
-	    return Q, res_crv
-	  else:
-	    return Q
+		if args.cv is not None:
+			return Q, res_crv
+		else:
+			return Q
 
 
 	# ### Save estimates and write output to log-file
