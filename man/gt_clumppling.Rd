@@ -40,7 +40,14 @@ recovering the same files as created by the python clumppling module, or
 for debugging.}
 }
 \value{
-a list of class \code{clumpling} TODO describe the elements of the list
+a list of class \code{gt_clumppling} containing:
+\itemize{
+\item N: number of individuals
+\item K_range: vector of K values analyzed
+\item mode_replicates: a list of replicate indices for each mode
+\item cost_acrossK: a named list of costs for each pairwise K alignment
+\item aligned_modes: a list of data.frames, each data.frame is a Q-matrix
+}
 }
 \description{
 This function runs the clumppling algorithm.

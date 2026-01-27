@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 from time import time
 
-VERSION = "1.1.1"
+VERSION = "1.2.0"
 
 ### Argparse
 # parser = argparse.ArgumentParser(prog="fastmixture")
@@ -35,6 +35,10 @@ VERSION = "1.1.1"
 # 	help="Path to population assignment file")
 # parser.add_argument("--projection", metavar="FILE",
 # 	help="Path to ancestral allele frequencies file")
+# parser.add_argument("--cv", metavar="INT", type=int,
+# 	help="Number of folds in cross-validation to evaluate model fit")
+# parser.add_argument("--cv-tole", metavar="FLOAT", type=float, default=1e-7,
+# 	help="Tolerance for CV in scaled log-likelihood units (1e-7)")
 # parser.add_argument("--check", metavar="INT", type=int, default=5,
 # 	help="Number of iterations between convergence checks (5)")
 # parser.add_argument("--subsample", metavar="FLOAT", type=float, default=0.7,
@@ -87,6 +91,10 @@ def fastmixture_run(args):
 	assert args.als_iter > 0, "Please select a valid number of iterations in ALS!"
 	assert args.als_tole >= 0.0, "Please select a valid tolerance in ALS!"
 	assert (args.subsample > 0.0) and (args.subsample <= 1.0), "Please select a valid fraction!"
+	if args.cv is not None:
+		assert args.cv > 1, "Please select a valid number of folds for cross-validation!"
+		assert (args.supervised is None) and (args.projection is None), \
+			"Only unsupervised mode works with cross-validation!"
 	start = time()
 
 	# Create log-file of used arguments
@@ -232,16 +240,29 @@ def fastmixture_run(args):
 		from fastmixture import functions
 		res = functions.fastRun(G, P, Q, q_nrm, y, rng, run)
 
+		# Cross-validation mode in unsupervised mode
+		if args.cv is not None:
+			from fastmixture import cross
+			run["tole"] = args.cv_tole
+			run["cross"] = args.cv
+			res_crv = cross.crossRun(G, P, Q, q_nrm, rng, run)
+
 	# Print elapsed time for estimation
 	t_tot = time()-start
 	t_min = int(t_tot//60)
 	t_sec = int(t_tot - t_min*60)
 	print(f"Total elapsed time: {t_min}m{t_sec}s")
-
+	
 	if not args.no_freqs:
-		return Q, P
+		if args.cv is not None:
+			return Q, P, res_crv
+		else:
+			return Q, P
 	else:
-		return Q
+		if args.cv is not None:
+			return Q, res_crv
+		else:
+			return Q
 
 
 	# ### Save estimates and write output to log-file

@@ -6,7 +6,9 @@
 #' (2024).
 #'
 #' This function returns a q_matrix that can be plotted with `autoplot`, and
-#' tidied with `tidy` methods from the `tidypopgen` package.
+#' tidied with `tidy` methods from the `tidypopgen` package. Cross-validation
+#' is set to 0 as default, if you want to include cross-validation you can set
+#' `cv` to a value greater than 1 (ADMIXTURE performs 5-fold cv as default).
 #'
 #' @references C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster
 #'   model-based estimation of ancestry proportions. bioRxiv 2024.07.08.602454;
@@ -35,6 +37,9 @@
 #' @param no_freqs do not save P-matrix (TRUE)
 #' @param random_init random initialisation of parameters (TRUE)
 #' @param safety add extra safety steps in unstable optimizations (TRUE)
+#' @param cv the number of cross-validation folds (0)
+#' @param cv_tole the tolerance for the cross-validation error
+#' in scaled log-likelihood units (1e-7)
 #' @return an object of class `gt_admix`. See [tidypopgen::gt_admixture()] for
 #'   details.
 #' @export
@@ -59,9 +64,11 @@ gt_fastmixture <- function(
     als_tole = 1e-4,
     no_freqs = TRUE,
     random_init = TRUE,
-    safety = TRUE) {
+    safety = TRUE,
+    cv = NULL,
+    cv_tole = 1e-7) {
   if (length(seed) != n_runs) {
-    stop("'seeds' should be a vector of lenght 'repeats'")
+    stop("'seeds' should be a vector of length 'repeats'")
   }
 
   if (inherits(x, "character")) {
@@ -83,6 +90,16 @@ gt_fastmixture <- function(
     )
   }
 
+  if (!is.null(cv)) {
+    if (length(cv) != 1L || !is.numeric(cv) || cv <= 1) {
+      stop("cv must be a single integer greater than 1")
+    }
+  }
+
+  if (!is.null(supervised) && !is.null(cv)) {
+    stop("Cross-validation only works with unsupervised mode")
+  }
+
   # create a namespace object with all the inputs
   argparse <- reticulate::import("argparse")
 
@@ -92,6 +109,10 @@ gt_fastmixture <- function(
     Q = list()
   )
 
+  if (!is.null(cv)) {
+    adm_list$cv <- numeric()
+  }
+
   if (!no_freqs) {
     adm_list$P <- list()
   }
@@ -100,46 +121,104 @@ gt_fastmixture <- function(
   index <- 1
   for (this_k in as.integer(k)) {
     for (this_rep in seq_len(n_runs)) {
-      rfastmixture_args <- argparse$Namespace(
-        bfile = bfile,
-        K = this_k,
-        threads = as.integer(threads),
-        seed = as.integer(seed[this_rep]),
-        iter = as.integer(iter),
-        tole = tole,
-        batches = as.integer(batches),
-        supervised = supervised,
-        check = as.integer(check),
-        power = as.integer(power),
-        chunk = as.integer(chunk),
-        subsample = subsample,
-        min_subsample = as.integer(min_subsample),
-        max_subsample = as.integer(max_subsample),
-        als_iter = as.integer(als_iter),
-        als_tole = als_tole,
-        no_freqs = no_freqs,
-        random_init = random_init,
-        plink = plink,
-        n_indiv = n_indiv,
-        n_loci = n_loci,
-        safety = safety,
-        projection = NULL
-      )
-      fastmixture_res <- .py_rfastmixture$fastmixture_run(
-        args = rfastmixture_args
-      )
+      if (is.null(cv)) {
+        rfastmixture_args <- argparse$Namespace(
+          bfile = bfile,
+          K = this_k,
+          threads = as.integer(threads),
+          seed = as.integer(seed[this_rep]),
+          iter = as.integer(iter),
+          tole = tole,
+          batches = as.integer(batches),
+          supervised = supervised,
+          check = as.integer(check),
+          power = as.integer(power),
+          chunk = as.integer(chunk),
+          subsample = subsample,
+          min_subsample = as.integer(min_subsample),
+          max_subsample = as.integer(max_subsample),
+          als_iter = as.integer(als_iter),
+          als_tole = als_tole,
+          no_freqs = no_freqs,
+          random_init = random_init,
+          plink = plink,
+          n_indiv = n_indiv,
+          n_loci = n_loci,
+          safety = safety,
+          projection = NULL,
+          cv = NULL,
+          cv_tole = NULL
+        )
+        fastmixture_res <- .py_rfastmixture$fastmixture_run(
+          args = rfastmixture_args
+        )
+      } else if (cv > 1) {
+        rfastmixture_args <- argparse$Namespace(
+          bfile = bfile,
+          K = this_k,
+          threads = as.integer(threads),
+          seed = as.integer(seed[this_rep]),
+          iter = as.integer(iter),
+          tole = tole,
+          batches = as.integer(batches),
+          supervised = supervised,
+          check = as.integer(check),
+          power = as.integer(power),
+          chunk = as.integer(chunk),
+          subsample = subsample,
+          min_subsample = as.integer(min_subsample),
+          max_subsample = as.integer(max_subsample),
+          als_iter = as.integer(als_iter),
+          als_tole = als_tole,
+          no_freqs = no_freqs,
+          random_init = random_init,
+          plink = plink,
+          n_indiv = n_indiv,
+          n_loci = n_loci,
+          safety = safety,
+          projection = NULL,
+          cv = as.integer(cv),
+          cv_tole = cv_tole
+        )
+        fastmixture_res <- .py_rfastmixture$fastmixture_run(
+          args = rfastmixture_args
+        )
+      }
 
       if (no_freqs) {
-        q_matrix <- tidypopgen::q_matrix(fastmixture_res)
-        adm_list$Q[[index]] <- q_matrix
-        adm_list$k <- sapply(adm_list$Q, ncol)
+        if (is.null(cv)) {
+          q_matrix <- tidypopgen::q_matrix(fastmixture_res)
+          adm_list$Q[[index]] <- q_matrix
+          adm_list$k <- sapply(adm_list$Q, ncol)
+        } else {
+          q_matrix <- tidypopgen::q_matrix(fastmixture_res[[1]])
+          adm_list$Q[[index]] <- q_matrix
+          adm_list$k <- sapply(adm_list$Q, ncol)
+          adm_list$cv <- c(
+            adm_list$cv,
+            fastmixture_res[[2]]$avg
+          )
+        }
       } else {
-        names(fastmixture_res) <- c("Q", "P")
-        q_matrix <- tidypopgen::q_matrix(fastmixture_res$Q)
-        p_matrix <- as.matrix(fastmixture_res$P)
-        adm_list$Q[[index]] <- q_matrix
-        adm_list$P[[index]] <- p_matrix
-        adm_list$k <- sapply(adm_list$Q, ncol)
+        if (is.null(cv)) {
+          names(fastmixture_res) <- c("Q", "P")
+          q_matrix <- tidypopgen::q_matrix(fastmixture_res$Q)
+          p_matrix <- as.matrix(fastmixture_res$P)
+          adm_list$Q[[index]] <- q_matrix
+          adm_list$P[[index]] <- p_matrix
+          adm_list$k <- sapply(adm_list$Q, ncol)
+        } else {
+          names(fastmixture_res) <- c("Q", "P", "cv")
+          q_matrix <- tidypopgen::q_matrix(fastmixture_res$Q)
+          p_matrix <- as.matrix(fastmixture_res$P)
+          adm_list$Q[[index]] <- q_matrix
+          adm_list$P[[index]] <- p_matrix
+          adm_list$k <- sapply(adm_list$Q, ncol)
+          adm_list$cv <- c(
+            adm_list$cv,
+            fastmixture_res$cv$avg
+          )
+        }
       }
       index <- index + 1
     }
