@@ -1,4 +1,3 @@
-
 library(tidypopgen)
 
 # set up the gentibble
@@ -21,7 +20,7 @@ anole_gt <- anole_gt %>% mutate(id = gsub("punc_", "", .data$id, ))
 anole_gt <- anole_gt %>%
   mutate(population = pops$pop[match(pops$ID, .data$id)])
 
-test_that("cannot reshape array error",{
+test_that("cannot reshape array error", {
   anole_gt <- gt_impute_simple(anole_gt)
   # subset anole_gt using loci_ld_clump
   id_rm <- loci_ld_clump(
@@ -55,5 +54,4 @@ test_that("cannot reshape array error",{
 
   # Error in py_call_impl(callable, call_args$unnamed, call_args$named) :
   #  ValueError: cannot reshape array of size 149454 into shape (2402,46)
-
 })

@@ -186,19 +186,18 @@ gt_clumppling <- function(
 #' @param k a vector of k values to subset to
 #' @returns a gt_clumppling object subsetted to the individuals specified
 #' @export
-subset_gt_clumppling <- function(x, k = NULL, indivs = NULL){
-  if(!is.null(indivs)){
+subset_gt_clumppling <- function(x, k = NULL, indivs = NULL) {
+  if (!is.null(indivs)) {
     indivs <- as.integer(indivs)
     # check indivs is an integer vector of consecutive values from min to max
     indivs_sorted <- sort(indivs)
-    #expected <- seq(min(indivs_sorted), max(indivs_sorted))
 
     if (!identical(indivs, indivs_sorted) ||
-        !all(diff(indivs) == 1)) {
-      stop(
-        "indivs values must be strictly increasing and consecutive from min to max. ",
-        "If your individuals are not consecutive, please reorder your individuals ",
-        "using gt_admix_reorder_q() and re-run gt_clumppling."
+      !all(diff(indivs) == 1)) { # nolint
+      stop( # nolint
+        "indivs values must be strictly increasing and consecutive from min ",
+        "to max. If your individuals are not consecutive, please reorder your ",
+        "individuals using gt_admix_reorder_q() and re-run gt_clumppling."
       )
     }
 
@@ -214,13 +213,13 @@ subset_gt_clumppling <- function(x, k = NULL, indivs = NULL){
     attr(x, "subset_indivs") <- TRUE
   }
 
-  if(!is.null(k)){
+  if (!is.null(k)) {
     k <- as.integer(k)
     k_sorted <- sort(k)
     expected <- seq(min(k_sorted), max(k_sorted))
 
     # check k is an integer vector of consecutive values from min to max
-    if(!identical(k, expected)){
+    if (!identical(k, expected)) {
       stop("k values must be consecutive from min to max")
     }
 
@@ -233,8 +232,8 @@ subset_gt_clumppling <- function(x, k = NULL, indivs = NULL){
     x$K_range <- x$K_range[k_indices]
     # find the entries in $aligned_modes that = paste0("K",K_range[])
     matched_indices <- c()
-    for(i in k){
-      this_k <- paste0("K",i)
+    for (i in k) {
+      this_k <- paste0("K", i)
       this_k_indices <- grep(this_k, names(x$aligned_modes))
       matched_indices <- c(matched_indices, this_k_indices)
     }
@@ -244,13 +243,12 @@ subset_gt_clumppling <- function(x, k = NULL, indivs = NULL){
 
     # find the entries in $cost_acrossK that need removing
     matched_indices <- c()
-    for(i in k_rm){
-      this_k <- paste0("K",i)
+    for (i in k_rm) {
+      this_k <- paste0("K", i)
       rm_indices <- grep(this_k, names(x$cost_acrossK))
       matched_indices <- c(matched_indices, rm_indices)
     }
     x$cost_acrossK <- x$cost_acrossK[-matched_indices]
-
   }
 
   return(x)

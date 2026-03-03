@@ -196,7 +196,7 @@ test_that("gt_fastmixture", {
   expect_true(ncol(anole_qmat$P[[index_k2[1]]]) == 2)
 })
 
-test_that("fastmixture with cv",{
+test_that("fastmixture with cv", {
   # Single k and one repeat with no P matrices
 
   k <- c(3)
@@ -317,5 +317,4 @@ test_that("fastmixture with cv",{
   # check
   expect_true("cv" %in% names(anole_qmat))
   expect_equal(length(anole_qmat$cv), length(k) * n_runs)
-
 })
