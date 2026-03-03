@@ -76,27 +76,62 @@ gt_clumppling <- function(
     }))
     input_path <- temp_q_dir
   }
-
+# TODO we need to update commandline options fro new version of clumppling
   # create command line for clumppling
+  # clump_args <- paste0(
+  #   "-m clumppling -i ",
+  #   input_path,
+  #   " -o ",
+  #   output_path,
+  #   " -f ",
+  #   input_format,
+  #  # " -v=1 --cd_param=",
+  #   # cd_param,
+  #    " --use_rep=",
+  #   use_rep 
+  #  # " --merge_cls=",
+  #   # merge_cls,
+  #   # " --cd_default=",
+  # #  cd_default,
+  #   # paste0(
+  #   #   " --plot_modes=0 --plot_modes_withinK=0 ",
+  #   #   "--plot_major_modes=0 --plot_all_modes=0"
+  #   # )
+  # )
   clump_args <- paste0(
-    "-m clumppling -i ",
-    input_path,
-    " -o ",
-    output_path,
-    " -f ",
-    input_format,
-    " -v=1 --cd_param=",
-    cd_param,
-    " --use_rep=",
-    use_rep,
-    " --merge_cls=",
-    merge_cls,
-    " --cd_default=",
-    cd_default,
-    paste0(
-      " --plot_modes=0 --plot_modes_withinK=0 ",
-      "--plot_major_modes=0 --plot_all_modes=0"
-    )
+    "-m clumppling ",
+    "-i ", input_path,
+    " -o ", output_path,
+    " -f ", input_format,
+    
+    # basic options
+    " -v 1", # True
+    " --custom_cmap ''",
+    " --plot_type graph",
+    " --include_cost True",
+    " --include_label True",
+    " --alt_color True",
+    " --ind_labels ''",
+    " --ordered_uniq_labels ''",
+    " --regroup_ind True",
+    " --reorder_within_group True",
+    " --reorder_by_max_k True",
+    " --order_cls_by_label False",
+    " --plot_unaligned False",
+    " --fig_format tiff",
+    " --extension ''",
+    " --skip_rows 0",
+    " --remove_missing True",
+    
+    # community detection options
+    " --cd_method louvain",
+    " --cd_res 1.0",
+    " --test_comm True",
+    " --comm_min 1e-6",
+    " --comm_max 1e-2",
+    " --merge True",
+    " --use_rep True",
+    " --use_best_pair True"
   )
   reticulate::conda_run2(
     cmd = "python",
@@ -139,31 +174,31 @@ gt_clumppling <- function(
     output_path,
     "modes"
   )
-  mode_alignments <- utils::read.csv(file.path(
+  mode_alignment <- utils::read.csv(file.path(
     modes_path,
-    "mode_alignments.txt"
+    "mode_alignment.txt"
   ))
 
   # for each mode, get the replicates
   # add replicate id column by parsing string and getting number after R
-  mode_alignments$ReplicateID <- as.integer(sub(
+  mode_alignment$ReplicateID <- as.integer(sub(
     ".*R(\\d+).*",
     "\\1",
-    mode_alignments$Replicate
+    mode_alignment$Replicate
   ))
-  mode_replicates <- split(mode_alignments$ReplicateID, mode_alignments$Mode)
+  mode_replicates <- split(mode_alignment$ReplicateID, mode_alignment$Mode)
   clump_res$mode_replicates <- mode_replicates
 
   # Reorder the list, if needed
   clump_res$mode_replicates <- clump_res$mode_replicates[indices]
 
   # add K_range
-  mode_alignments$K <- as.integer(sub(
+  mode_alignment$K <- as.integer(sub(
     ".*K(\\d+).*",
     "\\1",
-    mode_alignments$Mode
+    mode_alignment$Mode
   ))
-  clump_res$K_range <- unique(mode_alignments$K)
+  clump_res$K_range <- unique(mode_alignment$K)
 
   # add N
   clump_res$N <- nrow(clump_res$aligned_modes[[1]])
