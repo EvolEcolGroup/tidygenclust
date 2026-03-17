@@ -252,7 +252,7 @@ This time we will read in the Q matrices directly from a directory. The text fil
 
 ```{r load_capeverde}
 input_path <- system.file("extdata/capeverde.zip", package = "tidygenclust")
-clump_res <- input_path %>% gt_clumppling()
+clump_res <- input_path %>% gt_clumppling(extension = ".indivq")
 ```
 
 Once we have a `gt_clumppling` results object, we can use `autoplot` to make a number of default plots.
@@ -305,7 +305,11 @@ For example, we can use the 'chicken_gapK' data example also from `Clumppling`, 
 
 ```{r load_chicken}
 input_path <- system.file("extdata/chicken_gapk.zip", package = "tidygenclust")
-chicken_res <- input_path %>% gt_clumppling(input_format = "structure")
+chicken_res <- input_path %>%
+  gt_clumppling(
+    input_format = "structure",
+    extension = "_f"
+  )
 ```
 
 We can plot the membership plots on top of the multipartite plot with:

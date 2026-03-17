@@ -4,7 +4,7 @@ skip_on_cran()
 skip_if(!reticulate::condaenv_exists("cclumppling"))
 
 input_path <- system.file("extdata/capeverde.zip", package = "tidygenclust")
-clump_res <- input_path %>% gt_clumppling()
+clump_res <- input_path %>% gt_clumppling(extension = ".indivq")
 # TODO we need to check that what we return here is in the form we expect
 
 test_that("gt_clumppling works as expected", {

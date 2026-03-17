@@ -12,12 +12,16 @@
 #'   or a zip archive, or a `q_matrix_list` object
 #' @param input_format a string defining the format of the input files, one of
 #'   'admixture' (default)
-#' @param cd_param the cd_param use_rep boolean on whether a representative
-#'   repeat should be used as a consesus for a mode. Defaults to FALSE, which
-#'   leads to the computatoin of an average
-#' @param merge_cls boolean,
-#' @param cd_default boolean
-#' @param use_rep boolean
+#' @param cd_method the community detection method to use (default: louvain)
+#'   TODO: add other options
+#' @param use_rep whether to use representative modes (alternative: average):
+#'   True (default)/False
+#' @param merge whether to merge two clusters when aligning K+1 to K (default:
+#'   True)
+#' @param use_best_pair use best pair as anchor for across-K alignment
+#'   (alternative: major): True (default)/False
+#' @param extension (optional) if loading from files rather than a
+#'   `q_matrix_list` object specify the extension e.g. ".Q" or ".indivq"
 #' @param output_path (optional) the clumppling functions in python save
 #'   everything to file. By default, R stores the information in objects in the
 #'   environment, and sends those files to a temporary directory that will be
@@ -35,12 +39,13 @@
 
 gt_clumppling <- function(
     input_path,
+    output_path = tempfile("clump_out"),
     input_format = "admixture",
-    cd_param = 1.0,
-    use_rep = 0,
-    merge_cls = 0,
-    cd_default = 1,
-    output_path = tempfile("clump_out")) {
+    use_rep = 1,
+    merge = 1,
+    cd_method = "louvain",
+    use_best_pair = 1,
+    extension = ".Q") {
   # Check if input_path is a zip file and unzip it
   if (is.character(input_path)) {
     if (tools::file_ext(input_path) == "zip") {
@@ -76,63 +81,48 @@ gt_clumppling <- function(
     }))
     input_path <- temp_q_dir
   }
-# TODO we need to update commandline options fro new version of clumppling
-  # create command line for clumppling
-  # clump_args <- paste0(
-  #   "-m clumppling -i ",
-  #   input_path,
-  #   " -o ",
-  #   output_path,
-  #   " -f ",
-  #   input_format,
-  #  # " -v=1 --cd_param=",
-  #   # cd_param,
-  #    " --use_rep=",
-  #   use_rep 
-  #  # " --merge_cls=",
-  #   # merge_cls,
-  #   # " --cd_default=",
-  # #  cd_default,
-  #   # paste0(
-  #   #   " --plot_modes=0 --plot_modes_withinK=0 ",
-  #   #   "--plot_major_modes=0 --plot_all_modes=0"
-  #   # )
-  # )
+
+  if (merge == 1) {
+    merge <- "True"
+  } else {
+    merge <- "False"
+  }
+
+  if (use_rep == 1) {
+    use_rep <- "True"
+  } else {
+    use_rep <- "False"
+  }
+
+  if (use_best_pair == 1) {
+    use_best_pair <- "True"
+  } else {
+    use_best_pair <- "False"
+  }
+
+
   clump_args <- paste0(
     "-m clumppling ",
     "-i ", input_path,
     " -o ", output_path,
     " -f ", input_format,
-    
-    # basic options
-    " -v 1", # True
-    " --custom_cmap ''",
-    " --plot_type graph",
-    " --include_cost True",
-    " --include_label True",
-    " --alt_color True",
-    " --ind_labels ''",
-    " --ordered_uniq_labels ''",
-    " --regroup_ind True",
-    " --reorder_within_group True",
-    " --reorder_by_max_k True",
-    " --order_cls_by_label False",
-    " --plot_unaligned False",
-    " --fig_format tiff",
-    " --extension ''",
-    " --skip_rows 0",
-    " --remove_missing True",
-    
-    # community detection options
-    " --cd_method louvain",
-    " --cd_res 1.0",
-    " --test_comm True",
-    " --comm_min 1e-6",
-    " --comm_max 1e-2",
-    " --merge True",
-    " --use_rep True",
-    " --use_best_pair True"
+    " -v=False",
+    " --cd_method=",
+    cd_method,
+    " --test_comm=False",
+    " --comm_min=1e-6", # set to default
+    " --comm_max=1e-2", # set to default
+    " --merge=",
+    merge,
+    " --use_rep=",
+    use_rep,
+    " --use_best_pair=",
+    use_best_pair,
+    " --extension=",
+    extension
   )
+
+
   reticulate::conda_run2(
     cmd = "python",
     args = clump_args,
