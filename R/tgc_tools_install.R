@@ -226,7 +226,7 @@ tgc_tools_install <-
     # since its dependencies are not compatible with the ones of fastmixture
     reticulate::conda_create(
       envname = "cclumppling",
-      packages = c("python==3.9", "cvxopt==1.3.2"),
+      packages = c("python==3.9"),
       channel = c("bioconda", "conda-forge", "defaults")
     )
     # Install clumppling
@@ -235,6 +235,7 @@ tgc_tools_install <-
       args = paste0(
         "install ",
         "--upgrade --force-reinstall ",
+        "setuptools==80.10.2 ",
         "git+https://github.com/PopGenClustering/Clumppling.git@",
         clumppling_hash
       ),
