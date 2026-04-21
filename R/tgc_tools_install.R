@@ -236,6 +236,7 @@ tgc_tools_install <-
         "install ",
         "--upgrade --force-reinstall ",
         "setuptools==80.10.2 ",
+        "cvxopt==1.3.2 ",
         "git+https://github.com/PopGenClustering/Clumppling.git@",
         clumppling_hash
       ),
