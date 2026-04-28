@@ -224,25 +224,51 @@ tgc_tools_install <-
     #########################################################################
     # now install clumppling in its own conda environment
     # since its dependencies are not compatible with the ones of fastmixture
-    reticulate::conda_create(
-      envname = "cclumppling",
-      packages = c("python==3.9"),
-      channel = c("bioconda", "conda-forge", "defaults")
-    )
-    # Install clumppling
-    reticulate::conda_run2(
-      cmd = "pip3",
-      args = paste0(
-        "install ",
-        "--upgrade --force-reinstall ",
-        "setuptools==80.10.2 ",
-        "cvxopt==1.3.2 ",
-        "git+https://github.com/PopGenClustering/Clumppling.git@",
-        clumppling_hash
-      ),
-      envname = "cclumppling"
-    )
-
+    
+    # find out operating system and release
+    release <- Sys.info()[["release"]]
+    version_major <- as.numeric(strsplit(release, "\\.")[[1]][1])
+    
+    if (Sys.info()[["sysname"]] == "Darwin" && version_major <= 23) {
+      # macOS 14 or older
+      reticulate::conda_create(
+        envname = "cclumppling",
+        packages = c("python==3.9"),
+        channel = c("bioconda", "conda-forge", "defaults")
+      )
+      # Install clumppling
+      reticulate::conda_run2(
+        cmd = "pip3",
+        args = paste0(
+          "install ",
+          "--upgrade --force-reinstall ",
+          "setuptools==80.10.2 ",
+          "cvxopt==1.3.2 ",
+          "git+https://github.com/PopGenClustering/Clumppling.git@",
+          clumppling_hash
+        ),
+        envname = "cclumppling"
+      )
+    } else {
+      # all other operating systems and macOS 15 or newer
+      reticulate::conda_create(
+        envname = "cclumppling",
+        packages = c("python==3.12"),
+        channel = c("bioconda", "conda-forge", "defaults")
+      )
+      # Install clumppling
+      reticulate::conda_run2(
+        cmd = "pip3",
+        args = paste0(
+          "install ",
+          "--upgrade --force-reinstall ",
+          "git+https://github.com/PopGenClustering/Clumppling.git@",
+          clumppling_hash
+        ),
+        envname = "cclumppling"
+      )
+    }
+    
     #########################################################################
     # activate ctidygenclust with the python functions
     reticulate::use_condaenv("ctidygenclust", required = FALSE)
