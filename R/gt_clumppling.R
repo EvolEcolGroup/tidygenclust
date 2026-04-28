@@ -11,15 +11,16 @@
 #' @param input_path the path where the Q files are stored, either a directory
 #'   or a zip archive, or a `q_matrix_list` object
 #' @param input_format a string defining the format of the input files, one of
-#'   'admixture' (default)
-#' @param cd_method the community detection method to use (default: louvain)
-#'   TODO: add other options
-#' @param use_rep whether to use representative modes (alternative: average):
-#'   True (default)/False
-#' @param merge whether to merge two clusters when aligning K+1 to K (default:
-#'   True)
-#' @param use_best_pair use best pair as anchor for across-K alignment
-#'   (alternative: major): True (default)/False
+#'   'admixture' (default),'structure','fastStructure' or 'generalQ'
+#' @param cd_method the community detection method to use, one of 'louvain'
+#'  (default), 'leiden', 'infomap', 'markov_clustering', 'label_propagation',
+#'   'walktrap', 'custom'
+#' @param use_rep boolean, whether to use representative modes (alternative:
+#'  average), defaults to TRUE
+#' @param merge boolean, whether to merge two clusters when aligning K+1 to K,
+#'  defaults to TRUE
+#' @param use_best_pair boolean, whether to use best pair as anchor for across-K
+#'  alignment (alternative: major), defaults to TRUE
 #' @param extension (optional) if loading from files rather than a
 #'   `q_matrix_list` object specify the extension e.g. ".Q" or ".indivq"
 #' @param output_path (optional) the clumppling functions in python save
@@ -41,10 +42,10 @@ gt_clumppling <- function(
     input_path,
     output_path = tempfile("clump_out"),
     input_format = "admixture",
-    use_rep = 1,
-    merge = 1,
+    use_rep = TRUE,
+    merge = TRUE,
     cd_method = "louvain",
-    use_best_pair = 1,
+    use_best_pair = TRUE,
     extension = ".Q") {
   # Check if input_path is a zip file and unzip it
   if (is.character(input_path)) {
@@ -82,21 +83,21 @@ gt_clumppling <- function(
     input_path <- temp_q_dir
   }
 
-  if (merge == 1) {
+  if (merge == TRUE) {
     merge <- "True"
-  } else {
+  } else if (merge == FALSE) {
     merge <- "False"
   }
 
-  if (use_rep == 1) {
+  if (use_rep == TRUE) {
     use_rep <- "True"
-  } else {
+  } else if (use_rep == FALSE) {
     use_rep <- "False"
   }
 
-  if (use_best_pair == 1) {
+  if (use_best_pair == TRUE) {
     use_best_pair <- "True"
-  } else {
+  } else if (use_best_pair == FALSE) {
     use_best_pair <- "False"
   }
 
@@ -107,19 +108,14 @@ gt_clumppling <- function(
     " -o ", output_path,
     " -f ", input_format,
     " -v=False",
-    " --cd_method=",
-    cd_method,
+    " --cd_method=", cd_method,
     " --test_comm=False",
     " --comm_min=1e-6", # set to default
     " --comm_max=1e-2", # set to default
-    " --merge=",
-    merge,
-    " --use_rep=",
-    use_rep,
-    " --use_best_pair=",
-    use_best_pair,
-    " --extension=",
-    extension
+    " --merge=", merge,
+    " --use_rep=", use_rep,
+    " --use_best_pair=", use_best_pair,
+    " --extension=", extension
   )
 
 

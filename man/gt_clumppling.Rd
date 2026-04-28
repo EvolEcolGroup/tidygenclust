@@ -8,10 +8,10 @@ gt_clumppling(
   input_path,
   output_path = tempfile("clump_out"),
   input_format = "admixture",
-  use_rep = 1,
-  merge = 1,
+  use_rep = TRUE,
+  merge = TRUE,
   cd_method = "louvain",
-  use_best_pair = 1,
+  use_best_pair = TRUE,
   extension = ".Q"
 )
 }
@@ -28,19 +28,20 @@ recovering the same files as created by the python clumppling module, or
 for debugging.}
 
 \item{input_format}{a string defining the format of the input files, one of
-'admixture' (default)}
+'admixture' (default),'structure','fastStructure' or 'generalQ'}
 
-\item{use_rep}{whether to use representative modes (alternative: average):
-True (default)/False}
+\item{use_rep}{boolean, whether to use representative modes (alternative:
+average), defaults to TRUE}
 
-\item{merge}{whether to merge two clusters when aligning K+1 to K (default:
-True)}
+\item{merge}{boolean, whether to merge two clusters when aligning K+1 to K,
+defaults to TRUE}
 
-\item{cd_method}{the community detection method to use (default: louvain)
-TODO: add other options}
+\item{cd_method}{the community detection method to use, one of 'louvain'
+(default), 'leiden', 'infomap', 'markov_clustering', 'label_propagation',
+'walktrap', 'custom'}
 
-\item{use_best_pair}{use best pair as anchor for across-K alignment
-(alternative: major): True (default)/False}
+\item{use_best_pair}{boolean, whether to use best pair as anchor for across-K
+alignment (alternative: major), defaults to TRUE}
 
 \item{extension}{(optional) if loading from files rather than a
 \code{q_matrix_list} object specify the extension e.g. ".Q" or ".indivq"}
