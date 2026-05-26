@@ -269,6 +269,18 @@ tgc_tools_install <-
       )
     }
     
+    # check clumppling has successfully installed and warn user if it hasn't
+    out <- system2(
+      command = "conda",
+      args = c("run", "-n", "cclumppling", "conda", "list", "clumppling"),
+      stdout = FALSE,
+      stderr = FALSE
+    )
+    
+    if (out != 0) {
+      warning("clumppling has not been succesfully installed in your conda environment")
+    }
+    
     #########################################################################
     # activate ctidygenclust with the python functions
     reticulate::use_condaenv("ctidygenclust", required = FALSE)
