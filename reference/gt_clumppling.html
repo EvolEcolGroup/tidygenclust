@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidygenclust</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.1</span>
       </span>
     </div>
 
@@ -52,12 +52,13 @@
     <div id="ref-usage">
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">gt_clumppling</span><span class="op">(</span></span>
 <span>  <span class="va">input_path</span>,</span>
+<span>  output_path <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span><span class="st">"clump_out"</span><span class="op">)</span>,</span>
 <span>  input_format <span class="op">=</span> <span class="st">"admixture"</span>,</span>
-<span>  cd_param <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  use_rep <span class="op">=</span> <span class="fl">0</span>,</span>
-<span>  merge_cls <span class="op">=</span> <span class="fl">0</span>,</span>
-<span>  cd_default <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  output_path <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span><span class="st">"clump_out"</span><span class="op">)</span></span>
+<span>  use_rep <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  merge <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  cd_method <span class="op">=</span> <span class="st">"louvain"</span>,</span>
+<span>  use_best_pair <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  extension <span class="op">=</span> <span class="st">".Q"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -70,29 +71,6 @@
 or a zip archive, or a <code>q_matrix_list</code> object</p></dd>
 
 
-<dt id="arg-input-format">input_format<a class="anchor" aria-label="anchor" href="#arg-input-format"></a></dt>
-<dd><p>a string defining the format of the input files, one of
-'admixture' (default)</p></dd>
-
-
-<dt id="arg-cd-param">cd_param<a class="anchor" aria-label="anchor" href="#arg-cd-param"></a></dt>
-<dd><p>the cd_param use_rep boolean on whether a representative
-repeat should be used as a consesus for a mode. Defaults to FALSE, which
-leads to the computatoin of an average</p></dd>
-
-
-<dt id="arg-use-rep">use_rep<a class="anchor" aria-label="anchor" href="#arg-use-rep"></a></dt>
-<dd><p>boolean</p></dd>
-
-
-<dt id="arg-merge-cls">merge_cls<a class="anchor" aria-label="anchor" href="#arg-merge-cls"></a></dt>
-<dd><p>boolean,</p></dd>
-
-
-<dt id="arg-cd-default">cd_default<a class="anchor" aria-label="anchor" href="#arg-cd-default"></a></dt>
-<dd><p>boolean</p></dd>
-
-
 <dt id="arg-output-path">output_path<a class="anchor" aria-label="anchor" href="#arg-output-path"></a></dt>
 <dd><p>(optional) the clumppling functions in python save
 everything to file. By default, R stores the information in objects in the
@@ -101,6 +79,37 @@ cleared at the end of a session. <code>output_path</code> allows to change the
 location of those files. This is only useful to those interested in
 recovering the same files as created by the python clumppling module, or
 for debugging.</p></dd>
+
+
+<dt id="arg-input-format">input_format<a class="anchor" aria-label="anchor" href="#arg-input-format"></a></dt>
+<dd><p>a string defining the format of the input files, one of
+'admixture' (default),'structure','fastStructure' or 'generalQ'</p></dd>
+
+
+<dt id="arg-use-rep">use_rep<a class="anchor" aria-label="anchor" href="#arg-use-rep"></a></dt>
+<dd><p>boolean, whether to use representative modes (alternative:
+average), defaults to TRUE</p></dd>
+
+
+<dt id="arg-merge">merge<a class="anchor" aria-label="anchor" href="#arg-merge"></a></dt>
+<dd><p>boolean, whether to merge two clusters when aligning K+1 to K,
+defaults to TRUE</p></dd>
+
+
+<dt id="arg-cd-method">cd_method<a class="anchor" aria-label="anchor" href="#arg-cd-method"></a></dt>
+<dd><p>the community detection method to use, one of 'louvain'
+(default), 'leiden', 'infomap', 'markov_clustering', 'label_propagation',
+'walktrap', 'custom'</p></dd>
+
+
+<dt id="arg-use-best-pair">use_best_pair<a class="anchor" aria-label="anchor" href="#arg-use-best-pair"></a></dt>
+<dd><p>boolean, whether to use best pair as anchor for across-K
+alignment (alternative: major), defaults to TRUE</p></dd>
+
+
+<dt id="arg-extension">extension<a class="anchor" aria-label="anchor" href="#arg-extension"></a></dt>
+<dd><p>(optional) if loading from files rather than a
+<code>q_matrix_list</code> object specify the extension e.g. ".Q" or ".indivq"</p></dd>
 
 </dl></div>
     <div id="value">

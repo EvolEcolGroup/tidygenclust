@@ -32,7 +32,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidygenclust</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.1</span>
       </span>
     </div>
 
@@ -492,7 +492,7 @@ The text files containing the matrices are stored as a zip archive,
 which we can pass directly to <code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code>:</p>
 <div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">input_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata/capeverde.zip"</span>, package <span class="op">=</span> <span class="st">"tidygenclust"</span><span class="op">)</span></span>
-<span><span class="va">clump_res</span> <span class="op">&lt;-</span> <span class="va">input_path</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_clumppling.html">gt_clumppling</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">clump_res</span> <span class="op">&lt;-</span> <span class="va">input_path</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_clumppling.html">gt_clumppling</a></span><span class="op">(</span>extension <span class="op">=</span> <span class="st">".indivq"</span><span class="op">)</span></span></code></pre></div>
 <p>Once we have a <code>gt_clumppling</code> results object, we can use
 <code>autoplot</code> to make a number of default plots.</p>
 <p>We can plot the modes for all values of k with:</p>
@@ -540,7 +540,11 @@ gaps in the K values explored.</p>
 to specify the <code>input_format</code>):</p>
 <div class="sourceCode" id="cb48"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">input_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata/chicken_gapk.zip"</span>, package <span class="op">=</span> <span class="st">"tidygenclust"</span><span class="op">)</span></span>
-<span><span class="va">chicken_res</span> <span class="op">&lt;-</span> <span class="va">input_path</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_clumppling.html">gt_clumppling</a></span><span class="op">(</span>input_format <span class="op">=</span> <span class="st">"structure"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">chicken_res</span> <span class="op">&lt;-</span> <span class="va">input_path</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/gt_clumppling.html">gt_clumppling</a></span><span class="op">(</span></span>
+<span>    input_format <span class="op">=</span> <span class="st">"structure"</span>,</span>
+<span>    extension <span class="op">=</span> <span class="st">"_f"</span></span>
+<span>  <span class="op">)</span></span></code></pre></div>
 <p>We can plot the membership plots on top of the multipartite plot
 with:</p>
 <div class="sourceCode" id="cb49"><pre class="downlit sourceCode r">
@@ -596,11 +600,11 @@ with their clusters aligned, by typing:</p>
 <pre><code><span><span class="co">## <span style="color: #949494;"># A tibble: 6 × 3</span></span></span>
 <span><span class="co">##      id q     percentage</span></span>
 <span><span class="co">##   <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">## <span style="color: #BCBCBC;">1</span>     1 1      0.000<span style="text-decoration: underline;">010</span>1</span></span>
-<span><span class="co">## <span style="color: #BCBCBC;">2</span>     1 2      0.000<span style="text-decoration: underline;">010</span>1</span></span>
+<span><span class="co">## <span style="color: #BCBCBC;">1</span>     1 1      0.000<span style="text-decoration: underline;">010</span>0</span></span>
+<span><span class="co">## <span style="color: #BCBCBC;">2</span>     1 2      0.000<span style="text-decoration: underline;">010</span>0</span></span>
 <span><span class="co">## <span style="color: #BCBCBC;">3</span>     1 3      0.000<span style="text-decoration: underline;">010</span>0</span></span>
 <span><span class="co">## <span style="color: #BCBCBC;">4</span>     1 4      1.000    </span></span>
-<span><span class="co">## <span style="color: #BCBCBC;">5</span>     2 1      0.057<span style="text-decoration: underline;">4</span>   </span></span>
+<span><span class="co">## <span style="color: #BCBCBC;">5</span>     2 1      0.000<span style="text-decoration: underline;">010</span>0</span></span>
 <span><span class="co">## <span style="color: #BCBCBC;">6</span>     2 2      0.000<span style="text-decoration: underline;">010</span>0</span></span></code></pre>
 <p>We can now create a simple plot of this mode with:</p>
 <div class="sourceCode" id="cb61"><pre class="downlit sourceCode r">
