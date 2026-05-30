@@ -238,8 +238,9 @@ tgc_tools_install <-
       )
       # Install clumppling
       reticulate::conda_run2(
-        cmd = "pip3",
+        cmd = "python",
         args = paste0(
+          "-m pip ",
           "install ",
           "--upgrade --force-reinstall ",
           "setuptools==80.10.2 ",
@@ -258,8 +259,9 @@ tgc_tools_install <-
       )
       # Install clumppling
       reticulate::conda_run2(
-        cmd = "pip3",
+        cmd = "python",
         args = paste0(
+          "-m pip ",
           "install ",
           "--upgrade --force-reinstall ",
           "git+https://github.com/PopGenClustering/Clumppling.git@",
