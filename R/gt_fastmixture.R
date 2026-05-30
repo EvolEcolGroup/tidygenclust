@@ -247,16 +247,19 @@ gt_fastmixture <- function(
 
 
 .ensure_fastmixture_python <- function() {
-  if (!reticulate::py_available(initialize = FALSE)) {
-    reticulate::use_condaenv("ctidygenclust", required = TRUE)
-  }
-  
+  reticulate::use_condaenv("ctidygenclust", required = TRUE)
   cfg <- reticulate::py_config()
+  
+  .py_rfastmixture <<- reticulate::import_from_path(
+    module = "py_rfastmixture",
+    path = system.file("python", package = "tidygenclust"),
+    delay_load = FALSE
+  )
+  
   if (!reticulate::py_module_available("fastmixture")) {
     stop(
-      "reticulate is not using a Python environment with 'fastmixture' installed.\n",
-      "Current python: ", cfg$python, "\n",
-      "Expected conda env: ctidygenclust"
+      "Python environment selected but 'fastmixture' is not importable.\n",
+      "Current python: ", cfg$python
     )
   }
 }
