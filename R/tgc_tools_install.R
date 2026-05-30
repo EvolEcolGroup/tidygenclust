@@ -132,7 +132,7 @@ tgc_tools_install <-
       )
       # create command line to install fastmixture
       fast_install_cmd <- paste0(
-        "pip3 install ",
+        "python -m install ",
         "--upgrade --force-reinstall ",
         "git+https://github.com/Rosemeis/fastmixture.git@",
         fastmixture_hash
