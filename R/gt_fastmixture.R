@@ -45,28 +45,31 @@
 #' @export
 
 gt_fastmixture <- function(
-    x,
-    k,
-    n_runs = 1,
-    threads = 1,
-    seed = 42,
-    iter = 1000,
-    tole = 1e-9,
-    batches = 32,
-    supervised = NULL,
-    check = 5,
-    power = 11,
-    chunk = 8192,
-    subsample = 0.7,
-    min_subsample = 50000,
-    max_subsample = 500000,
-    als_iter = 1000,
-    als_tole = 1e-4,
-    no_freqs = TRUE,
-    random_init = TRUE,
-    safety = TRUE,
-    cv = NULL,
-    cv_tole = 1e-7) {
+  x,
+  k,
+  n_runs = 1,
+  threads = 1,
+  seed = 42,
+  iter = 1000,
+  tole = 1e-9,
+  batches = 32,
+  supervised = NULL,
+  check = 5,
+  power = 11,
+  chunk = 8192,
+  subsample = 0.7,
+  min_subsample = 50000,
+  max_subsample = 500000,
+  als_iter = 1000,
+  als_tole = 1e-4,
+  no_freqs = TRUE,
+  random_init = TRUE,
+  safety = TRUE,
+  cv = NULL,
+  cv_tole = 1e-7
+) {
+  .ensure_fastmixture_python()
+
   if (length(seed) != n_runs) {
     stop("'seeds' should be a vector of length 'repeats'")
   }
@@ -240,4 +243,18 @@ gt_fastmixture <- function(
   adm_list$algorithm <- "fastmixture"
 
   return(adm_list)
+}
+
+.ensure_fastmixture_python <- function() {
+  reticulate::use_condaenv("ctidygenclust", required = TRUE)
+  # get info on the current python environment
+  cfg <- reticulate::py_config()
+
+
+  if (!reticulate::py_module_available("fastmixture")) {
+    stop(
+      "Python environment selected but 'fastmixture' is not importable.\n",
+      "Current python: ", cfg$python
+    )
+  }
 }

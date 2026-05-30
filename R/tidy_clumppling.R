@@ -21,16 +21,17 @@
 #' @export
 
 tidy.gt_clumppling <- function(
-    x,
-    matrix = c(
-      "modes",
-      "major_modes",
-      "Q_modes",
-      "q_modes",
-      "Q_major_modes",
-      "q_major_modes"
-    ),
-    ...) {
+  x,
+  matrix = c(
+    "modes",
+    "major_modes",
+    "Q_modes",
+    "q_modes",
+    "Q_major_modes",
+    "q_major_modes"
+  ),
+  ...
+) {
   rlang::check_dots_empty()
   matrix <- match.arg(matrix)
   if (matrix == "modes") {

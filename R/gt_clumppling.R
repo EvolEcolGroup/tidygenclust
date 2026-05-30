@@ -11,13 +11,18 @@
 #' @param input_path the path where the Q files are stored, either a directory
 #'   or a zip archive, or a `q_matrix_list` object
 #' @param input_format a string defining the format of the input files, one of
-#'   'admixture' (default)
-#' @param cd_param the cd_param use_rep boolean on whether a representative
-#'   repeat should be used as a consesus for a mode. Defaults to FALSE, which
-#'   leads to the computatoin of an average
-#' @param merge_cls boolean,
-#' @param cd_default boolean
-#' @param use_rep boolean
+#'   'admixture' (default),'structure','fastStructure' or 'generalQ'
+#' @param cd_method the community detection method to use, one of 'louvain'
+#'  (default), 'leiden', 'infomap', 'markov_clustering', 'label_propagation',
+#'   'walktrap', 'custom'
+#' @param use_rep boolean, whether to use representative modes (alternative:
+#'  average), defaults to TRUE
+#' @param merge boolean, whether to merge two clusters when aligning K+1 to K,
+#'  defaults to TRUE
+#' @param use_best_pair boolean, whether to use best pair as anchor for across-K
+#'  alignment (alternative: major), defaults to TRUE
+#' @param extension (optional) if loading from files rather than a
+#'   `q_matrix_list` object specify the extension e.g. ".Q" or ".indivq"
 #' @param output_path (optional) the clumppling functions in python save
 #'   everything to file. By default, R stores the information in objects in the
 #'   environment, and sends those files to a temporary directory that will be
@@ -34,13 +39,15 @@
 #' @export
 
 gt_clumppling <- function(
-    input_path,
-    input_format = "admixture",
-    cd_param = 1.0,
-    use_rep = 0,
-    merge_cls = 0,
-    cd_default = 1,
-    output_path = tempfile("clump_out")) {
+  input_path,
+  output_path = tempfile("clump_out"),
+  input_format = "admixture",
+  use_rep = TRUE,
+  merge = TRUE,
+  cd_method = "louvain",
+  use_best_pair = TRUE,
+  extension = ".Q"
+) {
   # Check if input_path is a zip file and unzip it
   if (is.character(input_path)) {
     if (tools::file_ext(input_path) == "zip") {
@@ -77,27 +84,42 @@ gt_clumppling <- function(
     input_path <- temp_q_dir
   }
 
-  # create command line for clumppling
+  if (merge == TRUE) {
+    merge <- "True"
+  } else if (merge == FALSE) {
+    merge <- "False"
+  }
+
+  if (use_rep == TRUE) {
+    use_rep <- "True"
+  } else if (use_rep == FALSE) {
+    use_rep <- "False"
+  }
+
+  if (use_best_pair == TRUE) {
+    use_best_pair <- "True"
+  } else if (use_best_pair == FALSE) {
+    use_best_pair <- "False"
+  }
+
+
   clump_args <- paste0(
-    "-m clumppling -i ",
-    input_path,
-    " -o ",
-    output_path,
-    " -f ",
-    input_format,
-    " -v=1 --cd_param=",
-    cd_param,
-    " --use_rep=",
-    use_rep,
-    " --merge_cls=",
-    merge_cls,
-    " --cd_default=",
-    cd_default,
-    paste0(
-      " --plot_modes=0 --plot_modes_withinK=0 ",
-      "--plot_major_modes=0 --plot_all_modes=0"
-    )
+    "-m clumppling ",
+    "-i ", input_path,
+    " -o ", output_path,
+    " -f ", input_format,
+    " -v=False",
+    " --cd_method=", cd_method,
+    " --test_comm=False",
+    " --comm_min=1e-6", # set to default
+    " --comm_max=1e-2", # set to default
+    " --merge=", merge,
+    " --use_rep=", use_rep,
+    " --use_best_pair=", use_best_pair,
+    " --extension=", extension
   )
+
+
   reticulate::conda_run2(
     cmd = "python",
     args = clump_args,
@@ -139,31 +161,31 @@ gt_clumppling <- function(
     output_path,
     "modes"
   )
-  mode_alignments <- utils::read.csv(file.path(
+  mode_alignment <- utils::read.csv(file.path(
     modes_path,
-    "mode_alignments.txt"
+    "mode_alignment.txt"
   ))
 
   # for each mode, get the replicates
   # add replicate id column by parsing string and getting number after R
-  mode_alignments$ReplicateID <- as.integer(sub(
+  mode_alignment$ReplicateID <- as.integer(sub(
     ".*R(\\d+).*",
     "\\1",
-    mode_alignments$Replicate
+    mode_alignment$Replicate
   ))
-  mode_replicates <- split(mode_alignments$ReplicateID, mode_alignments$Mode)
+  mode_replicates <- split(mode_alignment$ReplicateID, mode_alignment$Mode)
   clump_res$mode_replicates <- mode_replicates
 
   # Reorder the list, if needed
   clump_res$mode_replicates <- clump_res$mode_replicates[indices]
 
   # add K_range
-  mode_alignments$K <- as.integer(sub(
+  mode_alignment$K <- as.integer(sub(
     ".*K(\\d+).*",
     "\\1",
-    mode_alignments$Mode
+    mode_alignment$Mode
   ))
-  clump_res$K_range <- unique(mode_alignments$K)
+  clump_res$K_range <- unique(mode_alignment$K)
 
   # add N
   clump_res$N <- nrow(clump_res$aligned_modes[[1]])
@@ -186,19 +208,18 @@ gt_clumppling <- function(
 #' @param k a vector of k values to subset to
 #' @returns a gt_clumppling object subsetted to the individuals specified
 #' @export
-subset_gt_clumppling <- function(x, k = NULL, indivs = NULL){
-  if(!is.null(indivs)){
+subset_gt_clumppling <- function(x, k = NULL, indivs = NULL) {
+  if (!is.null(indivs)) {
     indivs <- as.integer(indivs)
     # check indivs is an integer vector of consecutive values from min to max
     indivs_sorted <- sort(indivs)
-    #expected <- seq(min(indivs_sorted), max(indivs_sorted))
 
     if (!identical(indivs, indivs_sorted) ||
-        !all(diff(indivs) == 1)) {
-      stop(
-        "indivs values must be strictly increasing and consecutive from min to max. ",
-        "If your individuals are not consecutive, please reorder your individuals ",
-        "using gt_admix_reorder_q() and re-run gt_clumppling."
+      !all(diff(indivs) == 1)) { # nolint
+      stop( # nolint
+        "indivs values must be strictly increasing and consecutive from min ",
+        "to max. If your individuals are not consecutive, please reorder your ",
+        "individuals using gt_admix_reorder_q() and re-run gt_clumppling."
       )
     }
 
@@ -214,13 +235,13 @@ subset_gt_clumppling <- function(x, k = NULL, indivs = NULL){
     attr(x, "subset_indivs") <- TRUE
   }
 
-  if(!is.null(k)){
+  if (!is.null(k)) {
     k <- as.integer(k)
     k_sorted <- sort(k)
     expected <- seq(min(k_sorted), max(k_sorted))
 
     # check k is an integer vector of consecutive values from min to max
-    if(!identical(k, expected)){
+    if (!identical(k, expected)) {
       stop("k values must be consecutive from min to max")
     }
 
@@ -233,8 +254,8 @@ subset_gt_clumppling <- function(x, k = NULL, indivs = NULL){
     x$K_range <- x$K_range[k_indices]
     # find the entries in $aligned_modes that = paste0("K",K_range[])
     matched_indices <- c()
-    for(i in k){
-      this_k <- paste0("K",i)
+    for (i in k) {
+      this_k <- paste0("K", i)
       this_k_indices <- grep(this_k, names(x$aligned_modes))
       matched_indices <- c(matched_indices, this_k_indices)
     }
@@ -244,13 +265,12 @@ subset_gt_clumppling <- function(x, k = NULL, indivs = NULL){
 
     # find the entries in $cost_acrossK that need removing
     matched_indices <- c()
-    for(i in k_rm){
-      this_k <- paste0("K",i)
+    for (i in k_rm) {
+      this_k <- paste0("K", i)
       rm_indices <- grep(this_k, names(x$cost_acrossK))
       matched_indices <- c(matched_indices, rm_indices)
     }
     x$cost_acrossK <- x$cost_acrossK[-matched_indices]
-
   }
 
   return(x)

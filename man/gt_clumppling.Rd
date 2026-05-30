@@ -6,30 +6,18 @@
 \usage{
 gt_clumppling(
   input_path,
+  output_path = tempfile("clump_out"),
   input_format = "admixture",
-  cd_param = 1,
-  use_rep = 0,
-  merge_cls = 0,
-  cd_default = 1,
-  output_path = tempfile("clump_out")
+  use_rep = TRUE,
+  merge = TRUE,
+  cd_method = "louvain",
+  use_best_pair = TRUE,
+  extension = ".Q"
 )
 }
 \arguments{
 \item{input_path}{the path where the Q files are stored, either a directory
 or a zip archive, or a \code{q_matrix_list} object}
-
-\item{input_format}{a string defining the format of the input files, one of
-'admixture' (default)}
-
-\item{cd_param}{the cd_param use_rep boolean on whether a representative
-repeat should be used as a consesus for a mode. Defaults to FALSE, which
-leads to the computatoin of an average}
-
-\item{use_rep}{boolean}
-
-\item{merge_cls}{boolean,}
-
-\item{cd_default}{boolean}
 
 \item{output_path}{(optional) the clumppling functions in python save
 everything to file. By default, R stores the information in objects in the
@@ -38,6 +26,25 @@ cleared at the end of a session. \code{output_path} allows to change the
 location of those files. This is only useful to those interested in
 recovering the same files as created by the python clumppling module, or
 for debugging.}
+
+\item{input_format}{a string defining the format of the input files, one of
+'admixture' (default),'structure','fastStructure' or 'generalQ'}
+
+\item{use_rep}{boolean, whether to use representative modes (alternative:
+average), defaults to TRUE}
+
+\item{merge}{boolean, whether to merge two clusters when aligning K+1 to K,
+defaults to TRUE}
+
+\item{cd_method}{the community detection method to use, one of 'louvain'
+(default), 'leiden', 'infomap', 'markov_clustering', 'label_propagation',
+'walktrap', 'custom'}
+
+\item{use_best_pair}{boolean, whether to use best pair as anchor for across-K
+alignment (alternative: major), defaults to TRUE}
+
+\item{extension}{(optional) if loading from files rather than a
+\code{q_matrix_list} object specify the extension e.g. ".Q" or ".indivq"}
 }
 \value{
 a list of class \code{gt_clumppling} containing:

@@ -7,7 +7,7 @@
 tgc_tools_install(
   reset = FALSE,
   fastmixture_hash = "29e04339ce6ddf750ee4e06f8aabe40335e0d0ee",
-  clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40",
+  clumppling_hash = "2d24e0b2f6ddfcb51a436df96a06d5f57d18d20a",
   conda_method = c("reticulate", "conda_yaml"),
   ci_install = FALSE
 )
