@@ -127,7 +127,7 @@ tgc_tools_install <-
       # create a conda environment with the necessary packages
       reticulate::conda_create(
         envname = "ctidygenclust",
-        packages = c("python==3.11", "numpy>2.0.0", "cython>3.0.0"),
+        packages = c("python==3.11", "numpy>2.0.0", "cython>3.0.0", "pip"),
         channel = c("bioconda", "conda-forge", "defaults")
       )
       # create command line to install fastmixture
