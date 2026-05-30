@@ -285,7 +285,7 @@ tgc_tools_install <-
     
     #########################################################################
     # activate ctidygenclust with the python functions
-    reticulate::use_condaenv("ctidygenclust", required = FALSE)
+    reticulate::use_condaenv("ctidygenclust", required = TRUE)
   }
 
 # check if package is installed with brew

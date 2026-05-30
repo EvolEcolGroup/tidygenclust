@@ -67,6 +67,9 @@ gt_fastmixture <- function(
     safety = TRUE,
     cv = NULL,
     cv_tole = 1e-7) {
+  
+  .ensure_fastmixture_python()
+  
   if (length(seed) != n_runs) {
     stop("'seeds' should be a vector of length 'repeats'")
   }
@@ -240,4 +243,20 @@ gt_fastmixture <- function(
   adm_list$algorithm <- "fastmixture"
 
   return(adm_list)
+}
+
+
+.ensure_fastmixture_python <- function() {
+  if (!reticulate::py_available(initialize = FALSE)) {
+    reticulate::use_condaenv("ctidygenclust", required = TRUE)
+  }
+  
+  cfg <- reticulate::py_config()
+  if (!reticulate::py_module_available("fastmixture")) {
+    stop(
+      "reticulate is not using a Python environment with 'fastmixture' installed.\n",
+      "Current python: ", cfg$python, "\n",
+      "Expected conda env: ctidygenclust"
+    )
+  }
 }

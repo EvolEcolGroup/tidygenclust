@@ -6,10 +6,10 @@
     .py_rfastmixture <<- reticulate::import_from_path(
       module = "py_rfastmixture",
       path = system.file("python", package = "tidygenclust"),
-      delay_load = FALSE
+      delay_load = TRUE
     )
   } else {
-    packageStartupMessage(
+    warning(
       "The conda environment 'ctidygenclust' does not exist. Install it ",
       "with 'tgc_tools_install()'"
     )
