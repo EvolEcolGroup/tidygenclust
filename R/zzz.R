@@ -4,12 +4,12 @@
   .py_rfastmixture <<- reticulate::import_from_path(
     module = "py_rfastmixture",
     path = system.file("python", package = "tidygenclust"),
-    delay_load = TRUE
+    delay_load = FALSE
   )
 }
 .onAttach <- function(...) {
   if (reticulate::condaenv_exists("ctidygenclust")) {
-    reticulate::use_condaenv("ctidygenclust", required = FALSE)
+    reticulate::use_condaenv("ctidygenclust", required = TRUE)
   } else {
     packageStartupMessage(
       "The conda environment 'ctidygenclust' does not exist. Install it ",

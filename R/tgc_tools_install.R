@@ -233,7 +233,7 @@ tgc_tools_install <-
       # macOS 14 or older
       reticulate::conda_create(
         envname = "cclumppling",
-        packages = c("python==3.9"),
+        packages = c("python==3.9", "pip"),
         channel = c("bioconda", "conda-forge", "defaults")
       )
       # Install clumppling
@@ -254,7 +254,7 @@ tgc_tools_install <-
       # all other operating systems and macOS 15 or newer
       reticulate::conda_create(
         envname = "cclumppling",
-        packages = c("python==3.12"),
+        packages = c("python==3.12", "pip"),
         channel = c("bioconda", "conda-forge", "defaults")
       )
       # Install clumppling
