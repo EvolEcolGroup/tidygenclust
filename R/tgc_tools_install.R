@@ -49,7 +49,7 @@
 tgc_tools_install <-
   function(reset = FALSE,
            fastmixture_hash = "29e04339ce6ddf750ee4e06f8aabe40335e0d0ee",
-           clumppling_hash = "2d24e0b2f6ddfcb51a436df96a06d5f57d18d20a", 
+           clumppling_hash = "2d24e0b2f6ddfcb51a436df96a06d5f57d18d20a",
            conda_method = c("reticulate", "conda_yaml"),
            ci_install = FALSE) {
     # give error for windows
@@ -220,15 +220,14 @@ tgc_tools_install <-
     }
 
 
-
     #########################################################################
     # now install clumppling in its own conda environment
     # since its dependencies are not compatible with the ones of fastmixture
-    
+
     # find out operating system and release
     release <- Sys.info()[["release"]]
     version_major <- as.numeric(strsplit(release, "\\.")[[1]][1])
-    
+
     if (Sys.info()[["sysname"]] == "Darwin" && version_major <= 23) {
       # macOS 14 or older
       reticulate::conda_create(
@@ -270,7 +269,7 @@ tgc_tools_install <-
         envname = "cclumppling"
       )
     }
-    
+
     # check clumppling has successfully installed and warn user if it hasn't
     out <- system2(
       command = "conda",
@@ -278,11 +277,14 @@ tgc_tools_install <-
       stdout = FALSE,
       stderr = FALSE
     )
-    
+
     if (out != 0) {
-      warning("clumppling has not been succesfully installed in your conda environment")
+      warning(paste0(
+        "clumppling has not been succesfully installed ",
+        "in your conda environment"
+      ))
     }
-    
+
     #########################################################################
     # activate ctidygenclust with the python functions
     reticulate::use_condaenv("ctidygenclust", required = TRUE)

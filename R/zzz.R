@@ -14,7 +14,6 @@
       "with 'tgc_tools_install()'"
     )
   }
-
 }
 .onAttach <- function(...) {
   if (reticulate::condaenv_exists("ctidygenclust")) {

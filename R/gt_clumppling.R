@@ -39,14 +39,15 @@
 #' @export
 
 gt_clumppling <- function(
-    input_path,
-    output_path = tempfile("clump_out"),
-    input_format = "admixture",
-    use_rep = TRUE,
-    merge = TRUE,
-    cd_method = "louvain",
-    use_best_pair = TRUE,
-    extension = ".Q") {
+  input_path,
+  output_path = tempfile("clump_out"),
+  input_format = "admixture",
+  use_rep = TRUE,
+  merge = TRUE,
+  cd_method = "louvain",
+  use_best_pair = TRUE,
+  extension = ".Q"
+) {
   # Check if input_path is a zip file and unzip it
   if (is.character(input_path)) {
     if (tools::file_ext(input_path) == "zip") {

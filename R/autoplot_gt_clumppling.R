@@ -33,11 +33,12 @@
 #' @export
 
 autoplot.gt_clumppling <- function(
-    object,
-    type = c("modes", "modes_within_k", "major_modes", "all_modes"),
-    group = NULL,
-    k = NULL,
-    ...) {
+  object,
+  type = c("modes", "modes_within_k", "major_modes", "all_modes"),
+  group = NULL,
+  k = NULL,
+  ...
+) {
   type <- match.arg(type)
   rlang::check_dots_empty()
   # check that group, if given, is cohere with the rest of the data
