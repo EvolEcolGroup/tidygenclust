@@ -247,6 +247,7 @@ gt_fastmixture <- function(
 
 .ensure_fastmixture_python <- function() {
   reticulate::use_condaenv("ctidygenclust", required = TRUE)
+  # get info on the current python environment
   cfg <- reticulate::py_config()
   
 
