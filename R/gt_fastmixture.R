@@ -245,17 +245,11 @@ gt_fastmixture <- function(
   return(adm_list)
 }
 
-
 .ensure_fastmixture_python <- function() {
   reticulate::use_condaenv("ctidygenclust", required = TRUE)
   cfg <- reticulate::py_config()
   
-  .py_rfastmixture <<- reticulate::import_from_path(
-    module = "py_rfastmixture",
-    path = system.file("python", package = "tidygenclust"),
-    delay_load = FALSE
-  )
-  
+
   if (!reticulate::py_module_available("fastmixture")) {
     stop(
       "Python environment selected but 'fastmixture' is not importable.\n",
