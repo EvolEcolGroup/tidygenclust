@@ -6,3 +6,4 @@ tidygenclust.Rproj
 /tests/testthat/Rplots.pdf
 /data-raw/hgdp/
 .DS_Store
+.positai
