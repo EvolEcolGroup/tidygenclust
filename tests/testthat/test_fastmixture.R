@@ -2,29 +2,30 @@ skip_on_cran()
 # skip if the conda environment does not exist
 skip_if(!reticulate::condaenv_exists("cclumppling"))
 
+library(tidypopgen)
+
+# set up the gentibble
+vcf_path <- system.file(
+  "/extdata/anolis/punctatus_t70_s10_n46_filtered.recode.vcf.gz",
+  package = "tidypopgen"
+)
+anole_gt <- gen_tibble(
+  vcf_path,
+  quiet = TRUE,
+  backingfile = tempfile("anolis_"),
+  parser = "cpp"
+)
+pops_path <- system.file(
+  "/extdata/anolis/plot_order_punctatus_n46.csv",
+  package = "tidypopgen"
+)
+pops <- readr::read_csv(pops_path)
+anole_gt <- anole_gt %>% mutate(id = gsub("punc_", "", .data$id, ))
+anole_gt <- anole_gt %>%
+  mutate(population = pops$pop[match(pops$ID, .data$id)])
+
+
 test_that("gt_fastmixture", {
-  library(tidypopgen)
-
-  # set up the gentibble
-  vcf_path <- system.file(
-    "/extdata/anolis/punctatus_t70_s10_n46_filtered.recode.vcf.gz",
-    package = "tidypopgen"
-  )
-  anole_gt <- gen_tibble(
-    vcf_path,
-    quiet = TRUE,
-    backingfile = tempfile("anolis_"),
-    parser = "cpp"
-  )
-  pops_path <- system.file(
-    "/extdata/anolis/plot_order_punctatus_n46.csv",
-    package = "tidypopgen"
-  )
-  pops <- readr::read_csv(pops_path)
-  anole_gt <- anole_gt %>% mutate(id = gsub("punc_", "", .data$id, ))
-  anole_gt <- anole_gt %>%
-    mutate(population = pops$pop[match(pops$ID, .data$id)])
-
   # Multiple k and one repeat with no P matrices
 
   k <- c(2:3)
@@ -193,4 +194,127 @@ test_that("gt_fastmixture", {
   expect_true(ncol(anole_qmat$Q[[index_k2[1]]]) == 2)
   # check p-matrix are indexed as correct k
   expect_true(ncol(anole_qmat$P[[index_k2[1]]]) == 2)
+})
+
+test_that("fastmixture with cv", {
+  # Single k and one repeat with no P matrices
+
+  k <- c(3)
+
+  anole_qmat <- gt_fastmixture(
+    anole_gt,
+    k,
+    n_runs = 1,
+    threads = 1,
+    seed = 42,
+    iter = 1000,
+    tole = 0.5,
+    batches = 32,
+    supervised = NULL,
+    check = 5,
+    power = 11,
+    chunk = 8192,
+    als_iter = 1000,
+    als_tole = 1e-4,
+    no_freqs = TRUE,
+    random_init = TRUE,
+    cv = 7,
+    cv_tole = 1e-7
+  )
+
+  # check
+  expect_true("cv" %in% names(anole_qmat))
+  expect_true(is.numeric(anole_qmat$cv))
+
+  # Single k and one repeat with P matrices
+
+  k <- c(3)
+
+  anole_qmat <- gt_fastmixture(
+    anole_gt,
+    k,
+    n_runs = 1,
+    threads = 1,
+    seed = 42,
+    iter = 1000,
+    tole = 0.5,
+    batches = 32,
+    supervised = NULL,
+    check = 5,
+    power = 11,
+    chunk = 8192,
+    als_iter = 1000,
+    als_tole = 1e-4,
+    no_freqs = FALSE,
+    random_init = TRUE,
+    cv = 7,
+    cv_tole = 1e-7
+  )
+
+  # check
+  expect_true("cv" %in% names(anole_qmat))
+  expect_true(is.numeric(anole_qmat$cv))
+
+
+  # Multiple k and multiple repeats with no P matrices
+
+  k <- c(2:4)
+  n_runs <- 2
+  seeds <- c(123, 234)
+
+  anole_qmat <- gt_fastmixture(
+    anole_gt,
+    k,
+    n_runs = n_runs,
+    threads = 1,
+    seed = seeds,
+    iter = 1000,
+    tole = 0.5,
+    batches = 32,
+    supervised = NULL,
+    check = 5,
+    power = 11,
+    chunk = 8192,
+    als_iter = 1000,
+    als_tole = 1e-4,
+    no_freqs = TRUE,
+    random_init = TRUE,
+    cv = 7,
+    cv_tole = 1e-7
+  )
+
+  # check
+  expect_true("cv" %in% names(anole_qmat))
+  expect_equal(length(anole_qmat$cv), length(k) * n_runs)
+
+  # Multiple k and multiple repeats with P matrices
+
+  k <- c(2:7)
+  n_runs <- 4
+  seeds <- c(123, 234, 345, 456)
+
+  anole_qmat <- gt_fastmixture(
+    anole_gt,
+    k,
+    n_runs = n_runs,
+    threads = 1,
+    seed = seeds,
+    iter = 1000,
+    tole = 0.5,
+    batches = 32,
+    supervised = NULL,
+    check = 5,
+    power = 11,
+    chunk = 8192,
+    als_iter = 1000,
+    als_tole = 1e-4,
+    no_freqs = FALSE,
+    random_init = TRUE,
+    cv = 5,
+    cv_tole = 1e-7
+  )
+
+  # check
+  expect_true("cv" %in% names(anole_qmat))
+  expect_equal(length(anole_qmat$cv), length(k) * n_runs)
 })

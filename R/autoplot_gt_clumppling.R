@@ -33,11 +33,12 @@
 #' @export
 
 autoplot.gt_clumppling <- function(
-    object,
-    type = c("modes", "modes_within_k", "major_modes", "all_modes"),
-    group = NULL,
-    k = NULL,
-    ...) {
+  object,
+  type = c("modes", "modes_within_k", "major_modes", "all_modes"),
+  group = NULL,
+  k = NULL,
+  ...
+) {
   type <- match.arg(type)
   rlang::check_dots_empty()
   # check that group, if given, is cohere with the rest of the data
@@ -77,6 +78,17 @@ autoplot.gt_clumppling <- function(
 
 # Plot major modes
 plot_major_modes <- function(object, group_x) {
+  if (!is.null(attr(object, "subset_indivs"))) {
+    warning(
+      "You are plotting a gt_clumppling object that has been subsetted by ",
+      "individuals. ",
+      "This function can be used to create plot insets or explore data, but ",
+      "modes will not be representative of this subset. ",
+      "To visualise modes within a subset of individuals, please subset your ",
+      "gt_admix object and re-run gt_clumppling."
+    )
+  }
+
   major_modes <- tidy(object, matrix = "major_modes")
   y_labels <- rep("", nrow(major_modes))
   y_labels[major_modes$m == 1] <- paste0(
@@ -96,6 +108,17 @@ plot_major_modes <- function(object, group_x) {
 
 # Plot all modes
 plot_all_modes <- function(object, group_x) {
+  if (!is.null(attr(object, "subset_indivs"))) {
+    warning(
+      "You are plotting a gt_clumppling object that has been subsetted by ",
+      "individuals. ",
+      "This function can be used to create plot insets or explore data, but ",
+      "modes will not be representative of this subset. ",
+      "To visualise modes within a subset of individuals, please subset your ",
+      "gt_admix object and re-run gt_clumppling."
+    )
+  }
+
   all_modes <- tidy(object, matrix = "modes")
   y_labels <- rep("", nrow(all_modes))
   y_labels[all_modes$m == 1] <- paste0("K = ", all_modes$k[all_modes$m == 1])
@@ -112,6 +135,17 @@ plot_all_modes <- function(object, group_x) {
 
 # Plot major modes
 plot_modes_within_k <- function(object, group_x, k) {
+  if (!is.null(attr(object, "subset_indivs"))) {
+    warning(
+      "You are plotting a gt_clumppling object that has been subsetted by ",
+      "individuals. ",
+      "This function can be used to create plot insets or explore data, but ",
+      "modes will not be representative of this subset. ",
+      "To visualise modes within a subset of individuals, please subset your ",
+      "gt_admix object and re-run gt_clumppling."
+    )
+  }
+
   if (is.null(k)) {
     stop("k must be provided for modes_within_k")
   }

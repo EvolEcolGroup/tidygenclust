@@ -48,8 +48,8 @@
 
 tgc_tools_install <-
   function(reset = FALSE,
-           fastmixture_hash = "f913014669f4a235a1150669d4fbf0715bef42be",
-           clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40",
+           fastmixture_hash = "29e04339ce6ddf750ee4e06f8aabe40335e0d0ee",
+           clumppling_hash = "2d24e0b2f6ddfcb51a436df96a06d5f57d18d20a",
            conda_method = c("reticulate", "conda_yaml"),
            ci_install = FALSE) {
     # give error for windows
@@ -127,12 +127,12 @@ tgc_tools_install <-
       # create a conda environment with the necessary packages
       reticulate::conda_create(
         envname = "ctidygenclust",
-        packages = c("python==3.11", "numpy>2.0.0", "cython>3.0.0"),
+        packages = c("python==3.11", "numpy>2.0.0", "cython>3.0.0", "pip"),
         channel = c("bioconda", "conda-forge", "defaults")
       )
       # create command line to install fastmixture
       fast_install_cmd <- paste0(
-        "pip3 install ",
+        "python -m pip install ",
         "--upgrade --force-reinstall ",
         "git+https://github.com/Rosemeis/fastmixture.git@",
         fastmixture_hash
@@ -220,30 +220,74 @@ tgc_tools_install <-
     }
 
 
-
     #########################################################################
-    # now install clumpling in its own conda environment
+    # now install clumppling in its own conda environment
     # since its dependencies are not compatible with the ones of fastmixture
-    reticulate::conda_create(
-      envname = "cclumppling",
-      packages = c("python==3.9", "numpy==1.24.0"),
-      channel = c("bioconda", "conda-forge", "defaults")
+
+    # find out operating system and release
+    release <- Sys.info()[["release"]]
+    version_major <- as.numeric(strsplit(release, "\\.")[[1]][1])
+
+    if (Sys.info()[["sysname"]] == "Darwin" && version_major <= 23) {
+      # macOS 14 or older
+      reticulate::conda_create(
+        envname = "cclumppling",
+        packages = c("python==3.9", "pip"),
+        channel = c("bioconda", "conda-forge", "defaults")
+      )
+      # Install clumppling
+      reticulate::conda_run2(
+        cmd = "python",
+        args = paste0(
+          "-m pip ",
+          "install ",
+          "--upgrade --force-reinstall ",
+          "setuptools==80.10.2 ",
+          "cvxopt==1.3.2 ",
+          "git+https://github.com/PopGenClustering/Clumppling.git@",
+          clumppling_hash
+        ),
+        envname = "cclumppling"
+      )
+    } else {
+      # all other operating systems and macOS 15 or newer
+      reticulate::conda_create(
+        envname = "cclumppling",
+        packages = c("python==3.12", "pip"),
+        channel = c("bioconda", "conda-forge", "defaults")
+      )
+      # Install clumppling
+      reticulate::conda_run2(
+        cmd = "python",
+        args = paste0(
+          "-m pip ",
+          "install ",
+          "--upgrade --force-reinstall ",
+          "git+https://github.com/PopGenClustering/Clumppling.git@",
+          clumppling_hash
+        ),
+        envname = "cclumppling"
+      )
+    }
+
+    # check clumppling has successfully installed and warn user if it hasn't
+    out <- system2(
+      command = "conda",
+      args = c("run", "-n", "cclumppling", "conda", "list", "clumppling"),
+      stdout = FALSE,
+      stderr = FALSE
     )
-    # Install clumppling
-    reticulate::conda_run2(
-      cmd = "pip3",
-      args = paste0(
-        "install ",
-        "--upgrade --force-reinstall ",
-        "git+https://github.com/PopGenClustering/Clumppling.git@",
-        clumppling_hash
-      ),
-      envname = "cclumppling"
-    )
+
+    if (out != 0) {
+      warning(paste0(
+        "clumppling has not been succesfully installed ",
+        "in your conda environment"
+      ))
+    }
 
     #########################################################################
     # activate ctidygenclust with the python functions
-    reticulate::use_condaenv("ctidygenclust", required = FALSE)
+    reticulate::use_condaenv("ctidygenclust", required = TRUE)
   }
 
 # check if package is installed with brew

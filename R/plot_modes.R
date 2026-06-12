@@ -23,7 +23,7 @@ plot_modes <- function(object, group) {
   all_modes_labels <- names(object$aligned_modes)
   inset_corners <- get_inset_corners(all_modes_labels, object$K_range)
 
-  for (i in seq_len(length(all_modes_labels))) {
+  for (i in seq_along(all_modes_labels)) {
     n <- length(object$mode_replicates[[all_modes_labels[i]]])
     plt <- all_modes[[i]] +
       ggplot2::theme_void() +

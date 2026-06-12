@@ -24,7 +24,9 @@ gt_fastmixture(
   als_tole = 1e-04,
   no_freqs = TRUE,
   random_init = TRUE,
-  safety = TRUE
+  safety = TRUE,
+  cv = NULL,
+  cv_tole = 1e-07
 )
 }
 \arguments{
@@ -70,6 +72,11 @@ or a vector}
 \item{random_init}{random initialisation of parameters (TRUE)}
 
 \item{safety}{add extra safety steps in unstable optimizations (TRUE)}
+
+\item{cv}{the number of cross-validation folds (0)}
+
+\item{cv_tole}{the tolerance for the cross-validation error
+in scaled log-likelihood units (1e-7)}
 }
 \value{
 an object of class \code{gt_admix}. See \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}} for
@@ -83,7 +90,9 @@ that you cite the relevant paper by Santander, Refoyo-Martínez, and Meisner
 }
 \details{
 This function returns a q_matrix that can be plotted with \code{autoplot}, and
-tidied with \code{tidy} methods from the \code{tidypopgen} package.
+tidied with \code{tidy} methods from the \code{tidypopgen} package. Cross-validation
+is set to 0 as default, if you want to include cross-validation you can set
+\code{cv} to a value greater than 1 (ADMIXTURE performs 5-fold cv as default).
 }
 \references{
 C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster

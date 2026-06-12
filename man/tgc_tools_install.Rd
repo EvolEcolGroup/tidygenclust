@@ -6,8 +6,8 @@
 \usage{
 tgc_tools_install(
   reset = FALSE,
-  fastmixture_hash = "f913014669f4a235a1150669d4fbf0715bef42be",
-  clumppling_hash = "a4bf351037fb569e2c2cb83c603a1931606d4d40",
+  fastmixture_hash = "29e04339ce6ddf750ee4e06f8aabe40335e0d0ee",
+  clumppling_hash = "2d24e0b2f6ddfcb51a436df96a06d5f57d18d20a",
   conda_method = c("reticulate", "conda_yaml"),
   ci_install = FALSE
 )
@@ -37,12 +37,14 @@ of the package source directory, rather than in the installed package
 directory. This is useful when testing the package on CI services.}
 }
 \description{
-\code{tidygenclust} relies on the \code{admxiture} and on python packages \code{fastmixture}
+\code{tidygenclust} relies on \code{ADMIXTURE} and on python packages \code{fastmixture}
 and \code{clumppling} for a number of
 functionalities. We use \code{reticulate} to install them in conda
 environments. As their dependencies are incompatible, we use two separate
-conda environment, \code{ctidygenclust} (for \code{fastmixture} and \code{admixture}) and
-\code{cclumppling} (for \code{clumppling}).
+conda environments, \code{ctidygenclust} (for \code{fastmixture} and \code{admixture}) and
+\code{cclumppling} (for \code{clumppling}). Additionally, for silicon Macs, \code{ADMIXTURE}
+is installed in a separate conda environment \code{cadmixture86}, as it is only
+available for OSX as x86 in bioconda.
 }
 \details{
 For each tool, default to the latest tested version of
@@ -60,10 +62,4 @@ For OSX, you might also need to install a suitable compiler for openmp
 using \code{brew} in \code{bash}, setting the correct paths to use it:
 
 \verb{brew install llvm libomp}
-
-\verb{export PATH="/opt/homebrew/opt/llvm/bin:$PATH"}
-
-\verb{export CC="/opt/homebrew/opt/llvm/bin/clang"}
-
-\verb{export CXX="/opt/homebrew/opt/llvm/bin/clang++"}
 }

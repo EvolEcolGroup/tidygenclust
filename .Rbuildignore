@@ -4,5 +4,6 @@
 ^data-raw$
 ^\.github$
 .lintr
+codecov.yml
 ^\.positai$
 ^\.claude$
