@@ -42,7 +42,7 @@
 #'   `conda_yaml = c("auto", "auto", "auto")`.
 #' @param ci_install a boolean indicating if the installation is being run on
 #'   continuous integration (CI) services. Default is FALSE. If TRUE, the
-#'   function will look for the conda yaml file in the `inst/env_snapshots` 
+#'   function will look for the conda yaml file in the `inst/env_snapshots`
 #'   folder of
 #'   the package source directory, rather than in the installed package
 #'   directory. This is useful when testing the package on CI services.
@@ -78,7 +78,7 @@ tgc_tools_install <-
       file.path("inst", "env_snapshots"),
       system.file("env_snapshots/", package = "tidygenclust")
     )
-    
+
     # now, if any value of conda yaml is "auto", replace it with the path to the
     # latest available yaml
     for (i in seq(along = conda_yaml)) {
