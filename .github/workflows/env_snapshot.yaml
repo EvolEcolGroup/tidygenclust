@@ -11,7 +11,9 @@ concurrency:
   cancel-in-progress: true
 name: env_snapshot.yaml
 
-permissions: read-all
+
+permissions:
+  contents: write
 
 jobs:
   R-CMD-check:
