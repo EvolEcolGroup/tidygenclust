@@ -42,7 +42,8 @@
 #'   `conda_yaml = c("auto", "auto", "auto")`.
 #' @param ci_install a boolean indicating if the installation is being run on
 #'   continuous integration (CI) services. Default is FALSE. If TRUE, the
-#'   function will look for the conda yaml file in the `inst/python` folder of
+#'   function will look for the conda yaml file in the `inst/env_snapshots` 
+#'   folder of
 #'   the package source directory, rather than in the installed package
 #'   directory. This is useful when testing the package on CI services.
 #' @returns NULL
@@ -72,6 +73,12 @@ tgc_tools_install <-
       }
     }
 
+    conda_yaml_dir <- ifelse(
+      ci_install,
+      file.path("inst", "env_snapshots"),
+      system.file("env_snapshots/", package = "tidygenclust")
+    )
+    
     # now, if any value of conda yaml is "auto", replace it with the path to the
     # latest available yaml
     for (i in seq(along = conda_yaml)) {
@@ -80,7 +87,7 @@ tgc_tools_install <-
           if (i == 1) {
             conda_yaml[i] <- utils::tail(
               list.files(
-                system.file("env_snapshots/", package = "tidygenclust"),
+                conda_yaml_dir,
                 pattern = "ctidygenclust_osx_",
                 full.names = TRUE
               ), 1
@@ -88,7 +95,7 @@ tgc_tools_install <-
           } else if (i == 2) {
             conda_yaml[i] <- utils::tail(
               list.files(
-                system.file("env_snapshots/", package = "tidygenclust"),
+                conda_yaml_dir,
                 pattern = "cclumppling_osx_",
                 full.names = TRUE
               ), 1
@@ -96,17 +103,17 @@ tgc_tools_install <-
           } else if (i == 3) {
             conda_yaml[i] <- utils::tail(
               list.files(
-                system.file("env_snapshots/", package = "tidygenclust"),
+                conda_yaml_dir,
                 pattern = "cadmixture86_osx_",
                 full.names = TRUE
               ), 1
             )
-          }  
+          }
         } else { # if we are on linux, we only have two conda environments
           if (i == 1) {
             conda_yaml[i] <- utils::tail(
               list.files(
-                system.file("env_snapshots/", package = "tidygenclust"),
+                conda_yaml_dir,
                 pattern = "ctidygenclust_linux_",
                 full.names = TRUE
               ), 1
@@ -114,7 +121,7 @@ tgc_tools_install <-
           } else if (i == 2) {
             conda_yaml[i] <- utils::tail(
               list.files(
-                system.file("env_snapshots/", package = "tidygenclust"),
+                conda_yaml_dir,
                 pattern = "cclumppling_linux_",
                 full.names = TRUE
               ), 1
@@ -132,7 +139,8 @@ tgc_tools_install <-
             paste0(
               "The conda yaml file '",
               conda_yaml[i],
-              "' does not exist. Please provide a valid path to a conda yaml file."
+              "' does not exist. Please provide a valid path to a ",
+              "conda yaml file."
             )
           )
         }
@@ -146,9 +154,8 @@ tgc_tools_install <-
         paste(conda_yaml, collapse = ", ")
       )
     )
-    
-    
-    
+
+
     # for osx, check that we have installed the right packages in brew
     if (Sys.info()["sysname"] == "Darwin") {
       brew_pkgs <- c("llvm", "libomp")
@@ -206,46 +213,46 @@ tgc_tools_install <-
     ############################################
     # install fastmixture
     ############################################
-    
-      # create a conda environment with the necessary packages
-      reticulate::conda_create(
+
+    # create a conda environment with the necessary packages
+    reticulate::conda_create(
+      envname = "ctidygenclust",
+      packages = c("python==3.11", "numpy>2.0.0", "cython>3.0.0", "pip"),
+      channel = c("bioconda", "conda-forge", "defaults"),
+      environment = conda_yaml[1]
+    )
+    # create command line to install fastmixture
+    fast_install_cmd <- paste0(
+      "python -m pip install ",
+      "--upgrade --force-reinstall ",
+      "git+https://github.com/Rosemeis/fastmixture.git@",
+      fastmixture_hash
+    )
+
+    # on OSX we need to also install a suitable compiler for openmp
+    if (Sys.info()["sysname"] == "Darwin") {
+      # install clang and llvm-openmp
+      reticulate::conda_install(
         envname = "ctidygenclust",
-        packages = c("python==3.11", "numpy>2.0.0", "cython>3.0.0", "pip"),
-        channel = c("bioconda", "conda-forge", "defaults"),
-        environment = conda_yaml[1]
+        packages = c("clang", "clangxx", "llvm-openmp"),
+        channel = c("conda-forge", "defaults")
       )
-      # create command line to install fastmixture
-      fast_install_cmd <- paste0(
-        "python -m pip install ",
-        "--upgrade --force-reinstall ",
-        "git+https://github.com/Rosemeis/fastmixture.git@",
-        fastmixture_hash
+      fast_install_cmd <- c(
+        "export PATH=\"/opt/homebrew/opt/llvm/bin:$PATH\"",
+        "export CC=clang",
+        "export CXX=clang++",
+        "export CFLAGS=-fopenmp",
+        "export CXXFLAGS=-fopenmp",
+        "export LDFLAGS=-fopenmp",
+        fast_install_cmd
       )
+    }
 
-      # on OSX we need to also install a suitable compiler for openmp
-      if (Sys.info()["sysname"] == "Darwin") {
-        # install clang and llvm-openmp
-        reticulate::conda_install(
-          envname = "ctidygenclust",
-          packages = c("clang", "clangxx", "llvm-openmp"),
-          channel = c("conda-forge", "defaults")
-        )
-        fast_install_cmd <- c(
-          "export PATH=\"/opt/homebrew/opt/llvm/bin:$PATH\"",
-          "export CC=clang",
-          "export CXX=clang++",
-          "export CFLAGS=-fopenmp",
-          "export CXXFLAGS=-fopenmp",
-          "export LDFLAGS=-fopenmp",
-          fast_install_cmd
-        )
-      }
-
-      # now install fastmixture in the conda environment
-      reticulate::conda_run2(
-        cmd_line = fast_install_cmd,
-        envname = "ctidygenclust"
-      )
+    # now install fastmixture in the conda environment
+    reticulate::conda_run2(
+      cmd_line = fast_install_cmd,
+      envname = "ctidygenclust"
+    )
 
     # if on osx or linux, install admixture
     if (.Platform$OS.type == "unix") {

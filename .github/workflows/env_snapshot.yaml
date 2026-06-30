@@ -65,7 +65,7 @@ jobs:
 
       - name: install tools in a conda environment
         run: |
-          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install(ci_install = TRUE, conda_yaml = NULL)'
+          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install(reset = TRUE, ci_install = TRUE, conda_yaml = NULL)'
 
       - name: Conda snapshot and diagnostics
         env:
