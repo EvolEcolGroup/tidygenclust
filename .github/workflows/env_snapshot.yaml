@@ -71,13 +71,14 @@ jobs:
         run: |
           conda compare -n ctidygenclust $(ls ./inst/env_snapshots/ctidygenclust*  | tail -n1) || true
           conda compare -n cclumppling $(ls ./inst/env_snapshots/cclumppling*  | tail -n1) || true
-          if (OS_TAG=="osx") then
-            conda compare -n cadmixture86 $(ls ./inst/env_snapshots/cadmixture86*  | tail -n1) || true
+          if [[ "$OS_TAG" == "osx" ]]; then
+            conda compare -n cadmixture86 "$(ls ./inst/env_snapshots/cadmixture86* | tail -n1)" || true
           fi
+
           DATE=$(date '+%Y%m%d')
           conda env export -n ctidygenclust > "./inst/env_snapshots/ctidygenclust_${OS_TAG}_${DATE}.yml"
           conda env export -n cclumppling > "./inst/env_snapshots/cclumppling_${OS_TAG}_${DATE}.yml"
-          if (OS_TAG=="osx") then
+          if [[ "$OS_TAG" == "osx" ]]; then
             conda env export -n cadmixture86 > "./inst/env_snapshots/cadmixture86_${OS_TAG}_${DATE}.yml"
           fi
           
