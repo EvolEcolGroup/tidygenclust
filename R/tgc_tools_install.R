@@ -50,7 +50,7 @@
 
 tgc_tools_install <-
   function(reset = FALSE,
-           fastmixture_hash = "29e04339ce6ddf750ee4e06f8aabe40335e0d0ee",
+           fastmixture_hash = "1f03a8980be4872341e5faca9d6f2dfc7ccbfe35",
            clumppling_hash = "2d24e0b2f6ddfcb51a436df96a06d5f57d18d20a",
            conda_yaml = "auto",
            ci_install = FALSE) {
@@ -78,7 +78,7 @@ tgc_tools_install <-
       if (conda_yaml[i] == "auto") {
         if (Sys.info()["sysname"] == "Darwin") {
           if (i == 1) {
-            conda_yaml[i] <- tail(
+            conda_yaml[i] <- utils::tail(
               list.files(
                 system.file("env_snapshots/", package = "tidygenclust"),
                 pattern = "ctidygenclust_osx_",
@@ -86,7 +86,7 @@ tgc_tools_install <-
               ), 1
             )
           } else if (i == 2) {
-            conda_yaml[i] <- tail(
+            conda_yaml[i] <- utils::tail(
               list.files(
                 system.file("env_snapshots/", package = "tidygenclust"),
                 pattern = "cclumppling_osx_",
@@ -94,7 +94,7 @@ tgc_tools_install <-
               ), 1
             )
           } else if (i == 3) {
-            conda_yaml[i] <- tail(
+            conda_yaml[i] <- utils::tail(
               list.files(
                 system.file("env_snapshots/", package = "tidygenclust"),
                 pattern = "cadmixture86_osx_",
@@ -104,7 +104,7 @@ tgc_tools_install <-
           }  
         } else { # if we are on linux, we only have two conda environments
           if (i == 1) {
-            conda_yaml[i] <- tail(
+            conda_yaml[i] <- utils::tail(
               list.files(
                 system.file("env_snapshots/", package = "tidygenclust"),
                 pattern = "ctidygenclust_linux_",
@@ -112,7 +112,7 @@ tgc_tools_install <-
               ), 1
             )
           } else if (i == 2) {
-            conda_yaml[i] <- tail(
+            conda_yaml[i] <- utils::tail(
               list.files(
                 system.file("env_snapshots/", package = "tidygenclust"),
                 pattern = "cclumppling_linux_",
