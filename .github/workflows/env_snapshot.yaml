@@ -64,7 +64,8 @@ jobs:
           Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install(ci_install = TRUE)'
 
       - name: Conda snapshot and diagnostics
-        env: OS_TAG: ${{ runner.os == 'macOS' && 'osx' || 'linux' }}
+        env:
+          OS_TAG: ${{ runner.os == 'macOS' && 'osx' || 'linux' }}
         run: |
           conda compare -n ctidygenclust $(ls ./inst/env_snapshots/ctidygenclust*  | tail -n1) || true
           conda compare -n cclumppling $(ls ./inst/env_snapshots/cclumppling*  | tail -n1) || true
