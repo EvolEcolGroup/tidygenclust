@@ -78,10 +78,10 @@ jobs:
           fi
 
           DATE=$(date '+%Y%m%d')
-          conda env export -n ctidygenclust > "./inst/env_snapshots/ctidygenclust_${OS_TAG}_${DATE}.yml"
-          conda env export -n cclumppling > "./inst/env_snapshots/cclumppling_${OS_TAG}_${DATE}.yml"
+          conda env export --no-builds -n ctidygenclust > "./inst/env_snapshots/ctidygenclust_${OS_TAG}_${DATE}.yml"
+          conda env export --no-builds -n cclumppling > "./inst/env_snapshots/cclumppling_${OS_TAG}_${DATE}.yml"
           if [[ "$OS_TAG" == "osx" ]]; then
-            conda env export -n cadmixture86 > "./inst/env_snapshots/cadmixture86_${OS_TAG}_${DATE}.yml"
+            conda env export --no-builds -n cadmixture86 > "./inst/env_snapshots/cadmixture86_${OS_TAG}_${DATE}.yml"
           fi
           
       - uses: r-lib/actions/check-r-package@v2

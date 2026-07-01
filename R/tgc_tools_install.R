@@ -271,8 +271,7 @@ tgc_tools_install <-
         # ADMIXTURE is only available for osx as x86 in bioconda
         # so we have to create a new environment and set it to x86_64
         reticulate::conda_create("cadmixture86",
-          channel = c("bioconda", "conda-forge", "defaults"),
-          environment = conda_yaml[3]
+          channel = c("bioconda", "conda-forge", "defaults")
         )
         reticulate::conda_run2(
           cmd = "conda",
