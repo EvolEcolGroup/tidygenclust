@@ -1,0 +1,102 @@
+# Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
+# Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
+on:
+  push:
+    branches: [save_conda]
+  schedule:
+    - cron: "0 0 1 * *"  
+# avoid running multiple ci
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+name: env_snapshot.yaml
+
+
+permissions:
+  contents: write
+
+jobs:
+  R-CMD-check:
+    runs-on: ${{ matrix.config.os }}
+
+    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+#          - {os: macos-14,   r: 'release',  py: "3.11" }
+          - {os: macos-latest,   r: 'release',  py: "3.11" }
+          - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      KMP_DUPLICATE_LIB_OK: true
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.config.py }}
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.config.r }}
+          http-user-agent: ${{ matrix.config.http-user-agent }}
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: |
+            any::rcmdcheck
+            any::devtools
+          needs: check
+
+      - name: brew installs
+        if: matrix.config.os == 'macos-latest' || matrix.config.os == 'macos-14'
+        run: |
+          brew install libomp
+          brew install llvm
+
+      - name: install tools in a conda environment
+        run: |
+          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install(reset = TRUE, ci_install = TRUE, conda_yaml = NULL)'
+
+      - name: Conda snapshot and diagnostics
+        env:
+          OS_TAG: ${{ runner.os == 'macOS' && 'osx' || 'linux' }}
+        run: |
+          conda compare -n ctidygenclust $(ls ./inst/env_snapshots/ctidygenclust_${OS_TAG}_*  | tail -n1) || true
+          conda compare -n cclumppling $(ls ./inst/env_snapshots/cclumppling_${OS_TAG}_*  | tail -n1) || true
+          if [[ "$OS_TAG" == "osx" ]]; then
+            conda compare -n cadmixture86 "$(ls ./inst/env_snapshots/cadmixture86* | tail -n1)" || true
+          fi
+
+          DATE=$(date '+%Y%m%d')
+          conda env export --no-builds -n ctidygenclust > "./inst/env_snapshots/ctidygenclust_${OS_TAG}_${DATE}.yml"
+          conda env export --no-builds -n cclumppling > "./inst/env_snapshots/cclumppling_${OS_TAG}_${DATE}.yml"
+          if [[ "$OS_TAG" == "osx" ]]; then
+            conda env export --no-builds -n cadmixture86 > "./inst/env_snapshots/cadmixture86_${OS_TAG}_${DATE}.yml"
+          fi
+          
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          upload-snapshots: true
+          build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
+
+      - name: Upload conda snapshot
+        run: |
+          git config --global user.name 'Github action'
+          git config --global user.email 'EcolEvolGroup@users.noreply.github.com'
+          git pull
+          git add ./inst/env_snapshots/*.yml
+          # only commit if we have changes
+          if [[ `git status --porcelain` ]]; then
+            git commit -am "Update conda snapshot"
+            git push
+          fi

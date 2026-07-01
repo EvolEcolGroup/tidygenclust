@@ -1,3 +1,7 @@
+# tidygenclust 0.1.2
+* Updated versions of fastmixture
+* Use pre-tested conda environments to avoid dependency hell.
+
 # tidygenclust 0.1.1
 * Updated versions of fastmixture and clumppling
 
