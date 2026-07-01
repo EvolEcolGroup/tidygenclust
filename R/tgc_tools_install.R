@@ -254,6 +254,10 @@ tgc_tools_install <-
       envname = "ctidygenclust"
     )
 
+    ############################################
+    # install fastmixture
+    ############################################
+
     # if on osx or linux, install admixture
     if (.Platform$OS.type == "unix") {
       if ((Sys.info()["sysname"] == "Linux")) {
@@ -275,12 +279,21 @@ tgc_tools_install <-
           arg = "config --env --set subdir osx-64",
           envname = "cadmixture86"
         )
-        # install admixture in the new environment
-        reticulate::conda_install(
-          envname = "cadmixture86",
-          packages = c("admixture"),
-          channel = c("bioconda")
-        )
+        if (!is.null(conda_yaml[3])) {
+          # if a conda yaml is provided, use it to install admixture in the new
+          # environment
+          system2(
+            command = "conda",
+            args = paste0("env update -n cadmixture86 -f ", conda_yaml[3])
+          )
+        } else {
+          # install admixture in the new environment
+          reticulate::conda_install(
+            envname = "cadmixture86",
+            packages = c("admixture"),
+            channel = c("bioconda")
+          )
+        }
       }
     }
 
