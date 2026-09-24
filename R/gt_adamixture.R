@@ -8,9 +8,9 @@
 #' is set to NULL as default, if you want to include cross-validation you can set
 #' `cv` to a value greater than 1 (e.g. 5 for 5-fold cross-validation).
 #'
-#' @references Saurina-i-Ricos J., Mas-Montserrat D., Ioannidis A.G. (2024)
-#'   ADAMIXTURE: Fast Biobank-Scale Population Genetics Clustering.
-#'   doi: https://doi.org/10.1093/bioinformatics/btag236
+#' @references Saurina-i-Ricos, J., Mas Montserrat, D., & Ioannidis, A. G. (2026).
+#'   ADAMIXTURE: adaptive first-order optimization for biobank-scale genetic clustering.
+#'   Bioinformatics, 42(Supplement_1). doi: https://doi.org/10.1093/bioinformatics/btag236
 #'
 #' @param x either a [`tidypopgen::gen_tibble`], or the name of the binary plink
 #'   file (without the .bed extension)
