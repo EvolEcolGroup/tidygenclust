@@ -1,10 +1,16 @@
 # handles for the python modules
 .py_rfastmixture <- NULL
+.py_radamixture <- NULL
 .onLoad <- function(...) {
   if (reticulate::condaenv_exists("ctidygenclust")) {
     reticulate::use_condaenv("ctidygenclust", required = TRUE)
     .py_rfastmixture <<- reticulate::import_from_path(
       module = "py_rfastmixture",
+      path = system.file("python", package = "tidygenclust"),
+      delay_load = TRUE
+    )
+    .py_radamixture <<- reticulate::import_from_path(
+      module = "py_radamixture",
       path = system.file("python", package = "tidygenclust"),
       delay_load = TRUE
     )
