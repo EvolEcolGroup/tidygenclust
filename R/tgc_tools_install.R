@@ -25,6 +25,12 @@
 #'
 #' `brew install llvm libomp`
 #'
+#' `ADAMIXTURE` (used by [gt_adamixture()]) is optional, as it depends on
+#' `pytorch`, which is a large download. Set `adamixture = TRUE` to install it
+#' in `ctidygenclust` together with the other tools, or use
+#' [tgc_adamixture_install()] to add it to an existing `ctidygenclust`
+#' environment.
+#'
 #' @param reset a boolean used to reset the virtual environment. Only set
 #' to TRUE if you have a broken virtual environment that you want to reset.
 #' @param fastmixture_hash a string with the commit hash of the `fastmixture`
@@ -51,7 +57,9 @@ tgc_tools_install <-
            fastmixture_hash = "29e04339ce6ddf750ee4e06f8aabe40335e0d0ee",
            clumppling_hash = "2d24e0b2f6ddfcb51a436df96a06d5f57d18d20a",
            conda_method = c("reticulate", "conda_yaml"),
-           ci_install = FALSE) {
+           ci_install = FALSE,
+           adamixture = FALSE,
+           adamixture_hash = "6ad266ba9c5a8ee04967def1a4df28e23ddbb7a5") {
     # give error for windows
     if (.Platform$OS.type == "windows") {
       stop(
@@ -220,6 +228,11 @@ tgc_tools_install <-
     }
 
 
+    # optionally install adamixture in ctidygenclust
+    if (adamixture) {
+      tgc_adamixture_install(adamixture_hash = adamixture_hash)
+    }
+
     #########################################################################
     # now install clumppling in its own conda environment
     # since its dependencies are not compatible with the ones of fastmixture
@@ -288,6 +301,63 @@ tgc_tools_install <-
     #########################################################################
     # activate ctidygenclust with the python functions
     reticulate::use_condaenv("ctidygenclust", required = TRUE)
+  }
+
+#' Install `ADAMIXTURE` in the `ctidygenclust` conda environment
+#'
+#' `ADAMIXTURE` (used by [gt_adamixture()]) is not installed by default by
+#' [tgc_tools_install()], as it depends on `pytorch`, which is a large
+#' download. This function adds it to an existing `ctidygenclust` environment
+#' (created with [tgc_tools_install()]). On Linux, the CPU-only build of
+#' `pytorch` is installed, to avoid downloading the (very large) CUDA
+#' libraries.
+#'
+#' @param adamixture_hash a string with the commit hash of the `ADAMIXTURE`
+#' version to install. Default is the latest tested version.
+#' @param adamixture_repo a string with the github repository (`owner/repo`)
+#' from which to install `ADAMIXTURE`.
+#' @returns NULL
+#' @export
+
+tgc_adamixture_install <-
+  function(adamixture_hash = "6ad266ba9c5a8ee04967def1a4df28e23ddbb7a5",
+           adamixture_repo = "AI-sandbox/ADAMIXTURE-dev") {
+    if (!reticulate::condaenv_exists("ctidygenclust")) {
+      stop(
+        "The conda environment 'ctidygenclust' does not exist. Create it ",
+        "first with 'tgc_tools_install()'"
+      )
+    }
+    ada_install_cmd <- paste0(
+      "python -m pip install ",
+      "git+https://github.com/", adamixture_repo, ".git@",
+      adamixture_hash
+    )
+    if (Sys.info()["sysname"] == "Linux") {
+      # use the cpu-only build of torch, which is much smaller
+      ada_install_cmd <- paste(
+        ada_install_cmd,
+        "--extra-index-url https://download.pytorch.org/whl/cpu"
+      )
+    } else if (Sys.info()["sysname"] == "Darwin") {
+      ada_install_cmd <- c(
+        "export PATH=\"/opt/homebrew/opt/llvm/bin:$PATH\"",
+        "export CC=clang",
+        "export CXX=clang++",
+        ada_install_cmd
+      )
+    }
+    out <- reticulate::conda_run2(
+      cmd_line = ada_install_cmd,
+      envname = "ctidygenclust"
+    )
+    if (out != 0) {
+      warning(
+        "ADAMIXTURE has not been successfully installed ",
+        "in your conda environment"
+      )
+    }
+    invisible(NULL)
   }
 
 # check if package is installed with brew

@@ -9,7 +9,9 @@ tgc_tools_install(
   fastmixture_hash = "29e04339ce6ddf750ee4e06f8aabe40335e0d0ee",
   clumppling_hash = "2d24e0b2f6ddfcb51a436df96a06d5f57d18d20a",
   conda_method = c("reticulate", "conda_yaml"),
-  ci_install = FALSE
+  ci_install = FALSE,
+  adamixture = FALSE,
+  adamixture_hash = "6ad266ba9c5a8ee04967def1a4df28e23ddbb7a5"
 )
 }
 \arguments{
@@ -62,4 +64,10 @@ For OSX, you might also need to install a suitable compiler for openmp
 using \code{brew} in \code{bash}, setting the correct paths to use it:
 
 \verb{brew install llvm libomp}
+
+\code{ADAMIXTURE} (used by \code{\link[=gt_adamixture]{gt_adamixture()}}) is optional, as it depends on
+\code{pytorch}, which is a large download. Set \code{adamixture = TRUE} to install it
+in \code{ctidygenclust} together with the other tools, or use
+\code{\link[=tgc_adamixture_install]{tgc_adamixture_install()}} to add it to an existing \code{ctidygenclust}
+environment.
 }

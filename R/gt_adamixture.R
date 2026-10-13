@@ -1,16 +1,20 @@
 #' ADAMIXTURE algorithm for population genetics clustering
 #'
-#' This function implements the ADAMIXTURE algorithm for biobank-scale population genetics
-#' clustering by calling the python module.
+#' This function implements the ADAMIXTURE algorithm for biobank-scale
+#' population genetics clustering by calling the python module.
 #'
 #' This function returns a q_matrix that can be plotted with `autoplot`, and
 #' tidied with `tidy` methods from the `tidypopgen` package. Cross-validation
-#' is set to NULL as default, if you want to include cross-validation you can set
-#' `cv` to a value greater than 1 (e.g. 5 for 5-fold cross-validation).
+#' is set to NULL as default, if you want to include cross-validation you can
+#' set `cv` to a value greater than 1 (e.g. 5 for 5-fold cross-validation).
 #'
-#' @references Saurina-i-Ricos, J., Mas Montserrat, D., & Ioannidis, A. G. (2026).
-#'   ADAMIXTURE: adaptive first-order optimization for biobank-scale genetic clustering.
-#'   Bioinformatics, 42(Supplement_1). doi: https://doi.org/10.1093/bioinformatics/btag236
+#' `ADAMIXTURE` is not installed by default by [tgc_tools_install()]; use
+#' [tgc_adamixture_install()] to add it to the `ctidygenclust` environment.
+#'
+#' @references Saurina-i-Ricos, J., Mas Montserrat, D., & Ioannidis, A. G.
+#'   (2026). ADAMIXTURE: adaptive first-order optimization for biobank-scale
+#'   genetic clustering. Bioinformatics, 42(Supplement_1). doi:
+#'   https://doi.org/10.1093/bioinformatics/btag236
 #'
 #' @param x either a [`tidypopgen::gen_tibble`], or the name of the binary plink
 #'   file (without the .bed extension)
@@ -65,12 +69,6 @@ gt_adamixture <- function(
   }
 
   argparse <- reticulate::import("argparse")
-  if (!exists(".py_radamixture", mode = "environment") || is.null(.py_radamixture)) {
-    adamixture <- reticulate::import("adamixture")
-    adamixture_run_fn <- adamixture$adamixture_run
-  } else {
-    adamixture_run_fn <- .py_radamixture$adamixture_run
-  }
 
   adm_list <- list(
     k = NULL,
@@ -100,7 +98,7 @@ gt_adamixture <- function(
       cv = if (is.null(cv)) NULL else as.integer(cv)
     )
 
-    adamixture_res <- adamixture_run_fn(
+    adamixture_res <- .py_radamixture$adamixture_run(
       args = radamixture_args
     )
 
@@ -166,19 +164,13 @@ gt_adamixture <- function(
 }
 
 .ensure_adamixture_python <- function() {
-  if (reticulate::py_module_available("adamixture")) {
-    return(invisible(TRUE))
-  }
-  # Fallback to local dev venv if available
-  dev_venv <- "/Users/joansaurinaricos/Desktop/stanford/code/ADAMIXTURE-dev/.venv"
-  if (dir.exists(dev_venv)) {
-    reticulate::use_virtualenv(dev_venv, required = FALSE)
-  }
+  reticulate::use_condaenv("ctidygenclust", required = TRUE)
   if (!reticulate::py_module_available("adamixture")) {
     cfg <- reticulate::py_config()
     stop(
       "Python environment selected but 'adamixture' is not importable.\n",
-      "Current python: ", cfg$python
+      "Current python: ", cfg$python, "\n",
+      "Install it with 'tgc_adamixture_install()'"
     )
   }
 }

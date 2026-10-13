@@ -6,10 +6,11 @@
 #' @export
 
 tgc_tools_version <- function() {
+  # use pip, as the fastmixture cli fails to parse on python < 3.12
   fast_ver <- tryCatch(
     reticulate::conda_run2(
-      cmd = "fastmixture",
-      args = c("--version"),
+      cmd = "pip",
+      args = c("show fastmixture | grep Version"),
       envname = "ctidygenclust",
       echo = FALSE,
       intern = TRUE
@@ -30,7 +31,22 @@ tgc_tools_version <- function() {
     warning = function(w) NA
   )
 
-  tgc_vers <- list(fastmixture = fast_ver, clumppling = clump_ver)
+  ada_ver <- tryCatch(
+    reticulate::conda_run2(
+      cmd = "pip",
+      args = c("show adamixture | grep Version"),
+      envname = "ctidygenclust",
+      echo = FALSE,
+      intern = TRUE
+    ),
+    error = function(e) NA,
+    warning = function(w) NA
+  )
+
+  tgc_vers <- list(
+    fastmixture = fast_ver, clumppling = clump_ver,
+    adamixture = ada_ver
+  )
 
   if (.Platform$OS.type %in% c("unix", "darwin")) {
     adm_ver <- tryCatch(
@@ -45,7 +61,7 @@ tgc_tools_version <- function() {
       warning = function(w) NA
     )
 
-    tgc_vers[["admxiture"]] <- adm_ver[length(adm_ver)]
+    tgc_vers[["admixture"]] <- adm_ver[length(adm_ver)]
   }
   return(tgc_vers)
 }
