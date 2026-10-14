@@ -7,6 +7,7 @@
 gt_adamixture(
   x,
   k,
+  n_runs = 1,
   threads = 1,
   seed = 42,
   tole = 0.1,
@@ -21,9 +22,12 @@ file (without the .bed extension)}
 \item{k}{the number of ancestral components (clusters), either a single value
 or a vector}
 
+\item{n_runs}{the number of repeats for each k value (1)}
+
 \item{threads}{the number of threads to use (1)}
 
-\item{seed}{the random seed (defaults to 42)}
+\item{seed}{the random seed (defaults to 42); can be a single integer or a
+vector of length \code{n_runs}}
 
 \item{tole}{the tolerance in log-likelihood units between iterations (0.1)}
 

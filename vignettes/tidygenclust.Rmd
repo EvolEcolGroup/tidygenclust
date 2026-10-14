@@ -200,14 +200,15 @@ We are looking for the 'elbow' point in the plot where the cross-validation is a
 
 `tidygenclust` also provides `gt_adamixture()` to run the ADAMIXTURE algorithm. Like `gt_fastmixture()`, it accepts either a `gen_tibble` object or a path to a PLINK bed file, and returns a `gt_admix` object compatible with all downstream `tidypopgen` and `tidygenclust` methods.
 
-We can run `gt_adamixture()` on our anolis dataset across a range of K values from 2 to 4, requesting 5-fold cross-validation (`cv = 5`) and retaining the ancestral allele frequency P-matrices (`no_freqs = FALSE`):
+We can run `gt_adamixture()` on our anolis dataset setting values of K from 2 to 4 and running 3 repeats of each K value, with a different random seed for each repeat (`seed = c(42, 2, 16)`), 5-fold cross-validation (`cv = 5`), and retaining the ancestral allele frequency P-matrices (`no_freqs = FALSE`):
 
 ```{r, results='hide'}
 anole_ada <- anole_gt %>% gt_adamixture(
   k = c(2:4),
-  cv = 5,
+  n_runs = 3,
+  seed = c(42, 2, 16),
   no_freqs = FALSE,
-  seed = 42
+  cv = 5
 )
 ```
 
@@ -217,16 +218,18 @@ The output is returned as a `gt_admix` object containing the estimated ancestry 
 anole_ada %>% summary()
 ```
 
+From the summary we can see our `gt_admix` object contains Q and P matrices for 3 repeat runs of K values 2, 3 and 4 as expected.
+
 We can inspect the cross-validation scores across values of K:
 
 ```{r}
 anole_ada %>% autoplot(type = "cv")
 ```
 
-And visualise the ancestry proportions for $K = 3$:
+And visualise the ancestry proportions for the first run of $K = 3$:
 
 ```{r}
-anole_ada %>% autoplot(type = "barplot", k = 3)
+anole_ada %>% autoplot(type = "barplot", k = 3, run = 1)
 ```
 
 At $K = 3$, `gt_adamixture()` finds clusters highly consistent with `fastmixture` ($r \approx 0.97\text{--}0.99$) while achieving superior log-likelihoods due to exact spectral initialization and accelerated block relaxation.

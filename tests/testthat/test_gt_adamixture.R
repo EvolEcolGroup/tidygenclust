@@ -60,6 +60,11 @@ test_that("gt_adamixture", {
   q1 <- gt_adamixture(anole_gt, 3, seed = 1)
   q2 <- gt_adamixture(anole_gt, 3, seed = 1)
   expect_equal(q1$Q[[1]], q2$Q[[1]])
+
+  # n_runs creates multiple repeats per k
+  anole_runs <- gt_adamixture(anole_gt, 2, n_runs = 2, seed = c(1, 2))
+  expect_equal(length(anole_runs$Q), 2)
+  expect_equal(anole_runs$k, c(2, 2))
 })
 
 test_that("gt_adamixture with cv", {

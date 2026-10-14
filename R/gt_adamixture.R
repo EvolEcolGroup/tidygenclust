@@ -20,8 +20,10 @@
 #'   file (without the .bed extension)
 #' @param k the number of ancestral components (clusters), either a single value
 #'   or a vector
+#' @param n_runs the number of repeats for each k value (1)
 #' @param threads the number of threads to use (1)
-#' @param seed the random seed (defaults to 42)
+#' @param seed the random seed (defaults to 42); can be a single integer or a
+#'   vector of length `n_runs`
 #' @param tole the tolerance in log-likelihood units between iterations (0.1)
 #' @param no_freqs do not save P-matrix (TRUE)
 #' @param cv the number of cross-validation folds (NULL disables CV)
@@ -32,6 +34,7 @@
 gt_adamixture <- function(
   x,
   k,
+  n_runs = 1,
   threads = 1,
   seed = 42,
   tole = 0.1,
@@ -39,6 +42,12 @@ gt_adamixture <- function(
   cv = NULL
 ) {
   .ensure_adamixture_python()
+
+  if (length(seed) == 1L && n_runs > 1L) {
+    seed <- seed + seq_len(n_runs) - 1L
+  } else if (length(seed) != n_runs) {
+    stop("'seed' should be a vector of length 'n_runs'")
+  }
 
   if (inherits(x, "character")) {
     bfile <- x
@@ -85,56 +94,58 @@ gt_adamixture <- function(
 
   index <- 1
   for (this_k in as.integer(k)) {
-    radamixture_args <- argparse$Namespace(
-      bfile = bfile,
-      K = this_k,
-      threads = as.integer(threads),
-      seed = as.integer(seed),
-      tole = tole,
-      no_freqs = no_freqs,
-      plink = plink,
-      n_indiv = n_indiv,
-      n_loci = n_loci,
-      cv = if (is.null(cv)) NULL else as.integer(cv)
-    )
+    for (this_rep in seq_len(n_runs)) {
+      radamixture_args <- argparse$Namespace(
+        bfile = bfile,
+        K = this_k,
+        threads = as.integer(threads),
+        seed = as.integer(seed[this_rep]),
+        tole = tole,
+        no_freqs = no_freqs,
+        plink = plink,
+        n_indiv = n_indiv,
+        n_loci = n_loci,
+        cv = if (is.null(cv)) NULL else as.integer(cv)
+      )
 
-    adamixture_res <- .py_radamixture$adamixture_run(
-      args = radamixture_args
-    )
+      adamixture_res <- .py_radamixture$adamixture_run(
+        args = radamixture_args
+      )
 
-    if (no_freqs) {
-      if (is.null(cv)) {
-        q_matrix <- .as_q_matrix(adamixture_res)
-        adm_list$Q[[index]] <- q_matrix
+      if (no_freqs) {
+        if (is.null(cv)) {
+          q_matrix <- .as_q_matrix(adamixture_res)
+          adm_list$Q[[index]] <- q_matrix
+        } else {
+          q_matrix <- .as_q_matrix(adamixture_res[[1]])
+          adm_list$Q[[index]] <- q_matrix
+          adm_list$cv <- c(
+            adm_list$cv,
+            adamixture_res[[2]]$avg
+          )
+        }
       } else {
-        q_matrix <- .as_q_matrix(adamixture_res[[1]])
-        adm_list$Q[[index]] <- q_matrix
-        adm_list$cv <- c(
-          adm_list$cv,
-          adamixture_res[[2]]$avg
-        )
+        if (is.null(cv)) {
+          names(adamixture_res) <- c("Q", "P")
+          q_matrix <- .as_q_matrix(adamixture_res$Q)
+          p_matrix <- as.matrix(adamixture_res$P)
+          adm_list$Q[[index]] <- q_matrix
+          adm_list$P[[index]] <- p_matrix
+        } else {
+          names(adamixture_res) <- c("Q", "P", "cv")
+          q_matrix <- .as_q_matrix(adamixture_res$Q)
+          p_matrix <- as.matrix(adamixture_res$P)
+          adm_list$Q[[index]] <- q_matrix
+          adm_list$P[[index]] <- p_matrix
+          adm_list$cv <- c(
+            adm_list$cv,
+            adamixture_res$cv$avg
+          )
+        }
       }
-    } else {
-      if (is.null(cv)) {
-        names(adamixture_res) <- c("Q", "P")
-        q_matrix <- .as_q_matrix(adamixture_res$Q)
-        p_matrix <- as.matrix(adamixture_res$P)
-        adm_list$Q[[index]] <- q_matrix
-        adm_list$P[[index]] <- p_matrix
-      } else {
-        names(adamixture_res) <- c("Q", "P", "cv")
-        q_matrix <- .as_q_matrix(adamixture_res$Q)
-        p_matrix <- as.matrix(adamixture_res$P)
-        adm_list$Q[[index]] <- q_matrix
-        adm_list$P[[index]] <- p_matrix
-        adm_list$cv <- c(
-          adm_list$cv,
-          adamixture_res$cv$avg
-        )
-      }
+      adm_list$k <- sapply(adm_list$Q, ncol)
+      index <- index + 1
     }
-    adm_list$k <- sapply(adm_list$Q, ncol)
-    index <- index + 1
   }
 
   # return list
