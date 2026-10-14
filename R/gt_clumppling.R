@@ -123,7 +123,7 @@ gt_clumppling <- function(
   reticulate::conda_run2(
     cmd = "python",
     args = clump_args,
-    envname = "cclumppling"
+    envname = "ctidygenclust"
   )
   # now we read the output files and create an output object
   clump_res <- list()

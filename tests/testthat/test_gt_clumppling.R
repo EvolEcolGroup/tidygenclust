@@ -1,7 +1,7 @@
 skip_on_cran()
 
 # skip if the conda environment does not exist
-skip_if(!reticulate::condaenv_exists("cclumppling"))
+skip_if(!reticulate::condaenv_exists("ctidygenclust"))
 
 input_path <- system.file("extdata/capeverde.zip", package = "tidygenclust")
 clump_res <- input_path %>% gt_clumppling(extension = ".indivq")
