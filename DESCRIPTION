@@ -1,6 +1,6 @@
 Package: tidygenclust
 Title: Clustering for Population Genetics in R
-Version: 0.1.3
+Version: 0.1.4
 Authors@R: c(
     person("Eirlys", "Tysall", role = c("aut")),
     person("Anahit", "Hovhannisyan", role = c("aut")),
