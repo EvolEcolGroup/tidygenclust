@@ -22,7 +22,7 @@ tgc_tools_version <- function() {
     reticulate::conda_run2(
       cmd = "pip",
       args = c("show clumppling | grep Version"),
-      envname = "cclumppling",
+      envname = "ctidygenclust",
       echo = FALSE,
       intern = TRUE
     ),

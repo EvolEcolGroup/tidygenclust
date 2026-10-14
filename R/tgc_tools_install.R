@@ -2,10 +2,8 @@
 #'
 #' `tidygenclust` relies on `ADMIXTURE` and on python packages `fastmixture` and
 #' `clumppling` for a number of functionalities. We use `reticulate` to install
-#' them in conda environments. As their dependencies are incompatible, we use
-#' two separate conda environments, `ctidygenclust` (for `fastmixture` and
-#' `admixture`) and `cclumppling` (for `clumppling`). Additionally, for silicon
-#' Macs, `ADMIXTURE` is installed in a separate conda environment
+#' them in a single conda environment, `ctidygenclust`. Additionally, for
+#' silicon Macs, `ADMIXTURE` is installed in a separate conda environment
 #' `cadmixture86`, as it is only available for OSX as x86 in bioconda.
 #' @details For each tool, default to the latest tested version of these
 #'   packages that have been tested to work with `tidegenclust`. It is possible
@@ -30,16 +28,15 @@
 #' @param clumppling_hash a string with the commit hash of the `clumppling`
 #'   version to install. Default is the latest tested version.
 #' @param conda_yaml A vector of string with the path for the `yaml` files used
-#'   for installation (one for fastmixture, one for clumppling, and, for osx
-#'   only, one for admixture in 86 compatibility model). The value of each
+#'   for installation (one for `ctidygenclust` and, for osx only, one for
+#'   admixture in 86 compatibility model). The value of each
 #'   string can either be "auto" (the default, select the latest available yaml
 #'   that has been tested to work on a given operating system), NULL (let conda
 #'   attempt to install the latest available packages from the internet), or a
 #'   path to a specific conda yaml found in "inst/env_snapshots". For "auto" or
 #'   NULL, it is also possible to provide a vector of lenght one, and the value
 #'   will apply to all the conda environments (e.g. `conda_yaml="auto"` is
-#'   equivalent to  `conda_yaml = c("auto", "auto")` in linux and
-#'   `conda_yaml = c("auto", "auto", "auto")`.
+#'   equivalent to `conda_yaml = c("auto", "auto")` in osx).
 #' @param ci_install a boolean indicating if the installation is being run on
 #'   continuous integration (CI) services. Default is FALSE. If TRUE, the
 #'   function will look for the conda yaml file in the `inst/env_snapshots`
@@ -52,7 +49,7 @@
 tgc_tools_install <-
   function(reset = FALSE,
            fastmixture_hash = "1f03a8980be4872341e5faca9d6f2dfc7ccbfe35",
-           clumppling_hash = "2d24e0b2f6ddfcb51a436df96a06d5f57d18d20a",
+           clumppling_hash = "4bf555126fd3695498b89b4d25578425ce777447",
            conda_yaml = "auto",
            ci_install = FALSE) {
     # give error for windows
@@ -67,8 +64,6 @@ tgc_tools_install <-
     # conda environments
     if (length(conda_yaml) == 1) {
       if (Sys.info()["sysname"] == "Darwin") {
-        conda_yaml <- rep(conda_yaml, 3)
-      } else {
         conda_yaml <- rep(conda_yaml, 2)
       }
     }
@@ -96,37 +91,19 @@ tgc_tools_install <-
             conda_yaml[i] <- utils::tail(
               list.files(
                 conda_yaml_dir,
-                pattern = "cclumppling_osx_",
-                full.names = TRUE
-              ), 1
-            )
-          } else if (i == 3) {
-            conda_yaml[i] <- utils::tail(
-              list.files(
-                conda_yaml_dir,
                 pattern = "cadmixture86_osx_",
                 full.names = TRUE
               ), 1
             )
           }
-        } else { # if we are on linux, we only have two conda environments
-          if (i == 1) {
-            conda_yaml[i] <- utils::tail(
-              list.files(
-                conda_yaml_dir,
-                pattern = "ctidygenclust_linux_",
-                full.names = TRUE
-              ), 1
-            )
-          } else if (i == 2) {
-            conda_yaml[i] <- utils::tail(
-              list.files(
-                conda_yaml_dir,
-                pattern = "cclumppling_linux_",
-                full.names = TRUE
-              ), 1
-            )
-          }
+        } else { # if we are on linux, we only have one conda environment
+          conda_yaml[i] <- utils::tail(
+            list.files(
+              conda_yaml_dir,
+              pattern = "ctidygenclust_linux_",
+              full.names = TRUE
+            ), 1
+          )
         }
       }
     }
@@ -178,23 +155,24 @@ tgc_tools_install <-
       } else {
         message(
           "The conda environment 'ctidygenclust' already exists. Use ",
-          "'reset = TRUE' to reset it"
+          "'reset = TRUE' to reset it (this is needed if it was created by ",
+          "an older version of tidygenclust, which installed clumppling in ",
+          "a separate 'cclumppling' environment)"
         )
         return(NULL)
       }
     }
-    # check cclumppling does not exist
+    # clumppling used to live in its own conda environment 'cclumppling',
+    # which is no longer needed
     if (reticulate::condaenv_exists("cclumppling")) {
       if (reset) {
         reticulate::conda_remove("cclumppling")
       } else {
         message(
-          paste0(
-            "The conda environment 'cclumppling' already exists. ",
-            "Use 'reset = TRUE' to reset it"
-          )
+          "The conda environment 'cclumppling' is no longer used by ",
+          "tidygenclust; you can remove it with ",
+          "reticulate::conda_remove('cclumppling')"
         )
-        return(NULL)
       }
     }
     # check that cadmixture86 does not exist
@@ -255,7 +233,7 @@ tgc_tools_install <-
     )
 
     ############################################
-    # install fastmixture
+    # install admixture
     ############################################
 
     # if on osx or linux, install admixture
@@ -278,12 +256,12 @@ tgc_tools_install <-
           arg = "config --env --set subdir osx-64",
           envname = "cadmixture86"
         )
-        if (!is.null(conda_yaml[3])) {
+        if (!is.null(conda_yaml[2])) {
           # if a conda yaml is provided, use it to install admixture in the new
           # environment
           system2(
             command = "conda",
-            args = paste0("env update -n cadmixture86 -f ", conda_yaml[3])
+            args = paste0("env update -n cadmixture86 -f ", conda_yaml[2])
           )
         } else {
           # install admixture in the new environment
@@ -297,63 +275,38 @@ tgc_tools_install <-
     }
 
 
-    #########################################################################
-    # now install clumppling in its own conda environment
-    # since its dependencies are not compatible with the ones of fastmixture
+    ############################################
+    # install clumppling
+    ############################################
 
     # find out operating system and release
     release <- Sys.info()[["release"]]
     version_major <- as.numeric(strsplit(release, "\\.")[[1]][1])
 
+    # NOTE we don't use --force-reinstall, so that pip does not replace the
+    # packages (e.g. numpy) already installed in the environment
+    clump_install_args <- paste0(
+      "-m pip install ",
+      "git+https://github.com/PopGenClustering/Clumppling.git@",
+      clumppling_hash
+    )
     if (Sys.info()[["sysname"]] == "Darwin" && version_major <= 23) {
-      # macOS 14 or older
-      reticulate::conda_create(
-        envname = "cclumppling",
-        packages = c("python==3.9", "pip"),
-        channel = c("bioconda", "conda-forge", "defaults")
-      )
-      # NOTE we don't use the yaml for this old version of osx; we rely on a few
-      # hacks to install the right version of setuptools and cvxopt, which are
-      # not compatible with the latest version of python.
-      reticulate::conda_run2(
-        cmd = "python",
-        args = paste0(
-          "-m pip ",
-          "install ",
-          "--upgrade --force-reinstall ",
-          "setuptools==80.10.2 ",
-          "cvxopt==1.3.2 ",
-          "git+https://github.com/PopGenClustering/Clumppling.git@",
-          clumppling_hash
-        ),
-        envname = "cclumppling"
-      )
-    } else {
-      # all other operating systems and macOS 15 or newer
-      reticulate::conda_create(
-        envname = "cclumppling",
-        packages = c("python==3.12", "pip"),
-        channel = c("bioconda", "conda-forge", "defaults"),
-        environment = conda_yaml[2]
-      )
-      # Install clumppling
-      reticulate::conda_run2(
-        cmd = "python",
-        args = paste0(
-          "-m pip ",
-          "install ",
-          "--upgrade --force-reinstall ",
-          "git+https://github.com/PopGenClustering/Clumppling.git@",
-          clumppling_hash
-        ),
-        envname = "cclumppling"
+      # macOS 14 or older needs specific versions of setuptools and cvxopt
+      clump_install_args <- paste0(
+        clump_install_args,
+        " setuptools==80.10.2 cvxopt==1.3.2"
       )
     }
+    reticulate::conda_run2(
+      cmd = "python",
+      args = clump_install_args,
+      envname = "ctidygenclust"
+    )
 
     # check clumppling has successfully installed and warn user if it hasn't
     out <- system2(
       command = "conda",
-      args = c("run", "-n", "cclumppling", "conda", "list", "clumppling"),
+      args = c("run", "-n", "ctidygenclust", "conda", "list", "clumppling"),
       stdout = FALSE,
       stderr = FALSE
     )
