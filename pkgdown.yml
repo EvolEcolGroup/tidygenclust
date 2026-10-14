@@ -1,6 +1,6 @@
 pandoc: 3.8.3
-pkgdown: 2.2.0
+pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   tidygenclust: tidygenclust.html
-last_built: 2026-07-01T13:20Z
+last_built: 2026-10-14T12:52Z
