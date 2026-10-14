@@ -25,8 +25,7 @@
 #'
 #' `brew install llvm libomp`
 #'
-#' `ADAMIXTURE` (used by [gt_adamixture()]) is optional, as it depends on
-#' `pytorch`, which is a large download. Set `adamixture = TRUE` to install it
+#' `ADAMIXTURE` (used by [gt_adamixture()]) is optional. Set `adamixture = TRUE` to install it
 #' in `ctidygenclust` together with the other tools, or use
 #' [tgc_adamixture_install()] to add it to an existing `ctidygenclust`
 #' environment.
@@ -49,6 +48,10 @@
 #' function will look for the conda yaml file in the `inst/python` folder
 #' of the package source directory, rather than in the installed package
 #' directory. This is useful when testing the package on CI services.
+#' @param adamixture a boolean indicating whether to install `ADAMIXTURE` in
+#' `ctidygenclust`. Default is FALSE.
+#' @param adamixture_hash a string with the commit hash of the `ADAMIXTURE`
+#' version to install. Default is the latest tested version.
 #' @returns NULL
 #' @export
 
@@ -59,7 +62,7 @@ tgc_tools_install <-
            conda_method = c("reticulate", "conda_yaml"),
            ci_install = FALSE,
            adamixture = FALSE,
-           adamixture_hash = "7ae3605ab902c68402f9cedabf873679b813e679") {
+           adamixture_hash = "43dca99b0c5cbdfd90a7894a4c51b9eef83b54cb") {
     # give error for windows
     if (.Platform$OS.type == "windows") {
       stop(
@@ -305,12 +308,10 @@ tgc_tools_install <-
 
 #' Install `ADAMIXTURE` in the `ctidygenclust` conda environment
 #'
-#' `ADAMIXTURE` (used by [gt_adamixture()]) is not installed by default by
-#' [tgc_tools_install()], as it depends on `pytorch`, which is a large
-#' download. This function adds it to an existing `ctidygenclust` environment
-#' (created with [tgc_tools_install()]). On Linux, the CPU-only build of
-#' `pytorch` is installed, to avoid downloading the (very large) CUDA
-#' libraries.
+#' `ADAMIXTURE` (used by [gt_adamixture()]) is an optional tool.
+#' This function adds it to an existing `ctidygenclust` environment
+#' (created with [tgc_tools_install()]). It installs a lightweight
+#' CPU version of `ADAMIXTURE` without requiring PyTorch.
 #'
 #' @param adamixture_hash a string with the commit hash of the `ADAMIXTURE`
 #' version to install. Default is the latest tested version.
@@ -320,7 +321,7 @@ tgc_tools_install <-
 #' @export
 
 tgc_adamixture_install <-
-  function(adamixture_hash = "7ae3605ab902c68402f9cedabf873679b813e679",
+  function(adamixture_hash = "43dca99b0c5cbdfd90a7894a4c51b9eef83b54cb",
            adamixture_repo = "AI-sandbox/ADAMIXTURE") {
     if (!reticulate::condaenv_exists("ctidygenclust")) {
       stop(
@@ -333,13 +334,7 @@ tgc_adamixture_install <-
       "git+https://github.com/", adamixture_repo, ".git@",
       adamixture_hash
     )
-    if (Sys.info()["sysname"] == "Linux") {
-      # use the cpu-only build of torch, which is much smaller
-      ada_install_cmd <- paste(
-        ada_install_cmd,
-        "--extra-index-url https://download.pytorch.org/whl/cpu"
-      )
-    } else if (Sys.info()["sysname"] == "Darwin") {
+    if (Sys.info()["sysname"] == "Darwin") {
       ada_install_cmd <- c(
         "export PATH=\"/opt/homebrew/opt/llvm/bin:$PATH\"",
         "export CC=clang",

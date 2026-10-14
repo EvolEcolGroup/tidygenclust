@@ -5,7 +5,7 @@
 \title{Install \code{ADAMIXTURE} in the \code{ctidygenclust} conda environment}
 \usage{
 tgc_adamixture_install(
-  adamixture_hash = "7ae3605ab902c68402f9cedabf873679b813e679",
+  adamixture_hash = "43dca99b0c5cbdfd90a7894a4c51b9eef83b54cb",
   adamixture_repo = "AI-sandbox/ADAMIXTURE"
 )
 }
@@ -17,10 +17,8 @@ version to install. Default is the latest tested version.}
 from which to install \code{ADAMIXTURE}.}
 }
 \description{
-\code{ADAMIXTURE} (used by \code{\link[=gt_adamixture]{gt_adamixture()}}) is not installed by default by
-\code{\link[=tgc_tools_install]{tgc_tools_install()}}, as it depends on \code{pytorch}, which is a large
-download. This function adds it to an existing \code{ctidygenclust} environment
-(created with \code{\link[=tgc_tools_install]{tgc_tools_install()}}). On Linux, the CPU-only build of
-\code{pytorch} is installed, to avoid downloading the (very large) CUDA
-libraries.
+\code{ADAMIXTURE} (used by \code{\link[=gt_adamixture]{gt_adamixture()}}) is an optional tool.
+This function adds it to an existing \code{ctidygenclust} environment
+(created with \code{\link[=tgc_tools_install]{tgc_tools_install()}}). It installs a lightweight
+CPU version of \code{ADAMIXTURE} without requiring PyTorch.
 }

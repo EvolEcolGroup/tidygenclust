@@ -11,7 +11,7 @@ tgc_tools_install(
   conda_method = c("reticulate", "conda_yaml"),
   ci_install = FALSE,
   adamixture = FALSE,
-  adamixture_hash = "7ae3605ab902c68402f9cedabf873679b813e679"
+  adamixture_hash = "43dca99b0c5cbdfd90a7894a4c51b9eef83b54cb"
 )
 }
 \arguments{
@@ -37,6 +37,12 @@ continuous integration (CI) services. Default is FALSE. If TRUE, the
 function will look for the conda yaml file in the \code{inst/python} folder
 of the package source directory, rather than in the installed package
 directory. This is useful when testing the package on CI services.}
+
+\item{adamixture}{a boolean indicating whether to install \code{ADAMIXTURE} in
+\code{ctidygenclust}. Default is FALSE.}
+
+\item{adamixture_hash}{a string with the commit hash of the \code{ADAMIXTURE}
+version to install. Default is the latest tested version.}
 }
 \description{
 \code{tidygenclust} relies on \code{ADMIXTURE} and on python packages \code{fastmixture}
@@ -65,8 +71,7 @@ using \code{brew} in \code{bash}, setting the correct paths to use it:
 
 \verb{brew install llvm libomp}
 
-\code{ADAMIXTURE} (used by \code{\link[=gt_adamixture]{gt_adamixture()}}) is optional, as it depends on
-\code{pytorch}, which is a large download. Set \code{adamixture = TRUE} to install it
+\code{ADAMIXTURE} (used by \code{\link[=gt_adamixture]{gt_adamixture()}}) is optional. Set \code{adamixture = TRUE} to install it
 in \code{ctidygenclust} together with the other tools, or use
 \code{\link[=tgc_adamixture_install]{tgc_adamixture_install()}} to add it to an existing \code{ctidygenclust}
 environment.

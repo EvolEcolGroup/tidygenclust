@@ -41,7 +41,7 @@ tgc_tools_install()
 
 ## Installing `ADAMIXTURE` (optional)
 
-`ADAMIXTURE` (used by `gt_adamixture()`) is an optional install due to its `pytorch` dependency. You can install it into the `ctidygenclust` conda environment using:
+`ADAMIXTURE` (used by `gt_adamixture()`) installs as a fast, lightweight CPU package (with C/Cython binaries and without requiring PyTorch). You can install it into the `ctidygenclust` conda environment using:
 
 ```{r eval=FALSE}
 tgc_adamixture_install()
