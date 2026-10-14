@@ -35,7 +35,8 @@ equivalent to \code{conda_yaml = c("auto", "auto")} in osx).}
 
 \item{ci_install}{a boolean indicating if the installation is being run on
 continuous integration (CI) services. Default is FALSE. If TRUE, the
-function will look for the conda yaml file in the \code{inst/python} folder of
+function will look for the conda yaml file in the \code{inst/env_snapshots}
+folder of
 the package source directory, rather than in the installed package
 directory. This is useful when testing the package on CI services.}
 }
