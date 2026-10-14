@@ -318,3 +318,36 @@ test_that("fastmixture with cv", {
   expect_true("cv" %in% names(anole_qmat))
   expect_equal(length(anole_qmat$cv), length(k) * n_runs)
 })
+
+test_that("gt_fastmixture gives the same results for gen_tibble and plink", {
+  bed_file <- gt_as_plink(anole_gt, file = tempfile("anolis_plink_"))
+  plink_prefix <- sub("\\.bed$", "", bed_file)
+  res_gt <- gt_fastmixture(
+    anole_gt,
+    k = 3,
+    seed = 42,
+    no_freqs = FALSE,
+    random_init = FALSE
+  )
+  res_plink <- gt_fastmixture(
+    plink_prefix,
+    k = 3,
+    seed = 42,
+    no_freqs = FALSE,
+    random_init = FALSE
+  )
+  # both inputs are shuffled and normalised in the same way, so the
+  # estimates should be identical
+  expect_equal(
+    unclass(res_gt$Q[[1]]),
+    unclass(res_plink$Q[[1]]),
+    tolerance = 1e-6,
+    ignore_attr = TRUE
+  )
+  expect_equal(res_gt$P[[1]], res_plink$P[[1]], tolerance = 1e-6)
+  # P should be returned in the original locus order, so it should predict
+  # the observed allele frequencies
+  obs_freq <- colMeans(show_genotypes(anole_gt), na.rm = TRUE) / 2
+  pred_freq <- res_gt$P[[1]] %*% colMeans(res_gt$Q[[1]])
+  expect_gt(cor(obs_freq, as.vector(pred_freq)), 0.9)
+})

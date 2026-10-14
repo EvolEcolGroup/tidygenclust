@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 from time import time
 
-VERSION = "1.2.0"
+from fastmixture import __version__ as VERSION
 
 ### Argparse
 # parser = argparse.ArgumentParser(prog="fastmixture")
@@ -145,16 +145,21 @@ def fastmixture_run(args):
 	else:
 		N = args.n_indiv
 		M = args.n_loci
-		G = np.fromfile(args.bfile, dtype=np.uint8)
+		G_raw = np.fromfile(args.bfile, dtype=np.uint8)
+		assert G_raw.shape[0] == M*N, "Backing file doesn't match number of samples and SNPs!"
+		# shape the genotype matrix (the backing file is column-major N x M)
+		G_raw.shape = (M, N)
+		# shuffle SNPs as utils.readPlink does, so that mini-batches are random
+		s_ord = np.arange(M, dtype=np.uint32)
+		rng.shuffle(s_ord)
+		G = np.empty((M, N), dtype=np.uint8)
+		G[s_ord] = G_raw
+		del G_raw
 		# set missing/imputed values to 9
 		G[G>=3] = 9
-		# shape the genotype matrix
-		G.shape = (args.n_loci, args.n_indiv)
-		# TODO we need to set q_nrm, which is the number of non-missing loci per individual
-		q_nrm = np.sum(G != 9, axis=0).astype(np.double)
+		# q_nrm is the number of non-missing alleles per individual
+		q_nrm = 2.0*np.sum(G != 9, axis=0, dtype=np.double)
 		assert not np.any(q_nrm == 0), "Sample(s) with zero information!"
-		# check that q_nrm is of length N
-		assert q_nrm.shape[0] == N, "Number of samples differ between files!"	
 
 	if int(M/args.batches) < 10000:
 		print("\nWARNING: Few SNPs per mini-batch!\n")
@@ -254,6 +259,11 @@ def fastmixture_run(args):
 	print(f"Total elapsed time: {t_min}m{t_sec}s")
 	
 	if not args.no_freqs:
+		# Return P in the original SNP order
+		if args.projection is None:
+			P_ord = np.zeros_like(P)
+			shared.reorderP(P, P_ord, s_ord)
+			P = P_ord
 		if args.cv is not None:
 			return Q, P, res_crv
 		else:
