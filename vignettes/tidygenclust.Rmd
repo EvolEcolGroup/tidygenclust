@@ -17,6 +17,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 `fastmixture` (<https://github.com/Rosemeis/fastmixture>) (Santander et al. 2024) is a python tool for ancestry estimation using genotype data. It uses a model-based approach with comparable accuracy to that of of popular clustering tool ADMIXTURE, but over considerably faster time scales making it a more scaleable option for large genetic data sets.
 
+`ADAMIXTURE` (<https://github.com/AI-sandbox/ADAMIXTURE>) (Saurina-i-Ricos et al. 2026) is a python package for biobank-scale genetic clustering. It combines spectral initialization (SVD+ALS) with accelerated block relaxation (BR-QN) to achieve high-quality clustering and likelihoods with fast convergence.
+
 `Clumppling` (<https://github.com/PopGenClustering/Clumppling>) (Liu, Kopelman, & Rosenberg, 2024) is a python package which aligns multiple runs of a clustering analyses allowing for easy comparison and summary of clustering results both across different values of K and for repeated runs within K.
 
 With the `tidygenclust` package we provide a direct R interface to the python based `fastmixture` using `reticulate` and integrate it with the `tidypopgen` package for easy genetic data manipulation entirely within R. Additionally, the outputs from clustering analyses (irrespective of the algorithm used) can be easily visualised using the `gt_clumppling` function, which allows for easy alignment and comparison of multiple clustering results.
@@ -36,6 +38,16 @@ library(tidygenclust)
 ```{r eval=FALSE}
 tgc_tools_install()
 ```
+
+## Installing `ADAMIXTURE` (optional)
+
+`ADAMIXTURE` (used by `gt_adamixture()`) is an optional install due to its `pytorch` dependency. You can install it into the `ctidygenclust` conda environment using:
+
+```{r eval=FALSE}
+tgc_adamixture_install()
+```
+
+Alternatively, you can install it together with the other tools by setting `adamixture = TRUE` when calling `tgc_tools_install(adamixture = TRUE)`.
 
 ## For MacOS users
 
@@ -183,6 +195,41 @@ anole_res %>% autoplot(type = "cv")
 ```
 
 We are looking for the 'elbow' point in the plot where the cross-validation is at its lowest, here it looks like `k = 3` would be a sensible choice.
+
+## Running the ADAMIXTURE algorithm
+
+`tidygenclust` also provides `gt_adamixture()` to run the ADAMIXTURE algorithm. Like `gt_fastmixture()`, it accepts either a `gen_tibble` object or a path to a PLINK bed file, and returns a `gt_admix` object compatible with all downstream `tidypopgen` and `tidygenclust` methods.
+
+We can run `gt_adamixture()` on our anolis dataset across a range of K values from 2 to 4, requesting 5-fold cross-validation (`cv = 5`) and retaining the ancestral allele frequency P-matrices (`no_freqs = FALSE`):
+
+```{r, results='hide'}
+anole_ada <- anole_gt %>% gt_adamixture(
+  k = c(2:4),
+  cv = 5,
+  no_freqs = FALSE,
+  seed = 42
+)
+```
+
+The output is returned as a `gt_admix` object containing the estimated ancestry matrices (Q), allele frequencies (P), and cross-validation errors:
+
+```{r}
+anole_ada %>% summary()
+```
+
+We can inspect the cross-validation scores across values of K:
+
+```{r}
+anole_ada %>% autoplot(type = "cv")
+```
+
+And visualise the ancestry proportions for $K = 3$:
+
+```{r}
+anole_ada %>% autoplot(type = "barplot", k = 3)
+```
+
+At $K = 3$, `gt_adamixture()` finds clusters highly consistent with `fastmixture` ($r \approx 0.97\text{--}0.99$) while achieving superior log-likelihoods due to exact spectral initialization and accelerated block relaxation.
 
 ## Visualising the results
 
