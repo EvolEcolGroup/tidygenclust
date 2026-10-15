@@ -98,3 +98,48 @@ test_that("subsetting gt_clumppling", {
     "indivs values must be strictly increasing and consecutive"
   )
 })
+
+test_that("gt_clumppling works with Q matrices passed from R", {
+  # read the capeverde Q matrices, and pass them as a gt_admix object
+  temp_dir <- tempfile()
+  utils::unzip(input_path, exdir = temp_dir)
+  q_files <- list.files(
+    temp_dir,
+    pattern = "indivq$", recursive = TRUE, full.names = TRUE
+  )
+  q_list <- lapply(q_files, function(x) {
+    as.matrix(utils::read.table(x)[, -(1:5)])
+  })
+  q_admix <- structure(
+    list(k = sapply(q_list, ncol), Q = q_list),
+    class = c("gt_admix", "list")
+  )
+  clump_mem <- gt_clumppling(q_admix, seed = 42)
+  expect_true(inherits(clump_mem, "gt_clumppling"))
+  expect_true(clump_mem$N == 399)
+  expect_true(all(clump_mem$K_range == c(2, 3, 4, 5)))
+  # the modes are the same as when reading the files
+  expect_identical(names(clump_mem$aligned_modes), names(clump_res$aligned_modes))
+  expect_identical(
+    lapply(clump_mem$mode_replicates, length),
+    lapply(clump_res$mode_replicates, length)
+  )
+  expect_identical(clump_mem$mode_stats$Size, clump_res$mode_stats$Size)
+  # a plain list of Q matrices also works, and the seed makes it reproducible
+  expect_identical(gt_clumppling(q_list, seed = 42), clump_mem)
+  # we need at least two Q matrices
+  expect_error(
+    gt_clumppling(q_list[1]),
+    "Input list must contain more than one Q-matrix"
+  )
+  # output_path is deprecated
+  expect_warning(
+    gt_clumppling(q_list[c(1, 51)], output_path = tempfile()),
+    "'output_path' is deprecated"
+  )
+})
+
+test_that("subsetting gt_clumppling by k also subsets mode_stats", {
+  sub_clump_res <- subset_gt_clumppling(clump_res, k = 2:4)
+  expect_identical(sub_clump_res$mode_stats$Mode, names(sub_clump_res$aligned_modes))
+})
