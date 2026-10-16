@@ -62,7 +62,8 @@ tgc_tools_install <-
            conda_method = c("reticulate", "conda_yaml"),
            ci_install = FALSE,
            adamixture = FALSE,
-           adamixture_hash = "43dca99b0c5cbdfd90a7894a4c51b9eef83b54cb") {
+           adamixture_hash = "ffccda93b78a32d2be4be9a674cfe81ad73ce117"
+           ) {
     # give error for windows
     if (.Platform$OS.type == "windows") {
       stop(
@@ -321,7 +322,7 @@ tgc_tools_install <-
 #' @export
 
 tgc_adamixture_install <-
-  function(adamixture_hash = "43dca99b0c5cbdfd90a7894a4c51b9eef83b54cb",
+  function(adamixture_hash = "ffccda93b78a32d2be4be9a674cfe81ad73ce117",
            adamixture_repo = "AI-sandbox/ADAMIXTURE") {
     if (!reticulate::condaenv_exists("ctidygenclust")) {
       stop(

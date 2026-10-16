@@ -5,7 +5,7 @@
 \title{Install \code{ADAMIXTURE} in the \code{ctidygenclust} conda environment}
 \usage{
 tgc_adamixture_install(
-  adamixture_hash = "43dca99b0c5cbdfd90a7894a4c51b9eef83b54cb",
+  adamixture_hash = "ffccda93b78a32d2be4be9a674cfe81ad73ce117",
   adamixture_repo = "AI-sandbox/ADAMIXTURE"
 )
 }

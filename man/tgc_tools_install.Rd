@@ -11,7 +11,7 @@ tgc_tools_install(
   conda_method = c("reticulate", "conda_yaml"),
   ci_install = FALSE,
   adamixture = FALSE,
-  adamixture_hash = "43dca99b0c5cbdfd90a7894a4c51b9eef83b54cb"
+  adamixture_hash = "ffccda93b78a32d2be4be9a674cfe81ad73ce117"
 )
 }
 \arguments{
