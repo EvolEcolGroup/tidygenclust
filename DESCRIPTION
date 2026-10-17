@@ -1,6 +1,6 @@
 Package: tidygenclust
 Title: Clustering for Population Genetics in R
-Version: 0.1.4
+Version: 0.1.5
 Authors@R: c(
     person("Eirlys", "Tysall", role = c("aut")),
     person("Anahit", "Hovhannisyan", role = c("aut")),
@@ -12,7 +12,7 @@ Authors@R: c(
     person("Ondrej", "Pelanek", role = c("aut")),
     person("Nile", "Stephenson", role = c("aut")),
     person("Margherita", "Colucci", role = c("aut")),
-        person("Andrea", "Manica", , "am315@cam.ac.uk", role = c("aut", "cre"),
+    person("Andrea", "Manica", , "am315@cam.ac.uk", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-1895-450X"))
     )
 Description: A tidy interface to clustering in population genetics. This package provides a set of
@@ -44,4 +44,4 @@ Suggests:
 LazyData: true
 VignetteBuilder: knitr
 Config/testthat/edition: 3
-Config/roxygen2/version: 8.0.0
+Config/roxygen2/version: 8.1.0

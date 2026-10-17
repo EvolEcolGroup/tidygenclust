@@ -6,29 +6,23 @@
 \usage{
 gt_clumppling(
   input_path,
-  output_path = tempfile("clump_out"),
   input_format = "admixture",
   use_rep = TRUE,
   merge = TRUE,
   cd_method = "louvain",
   use_best_pair = TRUE,
-  extension = ".Q"
+  extension = ".Q",
+  seed = NULL,
+  output_path = NULL
 )
 }
 \arguments{
-\item{input_path}{the path where the Q files are stored, either a directory
-or a zip archive, or a \code{q_matrix_list} object}
-
-\item{output_path}{(optional) the clumppling functions in python save
-everything to file. By default, R stores the information in objects in the
-environment, and sends those files to a temporary directory that will be
-cleared at the end of a session. \code{output_path} allows to change the
-location of those files. This is only useful to those interested in
-recovering the same files as created by the python clumppling module, or
-for debugging.}
+\item{input_path}{either a \code{gt_admix} object, a list of Q matrices, or the
+path where the Q files are stored, either a directory or a zip archive}
 
 \item{input_format}{a string defining the format of the input files, one of
-'admixture' (default),'structure','fastStructure' or 'generalQ'}
+'admixture' (default),'structure','fastStructure' or 'generalQ'. Only used
+if \code{input_path} is a path.}
 
 \item{use_rep}{boolean, whether to use representative modes (alternative:
 average), defaults to TRUE}
@@ -43,8 +37,16 @@ defaults to TRUE}
 \item{use_best_pair}{boolean, whether to use best pair as anchor for across-K
 alignment (alternative: major), defaults to TRUE}
 
-\item{extension}{(optional) if loading from files rather than a
-\code{q_matrix_list} object specify the extension e.g. ".Q" or ".indivq"}
+\item{extension}{(optional) if loading from files rather than a \code{gt_admix}
+object, specify the extension e.g. ".Q" or ".indivq"}
+
+\item{seed}{(optional) an integer used to set the random seed in python, so
+that community detection (e.g. 'louvain') is reproducible. Defaults to
+NULL (no seed is set).}
+
+\item{output_path}{deprecated and ignored. Clumppling functions are now
+called directly from R, and their outputs are returned as R objects rather
+than written to files.}
 }
 \value{
 a list of class \code{gt_clumppling} containing:
@@ -54,10 +56,14 @@ a list of class \code{gt_clumppling} containing:
 \item mode_replicates: a list of replicate indices for each mode
 \item cost_acrossK: a named list of costs for each pairwise K alignment
 \item aligned_modes: a list of data.frames, each data.frame is a Q-matrix
+\item mode_stats: a data.frame with the size, cost and performance (average
+similarity among replicates) of each mode
 }
 }
 \description{
-This function runs the clumppling algorithm.
+This function runs the clumppling algorithm by calling the python module. If
+you use this function, make sure that you cite the relevant paper by Liu,
+Kopelman, and Rosenberg (2024).
 }
 \details{
 If you would like to generate an annotated autoplot from your gt_clumppling
@@ -65,4 +71,18 @@ object, ensure that all individuals from the same population are adjacent to
 one another in the Q-matrix or gt_admix object supplied to gt_clumppling.
 Autoplot 'group' argument requires that all individuals from the same group
 are adjacent.
+
+Q matrices from a \code{gt_admix} object (or a list of Q matrices) are passed
+directly to python. Q files in a directory (or a zip archive) are parsed by
+clumppling itself (using a temporary directory), which allows the use of the
+different formats supported by clumppling. Note that, for 'admixture' files
+with extension '.indivq', and for 'structure' files, clumppling uses the
+population labels in the files to reorder individuals so that individuals
+from the same population are adjacent.
+}
+\references{
+X. Liu, N. M. Kopelman, N. A. Rosenberg (2024) Clumppling:
+cluster matching and permutation program with integer linear programming.
+Bioinformatics 40(1): btad751. doi:
+https://doi.org/10.1093/bioinformatics/btad751
 }

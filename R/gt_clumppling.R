@@ -1,6 +1,8 @@
 #' run clumppling
 #'
-#' This function runs the clumppling algorithm.
+#' This function runs the clumppling algorithm by calling the python module. If
+#' you use this function, make sure that you cite the relevant paper by Liu,
+#' Kopelman, and Rosenberg (2024).
 #'
 #' If you would like to generate an annotated autoplot from your gt_clumppling
 #' object, ensure that all individuals from the same population are adjacent to
@@ -8,10 +10,24 @@
 #' Autoplot 'group' argument requires that all individuals from the same group
 #' are adjacent.
 #'
-#' @param input_path the path where the Q files are stored, either a directory
-#'   or a zip archive, or a `q_matrix_list` object
+#' Q matrices from a `gt_admix` object (or a list of Q matrices) are passed
+#' directly to python. Q files in a directory (or a zip archive) are parsed by
+#' clumppling itself (using a temporary directory), which allows the use of the
+#' different formats supported by clumppling. Note that, for 'admixture' files
+#' with extension '.indivq', and for 'structure' files, clumppling uses the
+#' population labels in the files to reorder individuals so that individuals
+#' from the same population are adjacent.
+#'
+#' @references X. Liu, N. M. Kopelman, N. A. Rosenberg (2024) Clumppling:
+#'   cluster matching and permutation program with integer linear programming.
+#'   Bioinformatics 40(1): btad751. doi:
+#'   https://doi.org/10.1093/bioinformatics/btad751
+#'
+#' @param input_path either a `gt_admix` object, a list of Q matrices, or the
+#'   path where the Q files are stored, either a directory or a zip archive
 #' @param input_format a string defining the format of the input files, one of
-#'   'admixture' (default),'structure','fastStructure' or 'generalQ'
+#'   'admixture' (default),'structure','fastStructure' or 'generalQ'. Only used
+#'   if `input_path` is a path.
 #' @param cd_method the community detection method to use, one of 'louvain'
 #'  (default), 'leiden', 'infomap', 'markov_clustering', 'label_propagation',
 #'   'walktrap', 'custom'
@@ -21,177 +37,140 @@
 #'  defaults to TRUE
 #' @param use_best_pair boolean, whether to use best pair as anchor for across-K
 #'  alignment (alternative: major), defaults to TRUE
-#' @param extension (optional) if loading from files rather than a
-#'   `q_matrix_list` object specify the extension e.g. ".Q" or ".indivq"
-#' @param output_path (optional) the clumppling functions in python save
-#'   everything to file. By default, R stores the information in objects in the
-#'   environment, and sends those files to a temporary directory that will be
-#'   cleared at the end of a session. `output_path` allows to change the
-#'   location of those files. This is only useful to those interested in
-#'   recovering the same files as created by the python clumppling module, or
-#'   for debugging.
+#' @param extension (optional) if loading from files rather than a `gt_admix`
+#'   object, specify the extension e.g. ".Q" or ".indivq"
+#' @param seed (optional) an integer used to set the random seed in python, so
+#'   that community detection (e.g. 'louvain') is reproducible. Defaults to
+#'   NULL (no seed is set).
+#' @param output_path deprecated and ignored. Clumppling functions are now
+#'   called directly from R, and their outputs are returned as R objects rather
+#'   than written to files.
 #' @returns a list of class `gt_clumppling` containing:
 #' - N: number of individuals
 #' - K_range: vector of K values analyzed
 #' - mode_replicates: a list of replicate indices for each mode
 #' - cost_acrossK: a named list of costs for each pairwise K alignment
 #' - aligned_modes: a list of data.frames, each data.frame is a Q-matrix
+#' - mode_stats: a data.frame with the size, cost and performance (average
+#'   similarity among replicates) of each mode
 #' @export
 
 gt_clumppling <- function(
   input_path,
-  output_path = tempfile("clump_out"),
   input_format = "admixture",
   use_rep = TRUE,
   merge = TRUE,
   cd_method = "louvain",
   use_best_pair = TRUE,
-  extension = ".Q"
+  extension = ".Q",
+  seed = NULL,
+  output_path = NULL
 ) {
-  # Check if input_path is a zip file and unzip it
-  if (is.character(input_path)) {
-    if (tools::file_ext(input_path) == "zip") {
-      temp_zip_path <- tempfile()
-      utils::unzip(input_path, exdir = temp_zip_path)
-      input_path <- temp_zip_path
-    }
+  .ensure_clumppling_python()
+
+  if (!is.null(output_path)) {
+    warning(
+      "'output_path' is deprecated and ignored: clumppling results are ",
+      "returned as R objects and are no longer written to files"
+    )
   }
 
-  # check if input_path is a "gt_admix" object
+  clump_args <- list(
+    cd_method = cd_method,
+    cd_res = 1.0, # default
+    test_comm = FALSE,
+    comm_min = 1e-6, # default
+    comm_max = 1e-2, # default
+    merge = merge,
+    use_rep = use_rep,
+    use_best_pair = use_best_pair,
+    random_seed = if (is.null(seed)) NULL else as.integer(seed)
+  )
+
   if (inherits(input_path, "gt_admix")) {
-    # extract flat q-matrix list
     q_mat_list <- input_path$Q
-    # check q_mat_list has more than 1 q_matrix
+  } else if (is.list(input_path) && !is.data.frame(input_path)) {
+    q_mat_list <- input_path
+  } else if (is.character(input_path) && length(input_path) == 1) {
+    q_mat_list <- NULL
+  } else {
+    stop(
+      "input_path must be a gt_admix object, a list of Q matrices, or the ",
+      "path to a directory or zip archive of Q files"
+    )
+  }
+
+  if (!is.null(q_mat_list)) {
     if (length(q_mat_list) < 2) {
       stop("Input list must contain more than one Q-matrix")
     }
-
-    # create different temp dir each run
-    temp_q_dir <- tempfile(pattern = "clumppling_q_dir")
-    dir.create(temp_q_dir)
-    invisible(lapply(seq_along(q_mat_list), function(i) {
-      # create a unique filename for each list item
-      file_name <- paste0("gt_admix_", i, ".Q")
-      q_filename <- file.path(temp_q_dir, file_name)
-      utils::write.table(
-        q_mat_list[[i]],
-        file = q_filename,
-        row.names = FALSE,
-        col.names = FALSE,
-        quote = FALSE
+    # strip any class (e.g. q_matrix) so that reticulate sends plain numpy
+    # arrays to python
+    clump_args$Q_list <- lapply(q_mat_list, function(q) {
+      q <- as.matrix(q)
+      matrix(as.numeric(q), nrow = nrow(q), ncol = ncol(q))
+    })
+  } else {
+    # Check if input_path is a zip file and unzip it
+    if (tools::file_ext(input_path) == "zip") {
+      temp_zip_path <- tempfile()
+      utils::unzip(input_path, exdir = temp_zip_path)
+      on.exit(unlink(temp_zip_path, recursive = TRUE), add = TRUE)
+      input_path <- temp_zip_path
+    }
+    # clumppling parses the input files and writes the processed Q matrices
+    # to a directory, which we then read back in python
+    processed_dir <- tempfile("clumppling_input")
+    on.exit(unlink(processed_dir, recursive = TRUE), add = TRUE)
+    clump_args <- c(
+      clump_args,
+      list(
+        input_dir = normalizePath(input_path, mustWork = TRUE),
+        processed_dir = processed_dir,
+        fmt = input_format,
+        extension = extension
       )
-    }))
-    input_path <- temp_q_dir
+    )
   }
 
-  if (merge == TRUE) {
-    merge <- "True"
-  } else if (merge == FALSE) {
-    merge <- "False"
-  }
+  clump_py <- do.call(.py_rclumppling$clumppling_run, clump_args)
 
-  if (use_rep == TRUE) {
-    use_rep <- "True"
-  } else if (use_rep == FALSE) {
-    use_rep <- "False"
-  }
-
-  if (use_best_pair == TRUE) {
-    use_best_pair <- "True"
-  } else if (use_best_pair == FALSE) {
-    use_best_pair <- "False"
-  }
-
-
-  clump_args <- paste0(
-    "-m clumppling ",
-    "-i ", input_path,
-    " -o ", output_path,
-    " -f ", input_format,
-    " -v=False",
-    " --cd_method=", cd_method,
-    " --test_comm=False",
-    " --comm_min=1e-6", # set to default
-    " --comm_max=1e-2", # set to default
-    " --merge=", merge,
-    " --use_rep=", use_rep,
-    " --use_best_pair=", use_best_pair,
-    " --extension=", extension
-  )
-
-
-  reticulate::conda_run2(
-    cmd = "python",
-    args = clump_args,
-    envname = "ctidygenclust"
-  )
-  # now we read the output files and create an output object
+  # now create the output object
   clump_res <- list()
-  # read modes_aligned (used for ggplots)
-  modes_aligned_path <- file.path(
-    output_path,
-    "modes_aligned"
+  clump_res$aligned_modes <- lapply(clump_py$aligned_modes, as.data.frame)
+  names(clump_res$aligned_modes) <- clump_py$mode_names
+  clump_res$cost_acrossK <- clump_py$cost_acrossK
+
+  # for each mode, get the replicates (the replicate id is the number after R
+  # in the name of the replicate, e.g. 3_K2R1)
+  mode_alignment <- clump_py$mode_alignment
+  replicate_id <- as.integer(sub(".*R(\\d+)$", "\\1", mode_alignment$Replicate))
+  clump_res$mode_replicates <- split(
+    replicate_id,
+    factor(mode_alignment$Mode, levels = clump_py$mode_names)
   )
-  q_files <- list.files(modes_aligned_path, pattern = "Q")
-  clump_res$aligned_modes <- lapply(
-    file.path(modes_aligned_path, q_files),
-    utils::read.table
-  )
-  get_code <- function(x) {
-    strsplit(x, "_")[[1]][1]
-  }
-  names(clump_res$aligned_modes) <- unlist(lapply(q_files, get_code))
 
-  # Reorder the list, if needed
-  k <- as.numeric(gsub(".*K(\\d+)M.*", "\\1", names(clump_res$aligned_modes)))
-  indices <- order(k)
-  clump_res$aligned_modes <- clump_res$aligned_modes[indices]
-
-  # read cost_acrossK
-  cost_across_k_path <- file.path(
-    output_path,
-    "alignment_acrossK"
-  )
-  cost_file <- list.files(cost_across_k_path, pattern = "alignment_acrossK")
-  costs <- utils::read.csv(file.path(cost_across_k_path, cost_file[1]))
-  clump_res$cost_acrossK <- as.list(costs$Cost)
-  names(clump_res$cost_acrossK) <- costs$Mode1.Mode2
-  # read modes
-  modes_path <- file.path(
-    output_path,
-    "modes"
-  )
-  mode_alignment <- utils::read.csv(file.path(
-    modes_path,
-    "mode_alignment.txt"
-  ))
-
-  # for each mode, get the replicates
-  # add replicate id column by parsing string and getting number after R
-  mode_alignment$ReplicateID <- as.integer(sub(
-    ".*R(\\d+).*",
-    "\\1",
-    mode_alignment$Replicate
-  ))
-  mode_replicates <- split(mode_alignment$ReplicateID, mode_alignment$Mode)
-  clump_res$mode_replicates <- mode_replicates
-
-  # Reorder the list, if needed
-  clump_res$mode_replicates <- clump_res$mode_replicates[indices]
-
-  # add K_range
-  mode_alignment$K <- as.integer(sub(
-    ".*K(\\d+).*",
-    "\\1",
-    mode_alignment$Mode
-  ))
-  clump_res$K_range <- unique(mode_alignment$K)
-
-  # add N
-  clump_res$N <- nrow(clump_res$aligned_modes[[1]])
+  clump_res$K_range <- as.integer(clump_py$K_range)
+  clump_res$N <- as.integer(clump_py$N)
+  clump_res$mode_stats <- clump_py$mode_stats
+  # drop the reference to the python index, which would not survive saving
+  attr(clump_res$mode_stats, "pandas.index") <- NULL
 
   class(clump_res) <- "gt_clumppling"
   return(clump_res)
+}
+
+.ensure_clumppling_python <- function() {
+  reticulate::use_condaenv("ctidygenclust", required = TRUE)
+  # get info on the current python environment
+  cfg <- reticulate::py_config()
+
+  if (!reticulate::py_module_available("clumppling")) {
+    stop(
+      "Python environment selected but 'clumppling' is not importable.\n",
+      "Current python: ", cfg$python
+    )
+  }
 }
 
 
@@ -262,6 +241,12 @@ subset_gt_clumppling <- function(x, k = NULL, indivs = NULL) {
     # remove matched_indices from x$aligned_modes
     x$aligned_modes <- x$aligned_modes[matched_indices]
     x$mode_replicates <- x$mode_replicates[matched_indices]
+    if (!is.null(x$mode_stats)) {
+      x$mode_stats <- x$mode_stats[
+        x$mode_stats$Mode %in% names(x$aligned_modes), ,
+        drop = FALSE
+      ]
+    }
 
     # find the entries in $cost_acrossK that need removing
     matched_indices <- c()
