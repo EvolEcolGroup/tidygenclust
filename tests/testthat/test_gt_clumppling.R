@@ -119,7 +119,8 @@ test_that("gt_clumppling works with Q matrices passed from R", {
   expect_true(clump_mem$N == 399)
   expect_true(all(clump_mem$K_range == c(2, 3, 4, 5)))
   # the modes are the same as when reading the files
-  expect_identical(names(clump_mem$aligned_modes), names(clump_res$aligned_modes))
+  expect_identical(names(clump_mem$aligned_modes),
+                   names(clump_res$aligned_modes))
   expect_identical(
     lapply(clump_mem$mode_replicates, length),
     lapply(clump_res$mode_replicates, length)
@@ -141,5 +142,6 @@ test_that("gt_clumppling works with Q matrices passed from R", {
 
 test_that("subsetting gt_clumppling by k also subsets mode_stats", {
   sub_clump_res <- subset_gt_clumppling(clump_res, k = 2:4)
-  expect_identical(sub_clump_res$mode_stats$Mode, names(sub_clump_res$aligned_modes))
+  expect_identical(sub_clump_res$mode_stats$Mode,
+                   names(sub_clump_res$aligned_modes))
 })
