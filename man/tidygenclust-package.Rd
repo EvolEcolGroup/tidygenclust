@@ -8,7 +8,7 @@
 \description{
 \if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
 
-A tidy interface to clustering in population genetics. This package provides a set of functions to perform clustering on genetic data, and to visualize the results, both for single runs and for multiple repeats of the same analysis. 'tidygenclust' ports the 'fastmixture' and 'clumppling' python modules to R, and it is built on top of the 'tidypopgen' package. Currently it works only on Linux and OSX (you can use the WSL on Windows).
+A tidy interface to clustering in population genetics. This package provides a set of functions to perform clustering on genetic data, and to visualize the results, both for single runs and for multiple repeats of the same analysis. 'tidygenclust' ports the 'fastmixture' and 'clumppling' python modules to R, and it is built on top of the 'tidypopgen' package. It also includes a native C++ (OpenMP) reimplementation of the 'OpenADMIXTURE.jl' algorithm (Ko et al. 2023), which estimates ancestry proportions directly from the backing files of 'tidypopgen' objects, without Python or Julia. Currently it works only on Linux and OSX (you can use the WSL on Windows).
 }
 \author{
 \strong{Maintainer}: Andrea Manica \email{am315@cam.ac.uk} (\href{https://orcid.org/0000-0003-1895-450X}{ORCID})

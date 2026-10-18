@@ -1,3 +1,12 @@
+# tidygenclust (development version)
+* New `gt_openadmixture()`: a native C++ (OpenMP) reimplementation of
+  OpenADMIXTURE.jl, previously developed as the separate package
+  `openadmixturer`. It estimates ancestry proportions directly from the
+  backing files of `gen_tibble` objects (no Python or Julia needed), supports
+  diploid and pseudohaploid data, missing genotypes and ADMIXTURE-style
+  cross-validation, and returns `gt_admix` objects. Its results are checked
+  against OpenADMIXTURE.jl and ADMIXTURE in the test suite.
+
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda
   environment as fastmixture (`ctidygenclust`); the separate `cclumppling`

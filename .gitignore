@@ -8,3 +8,7 @@ tidygenclust.Rproj
 .DS_Store
 .positai
 /check/
+/data-raw/openadmixture/data/
+src/*.o
+src/*.so
+src/*.dll

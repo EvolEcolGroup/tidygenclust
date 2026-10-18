@@ -7,12 +7,14 @@ export(augment)
 export(autoplot)
 export(gt_clumppling)
 export(gt_fastmixture)
+export(gt_openadmixture)
 export(scale_fill_distruct)
 export(subset_gt_clumppling)
 export(tgc_tools_install)
 export(tgc_tools_version)
 export(theme_distruct)
 export(tidy)
+importFrom(Rcpp,sourceCpp)
 importFrom(dplyr,
   "%>%",
   .data
@@ -26,3 +28,4 @@ importFrom(tidypopgen,
   scale_fill_distruct,
   theme_distruct
 )
+useDynLib(tidygenclust, .registration = TRUE)
