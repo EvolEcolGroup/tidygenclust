@@ -121,4 +121,11 @@ version control), and need `tidygenclust` to be installed (timings from
 - `profile_eur.R`: times the individual C++ kernels;
 - `benchmark_admixture.R`: times `gt_openadmixture()` against ADMIXTURE
   (single-threaded, K = 2 to 4, about 5 minutes of ADMIXTURE runs), writing
-  the results to `benchmark_admixture.csv`.
+  the results to `benchmark_admixture.csv`;
+- `pseudohaploid_vs_diploid.R`: a simulation showing why pseudohaploid
+  samples must be declared with `tidypopgen::gt_pseudohaploid()`: when 40
+  pseudohaploids from one of two populations are treated as diploids,
+  cross-validation misses the population structure (it picks K = 1 instead
+  of K = 2 in every replicate), whereas the ancestry proportions estimated
+  at K = 2 are unaffected. Results in `pseudohaploid_vs_diploid.csv`. Unlike
+  the scripts above, it does not need the `EUR_subset` data.
