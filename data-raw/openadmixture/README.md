@@ -130,10 +130,13 @@ version control), and need `tidygenclust` to be installed (timings from
   at K = 2 are unaffected. Results in `pseudohaploid_vs_diploid.csv`. Unlike
   the scripts above, it does not need the `EUR_subset` data.
 - `pseudohaploid_ghost_k.R`: the opposite error, on similar simulated data
-  (two populations, 40 pseudohaploids from one of them): when K is chosen
-  with a criterion based on the log-likelihood (AIC), undeclared
-  pseudohaploids, whose log-likelihood is counted twice, make spurious
-  ("ghost") clusters look supported. AIC keeps adding clusters up to the
-  largest K tested (K = 6) instead of picking K = 2, whereas
-  cross-validation is not fooled. Results in `pseudohaploid_ghost_k.csv`.
-  It does not need the `EUR_subset` data either.
+  with two populations: when K is chosen with a criterion based on the
+  log-likelihood (AIC), undeclared pseudohaploids, whose log-likelihood is
+  counted twice, make spurious ("ghost") clusters look supported. AIC keeps
+  adding clusters up to the largest K tested (K = 6) instead of picking
+  K = 2, whereas cross-validation is not fooled. Two scenarios: 40
+  pseudohaploids alongside the diploids of one population (the ghost
+  clusters split that population), and a population made only of 40
+  pseudohaploids (the ghost clusters all fall within it, splitting it into
+  4-5 clusters). Results in `pseudohaploid_ghost_k.csv`. It does not need
+  the `EUR_subset` data either.
