@@ -1,4 +1,6 @@
 skip_on_cran()
+# Classic ADMIXTURE is provided by tidypopgen, not the Windows backend.
+skip_on_os("windows")
 # skip if the conda environment does not exist
 skip_if(!reticulate::condaenv_exists("cclumppling"))
 

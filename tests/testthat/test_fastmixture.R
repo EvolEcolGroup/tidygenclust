@@ -1,6 +1,6 @@
 skip_on_cran()
-# skip if the conda environment does not exist
-skip_if(!reticulate::condaenv_exists("cclumppling"))
+# skip if the analysis backend is not installed
+skip_if(!tidygenclust:::.tgc_tool_available("fastmixture"))
 
 library(tidypopgen)
 

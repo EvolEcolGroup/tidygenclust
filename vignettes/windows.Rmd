@@ -1,0 +1,109 @@
+---
+title: "Setting up tidygenclust on Windows"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Setting up tidygenclust on Windows}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+On Windows, we use the Windows Subsystem for Linux (WSL2) to run
+Fastmixture, ADAMIXTURE and Clugetmppling inside Ubuntu. R and RStudio stay on
+Windows, and `tidygenclust` handles the connection to Linux automatically.
+We do not need to install R or RStudio inside Ubuntu.
+
+Windows support is experimental and currently requires an Intel/AMD x86-64
+computer, Windows 11 (or Windows 10 with WSL2 support), internet access and
+several GB of free disk space. Windows on ARM is not supported.
+
+# Set up WSL2 and Ubuntu
+
+Microsoft's [WSL setup guide](https://learn.microsoft.com/en-us/windows/wsl/setup/environment)
+explains how to get started with Ubuntu. If Ubuntu 22.04 or 24.04 is already
+installed with WSL2, we can reuse it and skip the installation command.
+Otherwise, open **PowerShell as Administrator** from the Start menu and run:
+
+``` powershell
+wsl --install -d Ubuntu-24.04
+```
+
+Restart Windows if requested, then open **Ubuntu 24.04** from the Start menu
+and create a Linux username and password. The password is not displayed as
+we type it.
+
+In **PowerShell**, check the distribution name and version:
+
+``` powershell
+wsl --list --verbose
+```
+
+The `VERSION` column should show `2`. If it shows `1`, run
+`wsl --set-version Ubuntu-24.04 2`, replacing the name if needed.
+
+In the **Ubuntu terminal**, install the tools needed to build and download
+the analysis packages:
+
+``` bash
+sudo apt update
+sudo apt install -y build-essential curl git ca-certificates tar gzip
+```
+
+We can now close Ubuntu; `tidygenclust` starts it when needed.
+
+# Install tidygenclust
+
+In **Windows RStudio**, we will install the development version from GitHub.
+The command below is for the `dev` branch **once Windows support is published
+there; these changes are not on GitHub yet**:
+
+```{r install_package, eval=FALSE}
+install.packages("pak")
+pak::pak("EvolEcolGroup/tidygenclust@dev")
+```
+
+For the current local copy, open its RStudio project and use
+`devtools::load_all()` instead of the GitHub installation and
+`library(tidygenclust)` below. If R asks for build tools, install the
+[Rtools version matching R](https://cran.r-project.org/bin/windows/Rtools/).
+
+To select our Ubuntu distribution, open the Windows R `.Renviron` file:
+
+```{r select_distribution, eval=FALSE}
+file.edit(path.expand("~/.Renviron"))
+```
+
+Add this line, using the name from `wsl --list --verbose` and keeping any
+existing settings:
+
+``` text
+TIDYGENCLUST_WSL_DISTRO=Ubuntu-24.04
+```
+
+Save with a final newline, then select **Session > Restart R**. If the
+distribution is named simply `Ubuntu`, this setting is not needed.
+
+# Install the analysis tools
+
+In **Windows RStudio**, run:
+
+```{r install_tools, eval=FALSE}
+library(tidygenclust)
+tgc_tools_install(adamixture = TRUE)
+tgc_tools_version()
+```
+
+The first installation takes several minutes. The package installs Python
+and the required environments inside Ubuntu; no Windows Python installation
+is needed. ADAMIXTURE is optional: omit `adamixture = TRUE` if it is not
+needed, in which case its reported version may be `NA`. Repeating the
+installer reuses existing environments and checks the requested tool revisions.
+
+We can now follow the [main vignette](tidygenclust.html) in Windows RStudio,
+using ordinary Windows paths on a local drive. The analysis functions use
+WSL automatically, and their results work with the usual plotting methods.
+Classic ADMIXTURE, provided by `tidypopgen::gt_admixture()`, is not included in
+this Windows support.
+
+If setup fails, check the Ubuntu name and the first error in the installation
+log. When reporting a problem, include `sessionInfo()`, `tgc_tools_version()`
+and the output of `wsl --list --verbose`.

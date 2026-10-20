@@ -21,13 +21,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 `Clumppling` (<https://github.com/PopGenClustering/Clumppling>) (Liu, Kopelman, & Rosenberg, 2024) is a python package which aligns multiple runs of a clustering analyses allowing for easy comparison and summary of clustering results both across different values of K and for repeated runs within K.
 
-With the `tidygenclust` package we provide a direct R interface to the python based `fastmixture` using `reticulate` and integrate it with the `tidypopgen` package for easy genetic data manipulation entirely within R. Additionally, the outputs from clustering analyses (irrespective of the algorithm used) can be easily visualised using the `gt_clumppling` function, which allows for easy alignment and comparison of multiple clustering results.
+With the `tidygenclust` package we provide a direct R interface to the python based `fastmixture` and integrate it with the `tidypopgen` package for easy genetic data manipulation entirely within R. Additionally, the outputs from clustering analyses (irrespective of the algorithm used) can be easily visualised using the `gt_clumppling` function, which allows for easy alignment and comparison of multiple clustering results.
 
 Genetic data analyses through the integration of `tidypopgen` and `tidygenclust` seamlessly joins upstream genetic data manipulation (`tidypopgen`) with downstream clustering analyses and extensive visualisation options of the clustering results (`tidygenclust`) in an integrated pipeline all natively within R.
 
 # Installation
 
-We use `reticulate` to seamlessly integrate the required python packages into R, this means that you, as a user, should not need to worry about the details of the python packages or dependencies.
+On Linux and macOS we use `reticulate` to integrate the required Python
+packages into R. Windows users should first follow the separate
+[Setting up tidygenclust on Windows](windows.html) vignette, then return here
+for the analysis workflow. Windows support is experimental and uses WSL2,
+while R and RStudio stay on Windows.
 
 The first time we run `tidygenclust`, we need to install the python packages. We can do this by simply running the following commands:
 

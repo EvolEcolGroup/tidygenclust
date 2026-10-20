@@ -103,8 +103,19 @@ gt_fastmixture <- function(
     stop("Cross-validation only works with unsupervised mode")
   }
 
-  # create a namespace object with all the inputs
-  argparse <- reticulate::import("argparse")
+  # Both backends receive the same options and return the same result layout.
+  backend <- .tgc_backend()
+  if (backend == "wsl") {
+    run_fastmixture <- function(values) {
+      .tgc_wsl_model_run("fastmixture", values)
+    }
+  } else {
+    argparse <- reticulate::import("argparse")
+    run_fastmixture <- function(values) {
+      rfastmixture_args <- do.call(argparse$Namespace, values)
+      .py_rfastmixture$fastmixture_run(args = rfastmixture_args)
+    }
+  }
 
   # initialise list to store results
   adm_list <- list(
@@ -124,69 +135,33 @@ gt_fastmixture <- function(
   index <- 1
   for (this_k in as.integer(k)) {
     for (this_rep in seq_len(n_runs)) {
-      if (is.null(cv)) {
-        rfastmixture_args <- argparse$Namespace(
-          bfile = bfile,
-          K = this_k,
-          threads = as.integer(threads),
-          seed = as.integer(seed[this_rep]),
-          iter = as.integer(iter),
-          tole = tole,
-          batches = as.integer(batches),
-          supervised = supervised,
-          check = as.integer(check),
-          power = as.integer(power),
-          chunk = as.integer(chunk),
-          subsample = subsample,
-          min_subsample = as.integer(min_subsample),
-          max_subsample = as.integer(max_subsample),
-          als_iter = as.integer(als_iter),
-          als_tole = als_tole,
-          no_freqs = no_freqs,
-          random_init = random_init,
-          plink = plink,
-          n_indiv = n_indiv,
-          n_loci = n_loci,
-          safety = safety,
-          projection = NULL,
-          cv = NULL,
-          cv_tole = NULL
-        )
-        fastmixture_res <- .py_rfastmixture$fastmixture_run(
-          args = rfastmixture_args
-        )
-      } else if (cv > 1) {
-        rfastmixture_args <- argparse$Namespace(
-          bfile = bfile,
-          K = this_k,
-          threads = as.integer(threads),
-          seed = as.integer(seed[this_rep]),
-          iter = as.integer(iter),
-          tole = tole,
-          batches = as.integer(batches),
-          supervised = supervised,
-          check = as.integer(check),
-          power = as.integer(power),
-          chunk = as.integer(chunk),
-          subsample = subsample,
-          min_subsample = as.integer(min_subsample),
-          max_subsample = as.integer(max_subsample),
-          als_iter = as.integer(als_iter),
-          als_tole = als_tole,
-          no_freqs = no_freqs,
-          random_init = random_init,
-          plink = plink,
-          n_indiv = n_indiv,
-          n_loci = n_loci,
-          safety = safety,
-          projection = NULL,
-          cv = as.integer(cv),
-          cv_tole = cv_tole
-        )
-        fastmixture_res <- .py_rfastmixture$fastmixture_run(
-          args = rfastmixture_args
-        )
-      }
+      fastmixture_res <- run_fastmixture(list(
+        bfile = bfile,
+        K = this_k,
+        threads = as.integer(threads),
+        seed = as.integer(seed[this_rep]),
+        iter = as.integer(iter),
+        tole = tole,
+        batches = as.integer(batches),
+        supervised = supervised,
+        check = as.integer(check),
+        power = as.integer(power),
+        chunk = as.integer(chunk),
+        subsample = subsample,
+        min_subsample = as.integer(min_subsample),
+        max_subsample = as.integer(max_subsample),
+        als_iter = as.integer(als_iter),
+        als_tole = als_tole,
+        no_freqs = no_freqs,
+        random_init = random_init,
+        plink = plink,
+        n_indiv = n_indiv,
+        n_loci = n_loci,
+        safety = safety,
+        projection = NULL,
+        cv = if (is.null(cv)) NULL else as.integer(cv),
+        cv_tole = if (is.null(cv)) NULL else cv_tole
+      ))
 
       if (no_freqs) {
         if (is.null(cv)) {
@@ -246,6 +221,26 @@ gt_fastmixture <- function(
 }
 
 .ensure_fastmixture_python <- function() {
+  # Windows checks the Linux environment, without loading Windows Python.
+  backend <- .tgc_backend()
+  if (backend == "wsl") {
+    if (!.tgc_tool_available("fastmixture")) {
+      stop(
+        "The WSL tidygenclust environment is missing 'fastmixture'.\n",
+        "Install it with 'tgc_tools_install()'.",
+        call. = FALSE
+      )
+    }
+    return(invisible(NULL))
+  }
+  if (backend == "unavailable") {
+    stop(
+      "tidygenclust requires WSL2 when running in Windows R. ",
+      "Install or enable WSL, then run 'tgc_tools_install()'.",
+      call. = FALSE
+    )
+  }
+
   reticulate::use_condaenv("ctidygenclust", required = TRUE)
   # get info on the current python environment
   cfg <- reticulate::py_config()

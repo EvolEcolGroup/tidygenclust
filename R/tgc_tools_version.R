@@ -6,6 +6,27 @@
 #' @export
 
 tgc_tools_version <- function() {
+  # Windows versions come from Linux metadata, never from Windows Python.
+  backend <- .tgc_backend()
+  if (backend == "wsl") {
+    return(list(
+      fastmixture = .tgc_wsl_package_version(
+        "ctidygenclust", "fastmixture"
+      ),
+      clumppling = .tgc_wsl_package_version("cclumppling", "clumppling"),
+      adamixture = .tgc_wsl_package_version("ctidygenclust", "adamixture")
+    ))
+  }
+
+  if (backend == "unavailable") {
+    # A version report should still be usable before WSL has been set up.
+    return(list(
+      fastmixture = NA_character_,
+      clumppling = NA_character_,
+      adamixture = NA_character_
+    ))
+  }
+
   # use pip, as the fastmixture cli fails to parse on python < 3.12
   fast_ver <- tryCatch(
     reticulate::conda_run2(

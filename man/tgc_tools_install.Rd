@@ -11,7 +11,7 @@ tgc_tools_install(
   conda_method = c("reticulate", "conda_yaml"),
   ci_install = FALSE,
   adamixture = FALSE,
-  adamixture_hash = "43dca99b0c5cbdfd90a7894a4c51b9eef83b54cb"
+  adamixture_hash = "43dca994a6091ae7034fbec900ce7bb9a5c6d8c1"
 )
 }
 \arguments{
@@ -47,8 +47,10 @@ version to install. Default is the latest tested version.}
 \description{
 \code{tidygenclust} relies on \code{ADMIXTURE} and on python packages \code{fastmixture}
 and \code{clumppling} for a number of
-functionalities. We use \code{reticulate} to install them in conda
-environments. As their dependencies are incompatible, we use two separate
+functionalities. On Linux and macOS we use \code{reticulate} to install them in
+conda environments; on Windows we use micromamba inside WSL2 for the Python
+tools only.
+As their dependencies are incompatible, we use two separate
 conda environments, \code{ctidygenclust} (for \code{fastmixture} and \code{admixture}) and
 \code{cclumppling} (for \code{clumppling}). Additionally, for silicon Macs, \code{ADMIXTURE}
 is installed in a separate conda environment \code{cadmixture86}, as it is only
@@ -71,8 +73,27 @@ using \code{brew} in \code{bash}, setting the correct paths to use it:
 
 \verb{brew install llvm libomp}
 
-\code{ADAMIXTURE} (used by \code{\link[=gt_adamixture]{gt_adamixture()}}) is optional. Set \code{adamixture = TRUE} to install it
+\code{ADAMIXTURE} (used by \code{\link[=gt_adamixture]{gt_adamixture()}}) is optional. Set
+\code{adamixture = TRUE} to install it
 in \code{ctidygenclust} together with the other tools, or use
 \code{\link[=tgc_adamixture_install]{tgc_adamixture_install()}} to add it to an existing \code{ctidygenclust}
 environment.
+
+Windows support is experimental and requires an x86-64 computer with WSL2
+and Ubuntu. The tools are installed in user-level environments inside WSL2
+and invoked automatically from the Windows R session. The default WSL
+distribution is \code{Ubuntu}; set
+\code{options(tidygenclust.wsl_distro = "DistributionName")} before installation
+to use another distribution. Alternatively, set \code{TIDYGENCLUST_WSL_DISTRO}
+in your Windows \code{.Renviron} file; this also applies to new R processes.
+The R option takes precedence over the environment variable.
+Re-running the Windows installer reuses the environments and updates tools
+whose requested source revisions differ from those installed.
+Fresh installations and explicit rebuilds use bundled linux-64 dependency
+locks: exact Conda builds and SHA-256-checked Python dependencies, including
+source-build tools. Existing environments are not silently rebuilt to match
+the locks. Custom source revisions must work with these dependencies.
+This Windows backend supports Fastmixture, ADAMIXTURE and Clumppling only;
+it does not extend \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}} to Windows.
+See \code{vignette("windows", package = "tidygenclust")} for setup instructions.
 }

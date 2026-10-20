@@ -77,7 +77,19 @@ gt_adamixture <- function(
     }
   }
 
-  argparse <- reticulate::import("argparse")
+  # Both backends receive the same options and return the same result layout.
+  backend <- .tgc_backend()
+  if (backend == "wsl") {
+    run_adamixture <- function(values) {
+      .tgc_wsl_model_run("adamixture", values)
+    }
+  } else {
+    argparse <- reticulate::import("argparse")
+    run_adamixture <- function(values) {
+      radamixture_args <- do.call(argparse$Namespace, values)
+      .py_radamixture$adamixture_run(args = radamixture_args)
+    }
+  }
 
   adm_list <- list(
     k = NULL,
@@ -95,7 +107,7 @@ gt_adamixture <- function(
   index <- 1
   for (this_k in as.integer(k)) {
     for (this_rep in seq_len(n_runs)) {
-      radamixture_args <- argparse$Namespace(
+      adamixture_res <- run_adamixture(list(
         bfile = bfile,
         K = this_k,
         threads = as.integer(threads),
@@ -106,11 +118,7 @@ gt_adamixture <- function(
         n_indiv = n_indiv,
         n_loci = n_loci,
         cv = if (is.null(cv)) NULL else as.integer(cv)
-      )
-
-      adamixture_res <- .py_radamixture$adamixture_run(
-        args = radamixture_args
-      )
+      ))
 
       if (no_freqs) {
         if (is.null(cv)) {
@@ -175,6 +183,26 @@ gt_adamixture <- function(
 }
 
 .ensure_adamixture_python <- function() {
+  # Windows checks the Linux environment, without loading Windows Python.
+  backend <- .tgc_backend()
+  if (backend == "wsl") {
+    if (!.tgc_tool_available("adamixture")) {
+      stop(
+        "The WSL tidygenclust environment is missing 'adamixture'.\n",
+        "Install it with 'tgc_adamixture_install()'.",
+        call. = FALSE
+      )
+    }
+    return(invisible(NULL))
+  }
+  if (backend == "unavailable") {
+    stop(
+      "tidygenclust requires WSL2 when running in Windows R. ",
+      "Install or enable WSL, then run 'tgc_tools_install()'.",
+      call. = FALSE
+    )
+  }
+
   reticulate::use_condaenv("ctidygenclust", required = TRUE)
   if (!reticulate::py_module_available("adamixture")) {
     cfg <- reticulate::py_config()

@@ -1,8 +1,6 @@
 skip_on_cran()
-# skip if the conda environment does not exist
-skip_if(!reticulate::condaenv_exists("ctidygenclust"))
-# adamixture is an optional install
-skip_if(!reticulate::py_module_available("adamixture"))
+# ADAMIXTURE is an optional install
+skip_if(!tidygenclust:::.tgc_tool_available("adamixture"))
 
 library(tidypopgen)
 

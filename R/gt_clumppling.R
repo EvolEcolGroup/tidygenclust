@@ -48,6 +48,24 @@ gt_clumppling <- function(
   use_best_pair = TRUE,
   extension = ".Q"
 ) {
+  # Check WSL before preparing input; native systems keep the existing route.
+  backend <- .tgc_backend()
+  if (backend == "wsl") {
+    if (!.tgc_tool_available("clumppling")) {
+      stop(
+        "The WSL tidygenclust environment is missing 'clumppling'.\n",
+        "Install it with 'tgc_tools_install()'.",
+        call. = FALSE
+      )
+    }
+  } else if (backend == "unavailable") {
+    stop(
+      "tidygenclust requires WSL2 when running in Windows R. ",
+      "Install or enable WSL, then run 'tgc_tools_install()'.",
+      call. = FALSE
+    )
+  }
+
   # Check if input_path is a zip file and unzip it
   if (is.character(input_path)) {
     if (tools::file_ext(input_path) == "zip") {
@@ -102,29 +120,43 @@ gt_clumppling <- function(
     use_best_pair <- "False"
   }
 
-
-  clump_args <- paste0(
-    "-m clumppling ",
-    "-i ", input_path,
-    " -o ", output_path,
-    " -f ", input_format,
-    " -v=False",
-    " --cd_method=", cd_method,
-    " --test_comm=False",
-    " --comm_min=1e-6", # set to default
-    " --comm_max=1e-2", # set to default
-    " --merge=", merge,
-    " --use_rep=", use_rep,
-    " --use_best_pair=", use_best_pair,
-    " --extension=", extension
+  # Translate only the paths; a path may have the same name as an option value.
+  input_arg <- input_path
+  output_arg <- output_path
+  if (backend == "wsl") {
+    input_arg <- .tgc_wsl_path(input_path)
+    output_arg <- .tgc_wsl_path(output_path)
+  }
+  # Keep WSL arguments separate so spaces in paths cannot split an argument.
+  clump_args <- c(
+    "-m", "clumppling",
+    "-i", input_arg,
+    "-o", output_arg,
+    "-f", input_format,
+    "-v=False",
+    paste0("--cd_method=", cd_method),
+    "--test_comm=False",
+    "--comm_min=1e-6", # set to default
+    "--comm_max=1e-2", # set to default
+    paste0("--merge=", merge),
+    paste0("--use_rep=", use_rep),
+    paste0("--use_best_pair=", use_best_pair),
+    paste0("--extension=", extension)
   )
 
-
-  reticulate::conda_run2(
-    cmd = "python",
-    args = clump_args,
-    envname = "cclumppling"
-  )
+  if (backend == "wsl") {
+    .tgc_wsl_run_env(
+      "cclumppling",
+      "python",
+      clump_args
+    )
+  } else {
+    reticulate::conda_run2(
+      cmd = "python",
+      args = paste(clump_args, collapse = " "),
+      envname = "cclumppling"
+    )
+  }
   # now we read the output files and create an output object
   clump_res <- list()
   # read modes_aligned (used for ggplots)

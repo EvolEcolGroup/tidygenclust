@@ -2,6 +2,11 @@
 .py_rfastmixture <- NULL
 .py_radamixture <- NULL
 .onLoad <- function(...) {
+  if (.Platform$OS.type == "windows") {
+    # Windows uses separate WSL processes; do not initialise reticulate here.
+    return(invisible(NULL))
+  }
+
   if (reticulate::condaenv_exists("ctidygenclust")) {
     reticulate::use_condaenv("ctidygenclust", required = TRUE)
     .py_rfastmixture <<- reticulate::import_from_path(
@@ -22,6 +27,16 @@
   }
 }
 .onAttach <- function(...) {
+  if (.Platform$OS.type == "windows") {
+    if (!nzchar(Sys.which("wsl.exe"))) {
+      packageStartupMessage(
+        "tidygenclust requires WSL2 on Windows. Install WSL, then run ",
+        "'tgc_tools_install()'."
+      )
+    }
+    return(invisible(NULL))
+  }
+
   if (reticulate::condaenv_exists("ctidygenclust")) {
     reticulate::use_condaenv("ctidygenclust", required = TRUE)
   } else {

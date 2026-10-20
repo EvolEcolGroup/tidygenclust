@@ -1,0 +1,78 @@
+# Use the same R checks as R-CMD-check.yaml, with WSL for the analysis tools.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+name: Windows R with WSL2
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-wsl-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-wsl:
+    # This image includes WSL2. GitHub does not guarantee nested virtualisation:
+    # https://docs.github.com/en/actions/concepts/runners/github-hosted-runners
+    runs-on: windows-2025
+    timeout-minutes: 90
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      NOT_CRAN: 'true'
+      TIDYGENCLUST_WSL_DISTRO: Ubuntu-24.04
+      TIDYGENCLUST_WSL_CI: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
+        with:
+          distribution: Ubuntu-24.04
+          wsl-version: 2
+          additional-packages: build-essential curl git ca-certificates tar gzip
+
+      - name: Use an ordinary Linux user
+        shell: pwsh
+        run: |
+          # The R backend calls wsl.exe directly, not the action's shell wrapper.
+          wsl.exe -d Ubuntu-24.04 -u root --exec useradd --create-home tgc
+          if ($LASTEXITCODE -ne 0) { throw 'Could not create the WSL test user' }
+          wsl.exe --manage Ubuntu-24.04 --set-default-user tgc
+          if ($LASTEXITCODE -ne 0) { throw 'Could not select the WSL test user' }
+          wsl.exe --version
+          wsl.exe --list --verbose
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: |
+            any::rcmdcheck
+            any::devtools
+          needs: check
+
+      # These commands must run in Windows R, so they exercise the WSL bridge.
+      - name: Install analysis tools and check repeated installation
+        shell: Rscript {0}
+        run: |
+          devtools::load_all()
+          stopifnot(.Platform$OS.type == 'windows')
+          stopifnot(tidygenclust:::.tgc_wsl_capture('whoami')$output == 'tgc')
+          tgc_tools_install(adamixture = TRUE)
+          tgc_tools_install(adamixture = TRUE)
+          print(tgc_tools_version())
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          upload-snapshots: true
+          build_args: 'c("--no-manual", "--compact-vignettes=gs+qpdf")'
