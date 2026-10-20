@@ -18,7 +18,7 @@
     )
   }
 
-  # system2 constructs a Windows command line: protect spaces and 
+  # system2 constructs a Windows command line: protect spaces and
   # metacharacters.
   # --exec passes the resulting arguments to Linux without a Linux shell.
   args <- as.character(c(
@@ -26,7 +26,8 @@
   ))
   needs_quotes <- !nzchar(args) | grepl("[[:space:]&|<>^()\"]", args)
   args[needs_quotes] <- vapply(
-    args[needs_quotes], shQuote, character(1), type = "cmd"
+    args[needs_quotes], shQuote, character(1),
+    type = "cmd"
   )
   # Callers inspect the exit status and supply a more useful error message.
   suppressWarnings(system2(
