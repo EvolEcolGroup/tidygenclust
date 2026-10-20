@@ -8,7 +8,15 @@ vignette: >
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+# Use a page-width canvas; plot chunks adjust the height for their layout.
+knitr::opts_chunk$set(
+  echo = TRUE,
+  fig.width = 7,
+  fig.height = 4,
+  out.width = "95%",
+  dpi = 96,
+  fig.retina = 2
+)
 ```
 
 # Using `tidygenclust` for clustering in R
@@ -123,7 +131,7 @@ Before running the PCA we also need to impute any missing values that may be pre
 
 We can quickly and easily impute and perform a PCA on our `gen_tibble` with `tidypopgen`:
 
-```{r}
+```{r pca_plot, fig.height=5}
 anole_gt <- anole_gt %>% gt_impute_simple(method = "mode")
 
 anole_pca <- anole_gt %>% gt_pca_partialSVD(k = 2)
@@ -232,7 +240,7 @@ anole_ada %>% autoplot(type = "cv")
 
 And visualise the ancestry proportions for the first run of $K = 3$:
 
-```{r}
+```{r adamixture_barplot, fig.height=2.5}
 anole_ada %>% autoplot(type = "barplot", k = 3, run = 1)
 ```
 
@@ -242,13 +250,13 @@ At $K = 3$, `gt_adamixture()` finds clusters highly consistent with `fastmixture
 
 For a quick visualisation of a single Q matrix we can use the autoplot function in `tidypopgen`:
 
-```{r}
+```{r fastmixture_barplot, fig.height=2.5}
 anole_res %>% autoplot(type = "barplot", k = 3, run = 1)
 ```
 
 It is possible to rearrange individual within groups according to their ancestral components. This makes for a visually appealing plots that focuses on the main ancestral component within each plot, but makes multiple plots not comparable (as individuals will not be in the same order across plots):
 
-```{r}
+```{r reordered_barplot, fig.height=2.5}
 anole_res %>% autoplot(
   type = "barplot", k = 3, run = 1,
   reorder_within_groups = TRUE
@@ -274,7 +282,7 @@ anole_gt_admix <- anole_res %>% gt_admix_reorder_q(group = anole_gt$pop)
 
 We can then visualise our results again with this new grouping:
 
-```{r}
+```{r grouped_barplot, fig.height=2.5}
 anole_gt_admix %>% autoplot(
   type = "barplot", k = 3, run = 1,
   reorder_within_groups = TRUE
@@ -296,7 +304,7 @@ anole_clump <- anole_gt_admix %>% gt_clumppling()
 
 Now we can visualise the aligned Q matrices for each value of K we tried:
 
-```{r}
+```{r anolis_modes, fig.height=3.5}
 anole_clump %>% autoplot(type = "all_modes", group = anole_gt_admix$group)
 ```
 
@@ -313,7 +321,7 @@ Once we have a `gt_clumppling` results object, we can use `autoplot` to make a n
 
 We can plot the modes for all values of k with:
 
-```{r}
+```{r capeverde_modes, fig.height=6}
 clump_res %>% autoplot(type = "all_modes")
 ```
 
@@ -331,7 +339,7 @@ capeverde_pops %>% table()
 
 We can now add it to our plots with the `group` argument:
 
-```{r}
+```{r capeverde_grouped_modes, fig.height=6}
 clump_res %>% autoplot(type = "all_modes", group = capeverde_pops)
 ```
 
@@ -343,13 +351,13 @@ clump_res %>% autoplot(type = "major_modes", group = capeverde_pops)
 
 The modes of a specific k value can be plotted with:
 
-```{r}
+```{r capeverde_modes_within_k, fig.height=3}
 clump_res %>% autoplot(type = "modes_within_k", k = 4, group = capeverde_pops)
 ```
 
 We can also visualise the relationship among modes by plotting over a multipartite graph, where better alignment between the modes is indicated by the darker color of the edges connecting their structure plots (i.e edges with a lower cost of optimal alignment are labelled on each edge):
 
-```{r}
+```{r capeverde_multipartite, fig.height=6}
 clump_res %>% autoplot(type = "modes", group = capeverde_pops)
 ```
 
@@ -368,7 +376,7 @@ chicken_res <- input_path %>%
 
 We can plot the membership plots on top of the multipartite plot with:
 
-```{r}
+```{r chicken_multipartite, fig.height=5}
 chicken_res %>% autoplot()
 ```
 
@@ -416,7 +424,7 @@ q4_tidied %>% head()
 
 We can now create a simple plot of this mode with:
 
-```{r}
+```{r custom_barplot, fig.height=2}
 library(ggplot2)
 # set up the ggplot object
 plt <- q4_tidied %>% ggplot(
@@ -443,6 +451,6 @@ plt
 
 We used a preset theme and colour scale, but you could use any custom option you prefer by using standard `ggplot2` theme and scale_fill options. For example:
 
-```{r}
+```{r custom_barplot_colours, fig.height=2}
 plt + scale_fill_viridis_d(guide = "none")
 ```
