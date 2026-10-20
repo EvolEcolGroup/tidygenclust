@@ -47,10 +47,14 @@ The `VERSION` column should show `2`. If it shows `1`, run
 `wsl --set-version Ubuntu-24.04 2`, replacing the name if needed.
 
 In the **Ubuntu terminal**, install the tools needed to build and
-download the analysis packages:
+download the analysis packages. First, please run:
 
 ``` bash
 sudo apt update
+```
+When it finishes, continue with:
+
+``` bash
 sudo apt install -y build-essential curl git ca-certificates tar gzip
 ```
 
