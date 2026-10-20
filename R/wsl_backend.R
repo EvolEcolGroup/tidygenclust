@@ -18,7 +18,8 @@
     )
   }
 
-  # system2 constructs a Windows command line: protect spaces and metacharacters.
+  # system2 constructs a Windows command line: protect spaces and 
+  # metacharacters.
   # --exec passes the resulting arguments to Linux without a Linux shell.
   args <- as.character(c(
     "--distribution", .tgc_wsl_distro(), "--exec", args

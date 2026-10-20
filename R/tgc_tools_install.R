@@ -369,7 +369,8 @@ tgc_adamixture_install <-
         "git+https://github.com/", adamixture_repo, ".git@", adamixture_hash
       )
       # Use the same locked runtime/build dependencies as the main installer.
-      # Disable dependency resolution and build isolation to preserve those pins.
+      # Disable dependency resolution and build isolation to preserve those 
+      # pins.
       dependencies <- system.file(
         "wsl", "ctidygenclust-pip.lock",
         package = "tidygenclust", mustWork = TRUE
