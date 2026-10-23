@@ -8,7 +8,7 @@
 \description{
 \if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
 
-A tidy interface to clustering in population genetics. This package provides a set of functions to perform clustering on genetic data, and to visualize the results, both for single runs and for multiple repeats of the same analysis. It is built on top of the 'tidypopgen' package, and includes native R and C++ reimplementations of two algorithms: 'OpenADMIXTURE.jl' (Ko et al. 2023), which estimates ancestry proportions directly from the backing files of 'tidypopgen' objects, and the 'clumppling' python package (Liu, Kopelman and Rosenberg 2024), which aligns multiple clustering runs; neither needs Python or Julia. Optionally, 'tidygenclust' can also run the 'fastmixture' python package and 'ADMIXTURE', which it installs in a conda environment. Currently it works only on Linux and OSX (you can use the WSL on Windows).
+A tidy interface for population genetic clustering. This package provides a unified workflow to estimate, compare, summarize, and visualize genetic clustering analyses, supporting both single runs and collections of replicate analyses. It is designed to work natively with diploid and pseudohaploid data, and integrates seamlessly with the tidypopgen ecosystem. The package includes native R/C++ implementations of the ancestry estimation approach of ADMIXTURE based on OpenADMIXTURE.jl (Ko et al. 2023), adapted to operate directly on the backing files of tidypopgen objects while correctly handling pseudohaploid data, and of the cluster-alignment method of clumppling (Liu, Kopelman & Rosenberg 2024) for the comparison of multiple clustering runs. Optionally, tidygenclust can also run external clustering software, including fastmixture and ADMIXTURE, which are installed automatically in a dedicated conda environment (the conda environment only works in Linux and macOS).
 }
 \author{
 \strong{Maintainer}: Andrea Manica \email{am315@cam.ac.uk} (\href{https://orcid.org/0000-0003-1895-450X}{ORCID})
@@ -26,11 +26,6 @@ Authors:
   \item Ondrej Pelanek
   \item Nile Stephenson
   \item Margherita Colucci
-}
-
-Other contributors:
-\itemize{
-  \item Xiran Liu (author of the 'clumppling' python package ported here) [contributor, copyright holder]
 }
 
 }
