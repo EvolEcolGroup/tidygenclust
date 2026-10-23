@@ -84,7 +84,8 @@ using namespace openadmixture;
 
 // Fit the model for one value of K.
 //
-// geno_ptr: the genotypes (see openadmixture_geno_ptr()).
+// data: the genotypes, as prepared by openadmixture_prepare() (see
+//   openadmixture_geno_access.h), with an optional cross-validation mask.
 // k: the number of ancestral populations.
 // init_q, init_p: optional starting values in the user layout (individuals
 //   x K and loci x K), already validated in R; NULL to start at random.
@@ -97,7 +98,7 @@ using namespace openadmixture;
 // Returns list(q = I x K, p = J x K, loglik, loglik_history, n_iter,
 // converged, log).
 // [[Rcpp::export]]
-List openadmixture_fit_cpp(SEXP geno_ptr, int k, Nullable<NumericMatrix> init_q,
+List openadmixture_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
                            Nullable<NumericMatrix> init_p, bool fix_q,
                            bool fix_p, int max_iter, double rtol, int n_em_iter,
                            int n_qn, int n_cores, bool verbose) {
@@ -105,7 +106,7 @@ List openadmixture_fit_cpp(SEXP geno_ptr, int k, Nullable<NumericMatrix> init_q,
   // have already been validated in R, so these only guard against misuse
   // from within the package. All R errors must happen here, before any
   // parallel region.
-  const GenoView& geno = get_geno(geno_ptr);
+  const GenoView geno(data);
   const size_t I = geno.nrow(), J = geno.ncol(), K = k;
   if (k < 1 || n_qn < 1 || n_cores < 1 || max_iter < 0 || n_em_iter < 0)
     stop("invalid arguments to openadmixture_fit_cpp()");

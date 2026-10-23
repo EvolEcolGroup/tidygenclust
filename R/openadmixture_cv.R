@@ -36,8 +36,7 @@ openadmixture_cv <- function(data, fit, k, n_folds, cv_seed, max_iter = 1000,
     # the fold, so each fold converges in a few iterations, and we skip the EM
     # priming (both init_q and init_p are given). The convergence criteria
     # are the same as for the full data.
-    train <- data
-    train$geno_ptr <- openadmixture_geno(data, cv = list(
+    train <- openadmixture_set_cv(data, cv = list(
       mode = "train", fold = fold, n_folds = n_folds, seed = cv_seed
     ))
     fold_fit <- openadmixture_fit(train,
@@ -47,11 +46,11 @@ openadmixture_cv <- function(data, fit, k, n_folds, cv_seed, max_iter = 1000,
     # Score the predictions of the fold estimates on the masked genotypes:
     # the held-out view shows only the genotypes of this fold, and the
     # deviance kernel sums d(g, mu) over them (src/openadmixture_kernels.cpp)
-    held_out_ptr <- openadmixture_geno(data, cv = list(
+    held_out <- openadmixture_set_cv(data, cv = list(
       mode = "held_out", fold = fold, n_folds = n_folds, seed = cv_seed
     ))
     dev <- openadmixture_deviance_cpp(
-      held_out_ptr, t(fold_fit$q), t(fold_fit$p), n_cores
+      held_out, t(fold_fit$q), t(fold_fit$p), n_cores
     )
     fold_dev[fold] <- dev[1]
     fold_n[fold] <- dev[2]

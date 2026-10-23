@@ -1050,65 +1050,16 @@ using namespace openadmixture;
 // R interface
 //
 // The wrappers below are the only code in this file that touches R. Each
-// one looks up the GenoView, checks every dimension with Rcpp::stop() (safe
-// here, on the main thread, before any parallel region starts), allocates
-// the R outputs, and only then calls the kernel, which writes into the
-// output memory directly. q and p are passed as NumericMatrix: Rcpp wraps a
-// double matrix without copying it (an integer matrix is coerced to a new
-// double one), and the kernels only read them. Inside, each kernel makes its
-// own C++ copies (the transposed q and 1 - p) before the parallel region,
-// so the threads only ever read plain C++ memory or the read-only q and p.
-
-// Tag attached to the external pointer, used to check that a pointer passed
-// back from R really is one of ours (symbols are unique, so the comparison
-// is a pointer comparison).
-static SEXP geno_tag() {
-  return Rf_install("openadmixture_geno_view");
-}
-
-// Build the genotype accessor once; every kernel then reuses it. The FBM
-// environment is protected by the external pointer, so the memory mapping
-// outlives the pointer even if R drops its own references to the FBM.
-// (The fourth argument of XPtr, BM, is stored as the "protected" field of
-// the external pointer: as long as the pointer is reachable, so is the FBM,
-// and hence the mapping that GenoView reads through a raw pointer. The
-// second argument, true, registers a finaliser that deletes the GenoView
-// when the pointer is garbage collected.)
-//
-// cv_mode, cv_fold, n_folds and cv_seed set the cross-validation mask (see
-// openadmixture_geno_access.h): mode 0 gives a plain view, mode 1 hides fold
-// cv_fold (to fit it) and mode 2 shows only fold cv_fold (to score it); cv_fold
-// is 1-based, as in R. The seed is passed from R as a double holding an integer
-// (R has no 64-bit integers), which is enough to give each run its own
-// folds.
-// [[Rcpp::export]]
-SEXP openadmixture_geno_ptr(Environment BM, IntegerVector rowInd,
-                            IntegerVector colInd, NumericVector lut,
-                            NumericVector n_trials, NumericVector scale,
-                            int cv_mode = 0, int cv_fold = 1, int n_folds = 1,
-                            double cv_seed = 0) {
-  if (cv_seed < 0 || cv_seed != std::floor(cv_seed))
-    stop("'cv_seed' must be a non-negative integer.");
-  // the constructor validates its arguments and may throw (Rcpp::stop)
-  GenoView* geno = new GenoView(BM, rowInd, colInd, lut, n_trials, scale,
-                                cv_mode, cv_fold - 1, n_folds,
-                                (uint64_t) cv_seed);
-  XPtr<GenoView> ptr(geno, true, geno_tag(), BM);
-  return ptr;
-}
-
-// Recover the GenoView from an external pointer created by
-// openadmixture_geno_ptr(). External pointers are not serialised: after
-// saveRDS()/readRDS() or a session restart the address becomes NULL, which is
-// caught here instead of crashing.
-const GenoView& openadmixture::get_geno(SEXP geno_ptr) {
-  if (TYPEOF(geno_ptr) != EXTPTRSXP || R_ExternalPtrTag(geno_ptr) != geno_tag())
-    stop("'geno_ptr' must be created by openadmixture_geno_ptr().");
-  XPtr<GenoView> ptr(geno_ptr);
-  if (ptr.get() == NULL)
-    stop("'geno_ptr' is no longer valid (was it saved and reloaded?).");
-  return *ptr;
-}
+// one builds the GenoView from the dataset prepared in R (`data`, see
+// openadmixture_prepare() and openadmixture_geno_access.h), checks every
+// dimension with Rcpp::stop() (safe here, on the main thread, before any
+// parallel region starts), allocates the R outputs, and only then calls the
+// kernel, which writes into the output memory directly. q and p are passed as
+// NumericMatrix: Rcpp wraps a double matrix without copying it (an integer
+// matrix is coerced to a new double one), and the kernels only read them.
+// Inside, each kernel makes its own C++ copies (the transposed q and 1 - p)
+// before the parallel region, so the threads only ever read plain C++ memory
+// or the read-only q and p.
 
 // check q (K x I) and p (K x J) against the genotypes; returns K
 // The kernels trust their inputs completely (raw pointer arithmetic), so
@@ -1131,9 +1082,9 @@ static int check_dims(const GenoView& geno, const NumericMatrix& q,
 
 // Log-likelihood (a scalar).
 // [[Rcpp::export]]
-double openadmixture_loglik_cpp(SEXP geno_ptr, NumericMatrix q, NumericMatrix p,
+double openadmixture_loglik_cpp(List data, NumericMatrix q, NumericMatrix p,
                                 int n_cores) {
-  const GenoView& geno = get_geno(geno_ptr);
+  const GenoView geno(data);
   const int K = check_dims(geno, q, p, n_cores);
   return loglik(geno, q.begin(), p.begin(), K, n_cores);
 }
@@ -1149,9 +1100,9 @@ int openadmixture_q_segments_cpp(double I, double J) {
 // Binomial deviance of the visible genotypes, for cross-validation; returns
 // c(deviance, count) (see deviance()).
 // [[Rcpp::export]]
-NumericVector openadmixture_deviance_cpp(SEXP geno_ptr, NumericMatrix q,
+NumericVector openadmixture_deviance_cpp(List data, NumericMatrix q,
                                          NumericMatrix p, int n_cores) {
-  const GenoView& geno = get_geno(geno_ptr);
+  const GenoView geno(data);
   const int K = check_dims(geno, q, p, n_cores);
   double dev, count;
   deviance(geno, q.begin(), p.begin(), K, n_cores, &dev, &count);
@@ -1160,9 +1111,9 @@ NumericVector openadmixture_deviance_cpp(SEXP geno_ptr, NumericMatrix q,
 
 // One EM step; returns list(q = K x I, p = K x J).
 // [[Rcpp::export]]
-List openadmixture_em_cpp(SEXP geno_ptr, NumericMatrix q, NumericMatrix p,
+List openadmixture_em_cpp(List data, NumericMatrix q, NumericMatrix p,
                           int n_cores) {
-  const GenoView& geno = get_geno(geno_ptr);
+  const GenoView geno(data);
   const int K = check_dims(geno, q, p, n_cores);
   // outputs allocated in R memory up front (never inside the parallel region)
   NumericMatrix q_new(K, q.ncol()), p_new(K, p.ncol());
@@ -1173,9 +1124,9 @@ List openadmixture_em_cpp(SEXP geno_ptr, NumericMatrix q, NumericMatrix p,
 
 // Q-block derivatives; returns list(grad = K x I, hess = K x K x I array).
 // [[Rcpp::export]]
-List openadmixture_grad_q_cpp(SEXP geno_ptr, NumericMatrix q, NumericMatrix p,
+List openadmixture_grad_q_cpp(List data, NumericMatrix q, NumericMatrix p,
                               int n_cores) {
-  const GenoView& geno = get_geno(geno_ptr);
+  const GenoView geno(data);
   const int K = check_dims(geno, q, p, n_cores);
   const int I = q.ncol();
   NumericMatrix grad(K, I);
@@ -1190,9 +1141,9 @@ List openadmixture_grad_q_cpp(SEXP geno_ptr, NumericMatrix q, NumericMatrix p,
 
 // P-block derivatives; returns list(grad = K x J, hess = K x K x J array).
 // [[Rcpp::export]]
-List openadmixture_grad_p_cpp(SEXP geno_ptr, NumericMatrix q, NumericMatrix p,
+List openadmixture_grad_p_cpp(List data, NumericMatrix q, NumericMatrix p,
                               int n_cores) {
-  const GenoView& geno = get_geno(geno_ptr);
+  const GenoView geno(data);
   const int K = check_dims(geno, q, p, n_cores);
   const int J = p.ncol();
   NumericMatrix grad(K, J);
@@ -1205,9 +1156,9 @@ List openadmixture_grad_p_cpp(SEXP geno_ptr, NumericMatrix q, NumericMatrix p,
 
 // Newton (QP) update of q; returns the new K x I matrix.
 // [[Rcpp::export]]
-NumericMatrix openadmixture_update_q_cpp(SEXP geno_ptr, NumericMatrix q,
+NumericMatrix openadmixture_update_q_cpp(List data, NumericMatrix q,
                                          NumericMatrix p, int n_cores) {
-  const GenoView& geno = get_geno(geno_ptr);
+  const GenoView geno(data);
   const int K = check_dims(geno, q, p, n_cores);
   NumericMatrix q_new(K, q.ncol());
   update_q(geno, q.begin(), p.begin(), K, q_new.begin(), n_cores);
@@ -1216,9 +1167,9 @@ NumericMatrix openadmixture_update_q_cpp(SEXP geno_ptr, NumericMatrix q,
 
 // Newton (QP) update of p; returns the new K x J matrix.
 // [[Rcpp::export]]
-NumericMatrix openadmixture_update_p_cpp(SEXP geno_ptr, NumericMatrix q,
+NumericMatrix openadmixture_update_p_cpp(List data, NumericMatrix q,
                                          NumericMatrix p, int n_cores) {
-  const GenoView& geno = get_geno(geno_ptr);
+  const GenoView geno(data);
   const int K = check_dims(geno, q, p, n_cores);
   NumericMatrix p_new(K, p.ncol());
   update_p(geno, q.begin(), p.begin(), K, p_new.begin(), n_cores);

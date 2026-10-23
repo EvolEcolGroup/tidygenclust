@@ -83,20 +83,20 @@ test_that("the deviance kernel matches the R reference", {
   q <- sweep(q, 2, colSums(q), "/")
   p <- matrix(stats::runif(k * dat$n_loci, 0.01, 0.99), k)
   cv <- list(mode = "held_out", fold = 2, n_folds = 5, seed = 11)
-  ptr <- openadmixture_geno(dat, cv = cv)
+  held_out <- openadmixture_set_cv(dat, cv = cv)
   g_held_out <- openadmixture_decode(dat, cv = cv)
   expected <- ref_deviance(g_held_out, dat$n_trials, q, p)
   expect_equal(
-    openadmixture_deviance_cpp(ptr, q, p, 1), expected,
+    openadmixture_deviance_cpp(held_out, q, p, 1), expected,
     tolerance = 1e-12
   )
   expect_identical(
-    openadmixture_deviance_cpp(ptr, q, p, 1),
-    openadmixture_deviance_cpp(ptr, q, p, 2)
+    openadmixture_deviance_cpp(held_out, q, p, 1),
+    openadmixture_deviance_cpp(held_out, q, p, 2)
   )
   # all genotypes (plain view)
   expect_equal(
-    openadmixture_deviance_cpp(openadmixture_geno(dat), q, p, 2),
+    openadmixture_deviance_cpp(dat, q, p, 2),
     ref_deviance(openadmixture_decode(dat), dat$n_trials, q, p),
     tolerance = 1e-12
   )
@@ -114,7 +114,7 @@ test_that("the deviance handles pseudohaploids", {
   q <- sweep(q, 2, colSums(q), "/")
   p <- matrix(stats::runif(k * pseudo_dat$n_loci, 0.01, 0.99), k)
   expect_equal(
-    openadmixture_deviance_cpp(openadmixture_geno(pseudo_dat), q, p, 1),
+    openadmixture_deviance_cpp(pseudo_dat, q, p, 1),
     ref_deviance(openadmixture_decode(pseudo_dat), pseudo_dat$n_trials, q, p),
     tolerance = 1e-12
   )

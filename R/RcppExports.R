@@ -21,48 +21,44 @@ clumppling_louvain_cpp <- function(adj, resolution = 1.0) {
     .Call(`_tidygenclust_clumppling_louvain_cpp`, adj, resolution)
 }
 
-openadmixture_fit_cpp <- function(geno_ptr, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose) {
-    .Call(`_tidygenclust_openadmixture_fit_cpp`, geno_ptr, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose)
+openadmixture_fit_cpp <- function(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose) {
+    .Call(`_tidygenclust_openadmixture_fit_cpp`, data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose)
 }
 
-openadmixture_decode_cpp <- function(BM, rowInd, colInd, lut, n_trials, scale, cv_mode = 0L, cv_fold = 1L, n_folds = 1L, cv_seed = 0) {
-    .Call(`_tidygenclust_openadmixture_decode_cpp`, BM, rowInd, colInd, lut, n_trials, scale, cv_mode, cv_fold, n_folds, cv_seed)
+openadmixture_decode_cpp <- function(data) {
+    .Call(`_tidygenclust_openadmixture_decode_cpp`, data)
 }
 
-openadmixture_geno_ptr <- function(BM, rowInd, colInd, lut, n_trials, scale, cv_mode = 0L, cv_fold = 1L, n_folds = 1L, cv_seed = 0) {
-    .Call(`_tidygenclust_openadmixture_geno_ptr`, BM, rowInd, colInd, lut, n_trials, scale, cv_mode, cv_fold, n_folds, cv_seed)
-}
-
-openadmixture_loglik_cpp <- function(geno_ptr, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_loglik_cpp`, geno_ptr, q, p, n_cores)
+openadmixture_loglik_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_openadmixture_loglik_cpp`, data, q, p, n_cores)
 }
 
 openadmixture_q_segments_cpp <- function(I, J) {
     .Call(`_tidygenclust_openadmixture_q_segments_cpp`, I, J)
 }
 
-openadmixture_deviance_cpp <- function(geno_ptr, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_deviance_cpp`, geno_ptr, q, p, n_cores)
+openadmixture_deviance_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_openadmixture_deviance_cpp`, data, q, p, n_cores)
 }
 
-openadmixture_em_cpp <- function(geno_ptr, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_em_cpp`, geno_ptr, q, p, n_cores)
+openadmixture_em_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_openadmixture_em_cpp`, data, q, p, n_cores)
 }
 
-openadmixture_grad_q_cpp <- function(geno_ptr, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_grad_q_cpp`, geno_ptr, q, p, n_cores)
+openadmixture_grad_q_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_openadmixture_grad_q_cpp`, data, q, p, n_cores)
 }
 
-openadmixture_grad_p_cpp <- function(geno_ptr, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_grad_p_cpp`, geno_ptr, q, p, n_cores)
+openadmixture_grad_p_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_openadmixture_grad_p_cpp`, data, q, p, n_cores)
 }
 
-openadmixture_update_q_cpp <- function(geno_ptr, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_update_q_cpp`, geno_ptr, q, p, n_cores)
+openadmixture_update_q_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_openadmixture_update_q_cpp`, data, q, p, n_cores)
 }
 
-openadmixture_update_p_cpp <- function(geno_ptr, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_update_p_cpp`, geno_ptr, q, p, n_cores)
+openadmixture_update_p_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_openadmixture_update_p_cpp`, data, q, p, n_cores)
 }
 
 openadmixture_qp_solve_cpp <- function(H, grad, par, simplex) {

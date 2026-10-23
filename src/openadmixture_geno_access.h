@@ -81,24 +81,38 @@ enum CvMode { CV_NONE = 0, CV_TRAIN = 1, CV_HELD_OUT = 2 };
 
 class GenoView {
 public:
-  // BM: the FBM (an R reference class object, i.e. an environment).
-  // row_ind, col_ind: 1-based indices of the selected individuals and loci in
-  //   the FBM, in the order in which they appear in the gen_tibble (they do
-  //   not need to be sorted).
-  // lut: 256 values, the decoded dosage of each byte (NaN for missing).
-  // n_trials, scale: one value per selected individual (see above).
-  // cv_mode, cv_fold, n_folds, cv_seed: the cross-validation mask (see
-  //   above); cv_fold is 0-based. The defaults give a plain view.
-  // All checks happen here, in the constructor, which is always called from
-  // R (single threaded), so that Rcpp::stop() can safely be used.
-  GenoView(Rcpp::Environment BM,
-           const Rcpp::IntegerVector& row_ind,
-           const Rcpp::IntegerVector& col_ind,
-           const Rcpp::NumericVector& lut,
-           const Rcpp::NumericVector& n_trials,
-           const Rcpp::NumericVector& scale,
-           int cv_mode = CV_NONE, int cv_fold = 0, int n_folds = 1,
-           uint64_t cv_seed = 0) {
+  // data: the list prepared in R by openadmixture_prepare(), with elements
+  //   fbm: the FBM (an R reference class object, i.e. an environment);
+  //   rows, cols: 1-based indices of the selected individuals and loci in
+  //     the FBM, in the order in which they appear in the gen_tibble (they
+  //     do not need to be sorted);
+  //   lut: 256 values, the decoded dosage of each byte (NaN for missing);
+  //   n_trials, scale: one value per selected individual (see above);
+  //   cv (optional): the cross-validation mask (see above), as created by
+  //     openadmixture_set_cv(): integer mode (0 = none, 1 = train,
+  //     2 = held out), 1-based fold, n_folds and seed. Without it, the view
+  //     shows all the observed genotypes.
+  // The view is built at the start of every C++ function called from R (as
+  // tidypopgen does with its accessors), which costs a pass over the
+  // indices, negligible compared with any kernel. It reads the backing file
+  // through a raw pointer, so `data` (which holds the FBM, and hence the
+  // mapping) must stay alive while the view is used, which is always the
+  // case within a call from R.
+  // All checks happen here, in the constructor, which is always called on
+  // the main thread before any parallel region, so that Rcpp::stop() can
+  // safely be used.
+  explicit GenoView(const Rcpp::List& data) {
+    const char* needed[] = {"fbm", "rows", "cols", "lut", "n_trials",
+                            "scale"};
+    for (const char* name : needed) {
+      if (!data.containsElementNamed(name))
+        Rcpp::stop("'data' must be prepared by openadmixture_prepare() "
+                   "(element '%s' is missing).", name);
+    }
+    Rcpp::Environment BM = data["fbm"];
+    Rcpp::IntegerVector row_ind = data["rows"], col_ind = data["cols"];
+    Rcpp::NumericVector lut = data["lut"], n_trials = data["n_trials"],
+      scale = data["scale"];
     // the "address" field of the FBM holds an external pointer to the
     // read-only memory mapping of the backing file
     Rcpp::XPtr<FBM> xpBM = BM["address"];
@@ -110,8 +124,7 @@ public:
     size_t n = row_ind.size();
     if ((size_t) n_trials.size() != n || (size_t) scale.size() != n)
       Rcpp::stop("'n_trials' and 'scale' must have one value per individual.");
-    // raw pointer to the first byte of the mapped file; the mapping itself is
-    // kept alive by the FBM object on the R side (see openadmixture_geno_ptr())
+    // raw pointer to the first byte of the mapped file (see above)
     _pMat = static_cast<const unsigned char*>(xpBM->matrix());
     _nrow_fbm = xpBM->nrow();
     // 1-based R indices -> 0-based offsets (bounds checked)
@@ -132,16 +145,29 @@ public:
     _n.assign(n_trials.begin(), n_trials.end());
     _scale.assign(scale.begin(), scale.end());
     // cross-validation mask
+    int cv_mode = CV_NONE, cv_fold = 0, n_folds = 1;
+    double cv_seed = 0;
+    if (data.containsElementNamed("cv")) {
+      Rcpp::List cv = data["cv"];
+      cv_mode = Rcpp::as<int>(cv["mode"]);
+      cv_fold = Rcpp::as<int>(cv["fold"]) - 1;  // 1-based in R
+      n_folds = Rcpp::as<int>(cv["n_folds"]);
+      cv_seed = Rcpp::as<double>(cv["seed"]);
+    }
     if (cv_mode != CV_NONE && cv_mode != CV_TRAIN && cv_mode != CV_HELD_OUT)
       Rcpp::stop("'cv_mode' must be 0 (none), 1 (train) or 2 (held out).");
     if (cv_mode != CV_NONE &&
         (n_folds < 2 || cv_fold < 0 || cv_fold >= n_folds))
-      Rcpp::stop("'cv_fold' must be between 0 and 'n_folds' - 1, with "
+      Rcpp::stop("'cv_fold' must be between 1 and 'n_folds', with "
                  "'n_folds' >= 2.");
+    // the seed is passed from R as a double holding an integer (R has no
+    // 64-bit integers), which is enough to give each run its own folds
+    if (cv_seed < 0 || cv_seed != std::floor(cv_seed))
+      Rcpp::stop("'cv_seed' must be a non-negative integer.");
     _cv_mode = cv_mode;
     _cv_fold = (uint64_t) cv_fold;
     _n_folds = (uint64_t) (n_folds > 0 ? n_folds : 1);
-    _cv_seed = cv_seed;
+    _cv_seed = (uint64_t) cv_seed;
   }
 
   // number of selected individuals (I) and loci (J)

@@ -54,7 +54,7 @@ test_that("the data are those used to create the ADMIXTURE fixtures", {
   expect_false(is.unsorted(order(chrom, loci$position)))
 })
 
-dat <- openadmixture_attach(openadmixture_prepare(eur))
+dat <- openadmixture_prepare(eur)
 # cross-validation errors of each K, collected in the loop below
 oa_cv <- numeric(0)
 
@@ -70,7 +70,7 @@ for (run in fixture$runs) {
     # ADMIXTURE reported (up to the rounding of the stored estimates); this
     # also confirms how the alleles and loci of the fixtures are oriented
     expect_equal(
-      openadmixture_loglik_cpp(dat$geno_ptr, t(q_adm), t(p_adm), n_cores),
+      openadmixture_loglik_cpp(dat, t(q_adm), t(p_adm), n_cores),
       run$loglik,
       tolerance = 1e-7
     )

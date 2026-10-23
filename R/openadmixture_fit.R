@@ -13,9 +13,8 @@
 #' feasible set and accepted only if it improves on the previous
 #' log-likelihood; otherwise x2 is used.
 #'
-#' @param data the output of `openadmixture_prepare()`, with a `geno_ptr`
-#' element added
-#'   by `openadmixture_attach()`
+#' @param data the output of `openadmixture_prepare()` (possibly with a
+#'   cross-validation mask, see `openadmixture_set_cv()`)
 #' @param k the number of ancestral populations
 #' @param init_q optional matrix (individuals x K) of starting ancestry
 #'   proportions
@@ -57,7 +56,7 @@ openadmixture_fit <- function(data, k, init_q = NULL, init_p = NULL,
     x
   }
   openadmixture_fit_cpp(
-    data$geno_ptr,
+    data,
     k = k,
     init_q = as_double_matrix(init_q),
     init_p = as_double_matrix(init_p),
@@ -65,14 +64,4 @@ openadmixture_fit <- function(data, k, init_q = NULL, init_p = NULL,
     n_em_iter = n_em_iter, n_qn = n_qn, n_cores = n_cores,
     verbose = verbose
   )
-}
-
-#' Create the C++ genotype accessor for a prepared dataset
-#' @param data the output of `openadmixture_prepare()`
-#' @returns `data` with an additional `geno_ptr` element
-#' @keywords internal
-#' @noRd
-openadmixture_attach <- function(data) {
-  data$geno_ptr <- openadmixture_geno(data)
-  data
 }

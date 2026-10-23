@@ -71,7 +71,7 @@ test_that("loglik handles extreme frequencies and non-integer dosages", {
   # dosages that are not hard calls use the direct formula
   dat <- inp$dat
   dat$lut[1:3] <- c(0, 0.7, 2)
-  geno <- openadmixture_geno(dat)
+  geno <- dat
   g <- openadmixture_decode(dat)
   expect_true(any(g == 0.7, na.rm = TRUE))
   expect_equal(
@@ -168,7 +168,7 @@ test_that("kernels do not modify their inputs", {
   expect_identical(p, st$p)
 })
 
-test_that("dimension mismatches and invalid pointers are errors", {
+test_that("dimension mismatches and invalid datasets are errors", {
   inp <- openadmixture_ref_inputs(openadmixture_test_gt(sim$genotypes))
   st <- openadmixture_ref_start(60, 200, 3)
   expect_error(
@@ -193,7 +193,13 @@ test_that("dimension mismatches and invalid pointers are errors", {
   )
   expect_error(
     openadmixture_update_p_cpp(list(), st$q, st$p, 1),
-    "openadmixture_geno_ptr"
+    "prepared by openadmixture_prepare"
+  )
+  bad <- inp$dat
+  bad$lut <- bad$lut[-1]
+  expect_error(
+    openadmixture_loglik_cpp(bad, st$q, st$p, 1),
+    "'lut' must have length 256"
   )
 })
 
@@ -241,9 +247,7 @@ test_that("update_q followed by update_p increases the log-likelihood", {
 # (see discard_nonfinite_step() in src/openadmixture_kernels.cpp)
 test_that("update kernels keep a column whose Newton step is not finite", {
   geno <- rbind(c(2, 0, 1), c(0, 1, 2), c(1, 2, 0), c(2, 2, 1))
-  dat <- openadmixture_attach(
-    openadmixture_prepare(openadmixture_test_gt(geno))
-  )
+  dat <- openadmixture_prepare(openadmixture_test_gt(geno))
   q <- matrix(c(0.5, 0.5, 0.3, 0.7, 0.6, 0.4, 0.2, 0.8), 2, 4)
   p <- matrix(c(0.4, 0.6, 0.3, 0.2, 0.7, 0.5), 2, 3)
   # individual 1 is entirely from population 1, whose allele frequency at
@@ -251,14 +255,14 @@ test_that("update kernels keep a column whose Newton step is not finite", {
   # its gradient is infinite
   q[, 1] <- c(1, 0)
   p[1, 1] <- 0
-  q_new <- openadmixture_update_q_cpp(dat$geno_ptr, q, p, 1)
+  q_new <- openadmixture_update_q_cpp(dat, q, p, 1)
   expect_false(anyNA(q_new))
   # the step for individual 1 is discarded: its column is only projected
   expect_equal(q_new[, 1], c(1 - 1e-5, 1e-5))
   # the other individuals are still updated
   expect_false(isTRUE(all.equal(q_new[, -1], q[, -1])))
   # likewise for locus 1 in the P update
-  p_new <- openadmixture_update_p_cpp(dat$geno_ptr, q, p, 1)
+  p_new <- openadmixture_update_p_cpp(dat, q, p, 1)
   expect_false(anyNA(p_new))
   expect_equal(p_new[, 1], c(1e-5, 0.6))
 })

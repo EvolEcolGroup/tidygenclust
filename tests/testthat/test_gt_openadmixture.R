@@ -39,7 +39,7 @@ test_that("gt_openadmixture returns a valid gt_admix object", {
 })
 
 test_that("the log-likelihood is monotone and estimates recover the truth", {
-  dat <- openadmixture_attach(openadmixture_prepare(sim_gt))
+  dat <- openadmixture_prepare(sim_gt)
   set.seed(3)
   fit <- openadmixture_fit(dat, k = 3)
   expect_true(fit$converged)

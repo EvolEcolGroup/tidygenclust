@@ -23,21 +23,21 @@ skip_if_not(file.exists(fixture_file), "OpenADMIXTURE.jl fixtures not found")
 fixture <- readRDS(fixture_file)
 
 sim_gt <- openadmixture_test_gt(fixture$genotypes)
-dat <- openadmixture_attach(openadmixture_prepare(sim_gt))
+dat <- openadmixture_prepare(sim_gt)
 q0 <- fixture$q0
 p0 <- fixture$p0
 k <- nrow(q0)
 
 test_that("the log-likelihood matches OpenADMIXTURE.jl", {
   expect_equal(
-    openadmixture_loglik_cpp(dat$geno_ptr, q0, p0, 2),
+    openadmixture_loglik_cpp(dat, q0, p0, 2),
     fixture$loglik,
     tolerance = 1e-12
   )
 })
 
 test_that("an EM step matches OpenADMIXTURE.jl", {
-  em <- openadmixture_em_cpp(dat$geno_ptr, q0, p0, 2)
+  em <- openadmixture_em_cpp(dat, q0, p0, 2)
   # P is updated exactly as in Julia
   expect_equal(em$p, fixture$em_p, tolerance = 1e-12)
   # Q differs by design when genotypes are missing: Julia divides by 2J, so
@@ -51,10 +51,10 @@ test_that("an EM step matches OpenADMIXTURE.jl", {
 })
 
 test_that("Newton updates of Q and P match OpenADMIXTURE.jl", {
-  q1 <- openadmixture_update_q_cpp(dat$geno_ptr, q0, p0, 2)
+  q1 <- openadmixture_update_q_cpp(dat, q0, p0, 2)
   expect_equal(q1, fixture$update_q, tolerance = 1e-10)
   # as in Julia, P is updated given the new Q
-  p1 <- openadmixture_update_p_cpp(dat$geno_ptr, q1, p0, 2)
+  p1 <- openadmixture_update_p_cpp(dat, q1, p0, 2)
   expect_equal(p1, fixture$update_p, tolerance = 1e-10)
 })
 

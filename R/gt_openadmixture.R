@@ -262,8 +262,6 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   }
   init_q <- openadmixture_check_init(init_q, data$n_indiv, k[1], "init_q", TRUE)
   init_p <- openadmixture_check_init(init_p, data$n_loci, k[1], "init_p", FALSE)
-  # build the C++ accessor to the genotypes, reused by every kernel call
-  data <- openadmixture_attach(data)
 
   # use our own seeds without disturbing the global RNG state
   # (the random starting values are drawn with R's generator, so set.seed()

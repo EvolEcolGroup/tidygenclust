@@ -6,7 +6,7 @@ openadmixture_ref_inputs <- function(gt) {
   dat <- openadmixture_prepare(gt)
   list(
     dat = dat,
-    geno = openadmixture_geno(dat),
+    geno = dat,
     g = openadmixture_decode(dat),
     n = dat$n_trials
   )

@@ -14,7 +14,9 @@
 #' @noRd
 openadmixture_prepare <- function(x, use_imputed = FALSE) {
   # Everything the C++ code needs is gathered here, on the R side, so that the
-  # kernels only deal with plain vectors and a pointer to the backing file.
+  # kernels only deal with plain vectors and the FBM (the C++ functions build
+  # their view of the genotypes from this list, see
+  # src/openadmixture_geno_access.h).
   if (!inherits(x, "gen_tbl")) {
     stop("'x' should be a gen_tibble", call. = FALSE)
   }
@@ -87,70 +89,49 @@ openadmixture_prepare <- function(x, use_imputed = FALSE) {
 #'
 #' Mostly useful for testing.
 #' @param data the output of `openadmixture_prepare()`
-#' @param cv an optional cross-validation mask, see `openadmixture_cv_mask()`
+#' @param cv an optional cross-validation mask, see `openadmixture_set_cv()`
 #' @returns a numeric matrix (individuals x loci), `NA` for missing (or
 #'   masked) values
 #' @keywords internal
 #' @noRd
 openadmixture_decode <- function(data, cv = NULL) {
-  cv <- openadmixture_cv_mask(cv)
-  openadmixture_decode_cpp(
-    data$fbm, data$rows, data$cols, data$lut,
-    data$n_trials, data$scale,
-    cv$mode, cv$fold, cv$n_folds, cv$seed
-  )
+  openadmixture_decode_cpp(openadmixture_set_cv(data, cv))
 }
 
-#' Cross-validation mask of a genotype view
+#' Add a cross-validation mask to a prepared dataset
 #'
-#' A view of the genotypes can hide one fold of the observed genotypes (to
-#' fit the model without them, `mode = "train"`) or show only that fold (to
-#' score the predictions of that model, `mode = "held_out"`). Which fold each
-#' genotype belongs to is computed in C++ from a hash of `seed` and the
-#' position of the genotype (see src/openadmixture_geno_access.h), so the same
-#' seed always gives the same folds.
+#' The C++ functions read the genotypes of a prepared dataset through a view
+#' (src/openadmixture_geno_access.h), which they build from the dataset at
+#' the start of each call. The view can hide one fold of the observed
+#' genotypes (to fit the model without them, `mode = "train"`) or show only
+#' that fold (to score the predictions of that model, `mode = "held_out"`).
+#' Which fold each genotype belongs to is computed in C++ from a hash of
+#' `seed` and the position of the genotype, so the same seed always gives the
+#' same folds.
+#' @param data the output of `openadmixture_prepare()`
 #' @param cv `NULL` (no mask) or a list with elements `mode` ("train" or
 #'   "held_out"), `fold` (1 to `n_folds`), `n_folds` and `seed` (a
 #'   non-negative integer, stored as a double)
-#' @returns a list with the integer `mode` (0 = none, 1 = train,
-#'   2 = held out) and the other elements, as expected by the C++ functions
+#' @returns `data`, with an element `cv` holding the integer `mode`
+#'   (0 = none, 1 = train, 2 = held out) and the other elements, as expected
+#'   by the C++ functions
 #' @keywords internal
 #' @noRd
-openadmixture_cv_mask <- function(cv = NULL) {
+openadmixture_set_cv <- function(data, cv = NULL) {
   if (is.null(cv)) {
-    return(list(mode = 0L, fold = 1L, n_folds = 1L, seed = 0))
+    data$cv <- list(mode = 0L, fold = 1L, n_folds = 1L, seed = 0)
+    return(data)
   }
   seed_ok <- length(cv$seed) == 1 && is.finite(cv$seed) && cv$seed >= 0 &&
     cv$seed == floor(cv$seed)
   if (!seed_ok) {
     stop("'cv_seed' must be a non-negative integer", call. = FALSE)
   }
-  list(
+  data$cv <- list(
     mode = match(cv$mode, c("train", "held_out")),
     fold = as.integer(cv$fold),
     n_folds = as.integer(cv$n_folds),
     seed = as.numeric(cv$seed)
   )
-}
-
-#' Create the genotype accessor used by the C++ kernels
-#'
-#' The accessor is built once and reused by every kernel call. It keeps the
-#' FBM alive, but it does not survive saving and reloading the R session.
-#' @param data the output of `openadmixture_prepare()`
-#' @param cv an optional cross-validation mask, see `openadmixture_cv_mask()`
-#' @returns an external pointer
-#' @keywords internal
-#' @noRd
-openadmixture_geno <- function(data, cv = NULL) {
-  cv <- openadmixture_cv_mask(cv)
-  # The pointer wraps a C++ GenoView (src/openadmixture_geno_access.h), which
-  # holds the memory-mapped backing file and the decoding tables. Building it
-  # once avoids re-checking and copying the indices at every kernel call (there
-  # are several kernel calls per iteration).
-  openadmixture_geno_ptr(
-    data$fbm, data$rows, data$cols, data$lut,
-    data$n_trials, data$scale,
-    cv$mode, cv$fold, cv$n_folds, cv$seed
-  )
+  data
 }
