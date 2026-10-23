@@ -9,11 +9,23 @@ coverage](https://codecov.io/gh/EvolEcolGroup/tidygenclust/graph/badge.svg)](htt
 <!-- badges: end -->
 
 `tidygenclust` provides functions and methods to run genetic clustering
-in R, using the commonly used ADMIXTURE program as we as the python
-package `fastmixture`. It also help to align and compare multiple runs
-of the same or different K using the functionalities of the python
-package `clumppling`. `tidygenclust` builds on `tidypopgen`, enhancing
-the grammar of population genetics with a focus on genetic clustering.
+in R, and to align and compare multiple runs of the same or different K.
+`tidygenclust` builds on `tidypopgen`, enhancing the grammar of population
+genetics with a focus on genetic clustering.
+
+Its core functionality is native, and needs neither Python nor Julia:
+
+- `gt_openadmixture()`, a C++ reimplementation of
+  [OpenADMIXTURE.jl](https://github.com/OpenMendel/OpenADMIXTURE.jl), to
+  estimate ancestry proportions under the ADMIXTURE model;
+- `gt_clumppling()`, an R and C++ reimplementation of the python package
+  [clumppling](https://github.com/PopGenClustering/Clumppling), to align
+  multiple clustering runs within and across K.
+
+Optionally, `tidygenclust` can also run the python package
+[fastmixture](https://github.com/Rosemeis/fastmixture) (`gt_fastmixture()`)
+and the original ADMIXTURE program (`tidypopgen::gt_admixture()`), which it
+installs in a conda environment on request.
 
 ## Installation
 
@@ -26,13 +38,25 @@ can use the WSL). You can install the development version of
 pak::pak("EvolEcolGroup/tidygenclust")
 ```
 
+`gt_openadmixture()` and `gt_clumppling()` work straight away. The
+optional tools (`fastmixture` and ADMIXTURE) are installed with
+`reticulate` in a conda environment, `ctidygenclust`, when you ask for them:
+
+``` r
+# both tools
+tgc_tools_install()
+# or only some of them
+tgc_tools_install(tools = "fastmixture")
+# add a tool to an existing environment
+tgc_admixture_install()
+# check what is installed
+tgc_tools_version()
+```
+
 **Note for MacOS user**
 
-We use `reticulate` to seamlessly integrate the required python packages
-and dependencies
-into R without additional installation steps for the user. 
-However, for this to work correctly for **MacOS users**, you need 
-`llvm` installed via `brew` in the first place. In `bash`, you will need:\
+To install `fastmixture` on MacOS, you need `llvm` installed via `brew` in
+the first place. In `bash`, you will need:\
 
 ``` bash
 brew install llvm libomp
@@ -44,6 +68,25 @@ On overview of the functionality of `tidygenclust` and its integration
 with `tidypopgen` is provided in the "Get Started"" vignette. This also
 includes a detailed description of how to align multiple runs of
 clustering and compare them.
+
+## Clumppling
+
+`gt_clumppling()` aligns the runs stored in a `gt_admix` object (created by
+any of the clustering functions, or read from Q files with
+`tidypopgen::read_q_files()`), detects modes among runs with the same K, and
+aligns the modes across K. It reproduces clumppling 2.0.10, against which the
+test suite checks it, and it is much faster (about 0.1 seconds, rather than
+about 9 seconds with python, for the 200 runs of the capeverde example):
+
+```r
+capeverde <- readRDS(
+  system.file("extdata", "capeverde_admix.rds", package = "tidygenclust")
+)
+clump_res <- gt_clumppling(capeverde, seed = 1)
+autoplot(clump_res, type = "modes", group = capeverde$group)
+```
+
+See `data-raw/clumppling/README.md` for details of the port.
 
 ## OpenADMIXTURE
 

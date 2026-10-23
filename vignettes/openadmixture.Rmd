@@ -118,22 +118,26 @@ head(get_p_matrix(anole_oa, k = 3, run = best_run(anole_oa, 3)))
 # Comparison with ADMIXTURE
 
 We now compare `gt_openadmixture()` with the original ADMIXTURE program
-(Alexander et al. 2009), run through `tidypopgen::gt_admixture()`. The
-easiest way to get ADMIXTURE is with `tgc_tools_install()`, which creates a
-conda environment, `ctidygenclust`, containing ADMIXTURE (and the other
-tools used by `tidygenclust`):
+(Alexander et al. 2009), run through `tidypopgen::gt_admixture()`. ADMIXTURE
+is an optional tool, which is not needed by `gt_openadmixture()`. The
+easiest way to get it is with `tgc_tools_install()`, which installs it in a
+conda environment (`ctidygenclust`):
 
 ```{r, eval = FALSE}
-tgc_tools_install()
+tgc_tools_install(tools = "admixture")
 ```
 
-The rest of this section is only run if this conda environment is available:
+or, if the conda environment already exists (e.g. because `fastmixture` was
+installed in it), with:
+
+```{r, eval = FALSE}
+tgc_admixture_install()
+```
+
+The rest of this section is only run if ADMIXTURE is available:
 
 ```{r}
-admixture_available <- tryCatch(
-  "ctidygenclust" %in% reticulate::conda_list()$name,
-  error = function(e) FALSE
-)
+admixture_available <- !is.na(tgc_tools_version()$admixture)
 admixture_available
 ```
 
@@ -147,7 +151,7 @@ We run ADMIXTURE with the same values of K, number of runs and seeds:
 time_adm <- system.time(
   anole_adm <- gt_admixture(anole_gt,
     k = 2:4, n_runs = 3, seed = seeds,
-    conda_env = "ctidygenclust"
+    conda_env = "auto"
   )
 )
 time_adm

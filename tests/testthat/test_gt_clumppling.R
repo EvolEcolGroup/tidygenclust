@@ -1,11 +1,171 @@
-skip_on_cran()
+# Tests of gt_clumppling(), comparing it with the results of the python
+# implementation of clumppling stored in
+# fixtures/clumppling_python_reference.rds (see
+# data-raw/clumppling/regenerate_python_fixtures.R), and of the methods for
+# gt_clumppling objects
 
-# skip if the conda environment does not exist
-skip_if(!reticulate::condaenv_exists("ctidygenclust"))
+ref <- clumppling_test_py_reference()
+capeverde <- clumppling_test_capeverde()
 
-input_path <- system.file("extdata/capeverde.zip", package = "tidygenclust")
-clump_res <- input_path %>% gt_clumppling(extension = ".indivq")
-# TODO we need to check that what we return here is in the form we expect
+# the modes implied by community labels (0-based, one per replicate of each K)
+communities_to_modes <- function(communities) {
+  modes <- list()
+  for (k_label in names(communities)) {
+    comm <- as.integer(communities[[k_label]])
+    for (m in sort(unique(comm))) {
+      modes[[paste0(k_label, "M", m + 1)]] <- which(comm == m)
+    }
+  }
+  modes
+}
+
+test_that("gt_clumppling reproduces the python implementation", {
+  res <- gt_clumppling(capeverde, seed = 42)
+  expect_same_clumppling(res, ref$capeverde_list)
+  # the aligned modes are identical to python's up to rounding
+  expect_equal(res$aligned_modes, ref$capeverde_list$aligned_modes,
+    tolerance = 1e-14
+  )
+})
+
+test_that("options of gt_clumppling reproduce the python implementation", {
+  expect_same_clumppling(
+    gt_clumppling(capeverde, use_rep = FALSE, seed = 42),
+    ref$capeverde_avg,
+    fingerprint = TRUE
+  )
+  expect_same_clumppling(
+    gt_clumppling(capeverde, use_best_pair = FALSE, seed = 42),
+    ref$capeverde_major,
+    fingerprint = TRUE
+  )
+  expect_same_clumppling(
+    gt_clumppling(capeverde, merge = FALSE, seed = 42),
+    ref$capeverde_nomerge,
+    fingerprint = TRUE
+  )
+})
+
+test_that("STRUCTURE results with non-consecutive K match python", {
+  # python read the original STRUCTURE files, whose rows (rounded to 3
+  # decimals) are rescaled to sum to 1 in the gt_admix object.
+  # The replicates with K = 17 and K = 19 do not have a clear community
+  # structure, and python's louvain itself gives different modes depending on
+  # the seed; with this seed, R's random numbers give the same modes as
+  # python with seed 42
+  res <- gt_clumppling(clumppling_test_chicken(), seed = 7)
+  expect_identical(res$K_range, c(17L, 19L, 21L))
+  expect_same_clumppling(res, ref$chicken, fingerprint = TRUE)
+})
+
+test_that("K values with a single replicate match the python implementation", {
+  anole_admix <- tidypopgen::read_q_files(
+    testthat::test_path("..", "data", "anole_q")
+  )
+  res <- gt_clumppling(anole_admix)
+  expect_same_clumppling(res, ref$anole)
+  expect_equal(res$aligned_modes, ref$anole$aligned_modes, tolerance = 1e-14)
+})
+
+test_that("shuffled individuals and runs with K = 1 match python", {
+  shuffled <- clumppling_test_shuffled()
+  args <- list(
+    default = list(),
+    avg_major = list(use_rep = FALSE, use_best_pair = FALSE),
+    nomerge = list(merge = FALSE)
+  )
+  for (i in names(args)) {
+    msgs <- capture_messages(
+      res <- do.call(gt_clumppling, c(list(shuffled, seed = 1), args[[i]]))
+    )
+    expect_identical(msgs, c(
+      "Ignored Q matrix 1 with K=1.\n", "Ignored Q matrix 42 with K=1.\n"
+    ))
+    expect_same_clumppling(res, ref$capeverde_shuffled[[i]],
+      fingerprint = TRUE
+    )
+  }
+})
+
+test_that("community detection methods give the same modes as python", {
+  methods <- c(
+    "markov_clustering", "infomap", "label_propagation", "walktrap"
+  )
+  for (method in methods) {
+    if (method != "markov_clustering") {
+      skip_if_not_installed("igraph")
+    }
+    res <- gt_clumppling(capeverde, cd_method = method, seed = 1)
+    py_modes <- communities_to_modes(lapply(
+      ref$capeverde_within_k,
+      function(x) x$communities[[paste0(method, "_False")]]
+    ))
+    expect_identical(lapply(res$mode_replicates, as.integer), py_modes,
+      info = method
+    )
+  }
+  # with the test for community structure (not available in tidygenclust)
+  res <- gt_clumppling(capeverde, test_comm = TRUE, seed = 42)
+  py_modes <- communities_to_modes(lapply(
+    ref$capeverde_within_k,
+    function(x) x$communities[["louvain_True"]]
+  ))
+  expect_identical(res$mode_replicates, py_modes)
+  # a custom function, here putting all the replicates in one mode
+  res <- gt_clumppling(capeverde, cd_method = function(adj) {
+    rep(1, nrow(adj))
+  })
+  expect_named(res$aligned_modes, c("K2M1", "K3M1", "K4M1", "K5M1"))
+  expect_identical(res$mode_stats$Size, c(50, 50, 50, 50))
+})
+
+test_that("the seed makes results reproducible, and is restored", {
+  q_sub <- clumppling_test_admix(capeverde$Q[c(1:10, 151:160)])
+  set.seed(123)
+  seed_before <- .Random.seed
+  res <- gt_clumppling(q_sub, seed = 1)
+  expect_identical(.Random.seed, seed_before)
+  expect_identical(gt_clumppling(q_sub, seed = 1), res)
+  withr::with_preserve_seed({
+    rm(".Random.seed", envir = globalenv())
+    gt_clumppling(q_sub, seed = 1)
+    expect_false(exists(".Random.seed", envir = globalenv(), inherits = FALSE))
+  })
+})
+
+test_that("gt_clumppling checks its inputs", {
+  expect_error(
+    gt_clumppling(clumppling_test_admix(capeverde$Q[1])),
+    "'x' must contain more than one Q matrix"
+  )
+  expect_error(
+    # Q matrices are ordered by run and then by K, so these are two runs
+    # with the same K
+    gt_clumppling(clumppling_test_admix(capeverde$Q[c(1, 5)])),
+    "At least two K values are required for alignment across K: K=2"
+  )
+  # Q files are read by tidypopgen, and lists of Q matrices are not accepted
+  expect_error(gt_clumppling(42), "'x' must be a gt_admix object")
+  expect_error(gt_clumppling(capeverde$Q), "'x' must be a gt_admix object")
+  expect_error(
+    gt_clumppling(testthat::test_path("..", "data", "anole_q")),
+    "tidypopgen::read_q_files"
+  )
+  expect_error(
+    gt_clumppling(capeverde, cd_method = "kmeans"),
+    "'cd_method' must be one of"
+  )
+  expect_warning(
+    gt_clumppling(
+      clumppling_test_admix(capeverde$Q[c(1, 51)]),
+      output_path = tempfile()
+    ),
+    "'output_path' is deprecated"
+  )
+})
+
+# the methods for gt_clumppling objects
+clump_res <- gt_clumppling(capeverde, seed = 42)
 
 test_that("gt_clumppling works as expected", {
   expect_true(inherits(clump_res, "gt_clumppling"))
@@ -15,22 +175,30 @@ test_that("gt_clumppling works as expected", {
   expect_true(all(clump_res$K_range == c(2, 3, 4, 5)))
   expect_true(all(c(
     "N", "K_range", "mode_replicates", "cost_acrossK",
-    "aligned_modes"
+    "aligned_modes", "mode_stats"
   ) %in%
     names(clump_res)))
 
   get_modes <- tidy(clump_res, matrix = "modes")
+  expect_identical(get_modes$label, names(clump_res$aligned_modes))
   get_major_modes <- tidy(clump_res, matrix = "major_modes")
+  expect_identical(nrow(get_major_modes), 4L)
   get_q_modes <- tidy(clump_res, matrix = "q_modes")
+  expect_identical(nrow(get_q_modes$K5M1), 399L * 5L)
   get_q_major_modes <- tidy(clump_res, matrix = "q_major_modes")
+  expect_length(get_q_major_modes, 4)
 
   # Plotting the results
-  autoplot(clump_res, type = "modes_within_k", k = 3)
-  autoplot(clump_res, type = "major_modes")
-  autoplot(clump_res, type = "all_modes")
-  autoplot(clump_res, type = "modes")
+  expect_s3_class(autoplot(clump_res, type = "modes_within_k", k = 3), "ggplot")
+  expect_s3_class(autoplot(clump_res, type = "major_modes"), "ggplot")
+  expect_s3_class(autoplot(clump_res, type = "all_modes"), "ggplot")
+  expect_s3_class(autoplot(clump_res, type = "modes"), "ggplot")
+  # with the populations stored in the gt_admix object
+  expect_s3_class(
+    autoplot(clump_res, type = "all_modes", group = capeverde$group),
+    "ggplot"
+  )
 })
-
 
 test_that("subsetting gt_clumppling", {
   sub_clump_res <- subset_gt_clumppling(clump_res, indivs = 1:100)
@@ -96,47 +264,6 @@ test_that("subsetting gt_clumppling", {
   expect_error(
     subset_gt_clumppling(clump_res, indivs = c(5, 4, 3)),
     "indivs values must be strictly increasing and consecutive"
-  )
-})
-
-test_that("gt_clumppling works with Q matrices passed from R", {
-  # read the capeverde Q matrices, and pass them as a gt_admix object
-  temp_dir <- tempfile()
-  utils::unzip(input_path, exdir = temp_dir)
-  q_files <- list.files(
-    temp_dir,
-    pattern = "indivq$", recursive = TRUE, full.names = TRUE
-  )
-  q_list <- lapply(q_files, function(x) {
-    as.matrix(utils::read.table(x)[, -(1:5)])
-  })
-  q_admix <- structure(
-    list(k = sapply(q_list, ncol), Q = q_list),
-    class = c("gt_admix", "list")
-  )
-  clump_mem <- gt_clumppling(q_admix, seed = 42)
-  expect_true(inherits(clump_mem, "gt_clumppling"))
-  expect_true(clump_mem$N == 399)
-  expect_true(all(clump_mem$K_range == c(2, 3, 4, 5)))
-  # the modes are the same as when reading the files
-  expect_identical(names(clump_mem$aligned_modes),
-                   names(clump_res$aligned_modes))
-  expect_identical(
-    lapply(clump_mem$mode_replicates, length),
-    lapply(clump_res$mode_replicates, length)
-  )
-  expect_identical(clump_mem$mode_stats$Size, clump_res$mode_stats$Size)
-  # a plain list of Q matrices also works, and the seed makes it reproducible
-  expect_identical(gt_clumppling(q_list, seed = 42), clump_mem)
-  # we need at least two Q matrices
-  expect_error(
-    gt_clumppling(q_list[1]),
-    "Input list must contain more than one Q-matrix"
-  )
-  # output_path is deprecated
-  expect_warning(
-    gt_clumppling(q_list[c(1, 51)], output_path = tempfile()),
-    "'output_path' is deprecated"
   )
 })
 

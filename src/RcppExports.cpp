@@ -11,6 +11,64 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// clumppling_lsap_cpp
+Rcpp::IntegerVector clumppling_lsap_cpp(Rcpp::NumericMatrix cost);
+RcppExport SEXP _tidygenclust_clumppling_lsap_cpp(SEXP costSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type cost(costSEXP);
+    rcpp_result_gen = Rcpp::wrap(clumppling_lsap_cpp(cost));
+    return rcpp_result_gen;
+END_RCPP
+}
+// clumppling_align_ilp_cpp
+Rcpp::List clumppling_align_ilp_cpp(Rcpp::NumericMatrix P, Rcpp::NumericMatrix Q);
+RcppExport SEXP _tidygenclust_clumppling_align_ilp_cpp(SEXP PSEXP, SEXP QSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type P(PSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Q(QSEXP);
+    rcpp_result_gen = Rcpp::wrap(clumppling_align_ilp_cpp(P, Q));
+    return rcpp_result_gen;
+END_RCPP
+}
+// clumppling_align_ilp_diff1_cpp
+Rcpp::List clumppling_align_ilp_diff1_cpp(Rcpp::NumericMatrix P, Rcpp::NumericMatrix Q);
+RcppExport SEXP _tidygenclust_clumppling_align_ilp_diff1_cpp(SEXP PSEXP, SEXP QSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type P(PSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Q(QSEXP);
+    rcpp_result_gen = Rcpp::wrap(clumppling_align_ilp_diff1_cpp(P, Q));
+    return rcpp_result_gen;
+END_RCPP
+}
+// clumppling_align_within_k_cpp
+Rcpp::List clumppling_align_within_k_cpp(Rcpp::List q_list);
+RcppExport SEXP _tidygenclust_clumppling_align_within_k_cpp(SEXP q_listSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type q_list(q_listSEXP);
+    rcpp_result_gen = Rcpp::wrap(clumppling_align_within_k_cpp(q_list));
+    return rcpp_result_gen;
+END_RCPP
+}
+// clumppling_louvain_cpp
+Rcpp::IntegerVector clumppling_louvain_cpp(Rcpp::NumericMatrix adj, double resolution);
+RcppExport SEXP _tidygenclust_clumppling_louvain_cpp(SEXP adjSEXP, SEXP resolutionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type adj(adjSEXP);
+    Rcpp::traits::input_parameter< double >::type resolution(resolutionSEXP);
+    rcpp_result_gen = Rcpp::wrap(clumppling_louvain_cpp(adj, resolution));
+    return rcpp_result_gen;
+END_RCPP
+}
 // openadmixture_fit_cpp
 List openadmixture_fit_cpp(SEXP geno_ptr, int k, Nullable<NumericMatrix> init_q, Nullable<NumericMatrix> init_p, bool fix_q, bool fix_p, int max_iter, double rtol, int n_em_iter, int n_qn, int n_cores, bool verbose);
 RcppExport SEXP _tidygenclust_openadmixture_fit_cpp(SEXP geno_ptrSEXP, SEXP kSEXP, SEXP init_qSEXP, SEXP init_pSEXP, SEXP fix_qSEXP, SEXP fix_pSEXP, SEXP max_iterSEXP, SEXP rtolSEXP, SEXP n_em_iterSEXP, SEXP n_qnSEXP, SEXP n_coresSEXP, SEXP verboseSEXP) {
@@ -267,6 +325,11 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_tidygenclust_clumppling_lsap_cpp", (DL_FUNC) &_tidygenclust_clumppling_lsap_cpp, 1},
+    {"_tidygenclust_clumppling_align_ilp_cpp", (DL_FUNC) &_tidygenclust_clumppling_align_ilp_cpp, 2},
+    {"_tidygenclust_clumppling_align_ilp_diff1_cpp", (DL_FUNC) &_tidygenclust_clumppling_align_ilp_diff1_cpp, 2},
+    {"_tidygenclust_clumppling_align_within_k_cpp", (DL_FUNC) &_tidygenclust_clumppling_align_within_k_cpp, 1},
+    {"_tidygenclust_clumppling_louvain_cpp", (DL_FUNC) &_tidygenclust_clumppling_louvain_cpp, 2},
     {"_tidygenclust_openadmixture_fit_cpp", (DL_FUNC) &_tidygenclust_openadmixture_fit_cpp, 12},
     {"_tidygenclust_openadmixture_decode_cpp", (DL_FUNC) &_tidygenclust_openadmixture_decode_cpp, 10},
     {"_tidygenclust_openadmixture_geno_ptr", (DL_FUNC) &_tidygenclust_openadmixture_geno_ptr, 10},

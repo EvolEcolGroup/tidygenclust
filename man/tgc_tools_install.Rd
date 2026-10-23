@@ -2,24 +2,24 @@
 % Please edit documentation in R/tgc_tools_install.R
 \name{tgc_tools_install}
 \alias{tgc_tools_install}
-\title{Install tools for \code{tidygenclust}}
+\title{Install optional tools for \code{tidygenclust}}
 \usage{
 tgc_tools_install(
+  tools = c("fastmixture", "admixture"),
   reset = FALSE,
   fastmixture_hash = "1f03a8980be4872341e5faca9d6f2dfc7ccbfe35",
-  clumppling_hash = "4bf555126fd3695498b89b4d25578425ce777447",
   conda_yaml = "auto",
   ci_install = FALSE
 )
 }
 \arguments{
+\item{tools}{a vector with the tools to install, any of "fastmixture" and
+"admixture". Defaults to both.}
+
 \item{reset}{a boolean used to reset the virtual environment. Only set to
 TRUE if you have a broken virtual environment that you want to reset.}
 
 \item{fastmixture_hash}{a string with the commit hash of the \code{fastmixture}
-version to install. Default is the latest tested version.}
-
-\item{clumppling_hash}{a string with the commit hash of the \code{clumppling}
 version to install. Default is the latest tested version.}
 
 \item{conda_yaml}{A vector of string with the path for the \code{yaml} files used
@@ -31,7 +31,8 @@ attempt to install the latest available packages from the internet), or a
 path to a specific conda yaml found in "inst/env_snapshots". For "auto" or
 NULL, it is also possible to provide a vector of lenght one, and the value
 will apply to all the conda environments (e.g. \code{conda_yaml="auto"} is
-equivalent to \code{conda_yaml = c("auto", "auto")} in osx).}
+equivalent to \code{conda_yaml = c("auto", "auto")} in osx). Tools that are
+not in \code{tools} are left out of the yaml files.}
 
 \item{ci_install}{a boolean indicating if the installation is being run on
 continuous integration (CI) services. Default is FALSE. If TRUE, the
@@ -40,14 +41,31 @@ folder of
 the package source directory, rather than in the installed package
 directory. This is useful when testing the package on CI services.}
 }
+\value{
+NULL (invisibly)
+}
 \description{
-\code{tidygenclust} relies on \code{ADMIXTURE} and on python packages \code{fastmixture} and
-\code{clumppling} for a number of functionalities. We use \code{reticulate} to install
-them in a single conda environment, \code{ctidygenclust}. Additionally, for
-silicon Macs, \code{ADMIXTURE} is installed in a separate conda environment
-\code{cadmixture86}, as it is only available for OSX as x86 in bioconda.
+The core functionality of \code{tidygenclust} is native: \code{\link[=gt_openadmixture]{gt_openadmixture()}}
+and \code{\link[=gt_clumppling]{gt_clumppling()}} need neither Python nor conda. A few additional
+features rely on external tools, which are optional and are only installed
+on request:
+\itemize{
+\item \code{fastmixture}, a python package used by \code{\link[=gt_fastmixture]{gt_fastmixture()}};
+\item \code{ADMIXTURE}, used by \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}}.
+}
 }
 \details{
+We use \code{reticulate} to install them in a conda environment,
+\code{ctidygenclust}. Additionally, for silicon Macs, \code{ADMIXTURE} is installed in
+a separate conda environment \code{cadmixture86}, as it is only available for OSX
+as x86 in bioconda.
+
+\code{tgc_tools_install()} creates the conda environment with the chosen
+\code{tools}. If the environment already exists, it only adds the tools that are
+not installed yet (alternatively, use \code{\link[=tgc_fastmixture_install]{tgc_fastmixture_install()}} and
+\code{\link[=tgc_admixture_install]{tgc_admixture_install()}} to add a tool to an existing environment).
+\code{\link[=tgc_tools_version]{tgc_tools_version()}} reports the tools that are installed.
+
 For each tool, default to the latest tested version of these
 packages that have been tested to work with \code{tidegenclust}. It is possible
 to provide a more recent github commit for a specific tool, but this might

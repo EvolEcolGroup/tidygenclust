@@ -13,7 +13,7 @@ jobs:
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
 
-    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
+    name: ${{ matrix.config.os }} (${{ matrix.config.r }}${{ matrix.config.tools == 'none' && ', no tools' || '' }})
 
     strategy:
       fail-fast: false
@@ -25,6 +25,8 @@ jobs:
           - {os: ubuntu-latest,   r: 'devel',  py: "3.11",  http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
           - {os: ubuntu-latest,   r: 'oldrel-1',  py: "3.11" }
+          # check that everything works without the optional tools
+          - {os: ubuntu-latest,   r: 'release',  py: "3.11",  tools: 'none' }
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -61,6 +63,7 @@ jobs:
           brew install llvm
 
       - name: install tools
+        if: matrix.config.tools != 'none'
         run: |
           Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install(reset = TRUE, ci_install = TRUE)'
 

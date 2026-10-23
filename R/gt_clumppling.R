@@ -1,178 +1,205 @@
-#' run clumppling
+#' Run clumppling
 #'
-#' This function runs the clumppling algorithm by calling the python module. If
-#' you use this function, make sure that you cite the relevant paper by Liu,
-#' Kopelman, and Rosenberg (2024).
+#' This function aligns multiple runs of a clustering algorithm (e.g.
+#' ADMIXTURE or STRUCTURE) with the clumppling algorithm. It is a native R and
+#' C++ reimplementation of the 'clumppling' python module (version 2.0.10),
+#' which gives the same results without the need for Python. If you use this
+#' function, make sure that you cite the relevant paper by Liu, Kopelman, and
+#' Rosenberg (2024).
 #'
-#' If you would like to generate an annotated autoplot from your gt_clumppling
-#' object, ensure that all individuals from the same population are adjacent to
-#' one another in the Q-matrix or gt_admix object supplied to gt_clumppling.
-#' Autoplot 'group' argument requires that all individuals from the same group
-#' are adjacent.
+#' The algorithm has three steps:
+#' 1. all pairs of replicates with the same K are aligned, finding the
+#'    matching of clusters that minimises the squared distance between their
+#'    memberships;
+#' 2. replicates with the same K are grouped into modes by community
+#'    detection on the network of alignment costs; each mode is summarised by
+#'    a representative replicate (the one with the smallest cost to the
+#'    others) or by the average of its replicates;
+#' 3. modes are aligned across K (merging two clusters of the larger K when
+#'    two values of K differ by one), and their clusters are reordered so that
+#'    they are consistent across K.
 #'
-#' Q matrices from a `gt_admix` object (or a list of Q matrices) are passed
-#' directly to python. Q files in a directory (or a zip archive) are parsed by
-#' clumppling itself (using a temporary directory), which allows the use of the
-#' different formats supported by clumppling. Note that, for 'admixture' files
-#' with extension '.indivq', and for 'structure' files, clumppling uses the
-#' population labels in the files to reorder individuals so that individuals
-#' from the same population are adjacent.
+#' The replicates are the Q matrices of a `gt_admix` object, as returned by
+#' the clustering functions of 'tidypopgen' (e.g.
+#' `tidypopgen::gt_admixture()`) and 'tidygenclust' (e.g.
+#' [gt_openadmixture()]); to align replicates
+#' stored as Q files, read them into a `gt_admix` object with
+#' `tidypopgen::read_q_files()`. Replicates with the same K are numbered in the
+#' order in which they appear in the `gt_admix` object. The rows of each Q
+#' matrix must sum to 1 (to within 1e-6), so memberships that were rounded
+#' (e.g. by STRUCTURE) should be rescaled first.
+#'
+#' If you would like to generate an annotated autoplot from your
+#' `gt_clumppling` object, ensure that all individuals from the same
+#' population are adjacent to one another in the `gt_admix` object supplied to
+#' `gt_clumppling` (see `tidypopgen::gt_admix_reorder_q()`). Autoplot 'group'
+#' argument requires that all individuals from the same group are adjacent.
+#'
+#' The only random step is community detection. For the default 'louvain'
+#' method, the C++ implementation follows python-louvain (used by
+#' clumppling), but random numbers are drawn from R's generator: the modes
+#' are the same as in python unless the community structure is ambiguous, but
+#' the same seed does not give the same random choices in R and python. If
+#' `seed` is given, the state of R's random number generator is restored on
+#' exit. When a mode includes replicates with identical Q matrices, the
+#' representative of the mode can also differ from the python implementation
+#' (it is then an identical replicate), as their costs only differ by
+#' rounding errors.
 #'
 #' @references X. Liu, N. M. Kopelman, N. A. Rosenberg (2024) Clumppling:
 #'   cluster matching and permutation program with integer linear programming.
 #'   Bioinformatics 40(1): btad751. doi:
 #'   https://doi.org/10.1093/bioinformatics/btad751
 #'
-#' @param input_path either a `gt_admix` object, a list of Q matrices, or the
-#'   path where the Q files are stored, either a directory or a zip archive
-#' @param input_format a string defining the format of the input files, one of
-#'   'admixture' (default),'structure','fastStructure' or 'generalQ'. Only used
-#'   if `input_path` is a path.
-#' @param cd_method the community detection method to use, one of 'louvain'
-#'  (default), 'leiden', 'infomap', 'markov_clustering', 'label_propagation',
-#'   'walktrap', 'custom'
+#' @param x a `gt_admix` object with at least two Q matrices
 #' @param use_rep boolean, whether to use representative modes (alternative:
 #'  average), defaults to TRUE
 #' @param merge boolean, whether to merge two clusters when aligning K+1 to K,
 #'  defaults to TRUE
+#' @param cd_method the community detection method to use, one of 'louvain'
+#'   (default), 'leiden', 'infomap', 'markov_clustering', 'label_propagation',
+#'   'walktrap', 'custom'. 'leiden', 'infomap', 'label_propagation' and
+#'   'walktrap' require the 'igraph' package; as in clumppling (which calls
+#'   them through 'cdlib'), only 'louvain', 'infomap' and 'markov_clustering'
+#'   use the similarity between replicates as edge weights, while 'leiden',
+#'   'label_propagation' and 'walktrap' only use the presence of edges (all
+#'   pairs of replicates are connected, except for the most dissimilar
+#'   pair). 'custom' reproduces the example
+#'   custom method of clumppling (Markov clustering with a pruning threshold
+#'   of 0.2); alternatively, `cd_method` can be a function that takes the
+#'   adjacency matrix between replicates (similarities rescaled to \[0, 1\],
+#'   with ones on the diagonal) and returns a vector of community labels.
 #' @param use_best_pair boolean, whether to use best pair as anchor for across-K
 #'  alignment (alternative: major), defaults to TRUE
-#' @param extension (optional) if loading from files rather than a `gt_admix`
-#'   object, specify the extension e.g. ".Q" or ".indivq"
-#' @param seed (optional) an integer used to set the random seed in python, so
-#'   that community detection (e.g. 'louvain') is reproducible. Defaults to
-#'   NULL (no seed is set).
-#' @param output_path deprecated and ignored. Clumppling functions are now
-#'   called directly from R, and their outputs are returned as R objects rather
-#'   than written to files.
+#' @param seed (optional) an integer used to set the random seed, so that
+#'   community detection (e.g. 'louvain') is reproducible. Defaults to NULL
+#'   (no seed is set).
+#' @param output_path deprecated and ignored. Results are returned as R objects
+#'   rather than written to files.
+#' @param cd_res the resolution of the 'louvain' community detection method,
+#'   defaults to 1
+#' @param test_comm boolean, whether to test for community structure (with a
+#'   Tracy-Widom test) before running community detection; if there is no
+#'   structure, all replicates form a single mode. Defaults to FALSE.
+#' @param comm_min,comm_max cost thresholds for community detection: if all
+#'   pairwise costs between replicates are below `comm_min`, they form a
+#'   single mode; if they are all above `comm_max`, each replicate is a mode.
+#'   Defaults to 1e-6 and 1e-2.
 #' @returns a list of class `gt_clumppling` containing:
-#' - N: number of individuals
-#' - K_range: vector of K values analyzed
-#' - mode_replicates: a list of replicate indices for each mode
-#' - cost_acrossK: a named list of costs for each pairwise K alignment
 #' - aligned_modes: a list of data.frames, each data.frame is a Q-matrix
+#' - cost_acrossK: a named list of costs for each pairwise K alignment
+#' - mode_replicates: a list of replicate indices for each mode
+#' - K_range: vector of K values analyzed
+#' - N: number of individuals
 #' - mode_stats: a data.frame with the size, cost and performance (average
 #'   similarity among replicates) of each mode
 #' @export
-
+#' @examples
+#' capeverde <- readRDS(
+#'   system.file("extdata", "capeverde_admix.rds", package = "tidygenclust")
+#' )
+#' clump_res <- gt_clumppling(capeverde, seed = 1)
+#' clump_res$mode_stats
 gt_clumppling <- function(
-  input_path,
-  input_format = "admixture",
+  x,
   use_rep = TRUE,
   merge = TRUE,
   cd_method = "louvain",
   use_best_pair = TRUE,
-  extension = ".Q",
   seed = NULL,
-  output_path = NULL
+  output_path = NULL,
+  cd_res = 1,
+  test_comm = FALSE,
+  comm_min = 1e-6,
+  comm_max = 1e-2
 ) {
-  .ensure_clumppling_python()
-
   if (!is.null(output_path)) {
     warning(
       "'output_path' is deprecated and ignored: clumppling results are ",
       "returned as R objects and are no longer written to files"
     )
   }
+  is_method_name <- is.character(cd_method) && length(cd_method) == 1 &&
+    cd_method %in% clumppling_cd_methods
+  valid_method <- is.function(cd_method) || is_method_name
+  if (!valid_method) {
+    stop(
+      "'cd_method' must be one of ",
+      paste(clumppling_cd_methods, collapse = ", "), ", or a function"
+    )
+  }
 
-  clump_args <- list(
-    cd_method = cd_method,
-    cd_res = 1.0, # default
-    test_comm = FALSE,
-    comm_min = 1e-6, # default
-    comm_max = 1e-2, # default
-    merge = merge,
-    use_rep = use_rep,
-    use_best_pair = use_best_pair,
-    random_seed = if (is.null(seed)) NULL else as.integer(seed)
+  if (!inherits(x, "gt_admix")) {
+    stop(
+      "'x' must be a gt_admix object (Q files can be read with ",
+      "tidypopgen::read_q_files())"
+    )
+  }
+  if (length(x$Q) < 2) {
+    stop("'x' must contain more than one Q matrix")
+  }
+  q_data <- clumppling_prepare_q_list(x$Q)
+
+  if (!is.null(seed)) {
+    clumppling_local_seed(seed)
+  }
+  clump_run <- clumppling_run(q_data,
+    cd_method = cd_method, cd_res = cd_res, test_comm = test_comm,
+    comm_min = comm_min, comm_max = comm_max, merge = merge,
+    use_rep = use_rep, use_best_pair = use_best_pair
   )
 
-  if (inherits(input_path, "gt_admix")) {
-    q_mat_list <- input_path$Q
-  } else if (is.list(input_path) && !is.data.frame(input_path)) {
-    q_mat_list <- input_path
-  } else if (is.character(input_path) && length(input_path) == 1) {
-    q_mat_list <- NULL
-  } else {
-    stop(
-      "input_path must be a gt_admix object, a list of Q matrices, or the ",
-      "path to a directory or zip archive of Q files"
-    )
-  }
-
-  if (!is.null(q_mat_list)) {
-    if (length(q_mat_list) < 2) {
-      stop("Input list must contain more than one Q-matrix")
-    }
-    # strip any class (e.g. q_matrix) so that reticulate sends plain numpy
-    # arrays to python
-    clump_args$Q_list <- lapply(q_mat_list, function(q) {
-      q <- as.matrix(q)
-      matrix(as.numeric(q), nrow = nrow(q), ncol = ncol(q))
-    })
-  } else {
-    # Check if input_path is a zip file and unzip it
-    if (tools::file_ext(input_path) == "zip") {
-      temp_zip_path <- tempfile()
-      utils::unzip(input_path, exdir = temp_zip_path)
-      on.exit(unlink(temp_zip_path, recursive = TRUE), add = TRUE)
-      input_path <- temp_zip_path
-    }
-    # clumppling parses the input files and writes the processed Q matrices
-    # to a directory, which we then read back in python
-    processed_dir <- tempfile("clumppling_input")
-    on.exit(unlink(processed_dir, recursive = TRUE), add = TRUE)
-    clump_args <- c(
-      clump_args,
-      list(
-        input_dir = normalizePath(input_path, mustWork = TRUE),
-        processed_dir = processed_dir,
-        fmt = input_format,
-        extension = extension
-      )
-    )
-  }
-
-  clump_py <- do.call(.py_rclumppling$clumppling_run, clump_args)
-
-  # now create the output object
+  # now create the output object, with the same structure as the one
+  # returned by previous versions of tidygenclust (which called python)
   clump_res <- list()
-  clump_res$aligned_modes <- lapply(clump_py$aligned_modes, as.data.frame)
-  names(clump_res$aligned_modes) <- clump_py$mode_names
-  clump_res$cost_acrossK <- clump_py$cost_acrossK
+  clump_res$aligned_modes <- lapply(clump_run$aligned_modes, as.data.frame)
+  names(clump_res$aligned_modes) <- clump_run$mode_names
+  clump_res$cost_acrossK <- clump_run$cost_acrossK
 
   # for each mode, get the replicates (the replicate id is the number after R
   # in the name of the replicate, e.g. 3_K2R1)
-  mode_alignment <- clump_py$mode_alignment
+  mode_alignment <- clump_run$mode_alignment
   replicate_id <- as.integer(sub(".*R(\\d+)$", "\\1", mode_alignment$Replicate))
   clump_res$mode_replicates <- split(
     replicate_id,
-    factor(mode_alignment$Mode, levels = clump_py$mode_names)
+    factor(mode_alignment$Mode, levels = clump_run$mode_names)
   )
 
-  clump_res$K_range <- as.integer(clump_py$K_range)
-  clump_res$N <- as.integer(clump_py$N)
-  clump_res$mode_stats <- clump_py$mode_stats
-  # drop the reference to the python index, which would not survive saving
-  attr(clump_res$mode_stats, "pandas.index") <- NULL
+  clump_res$K_range <- clump_run$K_range
+  clump_res$N <- as.integer(clump_run$N)
+  clump_res$mode_stats <- clump_run$mode_stats
 
   class(clump_res) <- "gt_clumppling"
   return(clump_res)
 }
 
-.ensure_clumppling_python <- function() {
-  reticulate::use_condaenv("ctidygenclust", required = TRUE)
-  # get info on the current python environment
-  cfg <- reticulate::py_config()
-
-  if (!reticulate::py_module_available("clumppling")) {
-    stop(
-      "Python environment selected but 'clumppling' is not importable.\n",
-      "Current python: ", cfg$python
-    )
+#' Set the random seed until the calling function exits
+#'
+#' Sets the seed of R's random number generator, and restores its previous
+#' state (or absence of state) when the calling function exits.
+#' @param seed an integer
+#' @param envir the frame of the calling function
+#' @returns NULL (invisibly)
+#' @keywords internal
+#' @noRd
+clumppling_local_seed <- function(seed, envir = parent.frame()) {
+  global_env <- globalenv()
+  old_seed <- global_env[[".Random.seed"]]
+  restore <- function() {
+    if (is.null(old_seed)) {
+      if (exists(".Random.seed", envir = global_env, inherits = FALSE)) {
+        rm(".Random.seed", envir = global_env)
+      }
+    } else {
+      global_env[[".Random.seed"]] <- old_seed
+    }
   }
+  # the call embeds the function itself, as `restore` is not visible from the
+  # calling frame
+  do.call(on.exit, list(as.call(list(restore)), add = TRUE), envir = envir)
+  set.seed(seed)
+  invisible(NULL)
 }
-
 
 #' Subset a `gt_clumppling` object
 #'

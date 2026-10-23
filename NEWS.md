@@ -1,4 +1,21 @@
 # tidygenclust (development version)
+* `gt_clumppling()` is now a native R and C++ reimplementation of clumppling
+  2.0.10, previously developed as the separate package `rclump`: it gives the
+  same results as the python implementation (which the test suite checks
+  against stored results), without Python, and is much faster. Its input is
+  always a `gt_admix` object: Q files can be read with
+  `tidypopgen::read_q_files()`, so the arguments `input_path`, `input_format`
+  and `extension` are replaced by `x`. New arguments `cd_res`, `test_comm`,
+  `comm_min` and `comm_max` expose further options of clumppling, and
+  `mode_stats` gives the statistics of each mode. The example data are now
+  `gt_admix` objects (`inst/extdata/capeverde_admix.rds` and
+  `chicken_admix.rds`).
+* The conda environment is no longer needed by default, as the core
+  functionality is native. `tgc_tools_install()` gains a `tools` argument to
+  choose which optional tools to install (`fastmixture` and ADMIXTURE), and
+  `tgc_fastmixture_install()` and `tgc_admixture_install()` add a tool to an
+  existing environment. clumppling is no longer installed, and the package no
+  longer warns at startup if the conda environment is missing.
 * New `gt_openadmixture()`: a native C++ (OpenMP) reimplementation of
   OpenADMIXTURE.jl, previously developed as the separate package
   `openadmixturer`. It estimates ancestry proportions directly from the

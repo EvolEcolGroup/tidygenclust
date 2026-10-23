@@ -2,15 +2,16 @@
 % Please edit documentation in R/tgc_tools_version.R
 \name{tgc_tools_version}
 \alias{tgc_tools_version}
-\title{Print version of the python tools installed by \code{tidygenclust}}
+\title{Print version of the optional tools installed by \code{tidygenclust}}
 \usage{
 tgc_tools_version()
 }
 \value{
-A list with the version of the python tools installed by
+A list with the version of the optional tools installed by
 \code{tidygenclust}
 }
 \description{
-This function prints the version of the python tools installed
-by \code{tidygenclust}
+This function prints the version of the optional tools
+installed by \code{\link[=tgc_tools_install]{tgc_tools_install()}}: \code{fastmixture} and \code{ADMIXTURE}. Tools
+that are not installed have version NA.
 }

@@ -93,6 +93,12 @@ This function returns a q_matrix that can be plotted with \code{autoplot}, and
 tidied with \code{tidy} methods from the \code{tidypopgen} package. Cross-validation
 is set to 0 as default, if you want to include cross-validation you can set
 \code{cv} to a value greater than 1 (ADMIXTURE performs 5-fold cv as default).
+
+\code{fastmixture} is an optional tool, which is not needed by the rest of
+\code{tidygenclust} (see \code{\link[=gt_openadmixture]{gt_openadmixture()}} for a native implementation of
+the ADMIXTURE model). Install it with
+\code{tgc_tools_install(tools = "fastmixture")}, or add it to an existing
+\code{ctidygenclust} conda environment with \code{\link[=tgc_fastmixture_install]{tgc_fastmixture_install()}}.
 }
 \references{
 C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster

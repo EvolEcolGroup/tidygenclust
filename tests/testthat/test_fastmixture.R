@@ -1,6 +1,6 @@
 skip_on_cran()
-# skip if the conda environment does not exist
-skip_if(!reticulate::condaenv_exists("ctidygenclust"))
+# skip if the optional tool is not installed
+skip_if_not(tgc_tool_installed("fastmixture"))
 
 library(tidypopgen)
 

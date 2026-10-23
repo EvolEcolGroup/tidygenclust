@@ -10,6 +10,12 @@
 #' is set to 0 as default, if you want to include cross-validation you can set
 #' `cv` to a value greater than 1 (ADMIXTURE performs 5-fold cv as default).
 #'
+#' `fastmixture` is an optional tool, which is not needed by the rest of
+#' `tidygenclust` (see [gt_openadmixture()] for a native implementation of
+#' the ADMIXTURE model). Install it with
+#' `tgc_tools_install(tools = "fastmixture")`, or add it to an existing
+#' `ctidygenclust` conda environment with [tgc_fastmixture_install()].
+#'
 #' @references C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster
 #'   model-based estimation of ancestry proportions. bioRxiv 2024.07.08.602454;
 #'   doi: https://doi.org/10.1101/2024.07.08.602454
@@ -68,7 +74,7 @@ gt_fastmixture <- function(
   cv = NULL,
   cv_tole = 1e-7
 ) {
-  .ensure_fastmixture_python()
+  py_rfastmixture <- .ensure_fastmixture_python()
 
   if (length(seed) != n_runs) {
     stop("'seeds' should be a vector of length 'repeats'")
@@ -152,7 +158,7 @@ gt_fastmixture <- function(
           cv = NULL,
           cv_tole = NULL
         )
-        fastmixture_res <- .py_rfastmixture$fastmixture_run(
+        fastmixture_res <- py_rfastmixture$fastmixture_run(
           args = rfastmixture_args
         )
       } else if (cv > 1) {
@@ -183,7 +189,7 @@ gt_fastmixture <- function(
           cv = as.integer(cv),
           cv_tole = cv_tole
         )
-        fastmixture_res <- .py_rfastmixture$fastmixture_run(
+        fastmixture_res <- py_rfastmixture$fastmixture_run(
           args = rfastmixture_args
         )
       }
@@ -246,10 +252,19 @@ gt_fastmixture <- function(
 }
 
 .ensure_fastmixture_python <- function() {
-  reticulate::use_condaenv("ctidygenclust", required = TRUE)
+  envname <- tgc_conda_env()
+  if (!tgc_tool_installed("fastmixture")) {
+    stop(
+      "gt_fastmixture() needs the python package 'fastmixture', an optional ",
+      "tool that is not installed. Install it with ",
+      "tgc_tools_install(tools = \"fastmixture\") or, if the conda ",
+      "environment '", envname, "' already exists, with ",
+      "tgc_fastmixture_install()"
+    )
+  }
+  reticulate::use_condaenv(envname, required = TRUE)
   # get info on the current python environment
   cfg <- reticulate::py_config()
-
 
   if (!reticulate::py_module_available("fastmixture")) {
     stop(
@@ -257,4 +272,11 @@ gt_fastmixture <- function(
       "Current python: ", cfg$python
     )
   }
+  # import the python module only now, as fastmixture is an optional tool
+  # (importing it when the package is loaded would fail if python had
+  # already been started without fastmixture)
+  reticulate::import_from_path(
+    module = "py_rfastmixture",
+    path = system.file("python", package = "tidygenclust")
+  )
 }

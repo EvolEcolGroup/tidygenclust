@@ -12,3 +12,4 @@ tidygenclust.Rproj
 src/*.o
 src/*.so
 src/*.dll
+__pycache__/
