@@ -50,12 +50,37 @@ test_that("STRUCTURE results with non-consecutive K match python", {
   # python read the original STRUCTURE files, whose rows (rounded to 3
   # decimals) are rescaled to sum to 1 in the gt_admix object.
   # The replicates with K = 17 and K = 19 do not have a clear community
-  # structure, and python's louvain itself gives different modes depending on
-  # the seed; with this seed, R's random numbers give the same modes as
-  # python with seed 42
-  res <- gt_clumppling(clumppling_test_chicken(), seed = 7)
+  # structure: their modes depend on the random numbers used by louvain,
+  # which differ between R and python. Those of K = 21 do not (they matched
+  # python for each of 30 seeds)
+  chicken <- clumppling_test_chicken()
+  py_modes <- ref$chicken$mode_replicates
+  res <- gt_clumppling(chicken, seed = 1)
   expect_identical(res$K_range, c(17L, 19L, 21L))
-  expect_same_clumppling(res, ref$chicken, fingerprint = TRUE)
+  expect_identical(
+    res$mode_replicates[grep("^K21", names(res$mode_replicates))],
+    py_modes[grep("^K21", names(py_modes))]
+  )
+  # given python's modes for every K, the rest (representatives, alignment
+  # within and across K, statistics) is deterministic: community detection,
+  # which is called once per K in increasing order, returns the 0-based
+  # labels of python's modes
+  py_labels <- lapply(paste0("^K", res$K_range, "M"), function(prefix) {
+    modes <- py_modes[grep(prefix, names(py_modes))]
+    labels <- integer(sum(lengths(modes)))
+    for (m in seq_along(modes)) {
+      labels[modes[[m]]] <- m - 1L
+    }
+    labels
+  })
+  n_calls <- 0
+  local_mocked_bindings(clumppling_detect_communities = function(...) {
+    n_calls <<- n_calls + 1
+    py_labels[[n_calls]]
+  })
+  expect_same_clumppling(gt_clumppling(chicken), ref$chicken,
+    fingerprint = TRUE
+  )
 })
 
 test_that("K values with a single replicate match the python implementation", {
