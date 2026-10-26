@@ -198,6 +198,12 @@ plot_q <- function(q_tidied, y_lab = "", group_x) {
   # space between individuals, and the clusters are stacked in reverse order
   # (the first cluster at the bottom); the distruct theme and colours are the
   # ones used by tidypopgen for gt_admix objects
+  # the bars are drawn at positions 1 to N: after
+  # subset_gt_clumppling(indivs = ), the ids are the original indices of the
+  # individuals (e.g. 301 to 399), whereas the boundaries of the groups
+  # (group_x) and the annotations of plot_modes() count from the first
+  # individual of the subset (the individuals of a subset are consecutive)
+  q_tidied$id <- q_tidied$id - min(q_tidied$id) + 1L
   # clusters are mapped to colours (and stacked) by their number: as text,
   # "10" would sort before "2", and the same aligned cluster would get a
   # different colour for K < 10 and K >= 10

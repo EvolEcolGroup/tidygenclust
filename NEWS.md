@@ -64,6 +64,9 @@
 * On macOS, a single path given to `tgc_tools_install(conda_yaml = )` is only
   used for `ctidygenclust`; it was also used to create the environment of
   ADMIXTURE.
+* Plots of `gt_clumppling` objects subset by individuals draw the group
+  boundaries and labels (and the number of runs of each mode) in the right
+  place.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

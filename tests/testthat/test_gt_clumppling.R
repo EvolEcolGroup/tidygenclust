@@ -370,3 +370,17 @@ test_that("subsetting by individuals checks their indices", {
   expect_identical(sub_res$N, 10L)
   expect_false(anyNA(sub_res$aligned_modes[[1]]))
 })
+
+test_that("plots of subsets of individuals are aligned with their groups", {
+  sub_res <- subset_gt_clumppling(clump_res, indivs = 301:399)
+  sub_group <- capeverde$group[301:399]
+  plt <- suppressWarnings(
+    autoplot(sub_res, type = "all_modes", group = sub_group)
+  )
+  # the bars of the first mode, and the boundaries between groups
+  bars <- ggplot2::layer_data(plt[[1]], 1)
+  boundaries <- ggplot2::layer_data(plt[[1]], 2)
+  expect_identical(range(bars$x), c(1, 99))
+  group_ends <- cumsum(table(factor(sub_group, levels = unique(sub_group))))
+  expect_equal(boundaries$x, unname(group_ends) + 0.5)
+})
