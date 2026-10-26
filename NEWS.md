@@ -76,6 +76,9 @@
 * The vignette and the documentation of `autoplot()` no longer say that the
   edges of the 'modes' plot are labelled with their cost: they are coloured by
   it.
+* The Newton update of Q in `gt_openadmixture()` stops cycling at vertex
+  solutions, which made it up to about 20% slower near convergence (results
+  are unchanged).
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

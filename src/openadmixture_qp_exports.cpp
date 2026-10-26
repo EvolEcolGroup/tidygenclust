@@ -14,10 +14,11 @@ using namespace openadmixture;
 // Solve one column QP (see openadmixture_qp_sweep.h for the problem statement).
 // H: K x K negative Hessian; grad, par: length-K gradient and current
 // column; simplex: TRUE for a Q column (sum constraint), FALSE for P.
-// Returns list(delta = step, iter = active-set iterations, 0 on failure).
-// iter is also 0 when the active set cycles at a vertex of the simplex,
-// although delta is then correct (see the end of qp_solve_column), so
-// tests should judge the solver by delta rather than by iter.
+// Returns list(delta = step, iter = active-set iterations, 0 on failure,
+// passes = number of passes of the active-set loop). iter is also 0 when
+// the active set cycles at a vertex of the simplex, although delta is then
+// correct (see the end of qp_solve_column), so tests should judge the
+// solver by delta rather than by iter.
 // [[Rcpp::export]]
 List openadmixture_qp_solve_cpp(const NumericMatrix& H,
                                 const NumericVector& grad,
@@ -34,7 +35,8 @@ List openadmixture_qp_solve_cpp(const NumericMatrix& H,
   // pointers can be passed straight through
   int iter = qp_solve_column(H.begin(), grad.begin(), par.begin(), K,
                              simplex, delta.begin(), work);
-  return List::create(Named("delta") = delta, Named("iter") = iter);
+  return List::create(Named("delta") = delta, Named("iter") = iter,
+                      Named("passes") = work.passes);
 }
 
 // Project each column of q onto {sum == 1, entries >= 1e-5}; returns a copy.

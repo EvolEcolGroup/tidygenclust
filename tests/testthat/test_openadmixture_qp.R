@@ -64,6 +64,9 @@ test_that("a simplex vertex solution is found but reported as iter 0", {
   res <- openadmixture_qp_solve_cpp(h, grad, par, simplex = TRUE)
   expect_equal(par + res$delta, c(1, 0, 0))
   expect_identical(res$iter, 0L)
+  # the cycling of the active set at the vertex is detected at once (it used
+  # to run until the limit of 1000 passes)
+  expect_lt(res$passes, 10)
 })
 
 test_that("an interior solution is the unconstrained Newton step", {

@@ -64,6 +64,9 @@ struct QPWork {
   // Scratch vector: the saved pivot column during a sweep (length n, hence
   // K + 2 entries) and H * V[:, 1] while computing mu (length K).
   std::vector<double> tmp;     // scratch, K + 2 entries
+  // number of passes of the active-set loop in the last call (only used by
+  // the tests, through openadmixture_qp_solve_cpp())
+  int passes = 0;
   explicit QPWork(int K);
 };
 
@@ -73,7 +76,8 @@ struct QPWork {
 // only).
 // returns the number of active-set iterations used, or 0 on failure
 // (Hessian not numerically positive definite, or no convergence within
-// 1000 iterations; in the latter case delta may still be a good step)
+// 1000 iterations; in the latter case delta may still be a good step), or
+// when the active set cycles at a vertex (delta is then the solution)
 int qp_solve_column(const double* H, const double* grad, const double* par,
                     int K, bool simplex, double* delta, QPWork& work);
 

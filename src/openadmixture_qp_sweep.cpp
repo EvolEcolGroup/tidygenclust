@@ -306,8 +306,15 @@ int qp_solve_column(const double* H, const double* grad, const double* par,
   }
   // Active-set loop. Each pass either takes a (possibly partial) step,
   // fixes one parameter that has reached a bound, frees one fixed parameter
-  // whose gradient points into the box, or stops at a KKT point.
+  // whose gradient points into the box, or stops at a KKT point. `freed` is
+  // the parameter freed by the KKT test in the previous pass (-1 if none),
+  // used to detect cycling at a vertex (see the note at the end).
+  int freed = -1;
+  work.passes = 0;
   for (int iteration = 1; iteration <= 1000; iteration++) {
+    work.passes = iteration;
+    const int freed_last_pass = freed;
+    freed = -1;
     // maximal fractional step along the swept directions
     //
     // u = tab[F, last] is the remaining Newton step. Find the largest
@@ -360,6 +367,12 @@ int qp_solve_column(const double* H, const double* grad, const double* par,
       const double est = par[i] + delta[i];
       const bool critical = pmin >= est - small || pmax <= est + small;
       if (swept[i] && std::fabs(tab[i + i * n]) > 1e-10 && critical) {
+        // Cycling at a vertex: the parameter freed in the previous pass
+        // could not move (a step of exactly 0) and would be fixed again,
+        // after which the KKT test would free it again, and so on. delta
+        // is the solution, which was otherwise returned (with 0) after
+        // the 1000 passes, unchanged since this one.
+        if (i == freed_last_pass && a == 0.0) return 0;
         sweep(tab, n, i, tmp, true);
         swept[i] = 0;
         cycle = true;
@@ -393,6 +406,7 @@ int qp_solve_column(const double* H, const double* grad, const double* par,
       if (!swept[i] && std::fabs(tab[i + i * n]) > 1e-10 && violation) {
         sweep(tab, n, i, tmp, false);
         swept[i] = 1;
+        freed = i;
         cycle = true;
         break;
       }
@@ -402,13 +416,15 @@ int qp_solve_column(const double* H, const double* grad, const double* par,
     // leave its bound: the KKT conditions hold and delta is the solution.
     return iteration;
   }
-  // Iteration limit reached. This does happen in practice: at a vertex
-  // solution a free parameter can sit within `small` of a bound with a
-  // tiny inward step, get fixed by the critical test, then be freed again
-  // by the KKT test on the next pass, and so on. delta has usually
-  // already converged to the right step by then, so callers must not treat
-  // 0 as fatal; the kernels use delta regardless and rely on the
-  // projections to restore feasibility.
+  // Iteration limit reached. At a vertex solution, a parameter can be
+  // freed by the KKT test, take no step, be fixed again by the critical
+  // test, and so on: this is detected above, and stops the loop at once
+  // with the same delta (which used to take the 1000 passes, about 4% of
+  // the columns of Q near convergence, making update_q 6-21% slower). If
+  // the step is not exactly 0, the loop can still reach the limit; delta
+  // has usually already converged to the right step by then, so callers
+  // must not treat 0 as fatal; the kernels use delta regardless and rely
+  // on the projections to restore feasibility.
   //
   // Why it cycles (traced on the vertex example of
   // test_openadmixture_qp.R): once the sum constraint is swept, the last
