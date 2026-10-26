@@ -87,3 +87,82 @@ test_that("missing tools are reported", {
   }
   expect_error(tgc_tools_install(tools = "clumppling"), "should be one of")
 })
+
+# Replace the functions that query and change conda environments with mocks
+# that record what the installer does. `state` holds the existing
+# environments and the installed tools (as "tool@environment").
+local_mock_conda <- function(envs, installed, mac = FALSE,
+                             env = parent.frame()) {
+  state <- new.env()
+  state$envs <- envs
+  state$installed <- installed
+  state$log <- character()
+  record <- function(x) state$log <- c(state$log, x)
+  tool_env <- function(tool) {
+    if (tool == "admixture" && mac) "cadmixture86" else "ctidygenclust"
+  }
+  install <- function(tool) {
+    record(paste("install", tool))
+    state$installed <- c(state$installed, paste0(tool, "@", tool_env(tool)))
+  }
+  testthat::local_mocked_bindings(
+    condaenv_exists = function(envname = NULL, ...) envname %in% state$envs,
+    conda_remove = function(envname, ...) {
+      record(paste("remove", envname))
+      state$envs <- setdiff(state$envs, envname)
+      state$installed <- state$installed[
+        !endsWith(state$installed, paste0("@", envname))
+      ]
+    },
+    .package = "reticulate", .env = env
+  )
+  testthat::local_mocked_bindings(
+    tgc_is_mac = function() mac,
+    tgc_check_brew = function() NULL,
+    tgc_conda_env = function() "ctidygenclust",
+    tgc_tool_installed = function(tool) {
+      paste0(tool, "@", tool_env(tool)) %in% state$installed
+    },
+    tgc_create_conda_env = function(envname, tools, conda_yaml) {
+      record(paste("create", envname, paste(sort(tools), collapse = "+")))
+      state$envs <- c(state$envs, envname)
+    },
+    tgc_fastmixture_install = function(...) install("fastmixture"),
+    tgc_admixture_install = function(...) install("admixture"),
+    .env = env
+  )
+  state
+}
+
+test_that("resetting the environment keeps the other tools", {
+  # on linux, both tools are in ctidygenclust: resetting it to reinstall
+  # ADMIXTURE also installs fastmixture again
+  state <- local_mock_conda(
+    envs = "ctidygenclust",
+    installed = c("fastmixture@ctidygenclust", "admixture@ctidygenclust")
+  )
+  expect_message(
+    tgc_tools_install(tools = "admixture", reset = TRUE),
+    "also contains fastmixture"
+  )
+  expect_identical(state$log, c(
+    "remove ctidygenclust", "create ctidygenclust admixture+fastmixture",
+    "install fastmixture", "install admixture"
+  ))
+  # on osx, ADMIXTURE is in its own environment: ctidygenclust (with
+  # fastmixture) must be left alone
+  state <- local_mock_conda(
+    envs = c("ctidygenclust", "cadmixture86"),
+    installed = c("fastmixture@ctidygenclust", "admixture@cadmixture86"),
+    mac = TRUE
+  )
+  tgc_tools_install(tools = "admixture", reset = TRUE)
+  expect_identical(state$log, c("remove cadmixture86", "install admixture"))
+  # without reset, only the missing tools are added
+  state <- local_mock_conda(
+    envs = "ctidygenclust",
+    installed = "fastmixture@ctidygenclust"
+  )
+  expect_message(tgc_tools_install(), "already exists")
+  expect_identical(state$log, "install admixture")
+})

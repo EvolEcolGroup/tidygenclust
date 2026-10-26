@@ -52,6 +52,10 @@
   additional loci was rejected.
 * `gt_openadmixture(crossval = TRUE)` no longer changes the estimates of the
   following runs when `seed` is not given.
+* `tgc_tools_install(reset = TRUE)` with some of the tools no longer removes
+  the others: the tools that were installed in `ctidygenclust` are installed
+  again, and on macOS resetting ADMIXTURE alone leaves `ctidygenclust`
+  untouched.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

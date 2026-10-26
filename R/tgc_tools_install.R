@@ -69,7 +69,7 @@ tgc_tools_install <-
            ci_install = FALSE) {
     tgc_check_os()
     tools <- match.arg(tools, several.ok = TRUE)
-    is_mac <- Sys.info()[["sysname"]] == "Darwin"
+    is_mac <- tgc_is_mac()
     # the paths of the yaml files (NA to install the latest packages): the
     # first one for ctidygenclust and, on osx, the second for cadmixture86
     conda_yaml <- tgc_resolve_conda_yaml(conda_yaml, ci_install)
@@ -79,12 +79,30 @@ tgc_tools_install <-
       tgc_check_brew()
     }
 
-    # with reset, remove the existing environments first, so that they are
-    # created again from scratch below (cadmixture86 only if ADMIXTURE is
-    # requested on osx)
+    # ctidygenclust holds all the tools, except ADMIXTURE on osx (so it is not
+    # needed on osx if only ADMIXTURE is requested)
     envname <- tgc_conda_env()
+    needs_env <- "fastmixture" %in% tools || ("admixture" %in% tools && !is_mac)
+
+    # with reset, remove the existing environments first, so that they are
+    # created again from scratch below: ctidygenclust only if it is needed
+    # (on osx, resetting ADMIXTURE alone must not remove fastmixture), and
+    # cadmixture86 only if ADMIXTURE is requested on osx. The tools that were
+    # installed in ctidygenclust are installed again, even if not requested,
+    # so that resetting an environment does not remove them
     if (reset) {
-      if (reticulate::condaenv_exists(envname)) {
+      if (needs_env && reticulate::condaenv_exists(envname)) {
+        in_env <- c("fastmixture", if (!is_mac) "admixture")
+        in_env <- in_env[vapply(in_env, tgc_tool_installed, logical(1))]
+        also_reset <- setdiff(in_env, tools)
+        if (length(also_reset) > 0) {
+          message(
+            "The conda environment '", envname, "' also contains ",
+            paste(also_reset, collapse = " and "), ", which will be ",
+            "installed again"
+          )
+          tools <- c(tools, also_reset)
+        }
         reticulate::conda_remove(envname)
       }
       reset_adm86 <- is_mac && "admixture" %in% tools
@@ -93,12 +111,11 @@ tgc_tools_install <-
       }
     }
 
-    # ctidygenclust holds all the tools, except ADMIXTURE on osx (so it is not
-    # needed on osx if only ADMIXTURE is requested). A new environment is
-    # created from the yaml without the tools that were not requested; an
-    # existing one is kept, and the missing tools are added below
+    # a new environment is created from the yaml without the tools that were
+    # not requested; an existing one is kept, and the missing tools are added
+    # below
     new_env <- FALSE
-    if ("fastmixture" %in% tools || ("admixture" %in% tools && !is_mac)) {
+    if (needs_env) {
       if (reticulate::condaenv_exists(envname)) {
         message(
           "The conda environment '", envname, "' already exists: only the ",
@@ -154,7 +171,7 @@ tgc_fastmixture_install <-
   function(fastmixture_hash = "1f03a8980be4872341e5faca9d6f2dfc7ccbfe35") {
     tgc_check_os()
     envname <- tgc_check_conda_env("fastmixture")
-    is_mac <- Sys.info()[["sysname"]] == "Darwin"
+    is_mac <- tgc_is_mac()
     if (is_mac) {
       tgc_check_brew()
     }
@@ -224,7 +241,7 @@ tgc_fastmixture_install <-
 
 tgc_admixture_install <- function(conda_yaml = "auto", ci_install = FALSE) {
   tgc_check_os()
-  if (Sys.info()[["sysname"]] == "Darwin") {
+  if (tgc_is_mac()) {
     # cadmixture86 is always created from scratch
     if (reticulate::condaenv_exists("cadmixture86")) {
       reticulate::conda_remove("cadmixture86")
@@ -287,7 +304,7 @@ tgc_conda_env <- function() {
 # the conda environment of an optional tool: ADMIXTURE has its own
 # environment on osx
 tgc_tool_env <- function(tool) {
-  if (tool == "admixture" && Sys.info()[["sysname"]] == "Darwin") {
+  if (tool == "admixture" && tgc_is_mac()) {
     "cadmixture86"
   } else {
     tgc_conda_env()
@@ -324,6 +341,11 @@ tgc_check_conda_env <- function(tool) {
   envname
 }
 
+# whether we are on osx (a function, so that tests can mock it)
+tgc_is_mac <- function() {
+  Sys.info()[["sysname"]] == "Darwin"
+}
+
 # give error for windows
 tgc_check_os <- function() {
   if (.Platform$OS.type == "windows") {
@@ -352,7 +374,7 @@ tgc_check_brew <- function() {
 # for ctidygenclust and, on osx, the one for cadmixture86 (NA if conda should
 # install the latest available packages)
 tgc_resolve_conda_yaml <- function(conda_yaml, ci_install) {
-  is_mac <- Sys.info()[["sysname"]] == "Darwin"
+  is_mac <- tgc_is_mac()
   n_envs <- if (is_mac) 2 else 1
   if (is.null(conda_yaml)) {
     conda_yaml <- NA_character_
