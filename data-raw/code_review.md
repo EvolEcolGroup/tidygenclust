@@ -41,10 +41,29 @@ tested):
 | Low: empty inputs; quasi-Newton export; empty P; seeds | 05b1517; 45a89ad; 45a002f; 6dfdf2e |
 | Low: error messages; missing snapshots; Homebrew path | 76aec7b; 6e55262; 3deedd7 |
 | Low: DESCRIPTION | 129042f |
+| Low: unused `safety` of `gt_fastmixture()` (deprecated) | b12fd04 |
 
-Still open: the `safety` argument of `gt_fastmixture()` is unused (removing
-or deprecating it is a decision about the interface), and the issues of
-the test suite and the simplification plan below.
+Also fixed after the review: `gt_fastmixture()` checks the grouping of the
+gen_tibble before the fits, like `gt_openadmixture()` (b3af5e6); two
+paragraphs of the vignettes were wrapped to 80 characters (c3e017a), and
+the two links to the Anolis data in the main vignette, which were broken,
+were fixed (f8322fc).
+
+The issues of the test suite were then addressed, one commit each:
+
+| Issue | Commit |
+|-------|--------|
+| plots are not drawn; missing cases | ac79029 (with the tests of bug 8) |
+| `test_fastmixture.R`: expectations always true; ids and groups | 3df5345 |
+| fragile: chicken test and seed 7 | 181f273 |
+| fragile: lines of the latest conda snapshot | 8bdf1e0 |
+| weak: `n_cores = 1` vs `2` | 04d044e |
+| weak: fixed Q with `tolerance = 1e-4` | 5cf546f (exact test) |
+| dead: `openadmixture_has_real_qp()` skips | caadc34 |
+| kernel test of `p = 0` depends on the simulation | baa5235 |
+| installer decisions untested | bf94bec; 84eac02 |
+
+Still open: the simplification plan, now in `dev/simplification_plan.md`.
 
 ## Bugs
 
@@ -199,70 +218,5 @@ the test suite and the simplification plan below.
 
 ## Simplification plan
 
-Simplifications that do not lose performance, by tier. Tier 1 was
-prototyped; "identical" means bit-identical outputs (OpenADMIXTURE) or
-identical results on the 60 scenarios of
-`data-raw/clumppling/validate_vs_python.R` (clumppling).
-
-### Tier 1: prototyped, identical results and no loss of speed
-
-- OpenADMIXTURE kernels: compute `1 - p` in place instead of the full copy
-  made by `one_minus()` (identical, same speed, one K x J matrix less per
-  call; about 15 lines).
-- OpenADMIXTURE fit: write the quasi-Newton point into the buffers of x0
-  and drop `qq`/`pq` (identical, one copy of K(I + J) doubles less).
-- QP solver: early exit when a vertex solution starts cycling (bug 9).
-- clumppling: `clumppling_reorder_q_across_k()` as a single loop over K
-  (about 20 lines); `clumppling_align_q_wrt_p()` without merging written
-  with `order()`/`duplicated()`, and with merging using
-  `clumppling_move_columns()` (about 25 lines).
-
-### Tier 2: refactoring off the hot path
-
-- `gt_fastmixture()`: the four branches that collect the results differ
-  only in which elements they keep; one call and one result format would
-  remove about 60 lines, and the arguments could be checked before python
-  is started.
-- Plots: `plot_major_modes()`, `plot_all_modes()` and
-  `plot_modes_within_k()` differ only in the modes they select (about 50
-  lines); `R/plot_modes.R` repeats its inset and rescaling code (about 70
-  lines).
-- `inst/python/py_rfastmixture.py`: about 120 lines of commented-out code.
-- Test-only C++: the external-pointer API of the quasi-Newton state
-  (`openadmixture_qn_new_cpp()`, `_push_cpp()`, `_step_cpp()`) can be one
-  stateless function (about 75 lines including generated code); the two
-  projection exports can be merged.
-- OpenADMIXTURE kernels: let the segmented Q path handle the unsegmented
-  case (about 20 lines), share the per-column Newton step between the update
-  kernels (about 10 lines), and use one driver for `loglik()` and
-  `deviance()` (about 25 lines).
-- Argument checks: small `check_count()`/`check_flag()` helpers (which also
-  add the missing checks).
-- Tests: shared helpers for pseudohaploid gen_tibbles, starting values and
-  cluster matching (about 50 lines).
-- Installer: resolve the yaml file per environment with one helper, and
-  always leave fastmixture out of the yaml (it is reinstalled from github).
-- `R/utils.R`: `factor(x, levels = unique(x))` instead of copying an
-  internal function of tidypopgen.
-- `clumppling_run()` returns several elements that nothing uses (about 10
-  lines).
-
-### Tier 3: needs more work
-
-- Dropping the mu term from the Q tableau of the QP solver is closer to
-  OpenADMIXTURE.jl but changes results at the level of rounding errors.
-- Replacing RcppArmadillo (used for one 3 x 3 solve) with R's LAPACK would
-  remove a dependency; it needs checking against the quasi-Newton tests.
-
-### Not recommended
-
-- Reading genotypes through bigstatsr's `SubBMCode256Acc`: about 19%
-  slower than the custom genotype view.
-- Simpler sums in clumppling (`colSums()` for the representatives, the
-  within-K cost from the assignment objective): they change which of
-  several near-identical replicates is the representative, breaking the
-  agreement with python.
-- `igraph::cluster_louvain()` instead of the louvain port: a different
-  algorithm, so modes would differ from python in ambiguous cases.
-- Merging the Q-side and P-side accumulation of the kernels: they need
-  different memory layouts to be fast.
+The plan, updated after the bug fixes, is now in
+`dev/simplification_plan.md`.
