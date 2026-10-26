@@ -103,3 +103,15 @@ test_that("invalid arguments are errors", {
     "out of range"
   )
 })
+
+test_that("the quasi-Newton step checks the number of rows", {
+  # q with 2 rows and p with 3: the 30 values of p were written into a
+  # 2 x 10 output
+  state <- openadmixture_qn_new_cpp(50, 3)
+  q <- matrix(0.5, 2, 10)
+  p <- matrix(0.5, 3, 10)
+  expect_error(
+    openadmixture_qn_step_cpp(state, 1, q, p, q, p, 1),
+    "same number of rows"
+  )
+})

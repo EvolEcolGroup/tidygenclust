@@ -254,6 +254,11 @@ SEXP openadmixture_qn_step_cpp(SEXP state, int n_used, const NumericMatrix& q,
   if (n_used < 1 || (size_t) n_used > st.n_qn) stop("'n_used' is out of range");
   if (n_cores < 1) stop("'n_cores' must be at least 1");
   const int K = q.nrow();
+  // the outputs are allocated as K x I and K x J, and qn_step() writes
+  // q.size() and p.size() values into them: all the matrices must have K
+  // rows (a p with more rows than q was written past the end of p_new)
+  if (p.nrow() != K || q1.nrow() != K || p1.nrow() != K)
+    stop("q, p, q1 and p1 must have the same number of rows (K)");
   NumericMatrix q_new(K, q.ncol()), p_new(K, p.ncol());
   if (!qn_step(st, n_used, q.begin(), p.begin(), q1.begin(), p1.begin(), K,
                q.ncol(), p.ncol(), q_new.begin(), p_new.begin(), n_cores))
