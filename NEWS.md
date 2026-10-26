@@ -69,6 +69,8 @@
   place.
 * The `group` argument of the plots of `gt_clumppling` objects can be a
   factor.
+* `autoplot(type = "modes_within_k")` checks that `k` is a single value of
+  `K_range`: other values gave an empty plot that failed when printed.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

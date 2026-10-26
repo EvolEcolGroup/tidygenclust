@@ -172,6 +172,14 @@ plot_modes_within_k <- function(object, group_x, k) {
   if (is.null(k)) {
     stop("k must be provided for modes_within_k")
   }
+  # a single value of K with modes (otherwise the plot would be empty, and
+  # only fail when printed, or a vector would be recycled)
+  if (length(k) != 1 || !k %in% object$K_range) {
+    stop(
+      "k must be one of the values of K in K_range (",
+      paste(object$K_range, collapse = ", "), ")"
+    )
+  }
   # select the modes with the requested K, and label each plot with the name
   # of its mode (e.g. "K3M2")
   all_modes <- tidy(object, matrix = "modes")

@@ -405,3 +405,21 @@ test_that("groups can be factors", {
   )
   expect_no_error(patchwork::patchworkGrob(plt))
 })
+
+test_that("modes_within_k checks k", {
+  expect_error(
+    autoplot(clump_res, type = "modes_within_k", k = 7),
+    "one of the values of K in K_range \\(2, 3, 4, 5\\)"
+  )
+  expect_error(
+    autoplot(clump_res, type = "modes_within_k", k = c(4, 5)),
+    "one of the values of K"
+  )
+  expect_error(
+    autoplot(clump_res, type = "modes_within_k"),
+    "k must be provided"
+  )
+  # all the modes of K = 5
+  plt <- autoplot(clump_res, type = "modes_within_k", k = 5)
+  expect_length(plt$patches$plots, 2)
+})
