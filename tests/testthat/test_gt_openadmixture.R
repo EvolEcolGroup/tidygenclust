@@ -309,3 +309,15 @@ test_that("all the arguments are validated", {
     "'seed' should only contain numbers"
   )
 })
+
+test_that("a gen_tibble grouped by several variables fails before fitting", {
+  grouped_2 <- sim_gt %>%
+    dplyr::mutate(pop2 = .data$population) %>%
+    dplyr::group_by(.data$population, .data$pop2)
+  # the fits are not run (they used to run before the error)
+  local_mocked_bindings(openadmixture_fit = function(...) stop("fit called"))
+  expect_error(
+    gt_openadmixture(grouped_2, k = 2),
+    "grouped by a single variable \\(it is grouped by population, pop2\\)"
+  )
+})

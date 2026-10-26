@@ -84,6 +84,8 @@
   values of `k`, `n_runs` and `n_folds` were truncated, invalid `max_iter`,
   `n_qn` and `n_cores` gave a generic error, and invalid seeds were only
   detected after the first fits.
+* `gt_openadmixture()` on a `gen_tibble` grouped by more than one variable
+  fails with a clear error before fitting, rather than after all the fits.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

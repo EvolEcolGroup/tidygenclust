@@ -325,6 +325,23 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
     }
   }
 
+  # The group of each individual, stored in the result. As in
+  # gt_admixture(), a single grouping variable is supported: it is checked
+  # now, so that a gen_tibble grouped by several variables fails before the
+  # fits rather than after them
+  group <- NULL
+  if (inherits(x, "grouped_gen_tbl")) {
+    group_vars <- dplyr::group_vars(x)
+    if (length(group_vars) != 1) {
+      stop(
+        "'x' should be grouped by a single variable (it is grouped by ",
+        paste(group_vars, collapse = ", "), ")",
+        call. = FALSE
+      )
+    }
+    group <- x[[group_vars]]
+  }
+
   # Run the fits, one per combination of k and run, filling in the elements
   # of the gt_admix object in the same order as gt_admixture() (by k, then by
   # run)
@@ -395,11 +412,11 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   }
 
   # metadata used by tidypopgen's methods to label and group individuals in
-  # plots and tables; both follow the rows of x, as do the rows of Q. As in
-  # gt_admixture(), a single grouping variable is assumed.
+  # plots and tables (the group was taken from x before the fits); both
+  # follow the rows of x, as do the rows of Q
   adm_list$id <- x$id
-  if (inherits(x, "grouped_gen_tbl")) {
-    adm_list$group <- x[[dplyr::group_vars(x)]]
+  if (!is.null(group)) {
+    adm_list$group <- group
   }
   adm_list$algorithm <- "OpenADMIXTURE"
   class(adm_list) <- c("gt_admix", "list")
