@@ -27,9 +27,10 @@
 #'   or a vector
 #' @param n_runs the number of repeats for each k value
 #' @param threads the number of threads to use (1)
-#' @param seed the random seed (defaults to 42); it should be a vector of
-#'   length `n_runs`, with one seed per run (the same seeds are used for each
-#'   value of `k`)
+#' @param seed the random seed (defaults to 42): a vector of length
+#'   `n_runs`, with one seed per run (the same seeds are used for each value
+#'   of `k`), or a single seed, used for the first run and incremented for
+#'   the following ones
 #' @param iter the maximum number of iterations (1000)
 #' @param tole the tolerance in log-likelihood units between iterations (1e-9)
 #' @param batches the number of maximum mini-batches (32)
@@ -77,13 +78,23 @@ gt_fastmixture <- function(
   cv = NULL,
   cv_tole = 1e-7
 ) {
-  # activate the conda environment and import the python wrapper (this
-  # fails with an informative error if fastmixture is not installed)
-  py_rfastmixture <- .ensure_fastmixture_python()
-
-  # one seed per run: the same seeds are reused for every value of k
+  # check the arguments before starting python (fastmixture needs K > 1)
+  check_count(k, "k", min = 2, scalar = FALSE,
+    message = "'k' should be a vector of integers greater than 1"
+  )
+  check_count(n_runs, "n_runs")
+  check_count(threads, "threads")
+  # one seed per run: the same seeds are reused for every value of k. A
+  # single seed (e.g. the default) is used for the first run, and
+  # incremented for the following ones
+  if (!is.numeric(seed) || length(seed) == 0 || any(!is.finite(seed))) {
+    stop("'seed' should only contain numbers")
+  }
+  if (length(seed) == 1 && n_runs > 1) {
+    seed <- seed + seq_len(n_runs) - 1
+  }
   if (length(seed) != n_runs) {
-    stop("'seeds' should be a vector of length 'repeats'")
+    stop("'seed' should be a single number or a vector of length 'n_runs'")
   }
 
   # the python wrapper reads either a set of PLINK files (from their prefix)
@@ -117,14 +128,18 @@ gt_fastmixture <- function(
   }
 
   if (!is.null(cv)) {
-    if (length(cv) != 1L || !is.numeric(cv) || cv <= 1) {
-      stop("cv must be a single integer greater than 1")
-    }
+    check_count(cv, "cv", min = 2,
+      message = "cv must be a single integer greater than 1"
+    )
   }
 
   if (!is.null(supervised) && !is.null(cv)) {
     stop("Cross-validation only works with unsupervised mode")
   }
+
+  # activate the conda environment and import the python wrapper (this
+  # fails with an informative error if fastmixture is not installed)
+  py_rfastmixture <- .ensure_fastmixture_python()
 
   # create a namespace object with all the inputs: the python wrapper is
   # derived from the main function of fastmixture, which takes the parsed

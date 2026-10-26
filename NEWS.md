@@ -86,6 +86,9 @@
   detected after the first fits.
 * `gt_openadmixture()` on a `gen_tibble` grouped by more than one variable
   fails with a clear error before fitting, rather than after all the fits.
+* `gt_fastmixture()` checks its arguments before starting python, with error
+  messages naming the right arguments, and a single `seed` (such as the
+  default) can be used with `n_runs > 1`: it is incremented for each run.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

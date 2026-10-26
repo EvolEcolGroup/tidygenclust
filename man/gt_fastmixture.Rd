@@ -40,9 +40,10 @@ or a vector}
 
 \item{threads}{the number of threads to use (1)}
 
-\item{seed}{the random seed (defaults to 42); it should be a vector of
-length \code{n_runs}, with one seed per run (the same seeds are used for each
-value of \code{k})}
+\item{seed}{the random seed (defaults to 42): a vector of length
+\code{n_runs}, with one seed per run (the same seeds are used for each value
+of \code{k}), or a single seed, used for the first run and incremented for
+the following ones}
 
 \item{iter}{the maximum number of iterations (1000)}
 
