@@ -34,12 +34,12 @@ License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends: 
-    R (>= 3.5.0)
+    R (>= 3.6.0)
 Imports:
     dplyr,
     generics,
-    ggplot2,
-    patchwork,
+    ggplot2 (>= 3.4.0),
+    patchwork (>= 1.2.0),
     Rcpp,
     reticulate,
     rlang,
