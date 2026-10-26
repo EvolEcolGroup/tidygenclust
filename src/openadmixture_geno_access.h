@@ -171,7 +171,11 @@ public:
                  "'n_folds' >= 2.");
     // the seed is passed from R as a double holding an integer (R has no
     // 64-bit integers), which is enough to give each run its own folds
-    if (cv_seed < 0 || cv_seed != std::floor(cv_seed))
+    // (and below 2^53, the largest integer that a double holds exactly: a
+    // larger or infinite value would overflow the cast to uint64_t below;
+    // the comparison is also false for NaN)
+    if (!(cv_seed >= 0 && cv_seed < 9007199254740992.0) ||
+        cv_seed != std::floor(cv_seed))
       Rcpp::stop("'cv_seed' must be a non-negative integer.");
     _cv_mode = cv_mode;
     _cv_fold = (uint64_t) cv_fold;

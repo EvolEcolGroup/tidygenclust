@@ -144,8 +144,10 @@ openadmixture_set_cv <- function(data, cv = NULL) {
   # The C++ code checks the seed too, but is.finite() also rejects Inf,
   # which it would let through before casting the seed to a 64-bit integer.
   # (fold and n_folds are checked in C++.)
+  # (below 2^53, the largest integer that a double holds exactly; the C++
+  # code converts it to a 64-bit integer)
   seed_ok <- length(cv$seed) == 1 && is.finite(cv$seed) && cv$seed >= 0 &&
-    cv$seed == floor(cv$seed)
+    cv$seed < 2^53 && cv$seed == floor(cv$seed)
   if (!seed_ok) {
     stop("'cv_seed' must be a non-negative integer", call. = FALSE)
   }

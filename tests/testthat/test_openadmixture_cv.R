@@ -174,3 +174,20 @@ test_that("invalid cross-validation arguments are caught", {
     "cannot be used with"
   )
 })
+
+test_that("seeds too large for 64-bit integers are rejected", {
+  # through R
+  expect_error(
+    openadmixture_decode(dat, cv = list(
+      mode = "train", fold = 1, n_folds = 5, seed = 1e20
+    )),
+    "cv_seed"
+  )
+  # and in C++, bypassing the check in R (the cast to a 64-bit integer of
+  # an infinite or too large value is undefined)
+  for (bad_seed in c(Inf, 1e20)) {
+    bad <- dat
+    bad$cv <- list(mode = 1L, fold = 1L, n_folds = 5L, seed = bad_seed)
+    expect_error(openadmixture_decode_cpp(bad), "cv_seed")
+  }
+})
