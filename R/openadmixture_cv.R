@@ -9,8 +9,7 @@
 #'
 #' @param data the output of `openadmixture_prepare()`
 #' @param fit the fit to the full data, as returned by `openadmixture_fit()`,
-#' used as
-#'   the starting point of each fold
+#'   used as the starting point of each fold
 #' @param k the number of ancestral populations
 #' @param n_folds the number of folds
 #' @param cv_seed seed of the assignment of genotypes to folds (a
@@ -24,6 +23,9 @@
 #' @noRd
 openadmixture_cv <- function(data, fit, k, n_folds, cv_seed, max_iter = 1000,
                              rtol = 1e-7, n_qn = 3, n_cores = 1) {
+  # for each fold, the sum of the deviances of its genotypes and their
+  # number (a fold can be empty with tiny data, giving a NaN fold error but
+  # no harm to the pooled error)
   fold_dev <- numeric(n_folds)
   fold_n <- numeric(n_folds)
   log_lines <- character(0)
@@ -46,6 +48,10 @@ openadmixture_cv <- function(data, fit, k, n_folds, cv_seed, max_iter = 1000,
     # Score the predictions of the fold estimates on the masked genotypes:
     # the held-out view shows only the genotypes of this fold, and the
     # deviance kernel sums d(g, mu) over them (src/openadmixture_kernels.cpp)
+    # and returns c(sum of the deviances, number of genotypes). The same
+    # seed and fold as for training make the two views complementary. The
+    # kernels take Q and P in the internal layout (K x individuals and
+    # K x loci), hence the transposes.
     held_out <- openadmixture_set_cv(data, cv = list(
       mode = "held_out", fold = fold, n_folds = n_folds, seed = cv_seed
     ))

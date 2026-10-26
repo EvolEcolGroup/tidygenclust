@@ -59,11 +59,15 @@ test_that("Newton updates of Q and P match OpenADMIXTURE.jl", {
 })
 
 test_that("the full algorithm follows the same path as OpenADMIXTURE.jl", {
+  # (q0 and p0 are K x I and K x J, the starting values are I x K and J x K;
+  # with both given, the EM priming is skipped, as in Julia)
   fit <- openadmixture_fit(dat,
     k = k, init_q = t(q0), init_p = t(p0),
     n_cores = 2
   )
   # same number of iterations, and the same log-likelihood at each of them
+  # (loglik_history starts with that of the starting values, which the
+  # fixture does not include)
   expect_true(fit$converged)
   expect_identical(fit$n_iter, length(fixture$run_loglik))
   expect_equal(fit$loglik_history[-1], fixture$run_loglik, tolerance = 1e-10)

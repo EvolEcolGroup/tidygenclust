@@ -5,10 +5,11 @@
 #' that you cite the relevant paper by Santander, Refoyo-Martínez, and Meisner
 #' (2024).
 #'
-#' This function returns a q_matrix that can be plotted with `autoplot`, and
-#' tidied with `tidy` methods from the `tidypopgen` package. Cross-validation
-#' is set to 0 as default, if you want to include cross-validation you can set
-#' `cv` to a value greater than 1 (ADMIXTURE performs 5-fold cv as default).
+#' This function returns a `gt_admix` object that can be plotted with
+#' `autoplot`, and tidied with `tidy` methods from the `tidypopgen` package.
+#' Cross-validation is not performed by default (`cv = NULL`); if you want to
+#' include cross-validation you can set `cv` to the number of folds, a value
+#' greater than 1 (ADMIXTURE performs 5-fold cv as default).
 #'
 #' `fastmixture` is an optional tool, which is not needed by the rest of
 #' `tidygenclust` (see [gt_openadmixture()] for a native implementation of
@@ -26,15 +27,16 @@
 #'   or a vector
 #' @param n_runs the number of repeats for each k value
 #' @param threads the number of threads to use (1)
-#' @param seed the random seed (defaults to 42);it should be a vector of length
-#'   `repeats`
+#' @param seed the random seed (defaults to 42); it should be a vector of
+#'   length `n_runs`, with one seed per run (the same seeds are used for each
+#'   value of `k`)
 #' @param iter the maximum number of iterations (1000)
 #' @param tole the tolerance in log-likelihood units between iterations (1e-9)
 #' @param batches the number of maximum mini-batches (32)
-#' @param supervised the name fo the file with the supervised labels (NULL)
+#' @param supervised the name of the file with the supervised labels (NULL)
 #' @param check the number of iterations to check for convergence (5)
 #' @param power number of power iterations in randomised SVD (11)
-#' @param chunk the number of SPs in chunk operations (8192)
+#' @param chunk the number of SNPs in chunk operations (8192)
 #' @param subsample Fraction of SNPs to subsample in SVD/ALS (0.7)
 #' @param min_subsample Minimum number of SNPs to subsample in SVD/ALS (50000)
 #' @param max_subsample Maximum number of SNPs to subsample in SVD/ALS (500000)
@@ -43,7 +45,8 @@
 #' @param no_freqs do not save P-matrix (TRUE)
 #' @param random_init random initialisation of parameters (TRUE)
 #' @param safety add extra safety steps in unstable optimizations (TRUE)
-#' @param cv the number of cross-validation folds (0)
+#' @param cv the number of cross-validation folds, greater than 1 (NULL, no
+#'   cross-validation)
 #' @param cv_tole the tolerance for the cross-validation error
 #' in scaled log-likelihood units (1e-7)
 #' @return an object of class `gt_admix`. See [tidypopgen::gt_admixture()] for
@@ -74,12 +77,20 @@ gt_fastmixture <- function(
   cv = NULL,
   cv_tole = 1e-7
 ) {
+  # activate the conda environment and import the python wrapper (this
+  # fails with an informative error if fastmixture is not installed)
   py_rfastmixture <- .ensure_fastmixture_python()
 
+  # one seed per run: the same seeds are reused for every value of k
   if (length(seed) != n_runs) {
     stop("'seeds' should be a vector of length 'repeats'")
   }
 
+  # the python wrapper reads either a set of PLINK files (from their prefix)
+  # or the backing file of a gen_tibble. The latter is the raw .bk file of
+  # the FBM, which has no header, so the numbers of individuals and loci of
+  # the gen_tibble are passed as well, to reshape it (the python code checks
+  # that they match the size of the file)
   if (inherits(x, "character")) {
     bfile <- x
     n_indiv <- NULL
@@ -109,7 +120,9 @@ gt_fastmixture <- function(
     stop("Cross-validation only works with unsupervised mode")
   }
 
-  # create a namespace object with all the inputs
+  # create a namespace object with all the inputs: the python wrapper is
+  # derived from the main function of fastmixture, which takes the parsed
+  # command line arguments (an argparse Namespace)
   argparse <- reticulate::import("argparse")
 
   # initialise list to store results
@@ -126,10 +139,15 @@ gt_fastmixture <- function(
     adm_list$P <- list()
   }
 
-  # Populate adm_list object
+  # Populate adm_list object: one run for each combination of k and seed,
+  # with all the runs of a given k stored consecutively (index is the
+  # position of the run in the lists of Q and P matrices)
   index <- 1
   for (this_k in as.integer(k)) {
     for (this_rep in seq_len(n_runs)) {
+      # the two namespaces only differ in the cross-validation arguments;
+      # integer arguments are converted explicitly, as python's argparse
+      # would do (R numbers are passed to python as floats)
       if (is.null(cv)) {
         rfastmixture_args <- argparse$Namespace(
           bfile = bfile,
@@ -194,6 +212,9 @@ gt_fastmixture <- function(
         )
       }
 
+      # the python function returns Q alone, or a tuple (a list in R) of Q,
+      # P (unless no_freqs) and the cross-validation results (if cv, a dict
+      # with the average and standard deviation of the error over folds)
       if (no_freqs) {
         if (is.null(cv)) {
           q_matrix <- tidypopgen::q_matrix(fastmixture_res)
@@ -233,7 +254,7 @@ gt_fastmixture <- function(
     }
   }
 
-  # return list
+  # return list, as a gt_admix object (like tidypopgen::gt_admixture())
   class(adm_list) <- c("gt_admix", class(adm_list))
 
   # add metadata if x is a gen_tibble
@@ -251,6 +272,8 @@ gt_fastmixture <- function(
   return(adm_list)
 }
 
+# Check that fastmixture is installed, activate its conda environment, and
+# return the python wrapper module (inst/python/py_rfastmixture.py)
 .ensure_fastmixture_python <- function() {
   envname <- tgc_conda_env()
   if (!tgc_tool_installed("fastmixture")) {
@@ -262,6 +285,8 @@ gt_fastmixture <- function(
       "tgc_fastmixture_install()"
     )
   }
+  # use the python of the conda environment (an error if python has already
+  # been started with a different environment in this session)
   reticulate::use_condaenv(envname, required = TRUE)
   # get info on the current python environment
   cfg <- reticulate::py_config()

@@ -120,6 +120,9 @@ List openadmixture_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
   // (std::swap on vectors exchanges their contents in constant time).
   std::vector<double> q(nq), p(np), q1(nq), p1(np), q2(nq), p2(np),
     qq(nq), pq(np);
+  // Together with the secant pairs (U and V in QNState, 2 n_qn vectors of
+  // nq + np values), a fit holds 4 + 2 n_qn copies of the parameters (10
+  // with the default n_qn = 3), plus the temporaries of each kernel call.
 
   // Random start, as in the AdmixData constructor: uniform values, with each
   // column of q rescaled to sum to one. Values are drawn from R's random
@@ -227,6 +230,10 @@ List openadmixture_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     else update_q(geno, q1.data(), p1.data(), k, q2.data(), n_cores);
     if (fix_p) p2 = p1;
     else update_p(geno, q2.data(), p1.data(), k, p2.data(), n_cores);
+    // With a fixed block, u and v below are exactly zero on that block, so
+    // the quasi-Newton point keeps it at x1 = x0. qn_step() still projects
+    // it, which leaves a fixed p unchanged (clamping values already inside
+    // the box is exact) but can move a fixed q by rounding error (~1e-16).
     // The log-likelihood after the two plain sweeps, L(x2), is our fallback
     // for this iteration, but it is only needed if the quasi-Newton step is
     // rejected (see below), so it is computed only then.
@@ -247,6 +254,8 @@ List openadmixture_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
             p2.data(), nq, np);
     // in the first n_qn - 1 iterations, fewer pairs are available
     const size_t n_used = std::min((size_t) iter, (size_t) n_qn);
+    // (the order of the columns does not matter: permuting the pairs
+    // permutes the coefficients of the step, not the step itself)
     // the quasi-Newton point goes into (qq, pq); if the step fails, its
     // log-likelihood stays at -Inf, so the plain sweeps are used
     double ll_qn = R_NegInf;
@@ -273,6 +282,8 @@ List openadmixture_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     // computing L(x2) only after a rejection saves one of the six passes
     // over the genotypes in most iterations, with identical results; only
     // the log reports "basic = not computed" when L(x2) was not needed.
+    // (ll_qn is -Inf when the step failed; isfinite() also rejects NaN,
+    // which would fail ll_prev < ll_qn anyway.)
     if (std::isfinite(ll_qn) && ll_prev < ll_qn) {
       std::swap(q, qq);
       std::swap(p, pq);
@@ -294,6 +305,9 @@ List openadmixture_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
             (ISNAN(ll_basic) ? std::string("not computed") :
              fmt(ll_basic, 12)) +
             ", QN = " + fmt(ll_qn, 12) + ")");
+    // reldiff is NaN if ll_prev is 0 (no observed genotypes) or -Inf; NaN <
+    // rtol is false, so such a fit runs to max_iter rather than being
+    // declared converged
     if (reldiff < rtol) {
       converged = true;
       break;

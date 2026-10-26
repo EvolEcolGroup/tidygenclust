@@ -4,6 +4,8 @@ sim <- openadmixture_simulate_admixed(
 sim_gt <- openadmixture_test_gt(sim$genotypes)
 
 # best match between estimated and true clusters, by correlation of Q columns
+# (K = 3: of the 6 permutations, the one that maximises the summed
+# correlations between matched columns)
 match_clusters <- function(q_est, q_true) {
   perms <- list(
     c(1, 2, 3), c(1, 3, 2), c(2, 1, 3),
@@ -28,13 +30,15 @@ test_that("gt_openadmixture returns a valid gt_admix object", {
     expect_s3_class(q, "q_matrix")
     expect_identical(dim(q), c(80L, adm$k[i]))
     expect_equal(unname(rowSums(q)), rep(1, 80), tolerance = 1e-10)
+    # estimates are kept within [1e-5, 1 - 1e-5] (with a margin for rounding)
     expect_true(all(q >= 1e-5 - 1e-12))
     p <- adm$P[[i]]
     expect_identical(dim(p), c(400L, adm$k[i]))
     expect_identical(rownames(p), tidypopgen::show_loci(sim_gt)$name)
     expect_true(all(p >= 1e-5 - 1e-12 & p <= 1 - 1e-5 + 1e-12))
   }
-  # the log-likelihood never decreases over the main loop
+  # the log-likelihoods are finite (that they never decrease over the main
+  # loop is checked in the next test)
   expect_true(all(is.finite(adm$loglik)))
 })
 
@@ -43,6 +47,7 @@ test_that("the log-likelihood is monotone and estimates recover the truth", {
   set.seed(3)
   fit <- openadmixture_fit(dat, k = 3)
   expect_true(fit$converged)
+  # (a small relative tolerance allows for rounding)
   expect_true(all(diff(fit$loglik_history) >= -1e-6 * abs(fit$loglik)))
   perm <- match_clusters(fit$q, sim$q)
   expect_gt(min(diag(stats::cor(fit$q[, perm], sim$q))), 0.9)
@@ -50,12 +55,15 @@ test_that("the log-likelihood is monotone and estimates recover the truth", {
 })
 
 test_that("results are reproducible and the RNG state is restored", {
+  # if the state is restored, the first draw after the call is the one that
+  # follows set.seed(123) without it
   set.seed(123)
   before <- stats::runif(1)
   set.seed(123)
   adm1 <- gt_openadmixture(sim_gt, k = 3, seed = 99)
   after <- stats::runif(1)
   expect_identical(before, after)
+  # the same seed gives the same estimates, with any number of cores
   adm2 <- gt_openadmixture(sim_gt, k = 3, seed = 99, n_cores = 2)
   expect_equal(adm1$Q[[1]], adm2$Q[[1]])
   expect_equal(adm1$loglik, adm2$loglik)
@@ -74,6 +82,8 @@ test_that("grouped gen_tibbles store the group and work with methods", {
     ggplot2::autoplot(adm, k = 3, run = 1, type = "barplot"),
     "ggplot"
   )
+  # c() (from tidypopgen) needs the same id, group and algorithm, and sorts
+  # the runs by k
   adm_c <- c(adm, gt_openadmixture(grouped_gt, k = 2, seed = 5))
   expect_identical(adm_c$k, c(2L, 2L, 3L))
   expect_no_error(summary(adm_c))
@@ -113,6 +123,9 @@ test_that("pseudohaploid data can be analysed", {
 })
 
 test_that("subsets of individuals and loci are respected", {
+  # the same individuals and loci, in the same (unsorted) order, as a subset
+  # of a gen_tibble (which keeps the full backing file) and as a new
+  # gen_tibble holding only them: with the same seed, the fits must agree
   idx <- c(80:41, 1:20)
   loci_idx <- c(400:201, 1:50)
   sub_gt <- tidypopgen::select_loci(sim_gt[idx, ], tidyselect::all_of(loci_idx))
@@ -165,6 +178,7 @@ test_that("verbose progress is reported as messages", {
   # max_iter = 0 returns the starting estimates
   adm0 <- gt_openadmixture(small, k = 2, seed = 1, max_iter = 0)
   expect_false(adm0$converged)
+  # the log ends with "Failed to converge after ..." and "Loglikelihood: ..."
   expect_match(utils::tail(adm0$log[[1]], 2)[1], "after 0 iterations")
 })
 
@@ -189,6 +203,8 @@ test_that("the log-likelihood is only computed when needed", {
     sub(":.*", "", em_lines),
     c("EM iteration 5", "EM iteration 10")
   )
+  # (verbose only adds evaluations of the log-likelihood, which do not
+  # change the path of the algorithm)
   adm_10 <- gt_openadmixture(small, k = 2, seed = 1, n_em_iter = 10)
   expect_identical(adm_v$Q, adm_10$Q)
   expect_identical(adm_v$loglik, adm_10$loglik)

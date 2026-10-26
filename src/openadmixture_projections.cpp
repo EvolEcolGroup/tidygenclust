@@ -52,8 +52,8 @@ void project_q(double* q, int K, double eps) {
   // NaN breaks; that is undefined behaviour and, in practice, can make the
   // sort read outside the buffer. An infinite value would sort fine but turn
   // the threshold, and hence every entry, into NaN. Neither should happen
-  // (the kernels discard non-finite Newton steps and the R code discards
-  // non-finite quasi-Newton steps before projecting), so this is a last
+  // (the kernels discard non-finite Newton steps and qn_step() discards
+  // non-finite quasi-Newton coefficients before projecting), so this is a last
   // line of defence: rather than propagate garbage, the column is reset to
   // the centre of the simplex (1 / K each), a valid point from which the
   // following iterations can recover.
@@ -89,7 +89,8 @@ void project_q(double* q, int K, double eps) {
     }
   }
   // no early stop: all K entries are kept and t = t_K (this is also the
-  // only branch taken for K == 1, giving q = 1)
+  // only branch taken for K == 1, giving q = 1). This reads b[K - 1], so
+  // K >= 1 is required (K == 0 would read before the buffer).
   if (!found) tmax = (tsum + b[K - 1] - tau) / K;
   // apply the threshold, clip at 0 and undo the eps shift; the result sums
   // to tau + K * eps = 1 with every entry >= eps

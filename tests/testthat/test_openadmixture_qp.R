@@ -2,6 +2,9 @@
 # 0 <= par + d <= 1 and, optionally, sum(d) == 1 - sum(par)
 qp_reference <- function(h, grad, par, simplex) {
   k <- length(grad)
+  # solve.QP() imposes t(amat) %*% d >= bvec (the first meq as equalities):
+  # here d >= -par and -d >= par - 1, i.e. 0 <= par + d <= 1, preceded by
+  # the equality sum(d) == 1 - sum(par) for the simplex
   amat <- cbind(diag(k), -diag(k))
   bvec <- c(-par, par - 1)
   meq <- 0
@@ -13,6 +16,9 @@ qp_reference <- function(h, grad, par, simplex) {
   quadprog::solve.QP(h, grad, amat, bvec, meq = meq)$solution
 }
 
+# a random problem: a positive definite h, a starting point inside the
+# feasible set (on the simplex, with entries of at least 0.05) and a gradient
+# whose scale controls how often the bounds become active
 random_qp <- function(k, grad_scale, simplex) {
   x <- matrix(rnorm((k + 3) * k), k + 3, k)
   h <- crossprod(x) + diag(0.01, k)

@@ -1,5 +1,5 @@
 #' Print version of the optional tools installed by `tidygenclust`
-#' @description This function prints the version of the optional tools
+#' @description This function returns the version of the optional tools
 #'   installed by [tgc_tools_install()]: `fastmixture` and `ADMIXTURE`. Tools
 #'   that are not installed have version NA.
 #' @return A list with the version of the optional tools installed by
@@ -13,6 +13,8 @@ tgc_tools_version <- function() {
     if (!tgc_tool_installed(tool)) {
       return(NA)
     }
+    # the output lines of the command (a non-zero exit status gives a
+    # warning, which is also turned into NA)
     tryCatch(
       reticulate::conda_run2(
         cmd = cmd,
@@ -27,6 +29,8 @@ tgc_tools_version <- function() {
   }
 
   fast_ver <- tool_output("fastmixture", "fastmixture", "--version")
+  # ADMIXTURE prints a banner before its version number, which is the last
+  # line of the output
   adm_ver <- tool_output("admixture", "admixture", "--version")
   list(
     fastmixture = fast_ver,

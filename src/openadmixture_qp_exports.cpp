@@ -15,6 +15,9 @@ using namespace openadmixture;
 // H: K x K negative Hessian; grad, par: length-K gradient and current
 // column; simplex: TRUE for a Q column (sum constraint), FALSE for P.
 // Returns list(delta = step, iter = active-set iterations, 0 on failure).
+// iter is also 0 when the active set cycles at a vertex of the simplex,
+// although delta is then correct (see the end of qp_solve_column), so
+// tests should judge the solver by delta rather than by iter.
 // [[Rcpp::export]]
 List openadmixture_qp_solve_cpp(const NumericMatrix& H,
                                 const NumericVector& grad,

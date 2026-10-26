@@ -8,7 +8,9 @@ sim_gt <- openadmixture_test_gt(sim$genotypes)
 dat <- openadmixture_prepare(sim_gt)
 
 # pure-R reference for the binomial deviance of the genotypes in g (NA for
-# missing or hidden), with mu = n * qp
+# missing or hidden), with mu = n * qp; q (K x individuals) and p (K x loci)
+# are in the layout of the kernels, and the result is c(sum of the
+# deviances, number of genotypes), as returned by openadmixture_deviance_cpp()
 ref_deviance <- function(g, n_trials, q, p) {
   qp <- t(q) %*% p
   n <- matrix(n_trials, nrow(g), ncol(g))
@@ -28,8 +30,10 @@ test_that("folds partition the observed genotypes", {
       mode = "held_out", fold = f, n_folds = n_folds, seed = 7
     ))
   })
+  # one row per genotype, one column per fold: is the genotype in that fold?
   in_fold <- sapply(held_out, function(x) as.vector(!is.na(x)))
   # every observed genotype is in exactly one fold, missing ones in none
+  # (* 1 turns the logical vector into the doubles returned by rowSums())
   expect_identical(rowSums(in_fold), as.vector(observed) * 1)
   # held-out genotypes keep their values
   for (x in held_out) {
@@ -77,6 +81,7 @@ test_that("invalid masks are rejected", {
 })
 
 test_that("the deviance kernel matches the R reference", {
+  # random q (columns on the simplex) and p, in the layout of the kernels
   set.seed(1)
   k <- 3
   q <- matrix(stats::runif(k * dat$n_indiv), k)
@@ -146,7 +151,8 @@ test_that("gt_openadmixture computes the cross-validation error", {
     n_folds = 10
   )
   expect_length(grep("^CV fold", adm10$log[[1]]), 10)
-  # works with tidypopgen's methods
+  # works with tidypopgen's methods (c() sorts the runs by k, so the K = 3
+  # run of adm2 comes after those of adm with K = 2 and 3)
   expect_s3_class(ggplot2::autoplot(adm, type = "cv"), "ggplot")
   expect_identical(c(adm, adm2)$cv, c(adm$cv[1:2], adm2$cv, adm$cv[3]))
 })

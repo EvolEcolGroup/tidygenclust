@@ -81,6 +81,7 @@ for (run in fixture$runs) {
     crossval = TRUE
   )
   oa_cv <- c(oa_cv, oa$cv)
+  # relabel our clusters to match ADMIXTURE's, in both Q and P
   q_oa <- unclass(oa$Q[[1]])
   perm <- openadmixture_match_clusters(q_oa, q_adm)
   q_oa <- q_oa[, perm]

@@ -200,6 +200,8 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   # the one returned by tidypopgen::gt_admixture().
 
   # Check the arguments
+  # (as.integer() truncates non-integer values, e.g. k = 2.5 becomes 2, as in
+  # gt_admixture(), and turns non-numeric values into NA, rejected below)
   k <- as.integer(k)
   n_runs <- as.integer(n_runs)
   if (length(k) == 0 || any(is.na(k)) || any(k < 1)) {
@@ -238,14 +240,17 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   if (fix_p && is.null(init_p)) {
     stop("'fix_p = TRUE' requires 'init_p'", call. = FALSE)
   }
-  # cross-validation refits both Q and P for each fold, so it is not
-  # available when one of them is fixed
+  # crossval is checked first, as it is used in conditions below
   if (!is.logical(crossval) || length(crossval) != 1 || is.na(crossval)) {
     stop("'crossval' should be TRUE or FALSE", call. = FALSE)
   }
+  # cross-validation refits both Q and P for each fold, so it is not
+  # available when one of them is fixed
   if (crossval && (fix_q || fix_p)) {
     stop("'crossval' cannot be used with 'fix_q' or 'fix_p'", call. = FALSE)
   }
+  # n_folds is checked even when crossval = FALSE (its default is valid); the
+  # warning of as.integer() for non-numeric input is replaced by our error
   n_folds <- suppressWarnings(as.integer(n_folds))
   if (length(n_folds) != 1 || is.na(n_folds) || n_folds < 2) {
     stop("'n_folds' should be an integer of at least 2", call. = FALSE)
@@ -255,18 +260,28 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   # ploidy of each individual (R/openadmixture_data.R). This is done once and
   # shared by all runs.
   data <- openadmixture_prepare(x, use_imputed = use_imputed)
+  # with as many clusters as individuals, each individual could form its own
+  # ancestral population, so the model would not be identifiable
   if (any(k >= data$n_indiv)) {
     stop("'k' should be smaller than the number of individuals",
       call. = FALSE
     )
   }
+  # The starting values can only be checked against the data now that the
+  # numbers of individuals and loci are known. They are only allowed with a
+  # single k (checked above), hence k[1]. The validated matrices are plain
+  # double matrices, moved strictly inside the feasible set, and are shared
+  # by all runs.
   init_q <- openadmixture_check_init(init_q, data$n_indiv, k[1], "init_q", TRUE)
   init_p <- openadmixture_check_init(init_p, data$n_loci, k[1], "init_p", FALSE)
 
   # use our own seeds without disturbing the global RNG state
   # (the random starting values are drawn with R's generator, so set.seed()
   # makes each run reproducible; on exit we restore the user's RNG state, or
-  # remove .Random.seed if there was none before)
+  # remove .Random.seed if there was none before). The handler is registered
+  # before the first set.seed(), so the state is also restored if a fit
+  # fails. Without seeds, the fits draw from (and advance) the global
+  # generator, like any other R function.
   if (!is.null(seed)) {
     if (exists(".Random.seed", envir = globalenv())) {
       old_seed <- get(".Random.seed", envir = globalenv())
@@ -279,12 +294,16 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   # Run the fits, one per combination of k and run, filling in the elements
   # of the gt_admix object in the same order as gt_admixture() (by k, then by
   # run)
+  # show_loci() lists the loci in the same order as the columns prepared
+  # above (`data$cols`), so these names label the rows of P
   loci_names <- tidypopgen::show_loci(x)$name
   adm_list <- list(
     k = integer(0), Q = list(), P = list(), log = list(),
     loglik = numeric(0), converged = logical(0)
   )
   if (crossval) adm_list$cv <- numeric(0)
+  # position of the current combination of k and run, both in the output
+  # and in `seed` (which was expanded above to one seed per combination)
   index <- 1
   for (this_k in k) {
     for (this_rep in seq_len(n_runs)) {
@@ -292,6 +311,9 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
       if (verbose) {
         message("Running k = ", this_k, ", run ", this_rep)
       }
+      # Each run draws its own random start inside the C++ code. When both
+      # init_q and init_p are given, that start is overwritten and EM
+      # priming is skipped, so all the runs give the same result.
       fit <- openadmixture_fit(
         data,
         k = this_k, init_q = init_q, init_p = init_p,
@@ -315,13 +337,18 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
         # The folds of each run get their own seed, drawn from R's random
         # number generator after the main fit (so that the main fit, and
         # hence Q and P, are the same with or without cross-validation), and
-        # therefore reproducible with `seed`
+        # therefore reproducible with `seed`. (Without `seed`, the draws
+        # made for cross-validation do shift the random starts of the
+        # following runs.) The seed is an integer in [0, 2^31), stored
+        # exactly as a double, as openadmixture_set_cv() expects.
         cv_seed <- floor(stats::runif(1) * 2^31)
         cv_res <- openadmixture_cv(data,
           fit = fit, k = this_k, n_folds = n_folds, cv_seed = cv_seed,
           max_iter = max_iter, rtol = rtol, n_qn = n_qn, n_cores = n_cores
         )
         adm_list$cv[index] <- cv_res$cv
+        # the log of the fit is followed by one line per fold and by the
+        # "CV error (K=...)" line, in the format of ADMIXTURE's output
         adm_list$log[[index]] <- c(fit$log, cv_res$log)
         if (verbose) message(utils::tail(cv_res$log, 1))
       }
@@ -330,7 +357,8 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   }
 
   # metadata used by tidypopgen's methods to label and group individuals in
-  # plots and tables
+  # plots and tables; both follow the rows of x, as do the rows of Q. As in
+  # gt_admixture(), a single grouping variable is assumed.
   adm_list$id <- x$id
   if (inherits(x, "grouped_gen_tbl")) {
     adm_list$group <- x[[dplyr::group_vars(x)]]
@@ -353,6 +381,9 @@ openadmixture_check_init <- function(init, n_rows, k, arg, simplex) {
   if (is.null(init)) {
     return(NULL)
   }
+  # as.matrix() also accepts data frames, q_matrix objects (e.g. a Q matrix
+  # from a previous run) and, for k = 1, plain vectors; non-numeric values
+  # become NA here and are rejected below
   init <- as.matrix(init)
   storage.mode(init) <- "double"
   if (nrow(init) != n_rows || ncol(init) != k) {
@@ -375,9 +406,14 @@ openadmixture_check_init <- function(init, n_rows, k, arg, simplex) {
   # log(0) in the log-likelihood and keeps the Newton steps well defined
   eps <- 1e-5
   if (simplex) {
+    # the projection works on the columns of a K x I matrix (the layout of
+    # the C++ code), hence the transposes; rows that are already feasible
+    # are left unchanged
     init <- t(openadmixture_project_q_cpp(t(init)))
   } else {
     init <- pmin(pmax(init, eps), 1 - eps)
   }
+  # drop row and column names (e.g. the loci names of a previous P), which
+  # the C++ code does not use
   unname(init)
 }

@@ -63,7 +63,7 @@ struct QPWork {
   std::vector<double> V;       // K x K right singular vectors of ones(1, K)
   // Scratch vector: the saved pivot column during a sweep (length n, hence
   // K + 2 entries) and H * V[:, 1] while computing mu (length K).
-  std::vector<double> tmp;     // length-K scratch
+  std::vector<double> tmp;     // scratch, K + 2 entries
   explicit QPWork(int K);
 };
 

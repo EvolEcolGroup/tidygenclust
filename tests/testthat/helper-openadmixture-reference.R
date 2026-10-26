@@ -2,6 +2,9 @@
 # `g` is the decoded genotype matrix (individuals x loci, NA = missing),
 # `n` the number of trials per individual, `q` is K x I and `p` is K x J.
 
+# the prepared dataset (`dat`, also available as `geno`, the name used for
+# the argument of the kernels), and the decoded genotypes and numbers of
+# trials used by the R references
 openadmixture_ref_inputs <- function(gt) {
   dat <- openadmixture_prepare(gt)
   list(
@@ -56,12 +59,17 @@ openadmixture_ref_em <- function(g, n, q, p) {
   # number of observed loci of individual i
   q_new <- q * sq
   q_new <- sweep(q_new, 2, colSums(q_new), "/")
+  # expected counts of alternate (big_a) and reference (big_b) alleles from
+  # each population at each locus (K x J); p is their ratio
   big_a <- p * (q %*% tt$a)
   big_b <- (1 - p) * (q %*% tt$b)
   p_new <- big_a / (big_a + big_b)
   list(q = q_new, p = p_new)
 }
 
+# gradient (K x I) of the log-likelihood in its homogeneous form (see above)
+# with respect to each column of q, and the negative Hessian of each column
+# (K x K x I), as returned by the kernels
 openadmixture_ref_grad_q <- function(g, n, q, p) {
   tt <- openadmixture_ref_terms(g, n, q, p)
   k <- nrow(q)
@@ -76,6 +84,8 @@ openadmixture_ref_grad_q <- function(g, n, q, p) {
   list(grad = grad, hess = hess)
 }
 
+# the same for the columns of p: gradient (K x J) and negative Hessian of
+# each column (K x K x J)
 openadmixture_ref_grad_p <- function(g, n, q, p) {
   tt <- openadmixture_ref_terms(g, n, q, p)
   k <- nrow(q)

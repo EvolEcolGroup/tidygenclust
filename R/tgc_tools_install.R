@@ -18,17 +18,18 @@
 #' [tgc_admixture_install()] to add a tool to an existing environment).
 #' [tgc_tools_version()] reports the tools that are installed.
 #'
-#' @details For each tool, default to the latest tested version of these
-#'   packages that have been tested to work with `tidegenclust`. It is possible
+#' @details For each tool, default to the latest version of these
+#'   packages that has been tested to work with `tidygenclust`. It is possible
 #'   to provide a more recent github commit for a specific tool, but this might
 #'   lead to incompatibilities and errors.
 #'
-#'   We have found installation on OSX to be tricky, so we provide two methods
-#'   for installing `fastmixture` on OSX: `reticulate` and `conda_yaml`. The
-#'   `reticulate` method uses the `reticulate::conda_run2()` function to run
-#'   installation commands, while the `conda_yaml` method creates a conda
-#'   environment directly with conda. If the `reticulate` method fails, you can
-#'   use the `conda_yaml` method to create the environment directly with conda.
+#'   The conda environment is created from a conda yaml file with the
+#'   versions of all the packages that have been tested on each operating
+#'   system (see `conda_yaml`); `fastmixture` is then installed from its
+#'   github repository with `pip`, run in the environment with
+#'   `reticulate::conda_run2()`. We have found installation on OSX to be
+#'   tricky: if it fails with the tested yaml, you can try `conda_yaml = NULL`
+#'   to let conda install the latest available packages.
 #'   For OSX, you might also need to install a suitable compiler for openmp
 #'   using `brew` in `bash`, setting the correct paths to use it:
 #'
@@ -42,12 +43,12 @@
 #'   version to install. Default is the latest tested version.
 #' @param conda_yaml A vector of string with the path for the `yaml` files used
 #'   for installation (one for `ctidygenclust` and, for osx only, one for
-#'   admixture in 86 compatibility model). The value of each
+#'   admixture in x86 compatibility mode). The value of each
 #'   string can either be "auto" (the default, select the latest available yaml
 #'   that has been tested to work on a given operating system), NULL (let conda
 #'   attempt to install the latest available packages from the internet), or a
 #'   path to a specific conda yaml found in "inst/env_snapshots". For "auto" or
-#'   NULL, it is also possible to provide a vector of lenght one, and the value
+#'   NULL, it is also possible to provide a vector of length one, and the value
 #'   will apply to all the conda environments (e.g. `conda_yaml="auto"` is
 #'   equivalent to `conda_yaml = c("auto", "auto")` in osx). Tools that are
 #'   not in `tools` are left out of the yaml files.
@@ -69,6 +70,8 @@ tgc_tools_install <-
     tgc_check_os()
     tools <- match.arg(tools, several.ok = TRUE)
     is_mac <- Sys.info()[["sysname"]] == "Darwin"
+    # the paths of the yaml files (NA to install the latest packages): the
+    # first one for ctidygenclust and, on osx, the second for cadmixture86
     conda_yaml <- tgc_resolve_conda_yaml(conda_yaml, ci_install)
 
     # for osx, check that we have installed the right packages in brew
@@ -76,6 +79,9 @@ tgc_tools_install <-
       tgc_check_brew()
     }
 
+    # with reset, remove the existing environments first, so that they are
+    # created again from scratch below (cadmixture86 only if ADMIXTURE is
+    # requested on osx)
     envname <- tgc_conda_env()
     if (reset) {
       if (reticulate::condaenv_exists(envname)) {
@@ -87,7 +93,10 @@ tgc_tools_install <-
       }
     }
 
-    # ctidygenclust holds all the tools, except ADMIXTURE on osx
+    # ctidygenclust holds all the tools, except ADMIXTURE on osx (so it is not
+    # needed on osx if only ADMIXTURE is requested). A new environment is
+    # created from the yaml without the tools that were not requested; an
+    # existing one is kept, and the missing tools are added below
     new_env <- FALSE
     if ("fastmixture" %in% tools || ("admixture" %in% tools && !is_mac)) {
       if (reticulate::condaenv_exists(envname)) {
@@ -115,6 +124,8 @@ tgc_tools_install <-
       }
     }
 
+    # on linux, ADMIXTURE is usually already installed from the yaml of a new
+    # environment; on osx, cadmixture86 is created by tgc_admixture_install()
     if ("admixture" %in% tools) {
       if (!tgc_tool_installed("admixture")) {
         tgc_admixture_install(
@@ -148,7 +159,8 @@ tgc_fastmixture_install <-
       tgc_check_brew()
     }
 
-    # create command line to install fastmixture
+    # create command line to install fastmixture (from the given commit of
+    # its github repository, replacing any version already installed)
     fast_install_cmd <- paste0(
       "python -m pip install ",
       "--upgrade --force-reinstall ",
@@ -158,7 +170,9 @@ tgc_fastmixture_install <-
 
     # on OSX we need to also install a suitable compiler for openmp
     if (is_mac) {
-      # install clang and llvm-openmp
+      # install clang and llvm-openmp in the environment, and run pip with
+      # the brew llvm first in the PATH and openmp enabled, so that the cython
+      # extensions of fastmixture are compiled with openmp
       reticulate::conda_install(
         envname = envname,
         packages = c("clang", "clangxx", "llvm-openmp"),
@@ -175,7 +189,8 @@ tgc_fastmixture_install <-
       )
     }
 
-    # now install fastmixture in the conda environment
+    # now install fastmixture in the conda environment (conda_run2() writes
+    # the lines of cmd_line to a script, run after activating the environment)
     reticulate::conda_run2(
       cmd_line = fast_install_cmd,
       envname = envname
@@ -208,18 +223,23 @@ tgc_fastmixture_install <-
 tgc_admixture_install <- function(conda_yaml = "auto", ci_install = FALSE) {
   tgc_check_os()
   if (Sys.info()[["sysname"]] == "Darwin") {
+    # cadmixture86 is always created from scratch
     if (reticulate::condaenv_exists("cadmixture86")) {
       reticulate::conda_remove("cadmixture86")
     }
     if (is.null(conda_yaml)) {
       conda_yaml <- NA_character_
     }
+    # resolve the yaml of cadmixture86, the second environment on osx (the
+    # first value, for ctidygenclust, is a placeholder)
     conda_yaml <- tgc_resolve_conda_yaml(c("auto", conda_yaml), ci_install)[2]
     # ADMIXTURE is only available for osx as x86 in bioconda
     # so we have to create a new environment and set it to x86_64
     reticulate::conda_create("cadmixture86",
       channel = c("bioconda", "conda-forge", "defaults")
     )
+    # make conda install x86 (osx-64) packages in this environment from now
+    # on (they run with Rosetta on silicon Macs)
     reticulate::conda_run2(
       cmd = "conda",
       arg = "config --env --set subdir osx-64",
@@ -343,12 +363,16 @@ tgc_resolve_conda_yaml <- function(conda_yaml, ci_install) {
     conda_yaml <- rep(conda_yaml, n_envs)
   }
 
+  # the snapshots are in inst/env_snapshots of the source package, which is
+  # in the working directory on CI, or in env_snapshots once installed
   conda_yaml_dir <- ifelse(
     ci_install,
     file.path("inst", "env_snapshots"),
     system.file("env_snapshots/", package = "tidygenclust")
   )
-  # replace "auto" with the path to the latest available yaml
+  # replace "auto" with the path to the latest available yaml (the file
+  # names end with the date of the snapshot, as YYYYMMDD, so the latest one
+  # is the last in alphabetical order)
   patterns <- if (is_mac) {
     c("ctidygenclust_osx_", "cadmixture86_osx_")
   } else {
@@ -363,7 +387,7 @@ tgc_resolve_conda_yaml <- function(conda_yaml, ci_install) {
     }
   }
 
-  # check that the files exist
+  # check that the files exist (NA values are left as they are)
   for (i in seq_len(n_envs)) {
     if (!is.na(conda_yaml[i]) && !file.exists(conda_yaml[i])) {
       stop(
@@ -384,11 +408,14 @@ tgc_resolve_conda_yaml <- function(conda_yaml, ci_install) {
 tgc_create_conda_env <- function(envname, tools, conda_yaml) {
   if (!is.na(conda_yaml)) {
     message("Using the conda yaml file ", conda_yaml)
+    # use a filtered copy of the yaml, deleted on exit
     conda_yaml <- tgc_filter_conda_yaml(conda_yaml, tools)
     on.exit(unlink(conda_yaml))
   } else {
     conda_yaml <- NULL
   }
+  # when a yaml file is given (environment), reticulate creates the
+  # environment from it, and 'packages' and 'channel' are ignored
   reticulate::conda_create(
     envname = envname,
     packages = c("python==3.11", "numpy>2.0.0", "cython>3.0.0", "pip"),
@@ -400,6 +427,9 @@ tgc_create_conda_env <- function(envname, tools, conda_yaml) {
 # a copy of a conda yaml file without the tools that were not requested
 tgc_filter_conda_yaml <- function(conda_yaml, tools) {
   lines <- readLines(conda_yaml)
+  # the dependency of each tool, either a conda package (e.g.
+  # "  - admixture=1.3.0") or a pip one (e.g. "      - fastmixture==1.3.0"),
+  # with or without a version
   tool_lines <- c(
     fastmixture = "^\\s*- fastmixture\\s*([=<>]|$)",
     admixture = "^\\s*- admixture\\s*([=<>]|$)"

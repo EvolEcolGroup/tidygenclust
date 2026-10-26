@@ -112,6 +112,8 @@
 // called inside a parallel region: R is not thread safe and an R error would
 // longjmp out of the OpenMP region. All validation happens beforehand, in
 // the Rcpp wrappers at the bottom of this file.
+// (and in the GenoView constructor, which every wrapper, and the fitting
+// loop in openadmixture_fit.cpp, runs before calling a kernel)
 //
 // Deviations from OpenADMIXTURE.jl
 // --------------------------------
@@ -197,6 +199,9 @@ static std::vector<double> transpose(const double* q, int K, size_t I) {
 // reuses it for every slice it processes, so there is no allocation in the
 // inner loops and no sharing between threads. Some functions reuse a and b
 // as scratch (loglik_slice() stores z and c in them).
+// accum_p_block() also overwrites a and wa with a - b and wa + wb, and
+// uses tmp for the products (wa + wb) q_k. Every buffer is recomputed for
+// each slice, so none of this outlives the slice.
 struct Slice {
   std::vector<double> qp, g, h, a, b, wa, wb, tmp;
   Slice() : qp(TILE_I), g(TILE_I), h(TILE_I), a(TILE_I), b(TILE_I),
@@ -232,6 +237,9 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
   // everything else can. Setting both g and h to 0 for a missing genotype
   // means it contributes 0 to every coefficient (a, b, wa, wb) and to the
   // log-likelihood, with no further tests downstream.
+  // The bytes read here are those of individuals i0..i1-1 in column j of
+  // the FBM: adjacent bytes when the gen_tibble keeps the rows of the
+  // backing file in order, scattered within the column otherwise.
   double gij;
   for (size_t ii = 0; ii < ni; ii++) {
     if (geno.get(i0 + ii, j, gij)) {
@@ -312,6 +320,9 @@ static void accum_q_block(const GenoView& geno, const double* qT,
   const size_t ni = i1 - i0, KK = (size_t) K * K;
   // number of distinct entries of a symmetric K x K matrix
   const size_t n_pair = (size_t) K * (K + 1) / 2;
+  // Accumulator vector k starts at gT + TILE_I * k (and pair idx at
+  // hT + TILE_I * idx) whatever ni is: a short last block simply leaves
+  // the tail of each vector unused.
   std::fill(gT, gT + K * TILE_I, 0.0);
   if (HESS) std::fill(hT, hT + n_pair * TILE_I, 0.0);
   const double* __restrict a = s.a.data();
@@ -386,11 +397,13 @@ static void accum_q_block(const GenoView& geno, const double* qT,
 // any n_cores (they differ from a single pass over the loci only by
 // rounding, as the sums are grouped differently).
 //
-// Memory: the partial sums take n_seg * I * (K + K (K + 1) / 2) doubles.
-// Segments are only used when I < MIN_Q_TASKS * TILE_I (2048 individuals),
-// and n_seg is about MIN_Q_TASKS / n_blocks, so n_seg * I is at most about
-// MIN_Q_TASKS * TILE_I: under 2 MB for K = 10. Larger datasets keep the
-// single-pass path (with block-local buffers only), unchanged.
+// Memory: the partial sums take n_seg * I * (K + K^2) doubles (the Hessians
+// are stored in full, K x K, ready to be added up). Segments are only used
+// when there are fewer than MIN_Q_TASKS blocks, i.e. I <= 1984, and n_seg is
+// ceil(MIN_Q_TASKS / n_blocks), so n_seg * I stays below
+// 2 * MIN_Q_TASKS * TILE_I = 4096 (the worst case is I = 1984: 31 blocks,
+// 2 segments): under 4 MB for K = 10. Larger datasets keep the single-pass
+// path (with block-local buffers only), unchanged.
 //
 // This is an implementation detail with no counterpart in OpenADMIXTURE.jl,
 // which splits the Q side over individuals only.
@@ -428,6 +441,8 @@ static void accum_q_segmented(const GenoView& geno, const double* qT,
   const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
   // tasks are the (segment, block of individuals) pairs, numbered
   // t = seg * nbi + bl
+  // (blocks vary fastest, so threads that start at the same time work on
+  // the same segment, i.e. on the same columns of the backing file)
   const size_t nbi = n_blocks(I, TILE_I);
   const ptrdiff_t n_tasks = (ptrdiff_t) (nbi * n_seg);
   // partial sums of each segment: K x I (and K x K x I) per segment, stored
@@ -458,6 +473,8 @@ static void accum_q_segmented(const GenoView& geno, const double* qT,
   }
   // add up the segments, always in segment order (deterministic); each
   // thread handles whole individuals
+  // (the implicit barrier at the end of the task loop above guarantees that
+  // every partial sum has been written before any thread reads it here)
 #pragma omp for schedule(static)
   for (ptrdiff_t i = 0; i < (ptrdiff_t) I; i++) {
     for (int k = 0; k < K; k++) {
@@ -498,6 +515,7 @@ static void accum_p_block(const GenoView& geno, const double* qT,
                           const double* p, int K, size_t j0, size_t j1,
                           double* out1, double* out2, Slice& s) {
   const size_t I = geno.nrow(), nj = j1 - j0, KK = (size_t) K * K;
+  // out2 holds K values per locus in EM mode, a K x K matrix otherwise
   std::fill(out1, out1 + K * nj, 0.0);
   std::fill(out2, out2 + (EM ? K : KK) * nj, 0.0);
   // a and wa are not const: in gradient mode they are overwritten in place
@@ -549,6 +567,8 @@ static void accum_p_block(const GenoView& geno, const double* qT,
           // Hessian column k, rows k2 >= k: sum_i [(wa + wb) q_ki] q_k2i.
           // The bracket depends only on k, so it is formed once in wq and
           // each entry is then a single dot product.
+          // Hk[k2] is H[k2 + K * k], i.e. the half with row k2 >= column k,
+          // the same half as on the Q side (see mirror_hess()).
 #pragma omp simd
           for (size_t ii = 0; ii < ni; ii++) wq[ii] = wa[ii] * qk[ii];
           double* Hk = o2 + K * k;
@@ -738,6 +758,7 @@ void deviance(const GenoView& geno, const double* q, const double* p, int K,
           const double g = s.g[ii], h = s.h[ii], qp = s.qp[ii];
           // a visible genotype always has g + h = n_i > 0
           if (g + h <= 0) continue;
+          // n_i, recovered as g + h (the slice does not store n_trials)
           const double n = g + h;
           // skip zero coefficients (0 log 0 = 0); the estimates are kept in
           // [1e-5, 1 - 1e-5], so qp is never exactly 0 or 1 here
@@ -845,6 +866,11 @@ void em(const GenoView& geno, const double* q, const double* p, int K,
         const double A = p[x] * sa[y], B = omp[x] * sb[y];
         // A + B = 0 means no observed allele copies are assigned to k at
         // this locus (e.g. all genotypes missing): keep the old frequency
+        // Unlike the Newton updates, the result is not projected, so a
+        // locus where every observed genotype is homozygous reference gets
+        // p_new = 0 exactly (A = 0), and one fixed for the alt allele
+        // p_new = 1. The kernels that follow cope with this through the
+        // guards on qp of exactly 0 or 1 (slice_coef(), loglik_slice()).
         p_new[x] = (A + B > 0) ? A / (A + B) : p[x];
       }
     }

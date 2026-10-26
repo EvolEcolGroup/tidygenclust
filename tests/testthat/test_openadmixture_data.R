@@ -35,7 +35,9 @@ test_that("decoding respects unsorted row and column subsets", {
 
 test_that("pseudohaploids are rescaled to a single allele", {
   hap_genotypes <- test_genotypes
-  # make individuals 2 and 4 fully homozygous
+  # make individuals 2 and 4 fully homozygous (they already are in
+  # test_genotypes, as is individual 6: gt_pseudohaploid() makes all three
+  # pseudohaploid, as they have no heterozygous genotypes)
   hap_genotypes[2, ] <- c(2, 2, 0, NA, 0, 0)
   hap_genotypes[4, ] <- c(2, 0, 0, 2, 0, 0)
   test_gt <- openadmixture_test_gt(hap_genotypes)
@@ -43,6 +45,7 @@ test_that("pseudohaploids are rescaled to a single allele", {
   dat <- openadmixture_prepare(pseudo_gt)
   ploidy <- tidypopgen::indiv_ploidy(pseudo_gt)
   expect_equal(dat$n_trials, as.numeric(ploidy))
+  # pseudohaploids are stored as 0/2 and decoded as 0/1
   expected <- hap_genotypes
   expected[ploidy == 1, ] <- expected[ploidy == 1, ] / 2
   expect_equal(openadmixture_decode(dat), expected, ignore_attr = TRUE)
@@ -50,6 +53,7 @@ test_that("pseudohaploids are rescaled to a single allele", {
 
 test_that("non-diploid data are rejected", {
   test_gt <- openadmixture_test_gt(test_genotypes)
+  # show_ploidy() reads this attribute, so this fakes a tetraploid dataset
   attr(test_gt$genotypes, "ploidy") <- 4
   expect_error(openadmixture_prepare(test_gt), "diploid or pseudohaploid")
   expect_error(openadmixture_prepare(data.frame(a = 1)), "gen_tibble")

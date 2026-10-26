@@ -44,6 +44,8 @@ openadmixture_prepare <- function(x, use_imputed = FALSE) {
   # `big_index`. Filtering, reordering and select_loci() only change these
   # indices, never the backing file, so we pass them on to C++; they can be
   # in any order.
+  # `rows` follows the rows of x (hence the ids and the rows of Q), and
+  # `cols` the loci as listed by show_loci() (hence the rows of P).
   fbm <- attr(x$genotypes, "fbm")
   rows <- vctrs::vec_data(x$genotypes)
   cols <- tidypopgen::show_loci(x)$big_index
@@ -61,6 +63,10 @@ openadmixture_prepare <- function(x, use_imputed = FALSE) {
   }
 
   # pseudohaploid individuals are stored as 0/2 but carry a single allele
+  # indiv_ploidy() gives one value per row of x: 2 for every individual of a
+  # diploid gen_tibble, and 1 or 2 (looked up by FBM row) for a
+  # pseudohaploid one. The check below is a safeguard: given the check of
+  # show_ploidy() above, other values should not occur.
   indiv_ploidy <- tidypopgen::indiv_ploidy(x)
   if (!all(indiv_ploidy %in% c(1, 2))) {
     stop("individual ploidies should be 1 (pseudohaploid) or 2",
@@ -73,6 +79,8 @@ openadmixture_prepare <- function(x, use_imputed = FALSE) {
   n_trials <- as.numeric(indiv_ploidy)
   scale <- n_trials / 2
 
+  # The C++ code reads the elements it needs by name; n_indiv and n_loci are
+  # only used in R (the C++ code takes the dimensions from rows and cols).
   list(
     fbm = fbm,
     rows = as.integer(rows),
@@ -118,16 +126,24 @@ openadmixture_decode <- function(data, cv = NULL) {
 #' @keywords internal
 #' @noRd
 openadmixture_set_cv <- function(data, cv = NULL) {
+  # `data` is a plain list, so the mask is added to a copy (the vectors and
+  # the FBM are shared, not duplicated): the caller's dataset is unchanged.
   if (is.null(cv)) {
+    # mode 0: no mask (this also removes a mask that `data` already had);
+    # the C++ code then ignores fold, n_folds and seed
     data$cv <- list(mode = 0L, fold = 1L, n_folds = 1L, seed = 0)
     return(data)
   }
+  # The C++ code checks the seed too, but is.finite() also rejects Inf,
+  # which it would let through before casting the seed to a 64-bit integer.
+  # (fold and n_folds are checked in C++.)
   seed_ok <- length(cv$seed) == 1 && is.finite(cv$seed) && cv$seed >= 0 &&
     cv$seed == floor(cv$seed)
   if (!seed_ok) {
     stop("'cv_seed' must be a non-negative integer", call. = FALSE)
   }
   data$cv <- list(
+    # 1 = train, 2 = held out; any other mode gives NA, rejected in C++
     mode = match(cv$mode, c("train", "held_out")),
     fold = as.integer(cv$fold),
     n_folds = as.integer(cv$n_folds),

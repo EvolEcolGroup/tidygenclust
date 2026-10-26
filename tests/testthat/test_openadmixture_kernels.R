@@ -53,7 +53,9 @@ test_that("loglik handles extreme frequencies and non-integer dosages", {
   # tiny qp where some genotypes are 2 (finite but below the batching limit)
   j_tiny <- which(colSums(inp$g == 2, na.rm = TRUE) > 0)[1:3]
   p[, j_tiny] <- 1e-16
-  # exact 0 and 1 where they do not make the likelihood infinite
+  # exact 0 and 1 where they do not make the likelihood infinite: loci where
+  # no observed genotype carries the alternate (j_zero) or the reference
+  # (j_one) allele; either set may be empty, depending on the simulation
   j_zero <- which(colSums(inp$g > 0, na.rm = TRUE) == 0)
   j_one <- which(colSums(inp$g < 2, na.rm = TRUE) == 0)
   p[, j_zero] <- 0
@@ -69,6 +71,8 @@ test_that("loglik handles extreme frequencies and non-integer dosages", {
     expect_identical(openadmixture_loglik_cpp(inp$geno, st$q, p, 2), -Inf)
   }
   # dosages that are not hard calls use the direct formula
+  # (decoding byte 1 as 0.7 instead of 1 turns heterozygotes into
+  # non-integer dosages)
   dat <- inp$dat
   dat$lut[1:3] <- c(0, 0.7, 2)
   geno <- dat
@@ -149,6 +153,8 @@ test_that("results do not depend on the number of cores", {
     openadmixture_grad_q_cpp, openadmixture_grad_p_cpp,
     openadmixture_update_q_cpp, openadmixture_update_p_cpp
   )
+  # identical, not just equal: the threads must not change the order in
+  # which the sums are accumulated
   for (kernel in kernels) {
     res1 <- kernel(inp$geno, st$q, st$p, 1)
     expect_identical(kernel(inp$geno, st$q, st$p, 2), res1)
@@ -159,6 +165,8 @@ test_that("results do not depend on the number of cores", {
 test_that("kernels do not modify their inputs", {
   inp <- openadmixture_ref_inputs(openadmixture_test_gt(sim$genotypes))
   st <- openadmixture_ref_start(60, 200, 3)
+  # adding 0 makes new copies, so that a kernel writing into its inputs
+  # would make them differ from st
   q <- st$q + 0
   p <- st$p + 0
   invisible(openadmixture_em_cpp(inp$geno, q, p, 2))

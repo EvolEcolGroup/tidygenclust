@@ -48,6 +48,9 @@ openadmixture_fit <- function(data, k, init_q = NULL, init_p = NULL,
   # openadmixture_fit_cpp(), so set.seed() makes fits reproducible
   # (gt_openadmixture() handles the seeds). Starting values are passed in the
   # user layout (individuals x K and loci x K), as are the estimates returned.
+  # The C++ function takes them as numeric matrices or NULL. (Rcpp would also
+  # convert an integer matrix, so this conversion only makes the storage
+  # mode explicit: the callers in the package already pass doubles.)
   as_double_matrix <- function(x) {
     if (is.null(x)) {
       return(NULL)

@@ -11,7 +11,7 @@ A list with the version of the optional tools installed by
 \code{tidygenclust}
 }
 \description{
-This function prints the version of the optional tools
+This function returns the version of the optional tools
 installed by \code{\link[=tgc_tools_install]{tgc_tools_install()}}: \code{fastmixture} and \code{ADMIXTURE}. Tools
 that are not installed have version NA.
 }

@@ -119,6 +119,8 @@ gt_clumppling <- function(
       "returned as R objects and are no longer written to files"
     )
   }
+  # cd_method is either the name of a supported method or a user function
+  # (see clumppling_cd_default())
   is_method_name <- is.character(cd_method) && length(cd_method) == 1 &&
     cd_method %in% clumppling_cd_methods
   valid_method <- is.function(cd_method) || is_method_name
@@ -138,8 +140,12 @@ gt_clumppling <- function(
   if (length(x$Q) < 2) {
     stop("'x' must contain more than one Q matrix")
   }
+  # validate and rescale the Q matrices, drop those with K = 1, and name them
+  # as clumppling does (e.g. "3_K2R1"), grouped by K
   q_data <- clumppling_prepare_q_list(x$Q)
 
+  # the seed is set only now (and the RNG state restored when this function
+  # exits), so that it only affects community detection
   if (!is.null(seed)) {
     clumppling_local_seed(seed)
   }
@@ -194,7 +200,9 @@ clumppling_local_seed <- function(seed, envir = parent.frame()) {
       global_env[[".Random.seed"]] <- old_seed
     }
   }
-  # the call embeds the function itself, as `restore` is not visible from the
+  # on.exit() registers its expression in the frame it is evaluated in, so
+  # it is called (with do.call()) in the calling frame, as withr does. The
+  # call embeds the function itself, as `restore` is not visible from the
   # calling frame
   do.call(on.exit, list(as.call(list(restore)), add = TRUE), envir = envir)
   set.seed(seed)

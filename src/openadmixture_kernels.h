@@ -29,11 +29,14 @@
 //
 // Common arguments:
 //   geno     genotype accessor (I individuals x J loci), see
-//   openadmixture_geno_access.h q, p     current estimates, K x I and K x J,
-//   column-major, read only K        number of ancestral populations
+//            openadmixture_geno_access.h
+//   q, p     current estimates, K x I and K x J, column-major, read only
+//   K        number of ancestral populations
 //   n_cores  number of OpenMP threads (results are identical for any value)
 // Output buffers are allocated by the caller with the sizes stated below and
-// are completely overwritten.
+// are completely overwritten. They must not overlap q or p: the kernels are
+// not written to work in place (em(), for instance, reads q while it
+// normalises q_new).
 
 #include "openadmixture_geno_access.h"
 

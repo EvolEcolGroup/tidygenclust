@@ -10,6 +10,8 @@
 #' @keywords internal
 #' @noRd
 clumppling_labels_to_modes <- function(communities) {
+  # labels must be 0, 1, ..., n_modes - 1 (as returned by
+  # clumppling_detect_communities()), so that mode i + 1 has label i
   if (max(communities) != length(unique(communities)) - 1) {
     stop("Community labels should be zero-indexed and consecutive.")
   }
@@ -78,6 +80,8 @@ clumppling_extract_modes <- function(modes, cost_mat, q_names, q_list,
     q_ref <- q_list[[i_ref]]
     identity_pattern <- clumppling_pattern_to_str(seq_len(ncol(q_ref)))
     rep_q_modes[[mode_idx]] <- q_ref
+    # a mode with a single replicate: no cost, perfect similarity, and the
+    # average is the replicate itself
     if (length(all_indices) == 1) {
       mode_stats[[mode_idx]] <- data.frame(
         Mode = mode_label, Representative = repr_name, Size = 1, Cost = 0,
@@ -90,6 +94,9 @@ clumppling_extract_modes <- function(modes, cost_mat, q_names, q_list,
       )
       next
     }
+    # Cost is the average alignment cost between pairs of replicates in the
+    # mode, and Performance their average similarity (cost rescaled as in
+    # clumppling, 1 = identical)
     sub_cost <- cost_mat[all_indices, all_indices, drop = FALSE]
     mode_stats[[mode_idx]] <- data.frame(
       Mode = mode_label, Representative = repr_name,
@@ -98,6 +105,8 @@ clumppling_extract_modes <- function(modes, cost_mat, q_names, q_list,
       Performance = clumppling_avg_tril(clumppling_cost_to_similarity(sub_cost))
     )
     # align the other replicates to the representative, and average them
+    # (the clusters of different replicates are only comparable once their
+    # columns have been matched to those of the representative)
     q_sum <- matrix(0, nrow(q_ref), ncol(q_ref))
     alignments <- character(length(all_indices))
     for (i in seq_along(all_indices)) {
@@ -106,6 +115,8 @@ clumppling_extract_modes <- function(modes, cost_mat, q_names, q_list,
         q_sum <- q_sum + q_ref
         alignments[i] <- identity_pattern
       } else {
+        # the columns of replicate r matched to those of the representative
+        # (alignment_withinK[(representative, r)] in clumppling)
         idx <- pattern[, i_ref, r]
         q_sum <- q_sum + clumppling_align_q_wrt_p(q_ref, q_list[[r]], idx)$q
         alignments[i] <- clumppling_pattern_to_str(idx)

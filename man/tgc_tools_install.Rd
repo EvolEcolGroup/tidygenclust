@@ -24,12 +24,12 @@ version to install. Default is the latest tested version.}
 
 \item{conda_yaml}{A vector of string with the path for the \code{yaml} files used
 for installation (one for \code{ctidygenclust} and, for osx only, one for
-admixture in 86 compatibility model). The value of each
+admixture in x86 compatibility mode). The value of each
 string can either be "auto" (the default, select the latest available yaml
 that has been tested to work on a given operating system), NULL (let conda
 attempt to install the latest available packages from the internet), or a
 path to a specific conda yaml found in "inst/env_snapshots". For "auto" or
-NULL, it is also possible to provide a vector of lenght one, and the value
+NULL, it is also possible to provide a vector of length one, and the value
 will apply to all the conda environments (e.g. \code{conda_yaml="auto"} is
 equivalent to \code{conda_yaml = c("auto", "auto")} in osx). Tools that are
 not in \code{tools} are left out of the yaml files.}
@@ -66,17 +66,18 @@ not installed yet (alternatively, use \code{\link[=tgc_fastmixture_install]{tgc_
 \code{\link[=tgc_admixture_install]{tgc_admixture_install()}} to add a tool to an existing environment).
 \code{\link[=tgc_tools_version]{tgc_tools_version()}} reports the tools that are installed.
 
-For each tool, default to the latest tested version of these
-packages that have been tested to work with \code{tidegenclust}. It is possible
+For each tool, default to the latest version of these
+packages that has been tested to work with \code{tidygenclust}. It is possible
 to provide a more recent github commit for a specific tool, but this might
 lead to incompatibilities and errors.
 
-We have found installation on OSX to be tricky, so we provide two methods
-for installing \code{fastmixture} on OSX: \code{reticulate} and \code{conda_yaml}. The
-\code{reticulate} method uses the \code{reticulate::conda_run2()} function to run
-installation commands, while the \code{conda_yaml} method creates a conda
-environment directly with conda. If the \code{reticulate} method fails, you can
-use the \code{conda_yaml} method to create the environment directly with conda.
+The conda environment is created from a conda yaml file with the
+versions of all the packages that have been tested on each operating
+system (see \code{conda_yaml}); \code{fastmixture} is then installed from its
+github repository with \code{pip}, run in the environment with
+\code{reticulate::conda_run2()}. We have found installation on OSX to be
+tricky: if it fails with the tested yaml, you can try \code{conda_yaml = NULL}
+to let conda install the latest available packages.
 For OSX, you might also need to install a suitable compiler for openmp
 using \code{brew} in \code{bash}, setting the correct paths to use it:
 

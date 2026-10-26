@@ -32,18 +32,24 @@ clumppling_detect_communities <- function(cost_mat, test_comm = FALSE,
   if (n_nodes == 0) {
     stop("Cost matrix is empty.")
   }
+  # a single replicate is a mode on its own
   if (n_nodes == 1) {
     return(0L)
   }
+  # the costs between distinct replicates (the diagonal is 0)
   off_diag <- cost_mat[row(cost_mat) != col(cost_mat)]
   cost_min <- min(off_diag)
   cost_max <- max(off_diag)
+  # two replicates: one mode if they are (almost) identical, two otherwise
+  # (community detection is not meaningful on a graph with one edge)
   if (n_nodes == 2) {
     return(if (cost_mat[1, 2] < min_threshold) c(0L, 0L) else c(0L, 1L))
   }
+  # all replicates (almost) identical: a single mode
   if (cost_max < min_threshold) {
     return(rep(0L, n_nodes))
   }
+  # all replicates very different from each other: one mode per replicate
   if (cost_min > max_threshold) {
     return(seq_len(n_nodes) - 1L)
   }
@@ -53,12 +59,17 @@ clumppling_detect_communities <- function(cost_mat, test_comm = FALSE,
     return(seq_len(n_nodes) - 1L)
   }
 
+  # otherwise, similarities (costs rescaled to [0, 1] and flipped) are the
+  # weights of a complete graph between replicates, whose communities are
+  # the modes; without community structure (if tested), all the replicates
+  # form a single mode
   adj_mat <- clumppling_cost_to_adj(cost_mat, norm = TRUE)
   has_comm_struc <- if (test_comm) clumppling_test_comm_struc(adj_mat) else TRUE
   if (!has_comm_struc) {
     return(rep(0L, n_nodes))
   }
   communities <- clumppling_cd_default(adj_mat, method = method, res = res)
+  # (clumppling returns singletons if a method finds no communities)
   if (length(communities) == 0) {
     return(seq_len(n_nodes) - 1L)
   }
@@ -130,12 +141,18 @@ clumppling_test_comm_struc <- function(w) {
     out[off_diag] <- (v - v_mean) / sqrt(mean((v - v_mean)^2))
     out
   }
+  # without community structure, the off-diagonal weights behave like
+  # independent noise, and the extreme eigenvalues of the standardised
+  # matrix (scaled by sqrt(n)) follow the Tracy-Widom distribution; the
+  # exponentiated weights make the test more sensitive to a few strong edges
   t_mat <- standardize(w) / sqrt(n)
   w_exp <- matrix(0, n, n)
   w_exp[off_diag] <- exp(w[off_diag] * 0.5)
   te_mat <- standardize(w_exp) / sqrt(n)
   eig_t <- eigen(t_mat, symmetric = TRUE, only.values = TRUE)$values
   eig_te <- eigen(te_mat, symmetric = TRUE, only.values = TRUE)$values
+  # count the extreme eigenvalues that fall within the bounds expected
+  # without structure; structure is detected if any of the four falls out
   s <- (max(eig_t) < ci_max) + (min(eig_t) > ci_min) +
     (max(eig_te) < ci_max) + (min(eig_te) > ci_min)
   s != 4
@@ -240,6 +257,10 @@ clumppling_mcl <- function(adj_mat, expansion = 2, inflation = 2,
     diag(m) <- loop_value
   }
   m <- normalize(m)
+  # m is column-stochastic (flows out of each node); every iteration expands
+  # (matrix power) and inflates (elementwise power, then normalisation) the
+  # flow, which concentrates it within clusters. `i` is 0-based, as in
+  # python, for the pruning and convergence schedules.
   for (i in seq_len(iterations) - 1) {
     last_m <- m
     expanded <- m
@@ -259,11 +280,13 @@ clumppling_mcl <- function(adj_mat, expansion = 2, inflation = 2,
     }
     check <- i %% convergence_check_frequency ==
       convergence_check_frequency - 1
+    # numpy's allclose(m, last_m), with rtol = 1e-5 and atol = 1e-8
     if (check && all(abs(m - last_m) - 1e-5 * abs(last_m) <= 1e-8)) {
       break
     }
   }
-  # clusters are the non-zero entries of the rows of the attractors
+  # clusters are the non-zero entries of the rows of the attractors (nodes
+  # that keep some flow to themselves at convergence)
   attractors <- which(diag(m) != 0)
   clusters <- unique(lapply(attractors, function(a) which(m[a, ] != 0)))
   # sort clusters as python sorts tuples

@@ -17,6 +17,17 @@
 // solution of the ILP maps to an assignment with the same or lower cost, and
 // vice versa, so the optima coincide. The square assignment problem is solved
 // with the shortest augmenting path (Hungarian) algorithm in O(K^3).
+//
+// For example, with K_P = 2 and K_Q = 3 the 3 x 3 problem has columns
+// (P1, P2, free): two columns of Q are matched one to one with P1 and P2,
+// and the third goes to the free column and is mapped to its closest
+// column of P, so that column of P receives two columns of Q.
+//
+// Index conventions: matrices come from R in column-major order; distance
+// and cost matrices built here are row-major (one row per column of Q);
+// column indices are 0-based in C++ and converted to 1-based only when
+// results are returned to R. When the optimum is not unique (ties), the
+// solution can differ from the one found by GLPK, but has the same cost.
 
 #include <Rcpp.h>
 #include <cmath>
@@ -32,18 +43,35 @@ struct clumppling_alignment {
 
 // Solve the square linear sum assignment problem (minimisation) for the
 // n x n row-major cost matrix `a`; returns the column assigned to each row.
+//
+// This is the classic O(n^3) Hungarian algorithm in its shortest augmenting
+// path form. It keeps dual potentials u (rows) and v (columns) such that the
+// reduced cost a[i][j] - u[i] - v[j] is never negative, and is zero on every
+// matched pair. Rows are added one at a time: from the new row, a
+// Dijkstra-like search over reduced costs grows a tree of alternating paths
+// (unmatched edge to a column, matched edge back to that column's row) until
+// it reaches a free column; the matching is then flipped along that path,
+// which increases its size by one while keeping it optimal for the rows
+// added so far.
 std::vector<int> clumppling_lsap(const std::vector<double>& a, int n) {
   const double inf = std::numeric_limits<double>::infinity();
   // 1-based potentials and matchings, with index 0 as a sentinel
+  // p[j]: the row matched to column j (0 if free); p[0] is the row being
+  // added. way[j]: the previous column on the shortest path to column j.
+  // minv[j]: the smallest reduced cost from a row in the tree to column j.
+  // used[j]: column j (and the row matched to it) is in the tree.
   std::vector<double> u(n + 1, 0.0), v(n + 1, 0.0), minv(n + 1);
   std::vector<int> p(n + 1, 0), way(n + 1, 0);
   std::vector<char> used(n + 1);
   for (int i = 1; i <= n; ++i) {
+    // start the search from row i, attached to the virtual column 0
     p[0] = i;
     int j0 = 0;
     std::fill(minv.begin(), minv.end(), inf);
     std::fill(used.begin(), used.end(), 0);
     do {
+      // add column j0 (and its row i0) to the tree, and update the reduced
+      // costs to the columns outside the tree through row i0
       used[j0] = 1;
       const int i0 = p[j0];
       double delta = inf;
@@ -55,15 +83,20 @@ std::vector<int> clumppling_lsap(const std::vector<double>& a, int n) {
             minv[j] = cur;
             way[j] = j0;
           }
+          // j1: the closest column outside the tree (first one on ties)
           if (minv[j] < delta) {
             delta = minv[j];
             j1 = j;
           }
         }
       }
+      // no reachable column: only possible with infinite or NaN costs
       if (j1 == 0) {
         Rcpp::stop("the assignment problem could not be solved (non-finite costs?)");
       }
+      // shift the potentials by delta, so that the edge to column j1 has a
+      // zero reduced cost: reduced costs stay non-negative, and those of the
+      // edges within the tree do not change
       for (int j = 0; j <= n; ++j) {
         if (used[j]) {
           u[p[j]] += delta;
@@ -73,13 +106,17 @@ std::vector<int> clumppling_lsap(const std::vector<double>& a, int n) {
         }
       }
       j0 = j1;
+      // stop when the new column is free (an augmenting path was found),
+      // otherwise continue from the row matched to it
     } while (p[j0] != 0);
+    // augment: walk back along the path, moving each row to the next column
     do {
       const int j1 = way[j0];
       p[j0] = p[j1];
       j0 = j1;
     } while (j0 != 0);
   }
+  // convert the column -> row matching into 0-based row -> column
   std::vector<int> row2col(n);
   for (int j = 1; j <= n; ++j) {
     row2col[p[j] - 1] = j - 1;
@@ -112,6 +149,10 @@ std::vector<double> clumppling_sqdist(const double* P, int n, int kp,
 // reduction described at the top of the file).
 clumppling_alignment clumppling_align_from_dist(const std::vector<double>& d,
                                                 int kp, int kq) {
+  // the k_q x k_q assignment problem: columns 0, ..., k_p - 1 are those of
+  // P, and columns k_p, ..., k_q - 1 are the free columns, where every
+  // column of Q costs its distance to its closest column of P (the first
+  // one on ties); with k_q == k_p there are no free columns
   std::vector<double> a(static_cast<size_t>(kq) * kq);
   std::vector<int> closest(kq);
   for (int q = 0; q < kq; ++q) {
@@ -126,6 +167,9 @@ clumppling_alignment clumppling_align_from_dist(const std::vector<double>& d,
     }
   }
   const std::vector<int> row2col = clumppling_lsap(a, kq);
+  // map the columns of Q assigned to free columns to their closest column
+  // of P; the objective is the sum of the distances of the final mapping,
+  // which equals the optimal cost of the assignment problem
   clumppling_alignment res;
   res.idx.resize(kq);
   res.obj = 0.0;
@@ -147,13 +191,19 @@ clumppling_alignment clumppling_align_ilp(const double* P, int n, int kp,
 // merge with the lowest objective.
 clumppling_alignment clumppling_align_ilp_diff1(const double* P, int n, int kp,
                                                 const double* Q, int kq) {
+  // distances between the original columns, computed once and reused for
+  // every merge
   const std::vector<double> d = clumppling_sqdist(P, n, kp, Q, kq);
   clumppling_alignment best;
   best.obj = std::numeric_limits<double>::infinity();
   std::vector<int> old_idx;
   old_idx.reserve(kq);
   std::vector<double> merged(n);
+  // k_p x k_p distances of the merged matrix (Q_comb in clumppling): rows
+  // 0, ..., k_p - 2 are the unmerged columns of Q in increasing order, and
+  // row k_p - 1 is the merged column
   std::vector<double> d_comb(static_cast<size_t>(kp) * kp);
+  // pairs (a, b), a < b, in lexicographic order, as itertools.combinations
   for (int a = 0; a < kq - 1; ++a) {
     for (int b = a + 1; b < kq; ++b) {
       old_idx.clear();
@@ -175,10 +225,14 @@ clumppling_alignment clumppling_align_ilp_diff1(const double* P, int n, int kp,
       for (int p = 0; p < kp; ++p) {
         d_comb[static_cast<size_t>(kp - 1) * kp + p] = d_merged[p];
       }
+      // the merged matrix has as many columns as P: a permutation
       const clumppling_alignment res =
           clumppling_align_from_dist(d_comb, kp, kp);
+      // strict comparison: the first pair wins on ties, as in clumppling
       if (res.obj < best.obj) {
         best.obj = res.obj;
+        // translate back to the columns of Q: both merged columns map to
+        // the column of P matched to the merged column
         best.idx.assign(kq, 0);
         for (size_t k = 0; k < old_idx.size(); ++k) {
           best.idx[old_idx[k]] = res.idx[k];
@@ -201,6 +255,7 @@ void clumppling_check_pair(const Rcpp::NumericMatrix& P,
   }
 }
 
+// the alignment as an R list, with 1-based column indices
 Rcpp::List clumppling_alignment_to_r(const clumppling_alignment& res) {
   Rcpp::IntegerVector idx(res.idx.size());
   for (size_t q = 0; q < res.idx.size(); ++q) idx[q] = res.idx[q] + 1;
@@ -258,6 +313,7 @@ Rcpp::List clumppling_align_ilp_diff1_cpp(Rcpp::NumericMatrix P,
 // [[Rcpp::export]]
 Rcpp::List clumppling_align_within_k_cpp(Rcpp::List q_list) {
   const int r = q_list.size();
+  // the replicates (as<NumericMatrix> coerces integer matrices to double)
   std::vector<Rcpp::NumericMatrix> qs;
   qs.reserve(r);
   for (int i = 0; i < r; ++i) qs.push_back(Rcpp::as<Rcpp::NumericMatrix>(q_list[i]));
@@ -271,6 +327,8 @@ Rcpp::List clumppling_align_within_k_cpp(Rcpp::List q_list) {
   Rcpp::NumericMatrix cost(r, r);
   Rcpp::IntegerVector pattern(static_cast<size_t>(k) * r * r);
   pattern.attr("dim") = Rcpp::IntegerVector::create(k, r, r);
+  // element [c, i, j] (0-based) of the column-major K x R x R array: the
+  // (1-based) column of replicate i matched to column c of replicate j
   auto pat = [&](int c, int i, int j) -> int& {
     return pattern[c + static_cast<size_t>(k) * (i + static_cast<size_t>(r) * j)];
   };
@@ -296,6 +354,9 @@ Rcpp::List clumppling_align_within_k_cpp(Rcpp::List q_list) {
       // numpy computes the Frobenius norm and then squares it
       const double norm = std::sqrt(s);
       cost(i, j) = cost(j, i) = norm * norm / (2.0 * n);
+      // with the same K the alignment is a permutation: [, i, j] maps the
+      // columns of Q_j onto Q_i, and its inverse [, j, i] maps Q_i onto Q_j
+      // (reverse_alignment_same_K() in clumppling)
       for (int c = 0; c < k; ++c) {
         pat(c, i, j) = res.idx[c] + 1;
         pat(res.idx[c], j, i) = c + 1;

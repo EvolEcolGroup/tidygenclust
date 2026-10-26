@@ -38,6 +38,8 @@ openadmixture_eur_subset_bed <- function() {
 # are arbitrary); returns the permutation
 openadmixture_match_clusters <- function(q, q_ref) {
   k <- ncol(q)
+  # all the permutations of 1:n, one per row, built recursively: each value
+  # i in turn, followed by every permutation of the other values
   perms <- function(n) {
     if (n == 1) {
       return(matrix(1))

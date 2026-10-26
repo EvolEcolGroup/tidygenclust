@@ -1,6 +1,16 @@
-# this is derived form https://github.com/Rosemeis/fastmixture/blob/main/fastmixture/main.py
+# this is derived from https://github.com/Rosemeis/fastmixture/blob/main/fastmixture/main.py
 # @author of the original file Jonas Meisner
 # modified by Andrea Manica for use with tidygenclust
+#
+# fastmixture_run() follows the main function of fastmixture (version 1.3.0,
+# fastmixture/fastmixture.py), but it returns the estimates to R instead of
+# writing them to files, and it can read the genotypes directly from the
+# backing file of a gen_tibble. It is called by gt_fastmixture(), which
+# passes the arguments as an argparse Namespace with the same fields as the
+# command line options of fastmixture (see the parser below), plus 'plink'
+# (whether 'bfile' is the prefix of PLINK files or the backing file of a
+# gen_tibble), 'n_indiv' and 'n_loci' (the numbers of individuals and loci of
+# the gen_tibble) and 'safety' (which is not used).
 
 # Libraries
 import argparse
@@ -12,6 +22,8 @@ from time import time
 from fastmixture import __version__ as VERSION
 
 ### Argparse
+# the parser of the command line version, kept for reference: the arguments
+# are now created in R
 # parser = argparse.ArgumentParser(prog="fastmixture")
 # parser.add_argument("--version", action="version",
 # 	version=f"v{VERSION}")
@@ -116,7 +128,10 @@ def fastmixture_run(args):
 	# 			log.write(f"\t--{key} {full[key]}\n")
 	# del full, deaf, mand
 
-	# Control threads of external numerical libraries
+	# Control threads of external numerical libraries (these variables are
+	# only read when each library is initialised, so they have no effect on
+	# libraries that were already loaded in this process, e.g. by R or by an
+	# earlier call)
 	os.environ["MKL_NUM_THREADS"] = str(args.threads)
 	os.environ["MKL_MAX_THREADS"] = str(args.threads)
 	os.environ["OMP_NUM_THREADS"] = str(args.threads)
@@ -134,6 +149,9 @@ def fastmixture_run(args):
 	rng = np.random.default_rng(args.seed) # Set up random number generator
 
 	### Read data
+	# G is the M x N matrix of genotypes (allele counts, 9 for missing), with
+	# the SNPs in random order (s_ord), and q_nrm is the number of
+	# non-missing alleles of each individual
 	if args.plink:
 		assert os.path.isfile(f"{args.bfile}.bed"), "bed file doesn't exist!"
 		assert os.path.isfile(f"{args.bfile}.bim"), "bim file doesn't exist!"
@@ -143,6 +161,9 @@ def fastmixture_run(args):
 		print(f"\rLoaded {N} samples and {M} SNPs.")
 		assert not np.any(q_nrm == 0), "Sample(s) with zero information!"
 	else:
+		# the backing file of a gen_tibble has one byte per genotype (0, 1
+		# and 2 alternate alleles, 3 for missing, larger values for imputed
+		# genotypes), without a header
 		N = args.n_indiv
 		M = args.n_loci
 		G_raw = np.fromfile(args.bfile, dtype=np.uint8)
@@ -153,6 +174,9 @@ def fastmixture_run(args):
 		s_ord = np.arange(M, dtype=np.uint32)
 		rng.shuffle(s_ord)
 		G = np.empty((M, N), dtype=np.uint8)
+		# row s_ord[j] of G holds SNP j, the same permutation applied by
+		# shared.expandShuf() to PLINK files, so that shared.reorderP()
+		# restores the original order of P below
 		G[s_ord] = G_raw
 		del G_raw
 		# set missing/imputed values to 9
@@ -258,6 +282,10 @@ def fastmixture_run(args):
 	t_sec = int(t_tot - t_min*60)
 	print(f"Total elapsed time: {t_min}m{t_sec}s")
 	
+	# return Q, followed by P (unless no_freqs) and the cross-validation
+	# results (a dict with the average and standard deviation of the error
+	# across folds) if cv was requested; reticulate converts the tuple to an
+	# unnamed list
 	if not args.no_freqs:
 		# Return P in the original SNP order
 		if args.projection is None:
@@ -275,6 +303,7 @@ def fastmixture_run(args):
 			return Q
 
 
+	# the output files of the command line version, kept for reference
 	# ### Save estimates and write output to log-file
 	# np.savetxt(f"{args.out}.K{args.K}.s{args.seed}.Q", Q, fmt="%.6f")
 	# print(f"Saved Q matrix as {args.out}.K{args.K}.s{args.seed}.Q")

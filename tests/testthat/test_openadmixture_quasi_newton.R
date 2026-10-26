@@ -3,7 +3,8 @@
 
 # reference: the formula on the stacked vectors x = c(q, p), with the secant
 # pairs in `pairs` (each a list of x0, x1 and x2) and the step taken from the
-# latest x0 and x1
+# latest x0 and x1: with U = (x1 - x0) and V = (x2 - x1) in columns,
+# x_qn = x1 - V (U'(U - V))^-1 U'(x0 - x1)
 qn_reference <- function(pairs, x0, x1) {
   u_mat <- sapply(pairs, function(x) x$x1 - x$x0)
   v_mat <- sapply(pairs, function(x) x$x2 - x$x1)
@@ -33,6 +34,8 @@ test_that("the quasi-Newton step matches the formula", {
     s0 <- random_state(k, n_indiv, n_loci)
     s1 <- random_state(k, n_indiv, n_loci)
     s2 <- random_state(k, n_indiv, n_loci)
+    # the pairs are stored in a circular buffer of 3 columns: the fourth
+    # iteration overwrites the first pair
     col <- (iter - 1) %% 3 + 1
     openadmixture_qn_push_cpp(state, col, s0$q, s0$p, s1$q, s1$p, s2$q, s2$p)
     xs[[col]] <- list(
@@ -42,6 +45,8 @@ test_that("the quasi-Newton step matches the formula", {
     res <- openadmixture_qn_step_cpp(state, n_used, s0$q, s0$p, s1$q, s1$p, 2)
     # the pairs stored so far (the order of the columns does not matter)
     x_ref <- qn_reference(xs, xs[[col]]$x0, xs[[col]]$x1)
+    # split the stacked vector back into q and p, and project each block
+    # onto its feasible set, as the C++ step does
     q_ref <- openadmixture_project_q_cpp(matrix(x_ref[seq_len(k * n_indiv)], k))
     p_ref <- openadmixture_project_p_cpp(
       matrix(x_ref[k * n_indiv + seq_len(k * n_loci)], k)

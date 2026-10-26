@@ -32,6 +32,10 @@
 // diploids, 0.5 for pseudohaploids, which tidypopgen stores as 0/2).
 // In the ADMIXTURE model, g_ij ~ Binomial(n_i, qp_ij), so a pseudohaploid
 // individual contributes a single allele (0 or 1) per locus.
+// (tidypopgen::gt_pseudohaploid() only checks the first loci for
+// heterozygous calls, so a pseudohaploid can still hold a stored 1 further
+// on. It decodes to g = 0.5 with n_i = 1, which the kernels treat as a
+// fractional count; the log-likelihood takes its slow, exact path for it.)
 //
 // The view is immutable after construction and therefore safe to share
 // between OpenMP threads. Do not call any R API from inside parallel regions.
@@ -98,6 +102,11 @@ public:
   // through a raw pointer, so `data` (which holds the FBM, and hence the
   // mapping) must stay alive while the view is used, which is always the
   // case within a call from R.
+  // (Strictly, the mapping belongs to the external pointer kept in the
+  // FBM's `extptr` field, and R code that resets that field, such as
+  // FBM$add_columns(), lets the garbage collector unmap it. No R code runs
+  // inside the kernels; the fitting loop only calls message() and checks
+  // for interrupts between passes.)
   // All checks happen here, in the constructor, which is always called on
   // the main thread before any parallel region, so that Rcpp::stop() can
   // safely be used.
@@ -166,6 +175,8 @@ public:
       Rcpp::stop("'cv_seed' must be a non-negative integer.");
     _cv_mode = cv_mode;
     _cv_fold = (uint64_t) cv_fold;
+    // n_folds is only checked for masked views; flooring it at 1 keeps
+    // fold() (hash % _n_folds) free of a division by zero in any mode
     _n_folds = (uint64_t) (n_folds > 0 ? n_folds : 1);
     _cv_seed = (uint64_t) cv_seed;
   }
@@ -189,6 +200,9 @@ public:
     // single, perfectly predictable branch.
     if (_cv_mode != CV_NONE) {
       const bool in_fold = fold(i, j) == _cv_fold;
+      // hidden when in_fold matches the mode: in a training view the
+      // genotypes of the fold (in_fold true), in a held-out view all the
+      // others (in_fold false)
       if (in_fold == (_cv_mode == CV_TRAIN)) return false;
     }
     g = _lut[b] * _scale[i];
@@ -202,6 +216,11 @@ public:
   // genotypes get unrelated folds, so folds are spread evenly across
   // individuals and loci.
   inline uint64_t fold(size_t i, size_t j) const {
+    // The input to the finaliser combines the seed with i and j, each
+    // multiplied by a different large odd constant (the splitmix64
+    // increment and a 64-bit prime of xxHash), so that (i, j) and (j, i)
+    // give different values; the + 1 keeps row 0 and column 0 from
+    // dropping out of the sum. All arithmetic wraps modulo 2^64.
     uint64_t z = _cv_seed + 0x9E3779B97F4A7C15ULL * ((uint64_t) i + 1) +
       0xC2B2AE3D27D4EB4FULL * ((uint64_t) j + 1);
     z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;

@@ -250,6 +250,14 @@ static int create_tableau(const double* H, const double* grad,
 //     increasing par[i] would still improve the log-likelihood). These
 //     entries are not changed by a step along the Newton direction, which
 //     is why the step loop below only rescales the swept rows.
+// For Q, where the sum constraint is swept too, "gradient" means the
+// gradient of the Lagrangian: with A = H + mu 11' and lambda as in
+// create_tableau, tab[i, last] = (grad - A delta + lambda 1)_i at the
+// minimiser. It is 0 for every free parameter; for a fixed one it is the
+// rate at which the model improves when par[i] increases and the free
+// parameters absorb the change in the sum. mu changes every entry of
+// A delta by the same amount (mu r, as 1' delta = r), which lambda absorbs,
+// so mu does not affect these signs either.
 int qp_solve_column(const double* H, const double* grad, const double* par,
                     int K, bool simplex, double* delta, QPWork& work) {
   // box bounds for par + delta; the projections later tighten these to
@@ -308,6 +316,10 @@ int qp_solve_column(const double* H, const double* grad, const double* par,
     // the upper bound, one moving down by the lower bound. a = 1 means the
     // full step is feasible. Components with |u_i| <= 1e-10 are ignored,
     // as they cannot reach a bound and would make ai / ui ill-defined.
+    // (a can come out marginally negative, a small step backwards, when
+    // rounding has left a free parameter just beyond its bound, e.g. when
+    // two parameters reached their bounds in the same step and only one of
+    // them has been fixed so far.)
     double a = 1.0;
     for (int i = 0; i < p; i++) {
       if (!swept[i]) continue;
@@ -320,6 +332,10 @@ int qp_solve_column(const double* H, const double* grad, const double* par,
     // the quadratic's gradient is linear in delta, scaling the remaining
     // step by (1 - a) keeps the tableau consistent without re-sweeping.
     // Fixed parameters do not move (their delta stays at its bound value).
+    // For Q, the constraint row (tab[K, last], which holds -lambda) is not
+    // rescaled either: like the entries of the fixed parameters, it
+    // describes the minimiser itself, which a step towards it leaves
+    // unchanged.
     for (int i = 0; i < p; i++) {
       if (!swept[i]) continue;
       const double ui = tab[i + last * n];
@@ -335,7 +351,10 @@ int qp_solve_column(const double* H, const double* grad, const double* par,
     // (still honouring the sum constraint for Q, because the constraint
     // pivot stays swept). Only one parameter is released per pass, after
     // which the step is recomputed. The |tab[i, i]| > 1e-10 test avoids
-    // dividing by a vanishing pivot.
+    // dividing by a vanishing pivot. (For Q this also protects the last
+    // free parameter: with the constraint swept its value is fixed by the
+    // others and its pivot is 0 up to rounding, so it is not released; see
+    // the note on cycling at the end of this function.)
     bool cycle = false;
     for (int i = 0; i < p; i++) {
       const double est = par[i] + delta[i];
@@ -390,6 +409,17 @@ int qp_solve_column(const double* H, const double* grad, const double* par,
   // already converged to the right step by then, so callers must not treat
   // 0 as fatal; the kernels use delta regardless and rely on the
   // projections to restore feasibility.
+  //
+  // Why it cycles (traced on the vertex example of
+  // test_openadmixture_qp.R): once the sum constraint is swept, the last
+  // free parameter is determined by the others, its pivot tab[i, i] is 0,
+  // and the |tab[i, i]| > 1e-10 guard keeps it free even when it sits on a
+  // bound. At a vertex every parameter is on a bound. A fixed parameter
+  // whose gradient (relative to that last free one) points into the box is
+  // swept in, the step length a is 0 (up to rounding) because the last free
+  // parameter cannot move past its bound, and the critical test fixes the
+  // parameter again. delta no longer changes, so only time is lost: about
+  // 1000 passes, some 200 times the cost of a typical column (K = 3).
   return 0;
 }
 

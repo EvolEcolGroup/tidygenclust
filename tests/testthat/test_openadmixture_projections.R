@@ -15,6 +15,7 @@ test_that("project_q lands on the shifted simplex", {
   set.seed(3)
   for (k in c(2, 3, 5, 10, 20, 70)) {
     y <- matrix(rnorm(k * 50, sd = 2), k, 50)
+    # some columns closer to the simplex, so that fewer entries are clamped
     y[, 1:10] <- runif(k * 10, -0.5, 1.5)
     q <- openadmixture_project_q_cpp(y)
     expect_equal(colSums(q), rep(1, 50), tolerance = 1e-12)

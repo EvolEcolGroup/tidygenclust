@@ -114,6 +114,8 @@ bool qn_step(const QNState& st, size_t n_used, const double* q,
     double* sums = &partial[c * n_sums];
     for (size_t t = t0; t < t1; t++) {
       // x0 - x1 at position t, read from the q or the p block
+      // (this is minus the newest column of U; q and p are not read after
+      // this loop)
       const double d = t < nq ? q[t] - q1[t] : p[t - nq] - p1[t - nq];
       // U[a * n_par + t] is element t of column a of U (column-major)
       for (size_t a = 0; a < m; a++) {
@@ -137,6 +139,8 @@ bool qn_step(const QNState& st, size_t n_used, const double* q,
       rhs(a) += sums[m * m + a];
     }
   }
+  // (lhs = U'U - U'V is not symmetric in general, as U'V is not, so it is
+  // solved as a general square system, by LU, not by Cholesky.)
 
   // Solve the small system. As with solve() in R (which the first version of
   // this code used), a system that is singular to machine precision is
@@ -159,6 +163,9 @@ bool qn_step(const QNState& st, size_t n_used, const double* q,
   // projected column by column (columns of K values)
   // (the coefficients are copied into a plain vector so that the parallel
   // loop below only reads raw memory)
+  // The outputs are first written here, after the last read of q and p,
+  // and element t of the outputs depends only on element t of q1, p1 and
+  // V. Same chunks as above, so each thread writes its own range.
   std::vector<double> cf(coef.begin(), coef.end());
 #pragma omp parallel for num_threads(n_cores) schedule(static)
   for (ptrdiff_t c = 0; c < (ptrdiff_t) n_chunks; c++) {
@@ -193,6 +200,12 @@ using namespace openadmixture;
 // R interface, used by the tests (the fitting loop calls the functions above
 // directly)
 
+// The state lives in C++ memory, owned by an external pointer: R sees an
+// opaque handle, and the QNState is deleted when R garbage-collects the
+// handle (the `true` passed to XPtr in openadmixture_qn_new_cpp registers
+// that finaliser). XPtr checks that `state` is an external pointer but not
+// what it points to, so only handles created by openadmixture_qn_new_cpp
+// must be passed here (test code only).
 static QNState& get_state(SEXP state) {
   XPtr<QNState> ptr(state);
   if (ptr.get() == NULL)

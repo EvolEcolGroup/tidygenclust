@@ -41,11 +41,16 @@ clumppling_align_q_wrt_p <- function(p, q, idx, merge = TRUE) {
     }
     return(list(q = aligned, pattern = idx))
   }
+  # columns of P that receive several columns of Q
   dups <- which(tabulate(idx, nbins = kp) > 1)
   aligned <- matrix(0, nrow(q), kq)
   new_pattern <- integer(kq)
+  # for each such column of P, the closest column of Q (the first one on
+  # ties) and its Euclidean distance
   dups_min_diff <- rep(Inf, kp)
   dups_min_q <- rep(NA_integer_, kp)
+  # first pass: columns of Q that are the only ones matched to their column
+  # of P go there; find the closest column for the other columns of P
   for (j in seq_len(kq)) {
     pj <- idx[j]
     if (!pj %in% dups) {
@@ -59,7 +64,10 @@ clumppling_align_q_wrt_p <- function(p, q, idx, merge = TRUE) {
       }
     }
   }
-  # columns that are not the closest to their match go to new columns
+  # second pass: columns that are not the closest to their match go to new
+  # columns kp + 1, kp + 2, ... in their order in Q. When every column of P
+  # receives a column of Q (as in optimal alignments), the pattern is a
+  # permutation of 1:kq.
   extras <- integer(0)
   for (j in seq_len(kq)) {
     pj <- idx[j]

@@ -20,7 +20,9 @@ namespace openadmixture {
 
 
 // The last n_qn secant pairs, as the columns of U and V (n_par x n_qn each,
-// column-major, n_par = K (I + J)).
+// column-major, n_par = K (I + J)). Together they take 2 n_qn copies of the
+// parameters (6 with the default n_qn = 3), more than the four sets of
+// estimates kept by the fitting loop.
 struct QNState {
   size_t n_par, n_qn;
   std::vector<double> U, V;
@@ -38,7 +40,9 @@ void qn_push(QNState& st, size_t col, const double* q, const double* p,
 // The quasi-Newton step from x1 = (q1, p1), using the first n_used pairs,
 // written to q_out (K x n_indiv) and p_out (K x n_loci) and projected onto
 // the feasible set. Returns false (leaving the outputs undefined) if the
-// n_used x n_used system is singular to machine precision.
+// n_used x n_used system is singular to machine precision (or the system
+// or its solution is not finite). The outputs are written only after the
+// last read of q and p.
 bool qn_step(const QNState& st, size_t n_used, const double* q,
              const double* p, const double* q1, const double* p1, int K,
              size_t n_indiv, size_t n_loci, double* q_out, double* p_out,
