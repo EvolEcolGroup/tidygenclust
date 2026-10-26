@@ -235,7 +235,8 @@ List openadmixture_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     // With a fixed block, u and v below are exactly zero on that block, so
     // the quasi-Newton point keeps it at x1 = x0. qn_step() still projects
     // it, which leaves a fixed p unchanged (clamping values already inside
-    // the box is exact) but can move a fixed q by rounding error (~1e-16).
+    // the box is exact) but can move a fixed q by rounding error (~1e-16),
+    // so the fixed block is copied back after the step (see below).
     // The log-likelihood after the two plain sweeps, L(x2), is our fallback
     // for this iteration, but it is only needed if the quasi-Newton step is
     // rejected (see below), so it is computed only then.
@@ -262,8 +263,13 @@ List openadmixture_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     // log-likelihood stays at -Inf, so the plain sweeps are used
     double ll_qn = R_NegInf;
     if (qn_step(qn, n_used, q.data(), p.data(), q1.data(), p1.data(), k, I,
-                J, qq.data(), pq.data(), n_cores))
+                J, qq.data(), pq.data(), n_cores)) {
+      // keep a fixed block exactly at its value (x1 = x0), rather than at
+      // its re-projection
+      if (fix_q) qq = q1;
+      if (fix_p) pq = p1;
       ll_qn = loglik(geno, qq.data(), pq.data(), k, n_cores);
+    }
 
     // The quasi-Newton step is a gamble: we keep it only if it improves on
     // the log-likelihood at the start of the iteration; otherwise we fall

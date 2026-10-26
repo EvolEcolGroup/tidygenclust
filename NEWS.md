@@ -89,6 +89,8 @@
 * `gt_fastmixture()` checks its arguments before starting python, with error
   messages naming the right arguments, and a single `seed` (such as the
   default) can be used with `n_runs > 1`: it is incremented for each run.
+* `gt_openadmixture(fix_q = TRUE)` keeps Q exactly at its starting value (it
+  moved by rounding errors).
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

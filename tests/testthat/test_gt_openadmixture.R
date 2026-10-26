@@ -333,3 +333,12 @@ test_that("verbose fits use base::message()", {
     "Converged"
   )
 })
+
+test_that("a fixed Q is kept exactly at its starting value", {
+  # the starting value, after the projection applied to init_q
+  q_start <- openadmixture_check_init(sim$q, nrow(sim$q), 3, "init_q", TRUE)
+  adm <- gt_openadmixture(sim_gt, k = 3, init_q = sim$q, fix_q = TRUE)
+  q_fit <- matrix(as.numeric(adm$Q[[1]]), nrow(sim$q))
+  # the quasi-Newton step used to move it by rounding errors
+  expect_identical(q_fit, q_start)
+})
