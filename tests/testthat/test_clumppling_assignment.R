@@ -160,3 +160,11 @@ test_that("alignment within K returns consistent costs and patterns", {
     "same dimensions"
   )
 })
+
+test_that("an empty P is an error rather than a crash", {
+  q <- matrix(1 / 3, 3, 3)
+  expect_error(
+    clumppling_align_ilp_cpp(matrix(0, 3, 0), q),
+    "at least one column"
+  )
+})

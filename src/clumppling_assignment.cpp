@@ -253,6 +253,11 @@ void clumppling_check_pair(const Rcpp::NumericMatrix& P,
   if (P.ncol() > Q.ncol()) {
     Rcpp::stop("Q must have no fewer columns (clusters) than P");
   }
+  // (with no cluster in P, each column of Q would be mapped to the closest
+  // column of an empty P, read out of bounds)
+  if (P.ncol() < 1) {
+    Rcpp::stop("P must have at least one column (cluster)");
+  }
 }
 
 // the alignment as an R list, with 1-based column indices
