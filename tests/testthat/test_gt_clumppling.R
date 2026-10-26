@@ -429,3 +429,16 @@ test_that("the modes plot works with a single value of K", {
   expect_no_warning(plt <- autoplot(sub_res, type = "modes"))
   expect_no_error(patchwork::patchworkGrob(plt))
 })
+
+test_that("invalid groups give clear errors", {
+  expect_error(
+    autoplot(clump_res, type = "all_modes", group = rev(capeverde$group)[
+      c(seq(1, 399, by = 2), seq(2, 399, by = 2))
+    ]),
+    "\\(they should be in consecutive blocks, one per group\\)$"
+  )
+  expect_error(
+    autoplot(clump_res, type = "all_modes", group = capeverde$group[-1]),
+    "'group' should be of the same length"
+  )
+})

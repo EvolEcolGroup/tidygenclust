@@ -246,3 +246,11 @@ test_that("on osx, a single yaml file is only used for ctidygenclust", {
     c(NA_character_, NA_character_)
   )
 })
+
+test_that("windows is rejected with a readable message", {
+  testthat::local_mocked_bindings(tgc_is_windows = function() TRUE)
+  expect_error(
+    tgc_tools_install(),
+    "use the Windows subsystem for Linux \\(WSL\\) instead"
+  )
+})

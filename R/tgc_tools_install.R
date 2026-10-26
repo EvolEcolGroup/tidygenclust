@@ -352,11 +352,16 @@ tgc_is_mac <- function() {
   Sys.info()[["sysname"]] == "Darwin"
 }
 
+# whether we are on windows (a function, so that tests can mock it)
+tgc_is_windows <- function() {
+  .Platform$OS.type == "windows"
+}
+
 # give error for windows
 tgc_check_os <- function() {
-  if (.Platform$OS.type == "windows") {
+  if (tgc_is_windows()) {
     stop(
-      "tidygenclust does not work on windows; use the Windows subsystem",
+      "tidygenclust does not work on windows; use the Windows subsystem ",
       "for Linux (WSL) instead"
     )
   }

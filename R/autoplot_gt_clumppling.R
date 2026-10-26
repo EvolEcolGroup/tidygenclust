@@ -54,14 +54,14 @@ autoplot.gt_clumppling <- function(
       stop(
         paste0(
           "values in 'group' are not ordered (they should be ",
-          "in consecutive blocks, one per group"
+          "in consecutive blocks, one per group)"
         )
       )
     }
     if (length(group) != object$N) {
       stop(
         paste0(
-          "'groups' should be of the same length ",
+          "'group' should be of the same length ",
           "as the original data (as found in object$N)"
         )
       )
