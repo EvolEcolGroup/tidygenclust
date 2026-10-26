@@ -79,6 +79,11 @@
 * The Newton update of Q in `gt_openadmixture()` stops cycling at vertex
   solutions, which made it up to about 20% slower near convergence (results
   are unchanged).
+* `gt_openadmixture()` checks all its arguments before fitting: `fix_q = NA`
+  was taken as TRUE, `rtol = NA` silently prevented convergence, non-integer
+  values of `k`, `n_runs` and `n_folds` were truncated, invalid `max_iter`,
+  `n_qn` and `n_cores` gave a generic error, and invalid seeds were only
+  detected after the first fits.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

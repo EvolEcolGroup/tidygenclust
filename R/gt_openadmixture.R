@@ -205,17 +205,34 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   # collecting the results into a gt_admix object with the same structure as
   # the one returned by tidypopgen::gt_admixture().
 
-  # Check the arguments
-  # (as.integer() truncates non-integer values, e.g. k = 2.5 becomes 2, as in
-  # gt_admixture(), and turns non-numeric values into NA, rejected below)
+  # Check the arguments: counts must be whole numbers (rather than being
+  # truncated, e.g. k = 2.5), flags TRUE or FALSE (NA would be taken as TRUE
+  # by the C++ code), and rtol a positive number (NA or a negative value
+  # would silently stop the fit from converging)
+  check_count(k, "k", scalar = FALSE,
+    message = "'k' should be a vector of positive integers"
+  )
+  check_count(n_runs, "n_runs",
+    message = "'n_runs' should be a positive integer"
+  )
+  check_count(max_iter, "max_iter", min = 0)
+  check_count(n_em_iter, "n_em_iter", min = 0)
+  check_count(n_qn, "n_qn")
+  check_count(n_cores, "n_cores")
+  check_count(n_folds, "n_folds", min = 2,
+    message = "'n_folds' should be an integer of at least 2"
+  )
+  for (flag in c("fix_q", "fix_p", "use_imputed", "crossval", "verbose")) {
+    check_flag(get(flag), flag)
+  }
+  rtol_ok <- is.numeric(rtol) && length(rtol) == 1 && is.finite(rtol) &&
+    rtol > 0
+  if (!rtol_ok) {
+    stop("'rtol' should be a positive number", call. = FALSE)
+  }
   k <- as.integer(k)
   n_runs <- as.integer(n_runs)
-  if (length(k) == 0 || any(is.na(k)) || any(k < 1)) {
-    stop("'k' should be a vector of positive integers", call. = FALSE)
-  }
-  if (length(n_runs) != 1 || is.na(n_runs) || n_runs < 1) {
-    stop("'n_runs' should be a positive integer", call. = FALSE)
-  }
+  n_folds <- as.integer(n_folds)
   n_seeds_ok <- length(seed) %in% c(n_runs, n_runs * length(k))
   if (!is.null(seed) && !n_seeds_ok) {
     stop(
@@ -223,6 +240,11 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
       "'length(k)'",
       call. = FALSE
     )
+  }
+  # seeds are given to set.seed() for each run: check them now, rather than
+  # after the first fits
+  if (!is.null(seed) && (!is.numeric(seed) || any(!is.finite(seed)))) {
+    stop("'seed' should only contain numbers", call. = FALSE)
   }
   # as in gt_admixture(), seeds can be given per run (and reused for each k)
   # or per combination of k and run
@@ -246,20 +268,10 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   if (fix_p && is.null(init_p)) {
     stop("'fix_p = TRUE' requires 'init_p'", call. = FALSE)
   }
-  # crossval is checked first, as it is used in conditions below
-  if (!is.logical(crossval) || length(crossval) != 1 || is.na(crossval)) {
-    stop("'crossval' should be TRUE or FALSE", call. = FALSE)
-  }
   # cross-validation refits both Q and P for each fold, so it is not
   # available when one of them is fixed
   if (crossval && (fix_q || fix_p)) {
     stop("'crossval' cannot be used with 'fix_q' or 'fix_p'", call. = FALSE)
-  }
-  # n_folds is checked even when crossval = FALSE (its default is valid); the
-  # warning of as.integer() for non-numeric input is replaced by our error
-  n_folds <- suppressWarnings(as.integer(n_folds))
-  if (length(n_folds) != 1 || is.na(n_folds) || n_folds < 2) {
-    stop("'n_folds' should be an integer of at least 2", call. = FALSE)
   }
 
   # Prepare the data: indices into the backing file, decoding table and
@@ -442,4 +454,26 @@ openadmixture_check_init <- function(init, n_rows, k, arg, simplex) {
   # drop row and column names (e.g. the loci names of a previous P), which
   # the C++ code does not use
   unname(init)
+}
+
+# Check that an argument is a whole number of at least `min` (or, with
+# scalar = FALSE, a vector of them), with an error naming the argument
+check_count <- function(x, name, min = 1, scalar = TRUE, message = NULL) {
+  ok <- is.numeric(x) && length(x) >= 1 && (!scalar || length(x) == 1) &&
+    all(is.finite(x)) && all(x == round(x)) && all(x >= min)
+  if (!ok) {
+    if (is.null(message)) {
+      message <- paste0("'", name, "' should be an integer of at least ", min)
+    }
+    stop(message, call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+# Check that an argument is a single TRUE or FALSE
+check_flag <- function(x, name) {
+  if (!is.logical(x) || length(x) != 1 || is.na(x)) {
+    stop("'", name, "' should be TRUE or FALSE", call. = FALSE)
+  }
+  invisible(TRUE)
 }

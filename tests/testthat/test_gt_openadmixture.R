@@ -269,3 +269,43 @@ test_that("cross-validation does not change the estimates, without seed", {
   expect_identical(adm_cv$loglik, adm$loglik)
   expect_length(adm_cv$cv, 4)
 })
+
+test_that("all the arguments are validated", {
+  # flags must be TRUE or FALSE (fix_q = NA was taken as TRUE)
+  expect_error(
+    gt_openadmixture(sim_gt, k = 3, init_q = sim$q, fix_q = NA),
+    "'fix_q' should be TRUE or FALSE"
+  )
+  expect_error(
+    gt_openadmixture(sim_gt, k = 2, use_imputed = NA),
+    "'use_imputed' should be TRUE or FALSE"
+  )
+  expect_error(
+    gt_openadmixture(sim_gt, k = 2, verbose = "yes"),
+    "'verbose' should be TRUE or FALSE"
+  )
+  # rtol = NA or a negative value disabled convergence
+  for (bad in list(NA, -1, Inf, "0.1")) {
+    expect_error(gt_openadmixture(sim_gt, k = 2, rtol = bad), "'rtol'")
+  }
+  # counts are checked in R, with a message naming the argument
+  expect_error(
+    gt_openadmixture(sim_gt, k = 2, max_iter = -1),
+    "'max_iter' should be an integer of at least 0"
+  )
+  expect_error(gt_openadmixture(sim_gt, k = 2, n_qn = 0), "'n_qn'")
+  expect_error(gt_openadmixture(sim_gt, k = 2, n_cores = NA), "'n_cores'")
+  expect_error(gt_openadmixture(sim_gt, k = 2, n_em_iter = 1.5), "'n_em_iter'")
+  # non-integer values are not truncated
+  expect_error(gt_openadmixture(sim_gt, k = 2.5), "'k' should be")
+  expect_error(gt_openadmixture(sim_gt, k = 2, n_runs = 1.5), "'n_runs'")
+  expect_error(
+    gt_openadmixture(sim_gt, k = 2, crossval = TRUE, n_folds = 2.7),
+    "'n_folds'"
+  )
+  # seeds are checked before the first fit
+  expect_error(
+    gt_openadmixture(sim_gt, k = 2, n_runs = 2, seed = c(1, NA)),
+    "'seed' should only contain numbers"
+  )
+})
