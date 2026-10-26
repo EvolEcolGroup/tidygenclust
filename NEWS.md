@@ -42,6 +42,8 @@
   so on), could not select values of K with gaps (e.g. 17 and 19 in the
   chicken example), and silently returned an empty object for values of K that
   were not in `K_range`.
+* `subset_gt_clumppling(indivs = )` checks that the individuals are between 1
+  and N, rather than silently returning rows of NA.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

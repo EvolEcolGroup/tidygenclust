@@ -258,6 +258,10 @@ subset_gt_clumppling <- function(x, k = NULL, indivs = NULL) {
         "individuals using gt_admix_reorder_q() and re-run gt_clumppling."
       )
     }
+    # (indexing beyond the individuals would silently give rows of NA)
+    if (min(indivs) < 1 || max(indivs) > x$N) {
+      stop("indivs values must be between 1 and N (", x$N, ")")
+    }
 
     x$N <- length(indivs)
     x$aligned_modes <- lapply(

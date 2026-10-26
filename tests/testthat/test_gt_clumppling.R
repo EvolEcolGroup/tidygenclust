@@ -356,3 +356,17 @@ test_that("subsetting by k selects the right values of K", {
     "k values must be consecutive"
   )
 })
+
+test_that("subsetting by individuals checks their indices", {
+  expect_error(
+    subset_gt_clumppling(clump_res, indivs = 390:420),
+    "between 1 and N \\(399\\)"
+  )
+  expect_error(
+    subset_gt_clumppling(clump_res, indivs = 0:10),
+    "between 1 and N"
+  )
+  sub_res <- subset_gt_clumppling(clump_res, indivs = 390:399)
+  expect_identical(sub_res$N, 10L)
+  expect_false(anyNA(sub_res$aligned_modes[[1]]))
+})
