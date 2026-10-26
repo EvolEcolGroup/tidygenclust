@@ -262,7 +262,9 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   data <- openadmixture_prepare(x, use_imputed = use_imputed)
   # with as many clusters as individuals, each individual could form its own
   # ancestral population, so the model would not be identifiable
-  if (any(k >= data$n_indiv)) {
+  # (with P fixed, the ancestry of each individual is estimated on its own,
+  # so a few individuals, or a single one, can be projected onto a panel)
+  if (!fix_p && any(k >= data$n_indiv)) {
     stop("'k' should be smaller than the number of individuals",
       call. = FALSE
     )

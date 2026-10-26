@@ -209,3 +209,26 @@ test_that("the log-likelihood is only computed when needed", {
   expect_identical(adm_v$Q, adm_10$Q)
   expect_identical(adm_v$loglik, adm_10$loglik)
 })
+
+test_that("a few individuals can be projected onto a fixed P", {
+  # with P fixed, each individual is estimated on its own, so k can be as
+  # large as the number of individuals (e.g. to project a single new sample
+  # onto a reference panel), and the estimates are those obtained by
+  # projecting all the individuals together
+  p_ref <- t(sim$p)
+  k <- nrow(sim$p)
+  adm_all <- gt_openadmixture(sim_gt,
+    k = k, init_p = p_ref, fix_p = TRUE, seed = 1
+  )
+  all_q <- unclass(adm_all$Q[[1]])
+  for (idx in list(1:2, 5L)) {
+    adm <- gt_openadmixture(sim_gt[idx, ],
+      k = k, init_p = p_ref, fix_p = TRUE, seed = 1
+    )
+    expect_equal(unclass(adm$Q[[1]]), all_q[idx, , drop = FALSE],
+      tolerance = 1e-8, ignore_attr = TRUE
+    )
+  }
+  # without a fixed P, k must still be smaller than the number of individuals
+  expect_error(gt_openadmixture(sim_gt[1:2, ], k = k), "smaller than")
+})

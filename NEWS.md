@@ -44,6 +44,8 @@
   were not in `K_range`.
 * `subset_gt_clumppling(indivs = )` checks that the individuals are between 1
   and N, rather than silently returning rows of NA.
+* `gt_openadmixture()` with `fix_p = TRUE` can project fewer individuals than
+  `k` (e.g. a single new sample) onto a reference panel.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda
