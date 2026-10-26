@@ -321,3 +321,15 @@ test_that("a gen_tibble grouped by several variables fails before fitting", {
     "grouped by a single variable \\(it is grouped by population, pop2\\)"
   )
 })
+
+test_that("verbose fits use base::message()", {
+  # a function called message() in the global environment must not be used
+  assign("message", function(...) stop("global message() called"),
+    envir = globalenv()
+  )
+  withr::defer(rm("message", envir = globalenv()))
+  expect_message(
+    gt_openadmixture(sim_gt, k = 2, seed = 1, verbose = TRUE),
+    "Converged"
+  )
+})

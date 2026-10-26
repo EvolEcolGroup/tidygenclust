@@ -72,7 +72,9 @@ struct FitLog {
   void add(const std::string& line) {
     lines.push_back(line);
     if (verbose) {
-      Function message("message");
+      // base::message(), rather than the first function called "message"
+      // found from the global environment (e.g. one defined by the user)
+      Function message("message", R_BaseEnv);
       message(line);
     }
   }
