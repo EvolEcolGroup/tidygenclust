@@ -198,9 +198,14 @@ plot_q <- function(q_tidied, y_lab = "", group_x) {
   # space between individuals, and the clusters are stacked in reverse order
   # (the first cluster at the bottom); the distruct theme and colours are the
   # ones used by tidypopgen for gt_admix objects
+  # clusters are mapped to colours (and stacked) by their number: as text,
+  # "10" would sort before "2", and the same aligned cluster would get a
+  # different colour for K < 10 and K >= 10
   plt <- ggplot2::ggplot(
     q_tidied,
-    ggplot2::aes(.data$id, .data$percentage, fill = .data$q)
+    ggplot2::aes(.data$id, .data$percentage,
+      fill = factor(as.integer(.data$q))
+    )
   ) +
     ggplot2::geom_col(
       width = 1,

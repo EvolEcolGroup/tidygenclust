@@ -23,6 +23,10 @@
   diploid and pseudohaploid data, missing genotypes and ADMIXTURE-style
   cross-validation, and returns `gt_admix` objects. Its results are checked
   against OpenADMIXTURE.jl and ADMIXTURE in the test suite.
+* Fixed the colours of the clusters in the plots of `gt_clumppling` objects
+  with K >= 10: clusters were ordered as text ("1", "10", "2", ...), so the
+  same aligned cluster was drawn in a different colour (and position) for
+  different values of K.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

@@ -272,3 +272,24 @@ test_that("subsetting gt_clumppling by k also subsets mode_stats", {
   expect_identical(sub_clump_res$mode_stats$Mode,
                    names(sub_clump_res$aligned_modes))
 })
+
+test_that("clusters keep their colour and position across K, for K >= 10", {
+  # a single individual whose membership to cluster c is proportional to c,
+  # so that each segment of the bar identifies its cluster by its height
+  cluster_fills <- function(k) {
+    q_tidied <- tibble::tibble(
+      id = 1L, q = as.character(seq_len(k)),
+      percentage = seq_len(k) / sum(seq_len(k))
+    )
+    bar <- ggplot2::layer_data(plot_q(q_tidied, "K", NULL))
+    bar <- bar[order(bar$ymin), ]
+    cluster <- round((bar$ymax - bar$ymin) * sum(seq_len(k)))
+    # clusters are stacked in order, the first one at the bottom
+    expect_identical(as.integer(cluster), seq_len(k))
+    bar$fill
+  }
+  fill_11 <- cluster_fills(11)
+  fill_12 <- cluster_fills(12)
+  expect_identical(fill_12[1:11], fill_11)
+  expect_identical(cluster_fills(3), fill_11[1:3])
+})
