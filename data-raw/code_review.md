@@ -17,6 +17,35 @@ few: `R/plot_modes.R` (12% to 51% of code lines),
 longer matched the code, and errors in the roxygen documentation, were
 corrected.
 
+## Status
+
+All the bugs below were fixed after the review, one commit per bug, each
+with a test that fails without the fix (except for the documentation of
+the 'modes' plot and the minimum versions in DESCRIPTION, which cannot be
+tested):
+
+| Bug | Commit |
+|-----|--------|
+| 1. colours across K | 39f0f32 |
+| 2. subsets in `gt_fastmixture()` | 6d82d22 |
+| 3. threads of `gt_fastmixture()` | e0ed90a |
+| 4. options of `gt_clumppling()` | bb2ea83 |
+| 5. `subset_gt_clumppling()`: values of K; individuals | b624510; 780beb6 |
+| 6. projection onto a fixed P; `init_p` loci; `crossval` without seed | ff4c56a; 05a1be6; f3442c7 |
+| 7. installer: reset; numpy; conda on macOS; yaml on macOS | bf94bec; c4d50ef; 9eba8b9; 250277b |
+| 8. plots: subsets; factor groups; `k`; single K; edge labels | e2b4f92; aefa0f9; 31a53ea; 2698544; 74b0bf6 |
+| 9. cycling of the QP solver | 0850d80 |
+| Low: arguments of `gt_openadmixture()`; grouping | 59eba8d; a524fbb |
+| Low: arguments of `gt_fastmixture()` | ce0bc07 |
+| Low: `message()`; fixed Q | 775cf0f; 5cf546f |
+| Low: empty inputs; quasi-Newton export; empty P; seeds | 05b1517; 45a89ad; 45a002f; 6dfdf2e |
+| Low: error messages; missing snapshots; Homebrew path | 76aec7b; 6e55262; 3deedd7 |
+| Low: DESCRIPTION | 129042f |
+
+Still open: the `safety` argument of `gt_fastmixture()` is unused (removing
+or deprecating it is a decision about the interface), and the issues of
+the test suite and the simplification plan below.
+
 ## Bugs
 
 ### High
