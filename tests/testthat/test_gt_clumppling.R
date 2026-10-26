@@ -384,3 +384,24 @@ test_that("plots of subsets of individuals are aligned with their groups", {
   group_ends <- cumsum(table(factor(sub_group, levels = unique(sub_group))))
   expect_equal(boundaries$x, unname(group_ends) + 0.5)
 })
+
+test_that("groups can be factors", {
+  pops <- capeverde$group
+  group_factor <- factor(pops, levels = sort(unique(pops)))
+  # the same boundaries between groups as with a character vector
+  for (type in c("all_modes", "major_modes")) {
+    plt_factor <- autoplot(clump_res, type = type, group = group_factor)
+    plt_char <- autoplot(clump_res, type = type, group = pops)
+    expect_identical(
+      ggplot2::layer_data(plt_factor[[1]], 2),
+      ggplot2::layer_data(plt_char[[1]], 2)
+    )
+  }
+  # the other plots can be drawn
+  plt <- autoplot(clump_res, type = "modes", group = group_factor)
+  expect_no_error(patchwork::patchworkGrob(plt))
+  plt <- autoplot(clump_res,
+    type = "modes_within_k", k = 4, group = group_factor
+  )
+  expect_no_error(patchwork::patchworkGrob(plt))
+})

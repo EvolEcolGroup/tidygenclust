@@ -44,6 +44,9 @@ autoplot.gt_clumppling <- function(
   rlang::check_dots_empty()
   # check that group, if given, is coherent with the rest of the data
   if (!is.null(group)) {
+    # groups are defined by their values (as text): rle() does not accept
+    # factors, which are often used for populations
+    group <- as.character(group)
     # first check that labels are in blocks: if each group forms a single
     # block of consecutive individuals, the number of runs of identical
     # values equals the number of distinct values

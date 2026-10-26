@@ -67,6 +67,8 @@
 * Plots of `gt_clumppling` objects subset by individuals draw the group
   boundaries and labels (and the number of runs of each mode) in the right
   place.
+* The `group` argument of the plots of `gt_clumppling` objects can be a
+  factor.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda
