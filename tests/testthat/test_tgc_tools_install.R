@@ -185,3 +185,46 @@ test_that("fastmixture is installed without reinstalling its dependencies", {
   expect_match(run$cmd_line, "pip install .*--force-reinstall --no-deps")
   expect_match(run$cmd_line, "fastmixture.git@abc123 threadpoolctl$")
 })
+
+test_that("on osx, ADMIXTURE is installed with reticulate's conda", {
+  # fake conda executables, which write their arguments to a file: one is
+  # the binary used by reticulate, the other is first on the PATH (the old
+  # code called the conda on the PATH, which may not exist, e.g. in RStudio)
+  fake_dir <- withr::local_tempdir()
+  fake_conda <- function(name, out) {
+    path <- file.path(fake_dir, name)
+    writeLines(c("#!/bin/sh", paste0("printf '%s\\n' \"$@\" > '", out, "'")),
+      path
+    )
+    Sys.chmod(path, "755")
+    path
+  }
+  out_reticulate <- file.path(fake_dir, "args_reticulate.txt")
+  out_path <- file.path(fake_dir, "args_path.txt")
+  reticulate_conda <- fake_conda("reticulate_conda", out_reticulate)
+  dir.create(file.path(fake_dir, "bin"))
+  fake_conda(file.path("bin", "conda"), out_path)
+  withr::local_path(file.path(fake_dir, "bin"), action = "prefix")
+  # a yaml file whose path contains a space
+  yaml_file <- file.path(fake_dir, "my env.yml")
+  writeLines("name: cadmixture86", yaml_file)
+  run <- new.env()
+  testthat::local_mocked_bindings(
+    condaenv_exists = function(envname = NULL, ...) FALSE,
+    conda_create = function(envname, ...) NULL,
+    conda_run2 = function(cmd, args, envname, ...) run$args <- args,
+    conda_binary = function(...) reticulate_conda,
+    .package = "reticulate"
+  )
+  testthat::local_mocked_bindings(
+    tgc_is_mac = function() TRUE,
+    tgc_tool_installed = function(tool) TRUE
+  )
+  tgc_admixture_install(conda_yaml = yaml_file)
+  expect_identical(run$args, "config --env --set subdir osx-64")
+  expect_false(file.exists(out_path))
+  expect_identical(
+    readLines(out_reticulate),
+    c("env", "update", "-n", "cadmixture86", "-f", yaml_file)
+  )
+})

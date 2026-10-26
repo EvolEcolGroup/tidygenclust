@@ -58,6 +58,9 @@
   untouched.
 * Installing fastmixture no longer replaces the numpy pinned by the conda
   environment with the latest version from pypi.
+* On macOS, `tgc_admixture_install()` uses the conda binary of reticulate
+  (rather than any `conda` on the PATH, which may be missing, e.g. in RStudio)
+  and quotes the path of the yaml file.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

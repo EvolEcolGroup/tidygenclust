@@ -263,15 +263,18 @@ tgc_admixture_install <- function(conda_yaml = "auto", ci_install = FALSE) {
     # on (they run with Rosetta on silicon Macs)
     reticulate::conda_run2(
       cmd = "conda",
-      arg = "config --env --set subdir osx-64",
+      args = "config --env --set subdir osx-64",
       envname = "cadmixture86"
     )
     if (!is.na(conda_yaml)) {
       # if a conda yaml is provided, use it to install admixture in the new
-      # environment
+      # environment (with the conda binary used by reticulate, which may not
+      # be on the PATH, e.g. in RStudio)
       system2(
-        command = "conda",
-        args = paste0("env update -n cadmixture86 -f ", conda_yaml)
+        command = reticulate::conda_binary(),
+        args = c(
+          "env", "update", "-n", "cadmixture86", "-f", shQuote(conda_yaml)
+        )
       )
     } else {
       # install admixture in the new environment
