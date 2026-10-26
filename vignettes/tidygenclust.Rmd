@@ -422,8 +422,8 @@ clump_res %>% autoplot(
 
 We can also visualise the relationship among modes by plotting over a
 multipartite graph, where better alignment between the modes is indicated by the
-darker color of the edges connecting their structure plots (i.e edges with a
-lower cost of optimal alignment are labelled on each edge):
+darker color of the edges connecting their structure plots (edges are coloured
+by the cost of the optimal alignment, as shown by the legend):
 
 ```{r}
 clump_res %>% autoplot(type = "modes", group = capeverde_admix$group)

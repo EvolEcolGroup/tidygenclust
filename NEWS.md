@@ -73,6 +73,9 @@
   `K_range`: other values gave an empty plot that failed when printed.
 * `autoplot(type = "modes")` no longer warns for a `gt_clumppling` object with
   a single value of K.
+* The vignette and the documentation of `autoplot()` no longer say that the
+  edges of the 'modes' plot are labelled with their cost: they are coloured by
+  it.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda
