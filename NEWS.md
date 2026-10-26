@@ -27,6 +27,10 @@
   with K >= 10: clusters were ordered as text ("1", "10", "2", ...), so the
   same aligned cluster was drawn in a different colour (and position) for
   different values of K.
+* `gt_fastmixture()` now uses the individuals and loci selected in a
+  `gen_tibble`: it read the whole backing file, so a filtered `gen_tibble`
+  failed, and a reordered one gave the rows of Q in the order of the backing
+  file while `id` followed the `gen_tibble`.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

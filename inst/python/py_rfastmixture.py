@@ -9,8 +9,10 @@
 # passes the arguments as an argparse Namespace with the same fields as the
 # command line options of fastmixture (see the parser below), plus 'plink'
 # (whether 'bfile' is the prefix of PLINK files or the backing file of a
-# gen_tibble), 'n_indiv' and 'n_loci' (the numbers of individuals and loci of
-# the gen_tibble) and 'safety' (which is not used).
+# gen_tibble), 'fbm_dim' (the numbers of rows and columns of the FBM of the
+# gen_tibble), 'rows' and 'cols' (the 0-based rows and columns of the FBM
+# used by the gen_tibble, i.e. its individuals and loci, in its order) and
+# 'safety' (which is not used).
 
 # Libraries
 import argparse
@@ -163,13 +165,25 @@ def fastmixture_run(args):
 	else:
 		# the backing file of a gen_tibble has one byte per genotype (0, 1
 		# and 2 alternate alleles, 3 for missing, larger values for imputed
-		# genotypes), without a header
-		N = args.n_indiv
-		M = args.n_loci
-		G_raw = np.fromfile(args.bfile, dtype=np.uint8)
-		assert G_raw.shape[0] == M*N, "Backing file doesn't match number of samples and SNPs!"
-		# shape the genotype matrix (the backing file is column-major N x M)
-		G_raw.shape = (M, N)
+		# genotypes), without a header. It holds the whole FBM, of which the
+		# gen_tibble uses some rows (individuals) and columns (loci), in its
+		# own order (R passes length-one vectors as scalars, hence
+		# atleast_1d)
+		rows = np.atleast_1d(np.asarray(args.rows, dtype=np.intp))
+		cols = np.atleast_1d(np.asarray(args.cols, dtype=np.intp))
+		N = rows.shape[0]
+		M = cols.shape[0]
+		fbm_nrow, fbm_ncol = (int(d) for d in args.fbm_dim)
+		assert os.path.getsize(args.bfile) == fbm_nrow*fbm_ncol, \
+			"Backing file doesn't match the dimensions of the FBM!"
+		# the FBM is column-major (individuals x loci), i.e. a row-major
+		# loci x individuals array: select the loci (rows of this array) and
+		# the individuals (columns) of the gen_tibble, reading only those
+		# from the memory-mapped file
+		G_fbm = np.memmap(args.bfile, dtype=np.uint8, mode="r",
+			shape=(fbm_ncol, fbm_nrow))
+		G_raw = G_fbm[np.ix_(cols, rows)]
+		del G_fbm
 		# shuffle SNPs as utils.readPlink does, so that mini-batches are random
 		s_ord = np.arange(M, dtype=np.uint32)
 		rng.shuffle(s_ord)

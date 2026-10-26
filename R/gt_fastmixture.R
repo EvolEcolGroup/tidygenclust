@@ -88,18 +88,24 @@ gt_fastmixture <- function(
 
   # the python wrapper reads either a set of PLINK files (from their prefix)
   # or the backing file of a gen_tibble. The latter is the raw .bk file of
-  # the FBM, which has no header, so the numbers of individuals and loci of
-  # the gen_tibble are passed as well, to reshape it (the python code checks
-  # that they match the size of the file)
+  # the FBM, which has no header, so its dimensions are passed as well. The
+  # FBM can hold more individuals and loci than the gen_tibble, in a
+  # different order: filtering, reordering and select_loci() only change the
+  # indices of the gen_tibble into the FBM (its rows for the individuals, in
+  # the genotypes column, and its columns for the loci, in `big_index`), so
+  # these indices are passed too (0-based, for python)
+  fbm_dim <- NULL
+  rows <- NULL
+  cols <- NULL
   if (inherits(x, "character")) {
     bfile <- x
-    n_indiv <- NULL
-    n_loci <- NULL
     plink <- TRUE
   } else if (inherits(x, "gen_tbl")) {
     bfile <- tidypopgen::gt_get_file_names(x)[2]
-    n_indiv <- nrow(x)
-    n_loci <- nrow(tidypopgen::show_loci(x))
+    fbm <- attr(x$genotypes, "fbm")
+    fbm_dim <- as.integer(c(fbm$nrow, fbm$ncol))
+    rows <- as.integer(vctrs::vec_data(x$genotypes)) - 1L
+    cols <- as.integer(tidypopgen::show_loci(x)$big_index) - 1L
     plink <- FALSE
   } else {
     stop(
@@ -169,8 +175,9 @@ gt_fastmixture <- function(
           no_freqs = no_freqs,
           random_init = random_init,
           plink = plink,
-          n_indiv = n_indiv,
-          n_loci = n_loci,
+          fbm_dim = fbm_dim,
+          rows = rows,
+          cols = cols,
           safety = safety,
           projection = NULL,
           cv = NULL,
@@ -200,8 +207,9 @@ gt_fastmixture <- function(
           no_freqs = no_freqs,
           random_init = random_init,
           plink = plink,
-          n_indiv = n_indiv,
-          n_loci = n_loci,
+          fbm_dim = fbm_dim,
+          rows = rows,
+          cols = cols,
           safety = safety,
           projection = NULL,
           cv = as.integer(cv),

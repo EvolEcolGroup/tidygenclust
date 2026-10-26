@@ -351,3 +351,41 @@ test_that("gt_fastmixture gives the same results for gen_tibble and plink", {
   pred_freq <- res_gt$P[[1]] %*% colMeans(res_gt$Q[[1]])
   expect_gt(cor(obs_freq, as.vector(pred_freq)), 0.9)
 })
+
+test_that("gt_fastmixture uses the individuals and loci of a subset", {
+  # filtering, reordering and select_loci() only change the indices of a
+  # gen_tibble into its backing file: the results must be the same as for
+  # PLINK files written from the subset
+  idx <- c(40:7, 1:3)
+  # loci that are polymorphic in the subset (fastmixture requires them), in
+  # reverse order
+  maf <- loci_maf(anole_gt[idx, ])
+  loci_idx <- rev(which(maf > 0.05))
+  sub_gt <- select_loci(anole_gt[idx, ], tidyselect::all_of(loci_idx))
+  bed_file <- gt_as_plink(sub_gt, file = tempfile("anolis_sub_"))
+  plink_prefix <- sub("\\.bed$", "", bed_file)
+  res_gt <- gt_fastmixture(
+    sub_gt,
+    k = 3,
+    seed = 42,
+    no_freqs = FALSE,
+    random_init = FALSE
+  )
+  res_plink <- gt_fastmixture(
+    plink_prefix,
+    k = 3,
+    seed = 42,
+    no_freqs = FALSE,
+    random_init = FALSE
+  )
+  expect_identical(dim(res_gt$Q[[1]]), c(length(idx), 3L))
+  expect_identical(dim(res_gt$P[[1]]), c(length(loci_idx), 3L))
+  expect_equal(
+    unclass(res_gt$Q[[1]]),
+    unclass(res_plink$Q[[1]]),
+    tolerance = 1e-6,
+    ignore_attr = TRUE
+  )
+  expect_equal(res_gt$P[[1]], res_plink$P[[1]], tolerance = 1e-6)
+  expect_identical(res_gt$id, anole_gt$id[idx])
+})
