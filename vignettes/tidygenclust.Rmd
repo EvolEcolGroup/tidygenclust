@@ -83,7 +83,7 @@ South America, using data from Prates et al 2018.
 
 We downloaded the vcf file of the genotype data from the Prates et al 2018
 GitHub repository which can be accessed
-[here](%22%3Chttps://github.com/ivanprates/2018_Anolis_EcolEvol/blob/master/data/VCFtools_SNMF_punctatus_t70_s10_n46/punctatus_t70_s10_n46_filtered.recode.vcf?raw=true%3E%22)
+[here](https://github.com/ivanprates/2018_Anolis_EcolEvol/blob/master/data/VCFtools_SNMF_punctatus_t70_s10_n46/punctatus_t70_s10_n46_filtered.recode.vcf?raw=true)
 and compressed it to a vcf.gz file.
 
 ## Read data into `gen_tibble` format
@@ -112,7 +112,7 @@ anole_gt
 
 We can easily attach the population metadata to our `gen_tibble` which is stored
 in another file that can be found on the Prates et al 2018 GitHub repository
-[here](%22%3Chttps://github.com/ivanprates/2018_Anolis_EcolEvol/raw/master/data/plot_order_punctatus_n46.csv%3E).
+[here](https://github.com/ivanprates/2018_Anolis_EcolEvol/raw/master/data/plot_order_punctatus_n46.csv).
 
 We can read this file into R and attach the population information to our
 `gen_tibble`:
