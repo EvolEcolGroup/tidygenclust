@@ -35,6 +35,8 @@
   python package threadpoolctl, which `tgc_fastmixture_install()` now
   installs): the environment variables used before had no effect once R had
   started OpenMP, and they stayed set in the R session.
+* `gt_clumppling()` checks its options: a non-finite `cd_res` made community
+  detection loop forever, and invalid logical options gave cryptic errors.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

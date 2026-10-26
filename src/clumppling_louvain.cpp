@@ -43,6 +43,7 @@
 // this is kept for fidelity, and only matters if resolution != 1.
 
 #include <Rcpp.h>
+#include <cmath>
 #include <vector>
 
 namespace {
@@ -206,7 +207,8 @@ void clumppling_one_level(const clumppling_graph& g, clumppling_status& s,
       for (int c : neigh_coms) neigh_seen[c] = 0;
     }
     new_mod = clumppling_modularity(s, resolution);
-    if (new_mod - cur_mod < clumppling_louvain_min) break;
+    // (written so that a NaN gain also stops the loop)
+    if (!(new_mod - cur_mod >= clumppling_louvain_min)) break;
   }
 }
 
@@ -260,6 +262,8 @@ Rcpp::IntegerVector clumppling_louvain_cpp(Rcpp::NumericMatrix adj,
                                            double resolution = 1.0) {
   const int n = adj.nrow();
   if (adj.ncol() != n) Rcpp::stop("the adjacency matrix must be square");
+  if (!std::isfinite(resolution) || resolution <= 0.0)
+    Rcpp::stop("the resolution must be a positive number");
   clumppling_graph g;
   g.n = n;
   g.w.assign(static_cast<size_t>(n) * n, 0.0);
@@ -268,7 +272,8 @@ Rcpp::IntegerVector clumppling_louvain_cpp(Rcpp::NumericMatrix adj,
     for (int j = 0; j < n; ++j) {
       if (i == j) continue;
       const double w = adj(i, j);
-      if (!(w >= 0.0)) Rcpp::stop("edge weights must be non-negative and finite");
+      if (!(w >= 0.0) || !std::isfinite(w))
+        Rcpp::stop("edge weights must be non-negative and finite");
       g.w[static_cast<size_t>(i) * n + j] = w;
       if (w != 0.0) has_edges = true;
     }
@@ -305,7 +310,8 @@ Rcpp::IntegerVector clumppling_louvain_cpp(Rcpp::NumericMatrix adj,
     clumppling_one_level(current, status, resolution);
     const double new_mod = clumppling_modularity(status, resolution);
     // the last level did not improve: its partition is discarded
-    if (new_mod - mod < clumppling_louvain_min) break;
+    // (written so that a NaN gain also stops the loop)
+    if (!(new_mod - mod >= clumppling_louvain_min)) break;
     partition = status.node2com;
     m = clumppling_renumber(partition);
     for (int i = 0; i < n; ++i) membership[i] = partition[membership[i]];

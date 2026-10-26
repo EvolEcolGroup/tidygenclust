@@ -130,6 +130,26 @@ gt_clumppling <- function(
       paste(clumppling_cd_methods, collapse = ", "), ", or a function"
     )
   }
+  # the other options are single values: NA or non-finite values would make
+  # community detection fail in obscure ways (a non-finite resolution made
+  # louvain loop forever)
+  for (arg in c("use_rep", "merge", "use_best_pair", "test_comm")) {
+    value <- get(arg)
+    if (!is.logical(value) || length(value) != 1 || is.na(value)) {
+      stop("'", arg, "' must be TRUE or FALSE")
+    }
+  }
+  is_number <- function(value) {
+    is.numeric(value) && length(value) == 1 && is.finite(value)
+  }
+  if (!is_number(cd_res) || cd_res <= 0) {
+    stop("'cd_res' must be a single positive number")
+  }
+  thresholds_ok <- is_number(comm_min) && is_number(comm_max) &&
+    comm_min >= 0 && comm_max >= 0
+  if (!thresholds_ok) {
+    stop("'comm_min' and 'comm_max' must be single non-negative numbers")
+  }
 
   if (!inherits(x, "gt_admix")) {
     stop(

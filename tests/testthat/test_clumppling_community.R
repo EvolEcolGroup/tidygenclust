@@ -219,3 +219,13 @@ test_that("community detection methods can be chosen or supplied", {
     comm
   )
 })
+
+test_that("louvain rejects invalid resolutions and weights", {
+  adj <- matrix(1, 3, 3)
+  diag(adj) <- 0
+  expect_error(clumppling_louvain_cpp(adj, NaN), "resolution")
+  expect_error(clumppling_louvain_cpp(adj, Inf), "resolution")
+  expect_error(clumppling_louvain_cpp(adj, 0), "resolution")
+  adj[1, 2] <- adj[2, 1] <- Inf
+  expect_error(clumppling_louvain_cpp(adj, 1), "non-negative and finite")
+})

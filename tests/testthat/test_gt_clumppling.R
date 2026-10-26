@@ -293,3 +293,25 @@ test_that("clusters keep their colour and position across K, for K >= 10", {
   expect_identical(fill_12[1:11], fill_11)
   expect_identical(cluster_fills(3), fill_11[1:3])
 })
+
+test_that("the options of gt_clumppling are validated", {
+  # a non-finite resolution used to make louvain loop forever
+  for (bad in list(NA, NaN, Inf, -1, 0, c(1, 2), "1")) {
+    expect_error(gt_clumppling(capeverde, cd_res = bad), "'cd_res' must be")
+  }
+  expect_error(gt_clumppling(capeverde, merge = "no"), "'merge' must be")
+  expect_error(gt_clumppling(capeverde, use_rep = NA), "'use_rep' must be")
+  expect_error(
+    gt_clumppling(capeverde, use_best_pair = c(TRUE, FALSE)),
+    "'use_best_pair' must be"
+  )
+  expect_error(gt_clumppling(capeverde, test_comm = 1), "'test_comm' must be")
+  expect_error(
+    gt_clumppling(capeverde, comm_min = NA),
+    "'comm_min' and 'comm_max'"
+  )
+  expect_error(
+    gt_clumppling(capeverde, comm_max = -1),
+    "'comm_min' and 'comm_max'"
+  )
+})
