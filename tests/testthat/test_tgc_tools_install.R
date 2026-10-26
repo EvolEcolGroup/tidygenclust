@@ -166,3 +166,22 @@ test_that("resetting the environment keeps the other tools", {
   expect_message(tgc_tools_install(), "already exists")
   expect_identical(state$log, "install admixture")
 })
+
+test_that("fastmixture is installed without reinstalling its dependencies", {
+  # --force-reinstall alone also reinstalled numpy from pypi, replacing the
+  # version pinned by the conda yaml
+  run <- new.env()
+  testthat::local_mocked_bindings(
+    conda_run2 = function(cmd_line, envname, ...) run$cmd_line <- cmd_line,
+    .package = "reticulate"
+  )
+  testthat::local_mocked_bindings(
+    tgc_is_mac = function() FALSE,
+    tgc_check_conda_env = function(tool) "ctidygenclust",
+    tgc_tool_installed = function(tool) TRUE
+  )
+  tgc_fastmixture_install(fastmixture_hash = "abc123")
+  expect_length(run$cmd_line, 1)
+  expect_match(run$cmd_line, "pip install .*--force-reinstall --no-deps")
+  expect_match(run$cmd_line, "fastmixture.git@abc123 threadpoolctl$")
+})

@@ -56,6 +56,8 @@
   the others: the tools that were installed in `ctidygenclust` are installed
   again, and on macOS resetting ADMIXTURE alone leaves `ctidygenclust`
   untouched.
+* Installing fastmixture no longer replaces the numpy pinned by the conda
+  environment with the latest version from pypi.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

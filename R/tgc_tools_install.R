@@ -179,10 +179,12 @@ tgc_fastmixture_install <-
     # create command line to install fastmixture (from the given commit of
     # its github repository, replacing any version already installed)
     # threadpoolctl is used by gt_fastmixture() to limit the number of
-    # threads of fastmixture
+    # threads of fastmixture. --no-deps stops --force-reinstall from also
+    # reinstalling the dependencies from pypi (numpy, the only one of
+    # fastmixture, is already in the environment, pinned by the conda yaml)
     fast_install_cmd <- paste0(
       "python -m pip install ",
-      "--upgrade --force-reinstall ",
+      "--upgrade --force-reinstall --no-deps ",
       "git+https://github.com/Rosemeis/fastmixture.git@",
       fastmixture_hash, " threadpoolctl"
     )
