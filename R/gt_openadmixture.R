@@ -146,8 +146,14 @@
 #'   acceleration (defaults to 3)
 #' @param init_q optional matrix (individuals x k) of starting ancestry
 #'   proportions; only allowed with a single value of `k`
-#' @param init_p optional matrix (loci x k) of starting allele frequencies;
-#'   only allowed with a single value of `k`
+#' @param init_p optional matrix (loci x k) of starting allele frequencies
+#'   (of the alternate allele, as in the P matrices returned by this
+#'   function; those of [tidypopgen::gt_admixture()] give the frequency of
+#'   the reference allele, so use `1 - P`); only allowed with a single value
+#'   of `k`. If it has row names (as the P matrices returned by this
+#'   function), they are used to match its rows to the loci of `x` (it can
+#'   then include other loci, which are ignored); otherwise its rows must be
+#'   in the order of the loci of `x`
 #' @param fix_q,fix_p booleans; if `TRUE`, Q (respectively P) is kept at the
 #'   value given in `init_q` (respectively `init_p`)
 #' @param use_imputed boolean; if `TRUE`, imputed genotypes are used as if
@@ -275,6 +281,20 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   # double matrices, moved strictly inside the feasible set, and are shared
   # by all runs.
   init_q <- openadmixture_check_init(init_q, data$n_indiv, k[1], "init_q", TRUE)
+  # a P with row names (e.g. estimated on another dataset, whose loci may be
+  # in a different order, or include other loci) is matched to the loci by
+  # name: matching by position would silently give wrong results
+  if (!is.null(init_p) && !is.null(rownames(init_p))) {
+    p_rows <- match(tidypopgen::show_loci(x)$name, rownames(init_p))
+    if (anyNA(p_rows)) {
+      stop(
+        "the row names of 'init_p' do not include all the loci of 'x' ",
+        "(remove them to match the rows of 'init_p' to the loci by position)",
+        call. = FALSE
+      )
+    }
+    init_p <- init_p[p_rows, , drop = FALSE]
+  }
   init_p <- openadmixture_check_init(init_p, data$n_loci, k[1], "init_p", FALSE)
 
   # use our own seeds without disturbing the global RNG state

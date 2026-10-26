@@ -46,6 +46,10 @@
   and N, rather than silently returning rows of NA.
 * `gt_openadmixture()` with `fix_p = TRUE` can project fewer individuals than
   `k` (e.g. a single new sample) onto a reference panel.
+* `gt_openadmixture()` matches the rows of `init_p` to the loci by their
+  names, when it has row names (as its P matrices do): a P with the loci in a
+  different order was silently accepted, giving wrong results, and a P with
+  additional loci was rejected.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

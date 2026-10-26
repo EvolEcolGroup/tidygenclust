@@ -232,3 +232,28 @@ test_that("a few individuals can be projected onto a fixed P", {
   # without a fixed P, k must still be smaller than the number of individuals
   expect_error(gt_openadmixture(sim_gt[1:2, ], k = k), "smaller than")
 })
+
+test_that("init_p is matched to the loci by its row names", {
+  p_ref <- t(sim$p)
+  k <- nrow(sim$p)
+  loci_names <- tidypopgen::show_loci(sim_gt)$name
+  adm <- gt_openadmixture(sim_gt, k = k, init_p = p_ref, fix_p = TRUE, seed = 1)
+  # the same P, with the loci in reverse order and named
+  p_rev <- p_ref[rev(seq_len(nrow(p_ref))), ]
+  rownames(p_rev) <- rev(loci_names)
+  adm_rev <- gt_openadmixture(sim_gt,
+    k = k, init_p = p_rev, fix_p = TRUE, seed = 1
+  )
+  expect_identical(adm_rev$Q, adm$Q)
+  # a P with other loci as well (e.g. a larger reference panel)
+  p_more <- rbind(p_rev, extra = rep(0.5, k))
+  adm_more <- gt_openadmixture(sim_gt,
+    k = k, init_p = p_more, fix_p = TRUE, seed = 1
+  )
+  expect_identical(adm_more$Q, adm$Q)
+  # a P without some of the loci
+  expect_error(
+    gt_openadmixture(sim_gt, k = k, init_p = p_rev[-1, ], fix_p = TRUE),
+    "do not include all the loci"
+  )
+})

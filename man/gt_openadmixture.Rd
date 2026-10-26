@@ -50,8 +50,14 @@ acceleration (defaults to 3)}
 \item{init_q}{optional matrix (individuals x k) of starting ancestry
 proportions; only allowed with a single value of \code{k}}
 
-\item{init_p}{optional matrix (loci x k) of starting allele frequencies;
-only allowed with a single value of \code{k}}
+\item{init_p}{optional matrix (loci x k) of starting allele frequencies
+(of the alternate allele, as in the P matrices returned by this
+function; those of \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}} give the frequency of
+the reference allele, so use \code{1 - P}); only allowed with a single value
+of \code{k}. If it has row names (as the P matrices returned by this
+function), they are used to match its rows to the loci of \code{x} (it can
+then include other loci, which are ignored); otherwise its rows must be
+in the order of the loci of \code{x}}
 
 \item{fix_q, fix_p}{booleans; if \code{TRUE}, Q (respectively P) is kept at the
 value given in \code{init_q} (respectively \code{init_p})}
