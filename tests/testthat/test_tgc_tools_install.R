@@ -264,3 +264,26 @@ test_that("a missing snapshot directory gives a clear error", {
     "No conda yaml snapshot found .*run from the root of the package source"
   )
 })
+
+test_that("on osx, fastmixture is compiled with the llvm of homebrew", {
+  run <- new.env()
+  testthat::local_mocked_bindings(
+    conda_install = function(...) NULL,
+    conda_run2 = function(cmd_line, envname, ...) run$cmd_line <- cmd_line,
+    .package = "reticulate"
+  )
+  testthat::local_mocked_bindings(
+    tgc_is_mac = function() TRUE,
+    tgc_check_brew = function() NULL,
+    tgc_check_conda_env = function(tool) "ctidygenclust",
+    tgc_tool_installed = function(tool) TRUE
+  )
+  tgc_fastmixture_install()
+  # the location of llvm is asked to homebrew (it was hard-coded for silicon
+  # Macs, /opt/homebrew)
+  expect_identical(
+    run$cmd_line[1],
+    "export PATH=\"$(brew --prefix llvm)/bin:$PATH\""
+  )
+  expect_match(run$cmd_line[length(run$cmd_line)], "pip install")
+})

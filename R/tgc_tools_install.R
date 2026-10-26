@@ -201,7 +201,9 @@ tgc_fastmixture_install <-
         channel = c("conda-forge", "defaults")
       )
       fast_install_cmd <- c(
-        "export PATH=\"/opt/homebrew/opt/llvm/bin:$PATH\"",
+        # (brew --prefix gives the location of llvm both on silicon Macs,
+        # /opt/homebrew, and on Intel ones, /usr/local)
+        "export PATH=\"$(brew --prefix llvm)/bin:$PATH\"",
         "export CC=clang",
         "export CXX=clang++",
         "export CFLAGS=-fopenmp",

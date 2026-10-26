@@ -93,6 +93,8 @@
   moved by rounding errors).
 * `gt_openadmixture()` on a `gen_tibble` without individuals or loci gives an
   error, rather than crashing R.
+* On Intel Macs, fastmixture is compiled with the llvm installed by Homebrew
+  (its location was hard-coded for Apple silicon).
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda
