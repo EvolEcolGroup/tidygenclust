@@ -211,10 +211,11 @@ make_connection_df <- function(x) {
   # rescale from grid units to [0, 1], as in get_inset_corners(): a row unit
   # is 1 / (2 * number of K values), a column unit is 0.9 / number of
   # columns (after the 10% left margin), and y is flipped so that the first
-  # value of K is at the top. With a single K there are no edges, and n_col
-  # is -Inf (with a warning), but it is not used
+  # value of K is at the top. The number of columns is the largest number of
+  # modes for a K, taken from the names of all the modes (with a single K
+  # there are no edges, so it cannot be taken from connection_df)
   n_row <- length(x$K_range)
-  n_col <- max(as.integer(gsub(".*M(\\d+).*", "\\1", connection_df$label)))
+  n_col <- max(as.integer(gsub(".*M(\\d+).*", "\\1", names(x$aligned_modes))))
   row_size <- 1 / (n_row * 2)
   col_size <- (1 - 0.1) / n_col
   connection_df$x <- connection_df$x * col_size + 0.1

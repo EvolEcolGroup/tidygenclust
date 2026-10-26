@@ -423,3 +423,9 @@ test_that("modes_within_k checks k", {
   plt <- autoplot(clump_res, type = "modes_within_k", k = 5)
   expect_length(plt$patches$plots, 2)
 })
+
+test_that("the modes plot works with a single value of K", {
+  sub_res <- subset_gt_clumppling(clump_res, k = 4)
+  expect_no_warning(plt <- autoplot(sub_res, type = "modes"))
+  expect_no_error(patchwork::patchworkGrob(plt))
+})

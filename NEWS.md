@@ -71,6 +71,8 @@
   factor.
 * `autoplot(type = "modes_within_k")` checks that `k` is a single value of
   `K_range`: other values gave an empty plot that failed when printed.
+* `autoplot(type = "modes")` no longer warns for a `gt_clumppling` object with
+  a single value of K.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda
