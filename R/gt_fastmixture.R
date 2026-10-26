@@ -115,6 +115,7 @@ gt_fastmixture <- function(
   fbm_dim <- NULL
   rows <- NULL
   cols <- NULL
+  group <- NULL
   if (inherits(x, "character")) {
     bfile <- x
     plink <- TRUE
@@ -125,6 +126,10 @@ gt_fastmixture <- function(
     rows <- as.integer(vctrs::vec_data(x$genotypes)) - 1L
     cols <- as.integer(tidypopgen::show_loci(x)$big_index) - 1L
     plink <- FALSE
+    # the group of each individual, stored in the result: it is taken now,
+    # so that a gen_tibble grouped by several variables fails before the
+    # fits rather than after them
+    group <- gt_single_group(x)
   } else {
     stop(
       paste0(
@@ -285,12 +290,11 @@ gt_fastmixture <- function(
   # return list, as a gt_admix object (like tidypopgen::gt_admixture())
   class(adm_list) <- c("gt_admix", class(adm_list))
 
-  # add metadata if x is a gen_tibble
+  # add metadata if x is a gen_tibble (the group was taken before the fits)
   if (inherits(x, "gen_tbl")) {
     adm_list$id <- x$id
-    # if it is grouped, add the group
-    if (inherits(x, "grouped_gen_tbl")) {
-      adm_list$group <- x[[dplyr::group_vars(x)]]
+    if (!is.null(group)) {
+      adm_list$group <- group
     }
   }
 

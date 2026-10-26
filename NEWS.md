@@ -98,6 +98,8 @@
 * The `safety` argument of `gt_fastmixture()` is deprecated: it was never
   passed on to fastmixture, which turns on its safety updates by itself when
   an update is unstable.
+* `gt_fastmixture()` checks that a grouped gen_tibble has a single grouping
+  variable before running fastmixture (it failed after all the fits).
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

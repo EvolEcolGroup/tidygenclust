@@ -63,3 +63,31 @@ test_that("'safety' is deprecated and not passed to python", {
   expect_no_warning(gt_fastmixture("plink_prefix", k = 2))
   expect_false(any(vapply(run_args, function(a) "safety" %in% names(a), NA)))
 })
+
+test_that("the grouping of a gen_tibble is checked before starting python", {
+  test_gt <- openadmixture_test_gt(matrix(c(0, 1, 2, 1, 0, 2), 3, 2))
+  grouped_2 <- test_gt %>%
+    dplyr::mutate(pop2 = .data$population) %>%
+    dplyr::group_by(.data$population, .data$pop2)
+  # the fits are not run (they used to run before the error)
+  local_mocked_bindings(
+    .ensure_fastmixture_python = function() stop("python started")
+  )
+  expect_error(
+    gt_fastmixture(grouped_2, k = 2),
+    "grouped by a single variable \\(it is grouped by population, pop2\\)"
+  )
+  # a single grouping variable is stored with the ids of the individuals
+  fake_module <- list(fastmixture_run = function(args) {
+    matrix(1 / args$K, length(args$rows), args$K)
+  })
+  local_mocked_bindings(.ensure_fastmixture_python = function() fake_module)
+  local_mocked_bindings(
+    import = function(module, ...) list(Namespace = function(...) list(...)),
+    .package = "reticulate"
+  )
+  adm <- gt_fastmixture(dplyr::group_by(test_gt, .data$population), k = 2)
+  expect_identical(adm$id, test_gt$id)
+  expect_identical(adm$group, test_gt$population)
+  expect_null(gt_fastmixture(test_gt, k = 2)$group)
+})

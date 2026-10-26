@@ -325,22 +325,10 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
     }
   }
 
-  # The group of each individual, stored in the result. As in
-  # gt_admixture(), a single grouping variable is supported: it is checked
-  # now, so that a gen_tibble grouped by several variables fails before the
-  # fits rather than after them
-  group <- NULL
-  if (inherits(x, "grouped_gen_tbl")) {
-    group_vars <- dplyr::group_vars(x)
-    if (length(group_vars) != 1) {
-      stop(
-        "'x' should be grouped by a single variable (it is grouped by ",
-        paste(group_vars, collapse = ", "), ")",
-        call. = FALSE
-      )
-    }
-    group <- x[[group_vars]]
-  }
+  # The group of each individual, stored in the result. It is taken now, so
+  # that a gen_tibble grouped by several variables fails before the fits
+  # rather than after them
+  group <- gt_single_group(x)
 
   # Run the fits, one per combination of k and run, filling in the elements
   # of the gt_admix object in the same order as gt_admixture() (by k, then by
@@ -493,4 +481,22 @@ check_flag <- function(x, name) {
     stop("'", name, "' should be TRUE or FALSE", call. = FALSE)
   }
   invisible(TRUE)
+}
+
+# The group of each individual of a grouped gen_tibble (NULL if it is not
+# grouped), for the `group` element of a gt_admix object. As in
+# gt_admixture(), a single grouping variable is supported
+gt_single_group <- function(x) {
+  if (!inherits(x, "grouped_gen_tbl")) {
+    return(NULL)
+  }
+  group_vars <- dplyr::group_vars(x)
+  if (length(group_vars) != 1) {
+    stop(
+      "'x' should be grouped by a single variable (it is grouped by ",
+      paste(group_vars, collapse = ", "), ")",
+      call. = FALSE
+    )
+  }
+  x[[group_vars]]
 }
