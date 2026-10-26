@@ -191,6 +191,13 @@ test_that("gt_clumppling checks its inputs", {
 
 # the methods for gt_clumppling objects
 clump_res <- gt_clumppling(capeverde, seed = 42)
+# the arguments of autoplot() for each type of plot
+plot_types <- list(
+  list(type = "modes_within_k", k = 3),
+  list(type = "major_modes"),
+  list(type = "all_modes"),
+  list(type = "modes")
+)
 
 test_that("gt_clumppling works as expected", {
   expect_true(inherits(clump_res, "gt_clumppling"))
@@ -214,62 +221,40 @@ test_that("gt_clumppling works as expected", {
   expect_length(get_q_major_modes, 4)
 
   # Plotting the results
-  expect_s3_class(autoplot(clump_res, type = "modes_within_k", k = 3), "ggplot")
-  expect_s3_class(autoplot(clump_res, type = "major_modes"), "ggplot")
-  expect_s3_class(autoplot(clump_res, type = "all_modes"), "ggplot")
-  expect_s3_class(autoplot(clump_res, type = "modes"), "ggplot")
-  # with the populations stored in the gt_admix object
-  expect_s3_class(
-    autoplot(clump_res, type = "all_modes", group = capeverde$group),
-    "ggplot"
-  )
+  for (args in plot_types) {
+    expect_plot_renders(do.call(autoplot, c(list(clump_res), args)))
+    # with the populations stored in the gt_admix object
+    expect_plot_renders(
+      do.call(autoplot, c(list(clump_res, group = capeverde$group), args))
+    )
+  }
 })
 
 test_that("subsetting gt_clumppling", {
-  sub_clump_res <- subset_gt_clumppling(clump_res, indivs = 1:100)
-
-  expect_warning(
-    autoplot(sub_clump_res, type = "modes_within_k", k = 3),
-    "modes will not be representative of this subset"
+  # subsets of individuals warn that the modes are those of all the
+  # individuals; subsets of K do not
+  subsets <- list(
+    list(indivs = 1:100),
+    list(k = 2:4),
+    list(indivs = 1:100, k = 2:4)
   )
-  expect_warning(
-    autoplot(sub_clump_res, type = "major_modes"),
-    "modes will not be representative of this subset"
-  )
-  expect_warning(
-    autoplot(sub_clump_res, type = "all_modes"),
-    "modes will not be representative of this subset"
-  )
-  expect_warning(
-    autoplot(sub_clump_res, type = "modes"),
-    "modes will not be representative of this subset"
-  )
-
-  sub_clump_res <- subset_gt_clumppling(clump_res, k = 2:4)
-
-  autoplot(sub_clump_res, type = "modes_within_k", k = 3)
-  autoplot(sub_clump_res, type = "major_modes")
-  autoplot(sub_clump_res, type = "all_modes")
-  autoplot(sub_clump_res, type = "modes")
-
-  sub_clump_res <- subset_gt_clumppling(clump_res, indivs = 1:100, k = 2:4)
-
-  expect_warning(
-    autoplot(sub_clump_res, type = "modes_within_k", k = 3),
-    "modes will not be representative of this subset"
-  )
-  expect_warning(
-    autoplot(sub_clump_res, type = "major_modes"),
-    "modes will not be representative of this subset"
-  )
-  expect_warning(
-    autoplot(sub_clump_res, type = "all_modes"),
-    "modes will not be representative of this subset"
-  )
-  expect_warning(
-    autoplot(sub_clump_res, type = "modes"),
-    "modes will not be representative of this subset"
-  )
+  for (subset in subsets) {
+    sub_clump_res <- do.call(
+      subset_gt_clumppling, c(list(clump_res), subset)
+    )
+    for (args in plot_types) {
+      plot_sub <- function() do.call(autoplot, c(list(sub_clump_res), args))
+      if (is.null(subset$indivs)) {
+        expect_no_warning(plt <- plot_sub())
+      } else {
+        expect_warning(
+          plt <- plot_sub(),
+          "modes will not be representative of this subset"
+        )
+      }
+      expect_plot_renders(plt)
+    }
+  }
 
   expect_error(
     subset_gt_clumppling(clump_res, k = c(2, 4)),
@@ -466,4 +451,24 @@ test_that("invalid groups give clear errors", {
     autoplot(clump_res, type = "all_modes", group = capeverde$group[-1]),
     "'group' should be of the same length"
   )
+})
+
+test_that("all the plots are drawn with a single mode per K", {
+  one_mode <- gt_clumppling(capeverde, cd_method = function(adj) {
+    rep(1, nrow(adj))
+  })
+  for (args in plot_types) {
+    expect_plot_renders(do.call(autoplot, c(list(one_mode), args)))
+    expect_plot_renders(
+      do.call(autoplot, c(list(one_mode, group = capeverde$group), args))
+    )
+  }
+})
+
+test_that("all the plots are drawn with K >= 10", {
+  chicken_res <- gt_clumppling(clumppling_test_chicken(), seed = 1)
+  plot_types[[1]]$k <- 19
+  for (args in plot_types) {
+    expect_plot_renders(do.call(autoplot, c(list(chicken_res), args)))
+  }
 })

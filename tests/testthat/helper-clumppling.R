@@ -147,3 +147,14 @@ expect_same_clumppling <- function(res, ref, fingerprint = FALSE,
 clumppling_test_py_reference <- function() {
   readRDS(testthat::test_path("fixtures", "clumppling_python_reference.rds"))
 }
+
+# check that a plot (a ggplot or a patchwork) is drawn without errors (on a
+# null device): building a plot does not catch the errors that only happen
+# when it is drawn
+expect_plot_renders <- function(plt) {
+  testthat::expect_s3_class(plt, "ggplot")
+  grDevices::pdf(NULL)
+  on.exit(grDevices::dev.off())
+  testthat::expect_no_error(print(plt))
+  invisible(plt)
+}
