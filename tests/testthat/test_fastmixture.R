@@ -25,14 +25,48 @@ anole_gt <- anole_gt %>%
   mutate(population = pops$pop[match(pops$ID, .data$id)])
 
 
+# check a gt_admix object returned by gt_fastmixture() for anole_gt: one Q
+# matrix (and one P matrix, with `freqs`) per combination of k and run, in
+# order of k and then of run, and one cross-validation error per fit (with
+# `cv`)
+expect_anole_fastmixture <- function(res, k, n_runs, freqs, cv = FALSE) {
+  n_fits <- length(k) * n_runs
+  expect_s3_class(res, "gt_admix")
+  expect_identical(res$algorithm, "fastmixture")
+  expect_identical(res$id, anole_gt$id)
+  expect_identical(res$k, rep(as.integer(k), each = n_runs))
+  expect_length(res$Q, n_fits)
+  for (i in seq_len(n_fits)) {
+    expect_s3_class(res$Q[[i]], "q_matrix")
+    expect_identical(dim(res$Q[[i]]), c(nrow(anole_gt), res$k[i]))
+    expect_equal(unname(rowSums(res$Q[[i]])), rep(1, nrow(anole_gt)),
+      tolerance = 1e-6
+    )
+  }
+  if (freqs) {
+    expect_length(res$P, n_fits)
+    for (i in seq_len(n_fits)) {
+      expect_identical(dim(res$P[[i]]), c(count_loci(anole_gt), res$k[i]))
+      expect_true(all(res$P[[i]] >= 0 & res$P[[i]] <= 1))
+    }
+  } else {
+    expect_false("P" %in% names(res))
+  }
+  if (cv) {
+    expect_length(res$cv, n_fits)
+    expect_true(all(is.finite(res$cv) & res$cv > 0))
+  } else {
+    expect_false("cv" %in% names(res))
+  }
+}
+
 test_that("gt_fastmixture", {
-  # Multiple k and one repeat with no P matrices
-
-  k <- c(2:3)
-
-  anole_qmat <- gt_fastmixture(
+  # multiple k and one run, without P matrices (with the arguments that are
+  # passed to fastmixture set explicitly, all to their defaults except for
+  # the tolerance, to keep the tests fast)
+  res <- gt_fastmixture(
     anole_gt,
-    k,
+    k = 2:3,
     n_runs = 1,
     threads = 1,
     seed = 42,
@@ -43,280 +77,65 @@ test_that("gt_fastmixture", {
     check = 5,
     power = 11,
     chunk = 8192,
+    subsample = 0.7,
+    min_subsample = 50000,
+    max_subsample = 500000,
     als_iter = 1000,
     als_tole = 1e-4,
     no_freqs = TRUE,
     random_init = TRUE
   )
-  # correct structure
-  expect_true(inherits(anole_qmat, c("list", "gt_admix")))
-  expect_true(all(names(anole_qmat) == names(anole_qmat)))
-  expect_true(inherits(anole_qmat$Q[[1]], "q_matrix"))
-  # correct number of repeats
-  expect_true(sum(anole_qmat$k == 2) == 1)
-  expect_true(sum(anole_qmat$k == 3) == 1)
-  # check no p matrices
-  expect_true(!"P" %in% names(anole_qmat))
-  # correct number of q matrices
-  expect_true(length(anole_qmat$Q) == length(k))
-  # check q-matrix correspond to correct k
-  index_k2 <- which(anole_qmat$k == 2)
-  index_k3 <- which(anole_qmat$k == 3)
-  expect_true(ncol(anole_qmat$Q[[index_k2]]) == 2)
-  expect_true(ncol(anole_qmat$Q[[index_k3]]) == 3)
+  expect_anole_fastmixture(res, k = 2:3, n_runs = 1, freqs = FALSE)
 
-  # Multiple repeats and one k with P matrices
-
-  k <- 2
-
-  anole_qmat <- gt_fastmixture(
-    anole_gt,
-    k,
-    n_runs = 2,
-    threads = 1,
-    seed = c(42, 31),
-    iter = 1000,
-    tole = 0.5,
-    batches = 32,
-    supervised = NULL,
-    check = 5,
-    power = 11,
-    chunk = 8192,
-    als_iter = 1000,
-    als_tole = 1e-4,
-    no_freqs = FALSE,
-    random_init = TRUE
+  # one k and multiple runs, with P matrices; the runs use different seeds
+  res <- gt_fastmixture(
+    anole_gt, k = 2, n_runs = 2, seed = c(42, 31), tole = 0.5,
+    no_freqs = FALSE
   )
-  # correct structure
-  expect_true(inherits(anole_qmat, c("list", "gt_admix")))
-  expect_true(all(names(anole_qmat) == names(anole_qmat)))
-  expect_true(inherits(anole_qmat$Q[[1]], "q_matrix"))
-  # correct number of k
-  expect_true(length(anole_qmat$Q) == length(k) * 2)
-  # correct number of repeats
-  expect_true(sum(anole_qmat$k == 2) == 2)
-  # correct number of q matrices
-  expect_true(length(anole_qmat$Q) == length(k) * 2)
-  # correct number of p matrices
-  expect_true(length(anole_qmat$P) == length(k) * 2)
-  # check q-matrix are indexed as correct k
-  index_k2 <- which(anole_qmat$k == 2)
-  expect_true(ncol(anole_qmat$Q[[index_k2[1]]]) == 2)
-  expect_true(ncol(anole_qmat$Q[[index_k2[2]]]) == 2)
-  # check p-matrix are indexed as correct k
-  expect_true(ncol(anole_qmat$P[[index_k2[1]]]) == 2)
-  expect_true(ncol(anole_qmat$P[[index_k2[2]]]) == 2)
+  expect_anole_fastmixture(res, k = 2, n_runs = 2, freqs = TRUE)
+  expect_false(isTRUE(all.equal(res$Q[[1]], res$Q[[2]])))
 
-  # Multiple k and multiple repeats with P matrices
-
-  k <- c(2:3)
-
-  anole_qmat <- gt_fastmixture(
-    anole_gt,
-    k,
-    n_runs = 2,
-    threads = 1,
-    seed = c(42, 31),
-    iter = 1000,
-    tole = 0.5,
-    batches = 32,
-    supervised = NULL,
-    check = 5,
-    power = 11,
-    chunk = 8192,
-    als_iter = 1000,
-    als_tole = 1e-4,
-    no_freqs = FALSE,
-    random_init = TRUE
+  # multiple k and multiple runs, with P matrices
+  res <- gt_fastmixture(
+    anole_gt, k = 2:3, n_runs = 2, seed = c(42, 31), tole = 0.5,
+    no_freqs = FALSE
   )
-  # correct structure
-  expect_true(inherits(anole_qmat, c("list", "gt_admix")))
-  expect_true(all(names(anole_qmat) == names(anole_qmat)))
-  expect_true(inherits(anole_qmat$Q[[1]], "q_matrix"))
-  # correct number of k
-  expect_true(length(anole_qmat$Q) == length(k) * 2)
-  # correct number of repeats
-  expect_true(sum(anole_qmat$k == 2) == 2)
-  expect_true(sum(anole_qmat$k == 3) == 2)
-  # correct number of q matrices
-  expect_true(length(anole_qmat$Q) == length(k) * 2)
-  # correct number of p matrices
-  expect_true(length(anole_qmat$P) == length(k) * 2)
-  # check q-matrix are indexed as correct k
-  index_k2 <- which(anole_qmat$k == 2)
-  expect_true(ncol(anole_qmat$Q[[index_k2[1]]]) == 2)
-  expect_true(ncol(anole_qmat$Q[[index_k2[2]]]) == 2)
-  index_k3 <- which(anole_qmat$k == 3)
-  expect_true(ncol(anole_qmat$Q[[index_k3[1]]]) == 3)
-  expect_true(ncol(anole_qmat$Q[[index_k3[2]]]) == 3)
-  # check p-matrix are indexed as correct k
-  expect_true(ncol(anole_qmat$P[[index_k2[1]]]) == 2)
-  expect_true(ncol(anole_qmat$P[[index_k2[2]]]) == 2)
-  expect_true(ncol(anole_qmat$P[[index_k3[1]]]) == 3)
-  expect_true(ncol(anole_qmat$P[[index_k3[2]]]) == 3)
+  expect_anole_fastmixture(res, k = 2:3, n_runs = 2, freqs = TRUE)
 
-  # Single K and one repeat with P matrices
-
-  k <- 2
-
-  anole_qmat <- gt_fastmixture(
-    anole_gt,
-    k,
-    n_runs = 1,
-    threads = 1,
-    seed = 42,
-    iter = 1000,
-    tole = 0.5,
-    batches = 32,
-    supervised = NULL,
-    check = 5,
-    power = 11,
-    chunk = 8192,
-    als_iter = 1000,
-    als_tole = 1e-4,
-    no_freqs = FALSE,
-    random_init = TRUE
+  # one k and one run, with P matrices, for a grouped gen_tibble
+  res <- gt_fastmixture(
+    dplyr::group_by(anole_gt, .data$population), k = 2, tole = 0.5,
+    no_freqs = FALSE
   )
-  # correct structure
-  expect_true(inherits(anole_qmat, c("list", "gt_admix")))
-  expect_true(all(names(anole_qmat) == names(anole_qmat)))
-  expect_true(inherits(anole_qmat$Q[[1]], "q_matrix"))
-  # correct number of k
-  expect_true(length(anole_qmat$Q) == length(k))
-  # correct number of repeats
-  expect_true(sum(anole_qmat$k == 2) == 1)
-  # correct number of q matrices
-  expect_true(length(anole_qmat$Q) == length(k))
-  # correct number of p matrices
-  expect_true(length(anole_qmat$P) == length(k))
-  # check q-matrix are indexed as correct k
-  index_k2 <- which(anole_qmat$k == 2)
-  expect_true(ncol(anole_qmat$Q[[index_k2[1]]]) == 2)
-  # check p-matrix are indexed as correct k
-  expect_true(ncol(anole_qmat$P[[index_k2[1]]]) == 2)
+  expect_anole_fastmixture(res, k = 2, n_runs = 1, freqs = TRUE)
+  expect_identical(res$group, anole_gt$population)
 })
 
 test_that("fastmixture with cv", {
-  # Single k and one repeat with no P matrices
+  # one k and one run, without and with P matrices
+  for (no_freqs in c(TRUE, FALSE)) {
+    res <- gt_fastmixture(
+      anole_gt, k = 3, seed = 42, tole = 0.5, no_freqs = no_freqs,
+      cv = 7, cv_tole = 1e-7
+    )
+    expect_anole_fastmixture(res, k = 3, n_runs = 1, freqs = !no_freqs,
+      cv = TRUE
+    )
+  }
 
-  k <- c(3)
-
-  anole_qmat <- gt_fastmixture(
-    anole_gt,
-    k,
-    n_runs = 1,
-    threads = 1,
-    seed = 42,
-    iter = 1000,
-    tole = 0.5,
-    batches = 32,
-    supervised = NULL,
-    check = 5,
-    power = 11,
-    chunk = 8192,
-    als_iter = 1000,
-    als_tole = 1e-4,
-    no_freqs = TRUE,
-    random_init = TRUE,
-    cv = 7,
-    cv_tole = 1e-7
+  # multiple k and multiple runs, without P matrices
+  res <- gt_fastmixture(
+    anole_gt, k = 2:4, n_runs = 2, seed = c(123, 234), tole = 0.5,
+    cv = 7
   )
+  expect_anole_fastmixture(res, k = 2:4, n_runs = 2, freqs = FALSE, cv = TRUE)
 
-  # check
-  expect_true("cv" %in% names(anole_qmat))
-  expect_true(is.numeric(anole_qmat$cv))
-
-  # Single k and one repeat with P matrices
-
-  k <- c(3)
-
-  anole_qmat <- gt_fastmixture(
-    anole_gt,
-    k,
-    n_runs = 1,
-    threads = 1,
-    seed = 42,
-    iter = 1000,
-    tole = 0.5,
-    batches = 32,
-    supervised = NULL,
-    check = 5,
-    power = 11,
-    chunk = 8192,
-    als_iter = 1000,
-    als_tole = 1e-4,
-    no_freqs = FALSE,
-    random_init = TRUE,
-    cv = 7,
-    cv_tole = 1e-7
+  # multiple k and multiple runs, with P matrices
+  res <- gt_fastmixture(
+    anole_gt, k = 2:7, n_runs = 4, seed = c(123, 234, 345, 456), tole = 0.5,
+    no_freqs = FALSE, cv = 5
   )
-
-  # check
-  expect_true("cv" %in% names(anole_qmat))
-  expect_true(is.numeric(anole_qmat$cv))
-
-
-  # Multiple k and multiple repeats with no P matrices
-
-  k <- c(2:4)
-  n_runs <- 2
-  seeds <- c(123, 234)
-
-  anole_qmat <- gt_fastmixture(
-    anole_gt,
-    k,
-    n_runs = n_runs,
-    threads = 1,
-    seed = seeds,
-    iter = 1000,
-    tole = 0.5,
-    batches = 32,
-    supervised = NULL,
-    check = 5,
-    power = 11,
-    chunk = 8192,
-    als_iter = 1000,
-    als_tole = 1e-4,
-    no_freqs = TRUE,
-    random_init = TRUE,
-    cv = 7,
-    cv_tole = 1e-7
-  )
-
-  # check
-  expect_true("cv" %in% names(anole_qmat))
-  expect_equal(length(anole_qmat$cv), length(k) * n_runs)
-
-  # Multiple k and multiple repeats with P matrices
-
-  k <- c(2:7)
-  n_runs <- 4
-  seeds <- c(123, 234, 345, 456)
-
-  anole_qmat <- gt_fastmixture(
-    anole_gt,
-    k,
-    n_runs = n_runs,
-    threads = 1,
-    seed = seeds,
-    iter = 1000,
-    tole = 0.5,
-    batches = 32,
-    supervised = NULL,
-    check = 5,
-    power = 11,
-    chunk = 8192,
-    als_iter = 1000,
-    als_tole = 1e-4,
-    no_freqs = FALSE,
-    random_init = TRUE,
-    cv = 5,
-    cv_tole = 1e-7
-  )
-
-  # check
-  expect_true("cv" %in% names(anole_qmat))
-  expect_equal(length(anole_qmat$cv), length(k) * n_runs)
+  expect_anole_fastmixture(res, k = 2:7, n_runs = 4, freqs = TRUE, cv = TRUE)
 })
 
 test_that("gt_fastmixture gives the same results for gen_tibble and plink", {
