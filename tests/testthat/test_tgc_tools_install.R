@@ -3,45 +3,73 @@
 # tested here)
 
 test_that("conda yaml files are filtered by the requested tools", {
-  linux_yaml <- utils::tail(list.files(
-    system.file("env_snapshots", package = "tidygenclust"),
-    pattern = "ctidygenclust_linux_", full.names = TRUE
-  ), 1)
-  yaml_lines <- readLines(linux_yaml)
-  has_line <- function(lines, pattern) any(grepl(pattern, lines))
+  # a snapshot in the format of those in inst/env_snapshots, written here so
+  # that the test does not depend on the content of the latest snapshot
+  yaml_lines <- c(
+    "name: ctidygenclust",
+    "channels:",
+    "  - conda-forge",
+    "  - bioconda",
+    "dependencies:",
+    "  - admixture=1.3.0",
+    "  - numpy=2.3.3",
+    "  - pip=26.2.1",
+    "  - python=3.11.0",
+    "  - pip:",
+    "      - fastmixture==1.3.0",
+    "prefix: /usr/share/miniconda/envs/ctidygenclust"
+  )
+  linux_yaml <- withr::local_tempfile(fileext = ".yml")
+  writeLines(yaml_lines, linux_yaml)
+  filter_lines <- function(yaml, tools) {
+    filtered <- tgc_filter_conda_yaml(yaml, tools)
+    on.exit(unlink(filtered))
+    readLines(filtered)
+  }
   # all the tools: the file is unchanged
-  filtered <- tgc_filter_conda_yaml(linux_yaml, c("fastmixture", "admixture"))
-  on.exit(unlink(filtered), add = TRUE)
-  expect_identical(readLines(filtered), yaml_lines)
+  expect_identical(
+    filter_lines(linux_yaml, c("fastmixture", "admixture")), yaml_lines
+  )
   # only fastmixture
-  filtered <- tgc_filter_conda_yaml(linux_yaml, "fastmixture")
-  on.exit(unlink(filtered), add = TRUE)
-  filtered_lines <- readLines(filtered)
-  expect_false(has_line(filtered_lines, "- admixture="))
-  expect_true(has_line(filtered_lines, "- fastmixture=="))
-  expect_true(has_line(filtered_lines, "- pip:"))
-  expect_length(filtered_lines, length(yaml_lines) - 1)
+  expect_identical(filter_lines(linux_yaml, "fastmixture"), yaml_lines[-6])
   # only admixture: the pip section, which only had fastmixture, is removed
-  filtered <- tgc_filter_conda_yaml(linux_yaml, "admixture")
-  on.exit(unlink(filtered), add = TRUE)
-  filtered_lines <- readLines(filtered)
-  expect_true(has_line(filtered_lines, "- admixture="))
-  expect_false(has_line(filtered_lines, "fastmixture"))
-  expect_false(has_line(filtered_lines, "- pip:"))
-  expect_true(has_line(filtered_lines, "- python="))
-  expect_length(filtered_lines, length(yaml_lines) - 2)
+  expect_identical(filter_lines(linux_yaml, "admixture"), yaml_lines[-10:-11])
   # a pip section with other packages is kept
   yaml_file <- withr::local_tempfile(fileext = ".yml")
   writeLines(c(
     "name: test", "dependencies:", "  - pip", "  - pip:",
     "      - fastmixture==1.3.0", "      - other==1.0", "prefix: /x"
   ), yaml_file)
-  filtered <- tgc_filter_conda_yaml(yaml_file, "admixture")
-  on.exit(unlink(filtered), add = TRUE)
-  expect_identical(readLines(filtered), c(
+  expect_identical(filter_lines(yaml_file, "admixture"), c(
     "name: test", "dependencies:", "  - pip", "  - pip:",
     "      - other==1.0", "prefix: /x"
   ))
+})
+
+test_that("the tools are found in the latest snapshots", {
+  # the latest snapshot of ctidygenclust for each operating system: the
+  # filter must find the lines of the tools in its format (the snapshots of
+  # macOS do not have admixture, which has its own environment)
+  snapshots <- list.files(
+    system.file("env_snapshots", package = "tidygenclust"),
+    pattern = "^ctidygenclust_", full.names = TRUE
+  )
+  os <- sub("^ctidygenclust_(.*)_\\d+\\.yml$", "\\1", basename(snapshots))
+  for (yaml in tapply(snapshots, os, function(x) utils::tail(sort(x), 1))) {
+    lines <- readLines(yaml)
+    expect_true(any(grepl("^\\s*- fastmixture==", lines)), info = yaml)
+    filtered <- tgc_filter_conda_yaml(yaml, character(0))
+    on.exit(unlink(filtered), add = TRUE)
+    filtered_lines <- readLines(filtered)
+    expect_false(any(grepl("fastmixture|- admixture", filtered_lines)),
+      info = yaml
+    )
+    # nothing else is removed, apart from an empty pip section
+    removed <- setdiff(lines, filtered_lines)
+    expect_true(all(grepl("fastmixture|- admixture|- pip:", removed)),
+      info = yaml
+    )
+  }
 })
 
 test_that("conda yaml files are found", {
