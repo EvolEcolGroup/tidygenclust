@@ -219,7 +219,6 @@ test_that("dimension mismatches and invalid datasets are errors", {
 })
 
 test_that("update_q returns columns on the simplex", {
-  skip_if(!openadmixture_has_real_qp(), "QP solver not available yet")
   inp <- openadmixture_ref_inputs(openadmixture_test_gt(sim$genotypes))
   st <- openadmixture_ref_start(60, 200, 3)
   q_new <- openadmixture_update_q_cpp(inp$geno, st$q, st$p, 2)
@@ -231,7 +230,6 @@ test_that("update_q returns columns on the simplex", {
 })
 
 test_that("update_q followed by update_p increases the log-likelihood", {
-  skip_if(!openadmixture_has_real_qp(), "QP solver not available yet")
   inp <- openadmixture_ref_inputs(openadmixture_test_gt(sim$genotypes))
   st <- openadmixture_ref_start(60, 200, 3)
   q <- st$q

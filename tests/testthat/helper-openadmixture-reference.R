@@ -124,9 +124,3 @@ openadmixture_expect_ref_match <- function(inp, k, tolerance = 1e-10) {
     tolerance = tolerance
   )
 }
-
-# whether the real QP solver and projections are available (rather than the
-# stubs used while the package is being assembled)
-openadmixture_has_real_qp <- function() {
-  exists("openadmixture_project_q_cpp", envir = asNamespace("tidygenclust"))
-}
