@@ -47,7 +47,13 @@ test_that("kernels handle tiles at the edges and tiny data", {
 })
 
 test_that("loglik handles extreme frequencies and non-integer dosages", {
-  inp <- openadmixture_ref_inputs(openadmixture_test_gt(sim$genotypes))
+  # the last two loci only carry the reference and only the alternate
+  # allele, so that there are loci with exact frequencies of 0 and 1 below
+  # (the simulation does not always produce them)
+  genotypes <- sim$genotypes
+  genotypes[, 199] <- ifelse(is.na(genotypes[, 199]), NA, 0)
+  genotypes[, 200] <- ifelse(is.na(genotypes[, 200]), NA, 2)
+  inp <- openadmixture_ref_inputs(openadmixture_test_gt(genotypes))
   st <- openadmixture_ref_start(60, 200, 3)
   p <- st$p
   # tiny qp where some genotypes are 2 (finite but below the batching limit)
@@ -55,9 +61,11 @@ test_that("loglik handles extreme frequencies and non-integer dosages", {
   p[, j_tiny] <- 1e-16
   # exact 0 and 1 where they do not make the likelihood infinite: loci where
   # no observed genotype carries the alternate (j_zero) or the reference
-  # (j_one) allele; either set may be empty, depending on the simulation
+  # (j_one) allele
   j_zero <- which(colSums(inp$g > 0, na.rm = TRUE) == 0)
   j_one <- which(colSums(inp$g < 2, na.rm = TRUE) == 0)
+  expect_true(199 %in% j_zero && 200 %in% j_one)
+  expect_false(any(c(j_zero, j_one) %in% j_tiny))
   p[, j_zero] <- 0
   p[, j_one] <- 1
   ll <- openadmixture_loglik_cpp(inp$geno, st$q, p, 2)
@@ -67,9 +75,8 @@ test_that("loglik handles extreme frequencies and non-integer dosages", {
   )
   # a qp of exactly 0 for an observed alt allele gives -Inf, not NaN
   p[, 1] <- 0
-  if (any(inp$g[, 1] > 0, na.rm = TRUE)) {
-    expect_identical(openadmixture_loglik_cpp(inp$geno, st$q, p, 2), -Inf)
-  }
+  expect_true(any(inp$g[, 1] > 0, na.rm = TRUE))
+  expect_identical(openadmixture_loglik_cpp(inp$geno, st$q, p, 2), -Inf)
   # dosages that are not hard calls use the direct formula
   # (decoding byte 1 as 0.7 instead of 1 turns heterozygotes into
   # non-integer dosages)
