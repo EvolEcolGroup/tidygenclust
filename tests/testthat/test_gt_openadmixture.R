@@ -64,9 +64,11 @@ test_that("results are reproducible and the RNG state is restored", {
   after <- stats::runif(1)
   expect_identical(before, after)
   # the same seed gives the same estimates, with any number of cores
+  # (identical, as the threads do not change the order of the sums)
   adm2 <- gt_openadmixture(sim_gt, k = 3, seed = 99, n_cores = 2)
-  expect_equal(adm1$Q[[1]], adm2$Q[[1]])
-  expect_equal(adm1$loglik, adm2$loglik)
+  expect_identical(adm1$Q[[1]], adm2$Q[[1]])
+  expect_identical(adm1$P[[1]], adm2$P[[1]])
+  expect_identical(adm1$loglik, adm2$loglik)
 })
 
 test_that("grouped gen_tibbles store the group and work with methods", {
