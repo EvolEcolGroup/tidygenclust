@@ -359,15 +359,19 @@ gt_openadmixture <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
         # The folds of each run get their own seed, drawn from R's random
         # number generator after the main fit (so that the main fit, and
         # hence Q and P, are the same with or without cross-validation), and
-        # therefore reproducible with `seed`. (Without `seed`, the draws
-        # made for cross-validation do shift the random starts of the
-        # following runs.) The seed is an integer in [0, 2^31), stored
-        # exactly as a double, as openadmixture_set_cv() expects.
+        # therefore reproducible with `seed`. The seed is an integer in
+        # [0, 2^31), stored exactly as a double, as openadmixture_set_cv()
+        # expects. Cross-validation also draws random numbers in the fits of
+        # the folds, so the state of the generator is restored afterwards:
+        # otherwise, without `seed`, it would shift the random starts of the
+        # following runs, and change their estimates.
+        rng_state <- get(".Random.seed", envir = globalenv())
         cv_seed <- floor(stats::runif(1) * 2^31)
         cv_res <- openadmixture_cv(data,
           fit = fit, k = this_k, n_folds = n_folds, cv_seed = cv_seed,
           max_iter = max_iter, rtol = rtol, n_qn = n_qn, n_cores = n_cores
         )
+        assign(".Random.seed", rng_state, envir = globalenv()) # nolint
         adm_list$cv[index] <- cv_res$cv
         # the log of the fit is followed by one line per fold and by the
         # "CV error (K=...)" line, in the format of ADMIXTURE's output

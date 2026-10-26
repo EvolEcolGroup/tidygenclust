@@ -257,3 +257,15 @@ test_that("init_p is matched to the loci by its row names", {
     "do not include all the loci"
   )
 })
+
+test_that("cross-validation does not change the estimates, without seed", {
+  # cross-validation draws random numbers, which used to shift the random
+  # starts of the following runs when no seed was given
+  set.seed(10)
+  adm <- gt_openadmixture(sim_gt, k = 2:3, n_runs = 2)
+  set.seed(10)
+  adm_cv <- gt_openadmixture(sim_gt, k = 2:3, n_runs = 2, crossval = TRUE)
+  expect_identical(adm_cv$Q, adm$Q)
+  expect_identical(adm_cv$loglik, adm$loglik)
+  expect_length(adm_cv$cv, 4)
+})
