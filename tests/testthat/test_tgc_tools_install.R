@@ -118,7 +118,8 @@ test_that("missing tools are reported", {
 
 # Replace the functions that query and change conda environments with mocks
 # that record what the installer does. `state` holds the existing
-# environments and the installed tools (as "tool@environment").
+# environments, the installed tools (as "tool@environment") and the yaml
+# files used to create environments.
 local_mock_conda <- function(envs, installed, mac = FALSE,
                              env = parent.frame()) {
   state <- new.env()
@@ -154,6 +155,7 @@ local_mock_conda <- function(envs, installed, mac = FALSE,
     tgc_create_conda_env = function(envname, tools, conda_yaml) {
       record(paste("create", envname, paste(sort(tools), collapse = "+")))
       state$envs <- c(state$envs, envname)
+      state$yaml <- c(state$yaml, conda_yaml)
     },
     tgc_fastmixture_install = function(...) install("fastmixture"),
     tgc_admixture_install = function(...) install("admixture"),
@@ -191,8 +193,52 @@ test_that("resetting the environment keeps the other tools", {
     envs = "ctidygenclust",
     installed = "fastmixture@ctidygenclust"
   )
-  expect_message(tgc_tools_install(), "already exists")
+  msgs <- capture_messages(tgc_tools_install())
+  expect_match(msgs, "already exists", all = FALSE)
   expect_identical(state$log, "install admixture")
+})
+
+test_that("new environments are created for the requested tools only", {
+  # linux, fastmixture only: ctidygenclust is created from the latest
+  # snapshot (filtered by tgc_create_conda_env()), and fastmixture is
+  # installed from github
+  state <- local_mock_conda(envs = character(), installed = character())
+  tgc_tools_install(tools = "fastmixture")
+  expect_identical(state$log, c(
+    "create ctidygenclust fastmixture", "install fastmixture"
+  ))
+  expect_match(basename(state$yaml), "^ctidygenclust_linux_\\d+\\.yml$")
+  # without a yaml file, the latest packages are installed
+  state <- local_mock_conda(envs = character(), installed = character())
+  tgc_tools_install(tools = "fastmixture", conda_yaml = NULL)
+  expect_identical(state$yaml, NA_character_)
+  # osx, ADMIXTURE only: ctidygenclust is not needed
+  state <- local_mock_conda(
+    envs = character(), installed = character(), mac = TRUE
+  )
+  tgc_tools_install(tools = "admixture")
+  expect_identical(state$log, "install admixture")
+  # osx, both tools (the yaml of ctidygenclust for osx has no ADMIXTURE, so
+  # filtering it for ADMIXTURE keeps nothing more)
+  state <- local_mock_conda(
+    envs = character(), installed = character(), mac = TRUE
+  )
+  tgc_tools_install()
+  expect_identical(state$log, c(
+    "create ctidygenclust admixture+fastmixture", "install fastmixture",
+    "install admixture"
+  ))
+  expect_match(basename(state$yaml), "^ctidygenclust_osx_\\d+\\.yml$")
+  # everything installed already: nothing is done
+  state <- local_mock_conda(
+    envs = "ctidygenclust",
+    installed = c("fastmixture@ctidygenclust", "admixture@ctidygenclust")
+  )
+  msgs <- capture_messages(tgc_tools_install())
+  expect_match(msgs, "'ctidygenclust' already exists", all = FALSE)
+  expect_match(msgs, "fastmixture is already installed", all = FALSE)
+  expect_match(msgs, "ADMIXTURE is already installed", all = FALSE)
+  expect_identical(state$log, character())
 })
 
 test_that("fastmixture is installed without reinstalling its dependencies", {
