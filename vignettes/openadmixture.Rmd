@@ -19,9 +19,9 @@ knitr::opts_chunk$set(
 `gt_openadmixture()` estimates individual ancestry proportions (Q) and
 ancestral allele frequencies (P) under the ADMIXTURE model, using the
 algorithm of OpenADMIXTURE.jl (Ko et al. 2023), reimplemented in C++ within
-`tidygenclust` (no Julia or Python needed). It works directly on the backing files of
-`tidypopgen` `gen_tibble` objects, and returns `gt_admix` objects that can be
-explored and plotted with the methods provided by `tidypopgen`.
+`tidygenclust` (no Julia or Python needed). It works directly on the backing
+files of `tidypopgen` `gen_tibble` objects, and returns `gt_admix` objects
+that can be explored and plotted with the methods provided by `tidypopgen`.
 
 In this vignette, we use the dataset of the lizard *Anolis punctatus* from
 Prates et al. (2018), the same example used in `tidypopgen` and in the main

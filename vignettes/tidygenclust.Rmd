@@ -260,7 +260,8 @@ For a detailed comparison of `gt_openadmixture()` with the original ADMIXTURE
 program, see the vignette "Ancestry estimation with OpenADMIXTURE".
 
 When using this algorithm, make sure that you cite the original paper on
-the algorithm (Ko et al. 2023) and the original ADMIXTURE paper (Alexander et al. 2009).
+the algorithm (Ko et al. 2023) and the original ADMIXTURE paper (Alexander
+et al. 2009).
 
 ## Visualising the results
 
