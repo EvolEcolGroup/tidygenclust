@@ -91,6 +91,8 @@
   default) can be used with `n_runs > 1`: it is incremented for each run.
 * `gt_openadmixture(fix_q = TRUE)` keeps Q exactly at its starting value (it
   moved by rounding errors).
+* `gt_openadmixture()` on a `gen_tibble` without individuals or loci gives an
+  error, rather than crashing R.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

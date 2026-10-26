@@ -112,6 +112,8 @@ List openadmixture_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
   const size_t I = geno.nrow(), J = geno.ncol(), K = k;
   if (k < 1 || n_qn < 1 || n_cores < 1 || max_iter < 0 || n_em_iter < 0)
     stop("invalid arguments to openadmixture_fit_cpp()");
+  if (I == 0 || J == 0)
+    stop("There must be at least one individual and one locus.");
   // number of values in q (K x I) and in p (K x J)
   const size_t nq = K * I, np = K * J;
   FitLog log = {verbose, {}};

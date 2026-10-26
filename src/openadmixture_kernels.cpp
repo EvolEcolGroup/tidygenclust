@@ -421,7 +421,8 @@ static size_t q_segments(size_t I, size_t J) {
   // number of blocks of individuals; with enough of them, the single-pass
   // path already has enough independent tasks
   const size_t nbi = n_blocks(I, TILE_I);
-  if (nbi >= MIN_Q_TASKS) return 1;
+  // (no individuals: nothing to split, and no division by zero below)
+  if (nbi == 0 || nbi >= MIN_Q_TASKS) return 1;
   // otherwise, enough segments to have about MIN_Q_TASKS tasks in total
   // (rounded up: e.g. 6 blocks need 6 segments, giving 36 tasks)
   size_t n_seg = (MIN_Q_TASKS + nbi - 1) / nbi;
@@ -1102,6 +1103,8 @@ static int check_dims(const GenoView& geno, const NumericMatrix& q,
   if ((size_t) p.ncol() != geno.ncol())
     stop("'p' must have one column per locus (%d), not %d.",
          (int) geno.ncol(), p.ncol());
+  if (geno.nrow() == 0 || geno.ncol() == 0)
+    stop("There must be at least one individual and one locus.");
   if (n_cores < 1) stop("'n_cores' must be at least 1.");
   return K;
 }

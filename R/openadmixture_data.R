@@ -20,6 +20,13 @@ openadmixture_prepare <- function(x, use_imputed = FALSE) {
   if (!inherits(x, "gen_tbl")) {
     stop("'x' should be a gen_tibble", call. = FALSE)
   }
+  # an empty gen_tibble would reach the C++ code, which needs at least one
+  # individual and one locus
+  if (nrow(x) == 0 || nrow(tidypopgen::show_loci(x)) == 0) {
+    stop("'x' should have at least one individual and one locus",
+      call. = FALSE
+    )
+  }
   # The likelihood is binomial with n_i = 2 (diploids) or n_i = 1
   # (pseudohaploids). tidypopgen codes a gen_tibble's ploidy as 2 (diploid),
   # -2 (pseudohaploid, i.e. a mix of diploids and pseudohaploids), 0 (mixed

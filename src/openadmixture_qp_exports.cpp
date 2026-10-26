@@ -43,6 +43,8 @@ List openadmixture_qp_solve_cpp(const NumericMatrix& H,
 // q is K x I (one column per individual, the layout used internally).
 // [[Rcpp::export]]
 NumericMatrix openadmixture_project_q_cpp(const NumericMatrix& q) {
+  // project_q() needs at least one component (it reads the last one)
+  if (q.nrow() < 1) stop("'q' must have at least one row.");
   // clone so that the caller's matrix is not modified in place
   NumericMatrix out = clone(q);
   const int K = out.nrow(), n = out.ncol();

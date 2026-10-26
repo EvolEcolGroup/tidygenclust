@@ -315,3 +315,29 @@ test_that("kernels are correct when the loci are split into segments", {
     expect_identical(kernel(inp$geno, st$q, st$p, 4), res1)
   }
 })
+
+test_that("empty inputs give errors rather than crashes", {
+  # these used to divide by zero (killing R) or read out of bounds
+  expect_identical(openadmixture_q_segments_cpp(0, 1000), 1L)
+  expect_error(
+    openadmixture_project_q_cpp(matrix(0, 0, 3)),
+    "at least one row"
+  )
+  gt <- openadmixture_test_gt(sim$genotypes)
+  dat <- openadmixture_prepare(gt)
+  # a dataset without individuals (as could be built by hand)
+  empty <- dat
+  empty$rows <- integer(0)
+  empty$n_trials <- numeric(0)
+  empty$scale <- numeric(0)
+  p <- matrix(0.5, 3, dat$n_loci)
+  expect_error(
+    openadmixture_em_cpp(empty, matrix(0, 3, 0), p, 1),
+    "at least one individual"
+  )
+  # projecting an empty gen_tibble onto a fixed P (allowed with any k)
+  expect_error(
+    gt_openadmixture(gt[0, ], k = 3, init_p = t(sim$p), fix_p = TRUE),
+    "at least one individual and one locus"
+  )
+})
