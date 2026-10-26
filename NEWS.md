@@ -37,6 +37,11 @@
   started OpenMP, and they stayed set in the R session.
 * `gt_clumppling()` checks its options: a non-finite `cd_res` made community
   detection loop forever, and invalid logical options gave cryptic errors.
+* `subset_gt_clumppling(k = )` selects the right values of K: it failed when
+  `k` covered all of `K_range`, selected K = 20 to 29 together with K = 2 (and
+  so on), could not select values of K with gaps (e.g. 17 and 19 in the
+  chicken example), and silently returned an empty object for values of K that
+  were not in `K_range`.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

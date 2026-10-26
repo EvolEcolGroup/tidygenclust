@@ -239,7 +239,9 @@ clumppling_local_seed <- function(seed, envir = parent.frame()) {
 #'
 #' @param x a gt_clumppling object
 #' @param indivs a vector of individual indices to keep
-#' @param k a vector of k values to subset to
+#' @param k a vector of values of K to subset to: consecutive values of
+#'   `K_range` (e.g. `c(17, 19)` if `K_range` is 17, 19 and 21), in increasing
+#'   order
 #' @returns a gt_clumppling object subsetted to the individuals specified
 #' @export
 subset_gt_clumppling <- function(x, k = NULL, indivs = NULL) {
@@ -271,46 +273,41 @@ subset_gt_clumppling <- function(x, k = NULL, indivs = NULL) {
 
   if (!is.null(k)) {
     k <- as.integer(k)
-    k_sorted <- sort(k)
-    expected <- seq(min(k_sorted), max(k_sorted))
-
-    # check k is an integer vector of consecutive values from min to max
-    if (!identical(k, expected)) {
-      stop("k values must be consecutive from min to max")
+    # k must be values of K_range that follow each other in it, in increasing
+    # order (with gaps in K_range, e.g. 17, 19, 21, k = c(17, 19) is
+    # consecutive), so that the modes that are kept are aligned to each other
+    k_pos <- match(k, x$K_range)
+    if (length(k) == 0 || anyNA(k_pos)) {
+      stop(
+        "k values must be values of K in K_range (",
+        paste(x$K_range, collapse = ", "), ")"
+      )
     }
-
-    # find any x$K_range not in k
-    k_remove <- which(!x$K_range %in% k)
-    k_rm <- x$K_range[k_remove]
-
-    # k values must be consecutive from min to max
-    k_indices <- which(x$K_range %in% k)
-    x$K_range <- x$K_range[k_indices]
-    # find the entries in $aligned_modes that = paste0("K",K_range[])
-    matched_indices <- c()
-    for (i in k) {
-      this_k <- paste0("K", i)
-      this_k_indices <- grep(this_k, names(x$aligned_modes))
-      matched_indices <- c(matched_indices, this_k_indices)
+    if (any(diff(k_pos) != 1)) {
+      stop(
+        "k values must be consecutive from min to max, among the values of ",
+        "K in K_range"
+      )
     }
-    # remove matched_indices from x$aligned_modes
-    x$aligned_modes <- x$aligned_modes[matched_indices]
-    x$mode_replicates <- x$mode_replicates[matched_indices]
+    # the K of each mode, from its name (e.g. 12 for "K12M3"); selecting modes
+    # by matching the text "K1" would also select K10, K11, ...
+    mode_k <- function(mode) as.integer(sub("^K(\\d+)M\\d+$", "\\1", mode))
+    keep_modes <- mode_k(names(x$aligned_modes)) %in% k
+    x$K_range <- x$K_range[x$K_range %in% k]
+    x$aligned_modes <- x$aligned_modes[keep_modes]
+    x$mode_replicates <- x$mode_replicates[keep_modes]
     if (!is.null(x$mode_stats)) {
-      x$mode_stats <- x$mode_stats[
-        x$mode_stats$Mode %in% names(x$aligned_modes), ,
+      x$mode_stats <- x$mode_stats[mode_k(x$mode_stats$Mode) %in% k, ,
         drop = FALSE
       ]
     }
-
-    # find the entries in $cost_acrossK that need removing
-    matched_indices <- c()
-    for (i in k_rm) {
-      this_k <- paste0("K", i)
-      rm_indices <- grep(this_k, names(x$cost_acrossK))
-      matched_indices <- c(matched_indices, rm_indices)
-    }
-    x$cost_acrossK <- x$cost_acrossK[-matched_indices]
+    # costs are named after the two modes they compare (e.g. "K4M1-K5M2"):
+    # keep those between modes that are kept
+    cost_modes <- strsplit(names(x$cost_acrossK), "-", fixed = TRUE)
+    keep_costs <- vapply(cost_modes, function(m) all(mode_k(m) %in% k),
+      logical(1)
+    )
+    x$cost_acrossK <- x$cost_acrossK[keep_costs]
   }
 
   return(x)

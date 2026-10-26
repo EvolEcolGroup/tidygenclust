@@ -315,3 +315,44 @@ test_that("the options of gt_clumppling are validated", {
     "'comm_min' and 'comm_max'"
   )
 })
+
+test_that("subsetting by k selects the right values of K", {
+  # all the values of K: nothing is removed
+  expect_identical(subset_gt_clumppling(clump_res, k = 2:5), clump_res)
+  # values of K that are not in K_range
+  expect_error(
+    subset_gt_clumppling(clump_res, k = 7:8),
+    "values of K in K_range"
+  )
+  # an object with K = 2, 3, 4 and 20 (K = 5 renamed): k = 2 must not select
+  # K = 20 (whose names also start with "K2")
+  rename_k <- function(nm) gsub("K5M", "K20M", nm)
+  res_20 <- clump_res
+  names(res_20$aligned_modes) <- rename_k(names(res_20$aligned_modes))
+  names(res_20$mode_replicates) <- rename_k(names(res_20$mode_replicates))
+  res_20$mode_stats$Mode <- rename_k(res_20$mode_stats$Mode)
+  names(res_20$cost_acrossK) <- rename_k(names(res_20$cost_acrossK))
+  res_20$K_range <- c(2L, 3L, 4L, 20L)
+  sub_res <- subset_gt_clumppling(res_20, k = 2:3)
+  expect_identical(names(sub_res$aligned_modes), c("K2M1", "K3M1"))
+  expect_identical(names(sub_res$mode_replicates), c("K2M1", "K3M1"))
+  expect_identical(sub_res$mode_stats$Mode, c("K2M1", "K3M1"))
+  expect_setequal(
+    names(sub_res$cost_acrossK),
+    c("K2M1-K3M1", "K2M1-K2M1", "K3M1-K3M1")
+  )
+  expect_identical(sub_res$K_range, 2:3)
+  # values of K with a gap are consecutive in K_range
+  sub_res <- subset_gt_clumppling(res_20, k = c(4, 20))
+  expect_identical(sub_res$K_range, c(4L, 20L))
+  expect_identical(
+    names(sub_res$aligned_modes),
+    c("K4M1", "K4M2", "K20M1", "K20M2", "K20M3")
+  )
+  cost_names <- names(sub_res$cost_acrossK)
+  expect_true(all(grepl("^K(4|20)M\\d+-K(4|20)M\\d+$", cost_names)))
+  expect_error(
+    subset_gt_clumppling(res_20, k = c(3, 20)),
+    "k values must be consecutive"
+  )
+})
