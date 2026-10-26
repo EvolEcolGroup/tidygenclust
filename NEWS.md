@@ -31,6 +31,10 @@
   `gen_tibble`: it read the whole backing file, so a filtered `gen_tibble`
   failed, and a reordered one gave the rows of Q in the order of the backing
   file while `id` followed the `gen_tibble`.
+* `gt_fastmixture(threads = )` now limits the number of threads (with the
+  python package threadpoolctl, which `tgc_fastmixture_install()` now
+  installs): the environment variables used before had no effect once R had
+  started OpenMP, and they stayed set in the R session.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

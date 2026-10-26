@@ -161,11 +161,13 @@ tgc_fastmixture_install <-
 
     # create command line to install fastmixture (from the given commit of
     # its github repository, replacing any version already installed)
+    # threadpoolctl is used by gt_fastmixture() to limit the number of
+    # threads of fastmixture
     fast_install_cmd <- paste0(
       "python -m pip install ",
       "--upgrade --force-reinstall ",
       "git+https://github.com/Rosemeis/fastmixture.git@",
-      fastmixture_hash
+      fastmixture_hash, " threadpoolctl"
     )
 
     # on OSX we need to also install a suitable compiler for openmp

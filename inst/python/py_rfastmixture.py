@@ -18,6 +18,7 @@
 import argparse
 import os
 import sys
+import warnings
 from datetime import datetime
 from time import time
 
@@ -77,8 +78,30 @@ from fastmixture import __version__ as VERSION
 
 
 ##### fastmixture #####
-#def main():
 def fastmixture_run(args):
+	"""Run fastmixture with at most args.threads threads.
+
+	fastmixture parallelises with OpenMP (and numpy with its BLAS library).
+	Their numbers of threads cannot be set with environment variables such as
+	OMP_NUM_THREADS, which are only read when a library is initialised (R
+	has usually started OpenMP already), and which would stay set in the R
+	session, as python shares its environment. Instead, threadpoolctl limits
+	the libraries that are loaded at run time, and restores their previous
+	limits on exit.
+	"""
+	try:
+		from threadpoolctl import threadpool_limits
+	except ImportError:
+		warnings.warn("threadpoolctl is not installed, so the number of "
+			"threads cannot be limited; reinstall fastmixture with "
+			"tgc_fastmixture_install()")
+		return _fastmixture_run(args)
+	with threadpool_limits(limits=args.threads):
+		return _fastmixture_run(args)
+
+
+#def main():
+def _fastmixture_run(args):
 	# args = parser.parse_args()
 	# if len(sys.argv) < 2:
 	# 	parser.print_help()
@@ -130,18 +153,9 @@ def fastmixture_run(args):
 	# 			log.write(f"\t--{key} {full[key]}\n")
 	# del full, deaf, mand
 
-	# Control threads of external numerical libraries (these variables are
-	# only read when each library is initialised, so they have no effect on
-	# libraries that were already loaded in this process, e.g. by R or by an
-	# earlier call)
-	os.environ["MKL_NUM_THREADS"] = str(args.threads)
-	os.environ["MKL_MAX_THREADS"] = str(args.threads)
-	os.environ["OMP_NUM_THREADS"] = str(args.threads)
-	os.environ["OMP_MAX_THREADS"] = str(args.threads)
-	os.environ["NUMEXPR_NUM_THREADS"] = str(args.threads)
-	os.environ["NUMEXPR_MAX_THREADS"] = str(args.threads)
-	os.environ["OPENBLAS_NUM_THREADS"] = str(args.threads)
-	os.environ["OPENBLAS_MAX_THREADS"] = str(args.threads)
+	# (the command line version sets the number of threads of the numerical
+	# libraries here, through environment variables; this is done by
+	# fastmixture_run() instead, see above)
 
 	# Load numerical libraries
 	import numpy as np

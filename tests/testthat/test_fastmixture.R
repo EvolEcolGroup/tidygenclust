@@ -389,3 +389,21 @@ test_that("gt_fastmixture uses the individuals and loci of a subset", {
   expect_equal(res_gt$P[[1]], res_plink$P[[1]], tolerance = 1e-6)
   expect_identical(res_gt$id, anole_gt$id[idx])
 })
+
+test_that("gt_fastmixture uses the requested number of threads", {
+  omp_vars <- c(
+    "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS"
+  )
+  # unset the variables for this test (earlier calls may have set them)
+  withr::local_envvar(stats::setNames(rep(NA, length(omp_vars)), omp_vars))
+  timing <- system.time(
+    gt_fastmixture(anole_gt, k = 6, n_runs = 2, seed = 1:2, threads = 1)
+  )
+  # the environment of the R session is not changed
+  expect_true(all(is.na(Sys.getenv(omp_vars, unset = NA))))
+  # with a single thread, the CPU time cannot exceed the elapsed time by
+  # much (it was several times larger when threads was ignored)
+  cpu <- timing[["user.self"]] + timing[["sys.self"]]
+  expect_lt(cpu / timing[["elapsed"]], 1.5)
+})
