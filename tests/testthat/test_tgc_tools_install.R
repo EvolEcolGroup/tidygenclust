@@ -228,3 +228,21 @@ test_that("on osx, ADMIXTURE is installed with reticulate's conda", {
     c("env", "update", "-n", "cadmixture86", "-f", yaml_file)
   )
 })
+
+test_that("on osx, a single yaml file is only used for ctidygenclust", {
+  testthat::local_mocked_bindings(tgc_is_mac = function() TRUE)
+  my_yaml <- withr::local_tempfile(fileext = ".yml")
+  writeLines("name: ctidygenclust", my_yaml)
+  # the yaml of ctidygenclust must not be used for cadmixture86
+  yaml_files <- tgc_resolve_conda_yaml(my_yaml, ci_install = FALSE)
+  expect_identical(yaml_files[1], my_yaml)
+  expect_match(yaml_files[2], "cadmixture86_osx_")
+  # "auto" and NULL apply to both environments
+  yaml_files <- tgc_resolve_conda_yaml("auto", ci_install = FALSE)
+  expect_match(yaml_files[1], "ctidygenclust_osx_")
+  expect_match(yaml_files[2], "cadmixture86_osx_")
+  expect_identical(
+    tgc_resolve_conda_yaml(NULL, ci_install = FALSE),
+    c(NA_character_, NA_character_)
+  )
+})

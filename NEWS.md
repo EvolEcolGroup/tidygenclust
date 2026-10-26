@@ -61,6 +61,9 @@
 * On macOS, `tgc_admixture_install()` uses the conda binary of reticulate
   (rather than any `conda` on the PATH, which may be missing, e.g. in RStudio)
   and quotes the path of the yaml file.
+* On macOS, a single path given to `tgc_tools_install(conda_yaml = )` is only
+  used for `ctidygenclust`; it was also used to create the environment of
+  ADMIXTURE.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

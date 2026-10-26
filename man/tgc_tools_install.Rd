@@ -31,8 +31,9 @@ attempt to install the latest available packages from the internet), or a
 path to a specific conda yaml found in "inst/env_snapshots". For "auto" or
 NULL, it is also possible to provide a vector of length one, and the value
 will apply to all the conda environments (e.g. \code{conda_yaml="auto"} is
-equivalent to \code{conda_yaml = c("auto", "auto")} in osx). Tools that are
-not in \code{tools} are left out of the yaml files.}
+equivalent to \code{conda_yaml = c("auto", "auto")} in osx); a single path is
+used for \code{ctidygenclust} (and "auto" for the environment of ADMIXTURE on
+osx). Tools that are not in \code{tools} are left out of the yaml files.}
 
 \item{ci_install}{a boolean indicating if the installation is being run on
 continuous integration (CI) services. Default is FALSE. If TRUE, the

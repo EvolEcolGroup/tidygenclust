@@ -50,8 +50,9 @@
 #'   path to a specific conda yaml found in "inst/env_snapshots". For "auto" or
 #'   NULL, it is also possible to provide a vector of length one, and the value
 #'   will apply to all the conda environments (e.g. `conda_yaml="auto"` is
-#'   equivalent to `conda_yaml = c("auto", "auto")` in osx). Tools that are
-#'   not in `tools` are left out of the yaml files.
+#'   equivalent to `conda_yaml = c("auto", "auto")` in osx); a single path is
+#'   used for `ctidygenclust` (and "auto" for the environment of ADMIXTURE on
+#'   osx). Tools that are not in `tools` are left out of the yaml files.
 #' @param ci_install a boolean indicating if the installation is being run on
 #'   continuous integration (CI) services. Default is FALSE. If TRUE, the
 #'   function will look for the conda yaml file in the `inst/env_snapshots`
@@ -386,10 +387,15 @@ tgc_resolve_conda_yaml <- function(conda_yaml, ci_install) {
   }
   conda_yaml <- as.character(conda_yaml)
   conda_yaml[is.na(conda_yaml) | conda_yaml == "NULL"] <- NA_character_
-  # if conda_yaml is a vector of length 1, repeat it to match the number of
-  # conda environments
+  # a single "auto" or NA (NULL) applies to all the conda environments; a
+  # single path is the yaml of ctidygenclust (the first environment), and the
+  # other environments use the latest tested yaml
   if (length(conda_yaml) == 1) {
-    conda_yaml <- rep(conda_yaml, n_envs)
+    recycle <- is.na(conda_yaml) || conda_yaml == "auto"
+    conda_yaml <- c(
+      conda_yaml,
+      rep(if (recycle) conda_yaml else "auto", n_envs - 1)
+    )
   }
 
   # the snapshots are in inst/env_snapshots of the source package, which is
