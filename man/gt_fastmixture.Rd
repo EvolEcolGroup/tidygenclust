@@ -24,7 +24,7 @@ gt_fastmixture(
   als_tole = 1e-04,
   no_freqs = TRUE,
   random_init = TRUE,
-  safety = TRUE,
+  safety = NULL,
   cv = NULL,
   cv_tole = 1e-07
 )
@@ -73,7 +73,8 @@ the following ones}
 
 \item{random_init}{random initialisation of parameters (TRUE)}
 
-\item{safety}{add extra safety steps in unstable optimizations (TRUE)}
+\item{safety}{deprecated and ignored: fastmixture turns on its safety
+updates by itself when an update is unstable}
 
 \item{cv}{the number of cross-validation folds, greater than 1 (NULL, no
 cross-validation)}

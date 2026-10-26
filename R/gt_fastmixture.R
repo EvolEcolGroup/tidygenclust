@@ -45,7 +45,8 @@
 #' @param als_tole the tolerance for the RMSE of P between iterations (1e-4)
 #' @param no_freqs do not save P-matrix (TRUE)
 #' @param random_init random initialisation of parameters (TRUE)
-#' @param safety add extra safety steps in unstable optimizations (TRUE)
+#' @param safety deprecated and ignored: fastmixture turns on its safety
+#'   updates by itself when an update is unstable
 #' @param cv the number of cross-validation folds, greater than 1 (NULL, no
 #'   cross-validation)
 #' @param cv_tole the tolerance for the cross-validation error
@@ -74,10 +75,16 @@ gt_fastmixture <- function(
   als_tole = 1e-4,
   no_freqs = TRUE,
   random_init = TRUE,
-  safety = TRUE,
+  safety = NULL,
   cv = NULL,
   cv_tole = 1e-7
 ) {
+  if (!is.null(safety)) {
+    warning(
+      "'safety' is deprecated and ignored: fastmixture turns on its safety ",
+      "updates by itself when an update is unstable"
+    )
+  }
   # check the arguments before starting python (fastmixture needs K > 1)
   check_count(k, "k", min = 2, scalar = FALSE,
     message = "'k' should be a vector of integers greater than 1"
@@ -193,7 +200,6 @@ gt_fastmixture <- function(
           fbm_dim = fbm_dim,
           rows = rows,
           cols = cols,
-          safety = safety,
           projection = NULL,
           cv = NULL,
           cv_tole = NULL
@@ -225,7 +231,6 @@ gt_fastmixture <- function(
           fbm_dim = fbm_dim,
           rows = rows,
           cols = cols,
-          safety = safety,
           projection = NULL,
           cv = as.integer(cv),
           cv_tole = cv_tole

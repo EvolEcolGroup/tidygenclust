@@ -43,3 +43,23 @@ test_that("a single seed is incremented for each run", {
   expect_identical(seeds, c(42L, 43L, 42L, 43L))
   expect_identical(adm$k, c(2L, 2L, 3L, 3L))
 })
+
+test_that("'safety' is deprecated and not passed to python", {
+  # a fake python wrapper, which records the arguments of each run
+  run_args <- list()
+  fake_module <- list(fastmixture_run = function(args) {
+    run_args[[length(run_args) + 1]] <<- args
+    matrix(1 / args$K, 3, args$K)
+  })
+  local_mocked_bindings(.ensure_fastmixture_python = function() fake_module)
+  local_mocked_bindings(
+    import = function(module, ...) list(Namespace = function(...) list(...)),
+    .package = "reticulate"
+  )
+  expect_warning(
+    gt_fastmixture("plink_prefix", k = 2, safety = TRUE),
+    "'safety' is deprecated and ignored"
+  )
+  expect_no_warning(gt_fastmixture("plink_prefix", k = 2))
+  expect_false(any(vapply(run_args, function(a) "safety" %in% names(a), NA)))
+})

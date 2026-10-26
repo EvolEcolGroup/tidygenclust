@@ -11,8 +11,7 @@
 # (whether 'bfile' is the prefix of PLINK files or the backing file of a
 # gen_tibble), 'fbm_dim' (the numbers of rows and columns of the FBM of the
 # gen_tibble), 'rows' and 'cols' (the 0-based rows and columns of the FBM
-# used by the gen_tibble, i.e. its individuals and loci, in its order) and
-# 'safety' (which is not used).
+# used by the gen_tibble, i.e. its individuals and loci, in its order).
 
 # Libraries
 import argparse

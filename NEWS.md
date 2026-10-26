@@ -95,6 +95,9 @@
   error, rather than crashing R.
 * On Intel Macs, fastmixture is compiled with the llvm installed by Homebrew
   (its location was hard-coded for Apple silicon).
+* The `safety` argument of `gt_fastmixture()` is deprecated: it was never
+  passed on to fastmixture, which turns on its safety updates by itself when
+  an update is unstable.
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda
