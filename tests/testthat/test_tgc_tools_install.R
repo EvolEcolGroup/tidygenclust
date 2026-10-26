@@ -254,3 +254,13 @@ test_that("windows is rejected with a readable message", {
     "use the Windows subsystem for Linux \\(WSL\\) instead"
   )
 })
+
+test_that("a missing snapshot directory gives a clear error", {
+  # with ci_install, the snapshots are looked for in inst/env_snapshots of
+  # the working directory
+  withr::local_dir(withr::local_tempdir())
+  expect_error(
+    tgc_resolve_conda_yaml("auto", ci_install = TRUE),
+    "No conda yaml snapshot found .*run from the root of the package source"
+  )
+})

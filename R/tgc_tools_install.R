@@ -420,10 +420,18 @@ tgc_resolve_conda_yaml <- function(conda_yaml, ci_install) {
   }
   for (i in seq_len(n_envs)) {
     if (!is.na(conda_yaml[i]) && conda_yaml[i] == "auto") {
-      conda_yaml[i] <- utils::tail(
-        list.files(conda_yaml_dir, pattern = patterns[i], full.names = TRUE),
-        1
+      snapshots <- list.files(conda_yaml_dir,
+        pattern = patterns[i], full.names = TRUE
       )
+      if (length(snapshots) == 0) {
+        stop(
+          "No conda yaml snapshot found in '", conda_yaml_dir, "'",
+          if (ci_install) {
+            " (with ci_install = TRUE, run from the root of the package source)"
+          }
+        )
+      }
+      conda_yaml[i] <- utils::tail(snapshots, 1)
     }
   }
 
