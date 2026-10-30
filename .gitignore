@@ -13,3 +13,5 @@ src/*.o
 src/*.so
 src/*.dll
 __pycache__/
+/vignettes/articles/data/hgdp/
+/vignettes/articles/data/admixture_benchmark_quick/
