@@ -15,7 +15,8 @@
 #
 # Run it on an otherwise idle machine with at least 8 cores. It saves the Q
 # matrix, log and timing of each run in data/admixture_benchmark, which the
-# article reads. `Rscript code/admixture_benchmark_openadmixture.R quick`
+# article reads (the gen_tibble and gt_admix object of each run are left in
+# data/hgdp/runs). `Rscript code/admixture_benchmark_openadmixture.R quick`
 # runs everything on a small subset of the data, to check the script, and
 # saves its results in data/admixture_benchmark_quick instead.
 
@@ -25,9 +26,11 @@ quick <- identical(commandArgs(trailingOnly = TRUE), "quick")
 if (quick) {
   bed_file <- "data/hgdp/hgdp_bench_quick.bed"
   out_dir <- "data/admixture_benchmark_quick"
+  runs_dir <- "data/hgdp/runs_quick"
 } else {
   bed_file <- "data/hgdp/hgdp_bench.bed"
   out_dir <- "data/admixture_benchmark"
+  runs_dir <- "data/hgdp/runs"
 }
 dir.create(file.path(out_dir, "Q"), recursive = TRUE, showWarnings = FALSE)
 dir.create(file.path(out_dir, "logs"), showWarnings = FALSE)
@@ -46,18 +49,6 @@ library(tidygenclust)
 # so that a multithreaded BLAS does not use more cores than requested
 bigparallelr::set_blas_ncores(1)
 
-## ---- r-import ----
-# the bed file is read into a gen_tibble (with a temporary backing file),
-# which is timed on its own: this is done once, and the gen_tibble can then
-# be used for any number of analyses
-start <- proc.time()[["elapsed"]]
-hgdp <- tidypopgen::gen_tibble(
-  bed_file,
-  backingfile = tempfile("hgdp_bench"),
-  quiet = TRUE
-)
-import_seconds <- proc.time()[["elapsed"]] - start
-
 ## ---- r-runs ----
 # the Q matrices are written as ADMIXTURE and fastmixture write theirs (one
 # row per individual, with 6 decimals)
@@ -66,14 +57,26 @@ write_q <- function(q, file) {
   write.table(q_text, file, quote = FALSE, row.names = FALSE, col.names = FALSE)
 }
 # each combination of number of cores and cross-validation (or not) is run
-# once; its Q matrix and log are saved, and its log-likelihood,
+# once, in its own directory. As ADMIXTURE and fastmixture read the bed file
+# and write their estimates, the time of each run includes reading the bed
+# file into a gen_tibble (with its backing file in the directory of the
+# run), and saving the gt_admix object (with Q and P) to an RDS file. Its Q
+# matrix and log are then saved with the results, and its log-likelihood,
 # cross-validation error and number of iterations are recorded
 timings <- list()
 for (n_cores in cores) {
   for (crossval in c(FALSE, TRUE)) {
     run <- paste0("openadmixture_t", n_cores, if (crossval) "_cv" else "_nocv")
+    run_dir <- file.path(runs_dir, run)
+    unlink(run_dir, recursive = TRUE)
+    dir.create(run_dir, recursive = TRUE)
     message("Running ", run)
     start <- proc.time()[["elapsed"]]
+    hgdp <- tidypopgen::gen_tibble(
+      bed_file,
+      backingfile = file.path(run_dir, "hgdp_bench"),
+      quiet = TRUE
+    )
     fit <- gt_openadmixture(
       hgdp,
       k = k,
@@ -82,6 +85,7 @@ for (n_cores in cores) {
       n_folds = n_folds,
       n_cores = n_cores
     )
+    saveRDS(fit, file.path(run_dir, "openadmixture.rds"))
     seconds <- proc.time()[["elapsed"]] - start
     write_q(fit$Q[[1]], file.path(out_dir, "Q", paste0(run, ".Q")))
     writeLines(fit$log[[1]], file.path(out_dir, "logs", paste0(run, ".log")))
@@ -104,7 +108,8 @@ timings <- do.call(rbind, timings)
 ## ---- r-individuals ----
 # the population and region (one of seven, with "East" misspelt as "Est" in
 # the metadata) of each individual, in the order of the rows of the Q
-# matrices (that of the fam file, as for ADMIXTURE and fastmixture)
+# matrices (that of the fam file, as for ADMIXTURE and fastmixture, and of
+# the gen_tibble of the last run)
 populations <- read.delim("data/hgdp/hgdp650_id_pop.txt")
 pop_rows <- match(hgdp$id, populations$Id)
 individuals <- data.frame(
@@ -114,8 +119,7 @@ individuals <- data.frame(
 )
 
 ## ---- r-session ----
-# the machine and the versions of the software used, and the time taken to
-# read the data into a gen_tibble
+# the machine and the versions of the software used
 cpu <- tryCatch(
   sub(
     "^.*:\\s*", "",
@@ -127,7 +131,7 @@ cpu <- tryCatch(
 session <- data.frame(
   item = c(
     "date", "R", "platform", "BLAS", "tidygenclust", "tidypopgen", "CPU",
-    "cores", "import_seconds"
+    "cores"
   ),
   value = c(
     format(Sys.Date()),
@@ -137,8 +141,7 @@ session <- data.frame(
     as.character(utils::packageVersion("tidygenclust")),
     as.character(utils::packageVersion("tidypopgen")),
     cpu,
-    parallel::detectCores(),
-    round(import_seconds, 2)
+    parallel::detectCores()
   )
 )
 

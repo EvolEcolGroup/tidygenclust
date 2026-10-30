@@ -5,7 +5,7 @@ output:
     toc: true
     toc_depth: 2
 params:
-  results_dir: "data/admixture_benchmark"
+  results_dir: "data/admixture_benchmark_quick"
 vignette: >
   %\VignetteIndexEntry{Benchmarking gt_openadmixture() against ADMIXTURE and fastmixture}
   %\VignetteEngine{knitr::rmarkdown}
@@ -71,14 +71,12 @@ timings <- bind_rows(
     run = paste0(tool, "_t", n_cores, if_else(crossval, "_cv", "_nocv")),
     tool = factor(tool, names(tool_labels))
   )
-# the machine and software, the size of the data, and the time taken to read
-# the data into a gen_tibble
+# the machine and software, and the size of the data
 session_cli <- read.csv(file.path(results_dir, "session_cli.csv"))
 session_r <- read.csv(file.path(results_dir, "session_r.csv"))
 session_value <- function(session, item) session$value[session$item == item]
 n_indiv <- as.integer(session_value(session_cli, "individuals"))
 n_loci <- as.integer(session_value(session_cli, "loci"))
-import_seconds <- as.numeric(session_value(session_r, "import_seconds"))
 # the population and region of the individual of each row of the Q matrices
 individuals <- read.csv(file.path(results_dir, "individuals.csv"))
 ```
@@ -365,11 +363,13 @@ timings %>%
   )
 ```
 
-The times of ADMIXTURE and fastmixture include reading the bed file, and
-writing their estimates of Q and P to text files. `gt_openadmixture()`
-works on a `gen_tibble`, so the data are read only once, into the backing
-file of the `gen_tibble`, which took `r format_seconds(import_seconds)` s
-and is not included in its times.
+All the times include reading the data and saving the results.
+ADMIXTURE and fastmixture read the bed file and write their estimates of Q
+and P to text files. For `gt_openadmixture()`, the time includes reading
+the bed file into a `gen_tibble` (and its backing file), and saving the
+resulting `gt_admix` object, with Q and P, to an RDS file. In an analysis
+with several values of K, or several runs, the `gen_tibble` would only be
+read once.
 
 ## Cross-validation errors
 
@@ -466,20 +466,20 @@ iterations of each run are saved:
 
 ## Running gt_openadmixture()
 
-`gt_openadmixture()` runs on a `gen_tibble`, read from the same bed file.
-Its parallel loops use OpenMP, with `n_cores` threads. It only calls BLAS
-for small systems of K equations, so BLAS is kept to a single thread:
+`gt_openadmixture()` runs on a `gen_tibble`. Its parallel loops use OpenMP,
+with `n_cores` threads. It only calls BLAS for small systems of K
+equations, so BLAS is kept to a single thread:
 
 ```{r r-packages, eval = FALSE}
 ```
 
-```{r r-import, eval = FALSE}
-```
-
-It is then run with the same settings as ADMIXTURE and fastmixture:
+It is run with the same settings as ADMIXTURE and fastmixture:
 
 ```{r r-settings, eval = FALSE}
 ```
+
+Each run reads the same bed file into a `gen_tibble`, runs
+`gt_openadmixture()`, and saves the result to an RDS file:
 
 ```{r r-runs, eval = FALSE}
 ```
