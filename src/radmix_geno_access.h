@@ -181,6 +181,7 @@ public:
       Rcpp::stop("'cv_seed' must be a non-negative integer.");
     _cv_mode = cv_mode;
     _cv_fold = (uint64_t) cv_fold;
+    _cv_hide_fold = cv_mode == CV_TRAIN;
     // n_folds is only checked for masked views; flooring it at 1 keeps
     // fold() (hash % _n_folds) free of a division by zero in any mode
     _n_folds = (uint64_t) (n_folds > 0 ? n_folds : 1);
@@ -194,25 +195,27 @@ public:
   // number of trials (allele copies) for individual i
   inline double n_trials(size_t i) const { return _n[i]; }
 
-  // Decode genotype (i, j). Returns false if missing; otherwise sets g to the
-  // (scaled) alt allele count in [0, n_i].
+  // Decode genotype (i, j). Returns whether it is observed (and visible,
+  // with a cross-validation mask), and sets g to the (scaled) alt allele
+  // count in [0, n_i] (0 for a missing genotype; for a hidden one, its
+  // count, which the caller must ignore).
   // This is the innermost operation of every kernel, so it is kept to a
-  // memory read, a table lookup and a multiplication.
+  // memory read, a table lookup and a multiplication, without branches.
   inline bool get(size_t i, size_t j, double& g) const {
     unsigned char b = _pMat[_rows[i] + _col_off[j]];
-    if (_missing[b]) return false;
+    bool visible = !_missing[b];
     // cross-validation: hide the genotypes of the masked fold (training
-    // view) or all the others (held-out view). For plain views this is a
-    // single, perfectly predictable branch.
+    // view) or all the others (held-out view), i.e. those whose membership
+    // of the fold matches _cv_hide_fold. The genotypes of a fold are spread
+    // at random, so this is computed without a branch (which would be
+    // mispredicted for about one genotype in n_folds); the fold of a missing
+    // genotype is also computed, and ignored. For plain views the test on
+    // the mode is a single, perfectly predictable branch.
     if (_cv_mode != CV_NONE) {
-      const bool in_fold = fold(i, j) == _cv_fold;
-      // hidden when in_fold matches the mode: in a training view the
-      // genotypes of the fold (in_fold true), in a held-out view all the
-      // others (in_fold false)
-      if (in_fold == (_cv_mode == CV_TRAIN)) return false;
+      visible &= (fold(i, j) == _cv_fold) != _cv_hide_fold;
     }
     g = _lut[b] * _scale[i];
-    return true;
+    return visible;
   }
 
   // Fold (0 to n_folds - 1) of genotype (i, j), where i and j index the
@@ -232,7 +235,28 @@ public:
     z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
     z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
     z = z ^ (z >> 31);
-    return z % _n_folds;
+    return mod_n_folds(z);
+  }
+
+  // z % _n_folds. A 64-bit division by a value only known at run time takes
+  // tens of cycles, and this runs for every genotype in every pass of a
+  // cross-validation fit; by a compile-time constant, the compiler computes
+  // the same remainder with a multiplication and shifts. The usual numbers
+  // of folds get a constant (the switch is the same for every genotype, so
+  // it is perfectly predicted); any other number is divided at run time.
+  inline uint64_t mod_n_folds(uint64_t z) const {
+    switch (_n_folds) {
+    case 2: return z % 2;
+    case 3: return z % 3;
+    case 4: return z % 4;
+    case 5: return z % 5;
+    case 6: return z % 6;
+    case 7: return z % 7;
+    case 8: return z % 8;
+    case 9: return z % 9;
+    case 10: return z % 10;
+    default: return z % _n_folds;
+    }
   }
 
 private:
@@ -246,6 +270,8 @@ private:
   std::vector<double> _scale;    // dosage scale of each individual
   int _cv_mode;                  // CV_NONE, CV_TRAIN or CV_HELD_OUT
   uint64_t _cv_fold;             // the masked (or scored) fold
+  bool _cv_hide_fold;            // whether the fold is hidden (training view)
+                                 // or the other genotypes (held-out view)
   uint64_t _n_folds;             // number of folds
   uint64_t _cv_seed;             // seed of the fold assignment
 };

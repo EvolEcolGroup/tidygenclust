@@ -1,59 +1,27 @@
 # tidygenclust (development version)
+* New `gt_radmix()`: ancestry estimation with the ADMIXTURE method, using a
+  modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023).
+  Its results are checked
+  against OpenADMIXTURE.jl and ADMIXTURE in the test suite.
 * `gt_clumppling()` is now a native R and C++ port, with modifications, of
-  clumppling 2.0.10 (Liu, Kopelman & Rosenberg 2024, by Xiran Liu),
-  previously developed as the separate package `rclump`: it gives the
-  same results as the python implementation (which the test suite checks
-  against stored results), without Python, and is much faster. Its input is
-  always a `gt_admix` object: Q files can be read with
-  `tidypopgen::read_q_files()`, so the arguments `input_path`, `input_format`
-  and `extension` are replaced by `x`. New arguments `cd_res`, `test_comm`,
-  `comm_min` and `comm_max` expose further options of clumppling, and
-  `mode_stats` gives the statistics of each mode. The example data are now
-  `gt_admix` objects (`inst/extdata/capeverde_admix.rds` and
-  `chicken_admix.rds`).
+  clumppling 2.0.10 (Liu, Kopelman & Rosenberg 2024, by Xiran Liu).
 * The conda environment is no longer needed by default, as the core
   functionality is native. `tgc_tools_install()` gains a `tools` argument to
   choose which optional tools to install (`fastmixture` and ADMIXTURE), and
   `tgc_fastmixture_install()` and `tgc_admixture_install()` add a tool to an
-  existing environment. clumppling is no longer installed, and the package no
-  longer warns at startup if the conda environment is missing.
-* New `gt_radmix()`: ancestry estimation with the ADMIXTURE method, using a
-  modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023), with
-  much of the C++ (OpenMP) code ported from OpenADMIXTURE.jl. It was
-  previously developed as the separate package `openadmixturer`, and named
-  `gt_openadmixture()` during development; it was renamed because it differs
-  from OpenADMIXTURE (it does not select ancestry informative markers, it
-  adds cross-validation, and it changes some details of the algorithm). It
-  estimates ancestry proportions directly from the backing files of
-  `gen_tibble` objects (no Python or Julia needed), supports diploid and
-  pseudohaploid data and missing genotypes, implements the cross-validation
-  of ADMIXTURE (which is not part of OpenADMIXTURE), and returns `gt_admix`
-  objects. Its results are checked
-  against OpenADMIXTURE.jl and ADMIXTURE in the test suite.
+  existing environment.
 * Fixed the colours of the clusters in the plots of `gt_clumppling` objects
   with K >= 10: clusters were ordered as text ("1", "10", "2", ...), so the
   same aligned cluster was drawn in a different colour (and position) for
   different values of K.
-* On Windows, `tgc_tools_install()`, `tgc_fastmixture_install()` and
-  `tgc_admixture_install()` explain that only the optional tools cannot be
-  installed (they said that tidygenclust did not work on Windows); the rest
-  of the package does not need conda.
 * `gt_fastmixture()` now starts from the SVD-based initialisation of
-  fastmixture by default (`random_init = FALSE`), as the fastmixture program
-  does: random starting values, the previous default, can take much longer
-  to converge. The SVD-based initialisation needs all the loci to be
-  polymorphic; the error for monomorphic loci now says so, and suggests
-  `random_init = TRUE`.
+  fastmixture by default (`random_init = FALSE`).
 * `gt_fastmixture()` now uses the individuals and loci selected in a
-  `gen_tibble`: it read the whole backing file, so a filtered `gen_tibble`
-  failed, and a reordered one gave the rows of Q in the order of the backing
-  file while `id` followed the `gen_tibble`.
+  `gen_tibble`.
 * `gt_fastmixture(threads = )` now limits the number of threads (with the
   python package threadpoolctl, which `tgc_fastmixture_install()` now
   installs): the environment variables used before had no effect once R had
   started OpenMP, and they stayed set in the R session.
-* `gt_clumppling()` checks its options: a non-finite `cd_res` made community
-  detection loop forever, and invalid logical options gave cryptic errors.
 * `subset_gt_clumppling(k = )` selects the right values of K: it failed when
   `k` covered all of `K_range`, selected K = 20 to 29 together with K = 2 (and
   so on), could not select values of K with gaps (e.g. 17 and 19 in the
@@ -61,26 +29,6 @@
   were not in `K_range`.
 * `subset_gt_clumppling(indivs = )` checks that the individuals are between 1
   and N, rather than silently returning rows of NA.
-* `gt_radmix()` with `fix_p = TRUE` can project fewer individuals than
-  `k` (e.g. a single new sample) onto a reference panel.
-* `gt_radmix()` matches the rows of `init_p` to the loci by their
-  names, when it has row names (as its P matrices do): a P with the loci in a
-  different order was silently accepted, giving wrong results, and a P with
-  additional loci was rejected.
-* `gt_radmix(crossval = TRUE)` no longer changes the estimates of the
-  following runs when `seed` is not given.
-* `tgc_tools_install(reset = TRUE)` with some of the tools no longer removes
-  the others: the tools that were installed in `ctidygenclust` are installed
-  again, and on macOS resetting ADMIXTURE alone leaves `ctidygenclust`
-  untouched.
-* Installing fastmixture no longer replaces the numpy pinned by the conda
-  environment with the latest version from pypi.
-* On macOS, `tgc_admixture_install()` uses the conda binary of reticulate
-  (rather than any `conda` on the PATH, which may be missing, e.g. in RStudio)
-  and quotes the path of the yaml file.
-* On macOS, a single path given to `tgc_tools_install(conda_yaml = )` is only
-  used for `ctidygenclust`; it was also used to create the environment of
-  ADMIXTURE.
 * Plots of `gt_clumppling` objects subset by individuals draw the group
   boundaries and labels (and the number of runs of each mode) in the right
   place.
@@ -93,30 +41,14 @@
 * The vignette and the documentation of `autoplot()` no longer say that the
   edges of the 'modes' plot are labelled with their cost: they are coloured by
   it.
-* The Newton update of Q in `gt_radmix()` stops cycling at vertex
-  solutions, which made it up to about 20% slower near convergence (results
-  are unchanged).
-* `gt_radmix()` checks all its arguments before fitting: `fix_q = NA`
-  was taken as TRUE, `rtol = NA` silently prevented convergence, non-integer
-  values of `k`, `n_runs` and `n_folds` were truncated, invalid `max_iter`,
-  `n_qn` and `n_cores` gave a generic error, and invalid seeds were only
-  detected after the first fits.
-* `gt_radmix()` on a `gen_tibble` grouped by more than one variable
-  fails with a clear error before fitting, rather than after all the fits.
 * `gt_fastmixture()` checks its arguments before starting python, with error
   messages naming the right arguments, and a single `seed` (such as the
   default) can be used with `n_runs > 1`: it is incremented for each run.
-* `gt_radmix(fix_q = TRUE)` keeps Q exactly at its starting value (it
-  moved by rounding errors).
-* `gt_radmix()` on a `gen_tibble` without individuals or loci gives an
-  error, rather than crashing R.
 * On Intel Macs, fastmixture is compiled with the llvm installed by Homebrew
   (its location was hard-coded for Apple silicon).
 * The `safety` argument of `gt_fastmixture()` is deprecated: it was never
   passed on to fastmixture, which turns on its safety updates by itself when
   an update is unstable.
-* `gt_fastmixture()` checks that a grouped gen_tibble has a single grouping
-  variable before running fastmixture (it failed after all the fits).
 
 # tidygenclust 0.1.4
 * Updated clumppling to v2.0.10, which is now installed in the same conda

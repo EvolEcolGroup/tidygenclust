@@ -391,6 +391,15 @@ The innermost unit of work is a *slice*: one locus and up to 64 individuals
       hash (the splitmix64 finaliser) of the seed and the position of the
       genotype. This needs no memory (a stored mask would be as large as the
       genotypes), is thread safe, and gives the same folds for the same seed.
+    - The hash runs for every genotype in every pass of a fold, so it is
+      kept cheap: the remainder by the number of folds uses a compile-time
+      constant for 2 to 10 folds (a multiplication instead of a 64-bit
+      division), and hidden genotypes are dropped without branches (they are
+      spread at random, so a branch was mispredicted about once in
+      `n_folds`). The folds and the results are unchanged; a pass with a
+      fold hidden went from about 1.9 to 1.5 times the cost of a plain pass
+      (quick and full HGDP data of the benchmark), and a fit with 5-fold
+      cross-validation became about 30% faster.
     - Each fold is fitted starting from the estimates for the full data,
       without EM priming. They are close to the optimum without the fold, so
       each fold converges in a few iterations (fastmixture also starts its
