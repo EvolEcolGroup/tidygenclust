@@ -1,4 +1,4 @@
-# tidygenclust <img src="./man/figures/logo.png" align="right" width="150"/>
+# tidygenclust <img src="./man/figures/logo.png" align="right" width="150" alt="tidygenclust logo"/>
 
 <!-- badges: start -->
 
