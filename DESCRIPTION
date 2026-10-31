@@ -54,6 +54,7 @@ Imports:
     patchwork (>= 1.2.0),
     Rcpp,
     reticulate,
+    RhpcBLASctl,
     rlang,
     stats,
     tibble,

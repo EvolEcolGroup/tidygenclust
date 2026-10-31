@@ -10,6 +10,8 @@
   modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023).
   Its results are checked
   against OpenADMIXTURE.jl and ADMIXTURE in the test suite.
+  With `init = "svd"`, runs start from the SVD of the genotypes, as in
+  ADAMIXTURE, for a faster single fit of large datasets.
 * `gt_clumppling()` is now a native R and C++ port, with modifications, of
   clumppling 2.0.10 (Liu, Kopelman & Rosenberg 2024, by Xiran Liu).
 * The conda environment is no longer needed by default, as the core
