@@ -24,10 +24,12 @@ Its core functionality is native, and needs neither Python nor Julia:
   R and C++, with modifications, from the python package
   [clumppling](https://github.com/PopGenClustering/Clumppling).
 
-Optionally, `tidygenclust` can also run the python package
+Optionally, `tidygenclust` can also run the python packages
 [fastmixture](https://github.com/Rosemeis/fastmixture) (`gt_fastmixture()`)
-and the original ADMIXTURE program (`tidypopgen::gt_admixture()`), which it
-installs in a conda environment on request.
+and [ADAMIXTURE](https://github.com/AI-sandbox/ADAMIXTURE)
+(`gt_adamixture()`), and the original ADMIXTURE program
+(`tidypopgen::gt_admixture()`), which it installs in a conda environment on
+request.
 
 ## Installation
 
@@ -40,13 +42,14 @@ pak::pak("EvolEcolGroup/tidygenclust")
 ```
 
 `gt_radmix()` and `gt_clumppling()` work straight away. The
-optional tools (`fastmixture` and ADMIXTURE) are installed with
+optional tools (`fastmixture`, ADMIXTURE and ADAMIXTURE) are installed with
 `reticulate` in a conda environment, `ctidygenclust`, when you ask for them
-(this only works on Linux and macOS: on Windows, you can use them through
-the WSL):
+(this only works on Linux at the moment: on Windows, you can use them
+through the WSL; on macOS, they are not available, as their OpenMP library
+conflicts with that of R):
 
 ``` r
-# both tools
+# all the tools
 tgc_tools_install()
 # or only some of them
 tgc_tools_install(tools = "fastmixture")
@@ -56,23 +59,14 @@ tgc_admixture_install()
 tgc_tools_version()
 ```
 
-**Note for MacOS user**
-
-To install `fastmixture` on MacOS, you need `llvm` installed via `brew` in
-the first place. In `bash`, you will need:\
-
-``` bash
-brew install llvm libomp
-```
-
 ## Overview of functionality
 
 An overview of the functionality of `tidygenclust` and its integration
 with `tidypopgen` is provided in the "Get Started" vignette. This also
 includes a detailed description of how to align multiple runs of
 clustering and compare them. The article "Installing and running
-ADMIXTURE and fastmixture" shows how to install and run the optional
-external programs.
+external tools" shows how to install and run the optional external
+programs.
 
 ## Clumppling
 
@@ -129,8 +123,9 @@ which the test suite checks against stored results; on the 379 individuals
 and 54,051 SNPs of the `EUR_subset` data used to test OpenADMIXTURE.jl, it
 is 2-3 times faster than ADMIXTURE on a single thread, and about 10 times
 faster on 4 threads. See `?gt_radmix`, the article "Benchmarking
-gt_radmix() against ADMIXTURE and fastmixture" (in the Articles section of
-the website of the package), and `data-raw/radmix/README.md` for details.
+gt_radmix() against ADMIXTURE, fastmixture and ADAMIXTURE" (in the Articles
+section of the website of the package), and `data-raw/radmix/README.md` for
+details.
 
 ## References
 

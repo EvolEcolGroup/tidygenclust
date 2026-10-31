@@ -7,10 +7,10 @@
 tgc_admixture_install(conda_yaml = "auto", ci_install = FALSE)
 }
 \arguments{
-\item{conda_yaml}{only used on OSX: the path of the \code{yaml} file used to
-create the \code{cadmixture86} environment, "auto" (the default, the latest
-tested yaml) or NULL (the latest version of \code{ADMIXTURE} in bioconda). See
-\code{\link[=tgc_tools_install]{tgc_tools_install()}}.}
+\item{conda_yaml}{only used on OSX (not supported at the moment): the path
+of the \code{yaml} file used to create the \code{cadmixture86} environment, "auto"
+(the default, the latest tested yaml) or NULL (the latest version of
+\code{ADMIXTURE} in bioconda). See \code{\link[=tgc_tools_install]{tgc_tools_install()}}.}
 
 \item{ci_install}{a boolean indicating if the installation is being run on
 continuous integration (CI) services. Default is FALSE. If TRUE, the
@@ -23,9 +23,8 @@ directory. This is useful when testing the package on CI services.}
 NULL (invisibly)
 }
 \description{
-\code{ADMIXTURE} (used by \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}}) is an optional tool. On
-Linux, this function adds it to an existing \code{ctidygenclust} environment
-(created with \code{\link[=tgc_tools_install]{tgc_tools_install()}}). On silicon Macs, \code{ADMIXTURE} is only
-available as x86 in bioconda, so it is installed in a separate conda
-environment, \code{cadmixture86}, which is created by this function.
+\code{ADMIXTURE} (used by \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}}) is an optional tool.
+This function adds it to an existing \code{ctidygenclust} environment (created
+with \code{\link[=tgc_tools_install]{tgc_tools_install()}}). Like the other optional tools, it is only
+available on Linux at the moment (see \code{\link[=tgc_tools_install]{tgc_tools_install()}}).
 }

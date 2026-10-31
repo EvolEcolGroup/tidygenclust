@@ -12,6 +12,6 @@ A list with the version of the optional tools installed by
 }
 \description{
 This function returns the version of the optional tools
-installed by \code{\link[=tgc_tools_install]{tgc_tools_install()}}: \code{fastmixture} and \code{ADMIXTURE}. Tools
-that are not installed have version NA.
+installed by \code{\link[=tgc_tools_install]{tgc_tools_install()}}: \code{fastmixture}, \code{ADMIXTURE} and
+\code{ADAMIXTURE}. Tools that are not installed have version NA.
 }

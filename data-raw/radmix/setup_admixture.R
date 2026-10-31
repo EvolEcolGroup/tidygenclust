@@ -1,4 +1,4 @@
-# Install ADMIXTURE, used by the article admixture_fastmixture.Rmd to run
+# Install ADMIXTURE, used by the article external_tools.Rmd to run
 # the original program alongside gt_radmix(), and by
 # data-raw/radmix/regenerate_admixture_fixtures.R to create the
 # ADMIXTURE results stored for

@@ -52,18 +52,19 @@ test suite checks against stored results). They are integrated with
 explored and plotted with the methods provided by `tidypopgen`, and aligned with
 `gt_clumppling()`.
 
-Optionally, `tidygenclust` also provides an interface to two external clustering
-programs: the python package `fastmixture`
+Optionally, `tidygenclust` also provides an interface to three external
+clustering programs: the python packages `fastmixture`
 (<https://github.com/Rosemeis/fastmixture>) (Santander et al. 2024), with
-`gt_fastmixture()`, and the original ADMIXTURE program (Alexander et al. 2009),
-with `tidypopgen::gt_admixture()`. These external programs are not required to
-use `tidygenclust`, but they can be used to compare results with the native
-implementations. They are both installed in a conda environment using
-`reticulate`, so you do not need to worry about the details of the python
-packages or dependencies (this works both in Linux and macOS, but NOT Windows).
-We show how to install and run them in the article "Installing and running
-ADMIXTURE and fastmixture" (in the Articles section of the website of the
-package).
+`gt_fastmixture()`, and ADAMIXTURE
+(<https://github.com/AI-sandbox/ADAMIXTURE>) (Saurina-i-Ricos et al. 2026),
+with `gt_adamixture()`, and the original ADMIXTURE program (Alexander et al.
+2009), with `tidypopgen::gt_admixture()`. These external programs are not
+required to use `tidygenclust`, but they can be used to compare results with
+the native implementations. They are all installed in a conda environment
+using `reticulate`, so you do not need to worry about the details of the
+python packages or dependencies (this only works on Linux at the moment). We
+show how to install and run them in the article "Installing and running
+external tools" (in the Articles section of the website of the package).
 
 Genetic data analyses through the integration of `tidypopgen` and `tidygenclust`
 seamlessly joins upstream genetic data manipulation (`tidypopgen`) with
@@ -80,9 +81,9 @@ installed:
 library(tidygenclust)
 ```
 
-The external programs `fastmixture` and ADMIXTURE are optional: we show how to
-install and run them in the article "Installing and running ADMIXTURE and
-fastmixture".
+The external programs `fastmixture`, ADAMIXTURE and ADMIXTURE are optional: we
+show how to install and run them in the article "Installing and running
+external tools".
 
 # An example workflow
 
@@ -265,10 +266,10 @@ anole_res %>% autoplot(type = "cv")
 We are looking for the 'elbow' point in the plot where the cross-validation
 error is at its lowest, here it looks like `k = 3` would be a sensible choice.
 
-For a comparison of `gt_radmix()` with the original ADMIXTURE program and
-with fastmixture, see the article "Benchmarking gt_radmix() against
-ADMIXTURE and fastmixture" (in the Articles section of the website of the
-package).
+For a comparison of `gt_radmix()` with the original ADMIXTURE program, with
+fastmixture and with ADAMIXTURE, see the article "Benchmarking gt_radmix()
+against ADMIXTURE, fastmixture and ADAMIXTURE" (in the Articles section of
+the website of the package).
 
 `gt_radmix()` uses a modified version of the algorithm of OpenADMIXTURE:
 when using it, make sure that you cite the original paper on the algorithm
@@ -562,6 +563,10 @@ btad751.
 Prates I, Penna A, Rodrigues MT, Carnaval AC (2018) Local adaptation in mainland
 anole lizards: Integrating population history and genome-environment
 associations. Ecology and Evolution, 8(23), 11932-11944.
+
+Saurina-i-Ricos J, Mas Montserrat D, Ioannidis AG (2026) ADAMIXTURE: adaptive
+first-order optimization for biobank-scale genetic clustering. Bioinformatics,
+42(Supplement_1), btag236.
 
 Santander CG, Refoyo Martinez A, Meisner J (2024) Faster model-based estimation
 of ancestry proportions. Peer

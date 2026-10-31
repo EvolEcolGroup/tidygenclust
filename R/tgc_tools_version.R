@@ -1,7 +1,7 @@
 #' Print version of the optional tools installed by `tidygenclust`
 #' @description This function returns the version of the optional tools
-#'   installed by [tgc_tools_install()]: `fastmixture` and `ADMIXTURE`. Tools
-#'   that are not installed have version NA.
+#'   installed by [tgc_tools_install()]: `fastmixture`, `ADMIXTURE` and
+#'   `ADAMIXTURE`. Tools that are not installed have version NA.
 #' @return A list with the version of the optional tools installed by
 #' `tidygenclust`
 #' @export
@@ -32,8 +32,14 @@ tgc_tools_version <- function() {
   # ADMIXTURE prints a banner before its version number, which is the last
   # line of the output
   adm_ver <- tool_output("admixture", "admixture", "--version")
+  # the command line of ADAMIXTURE has no --version, so ask its python module
+  ada_ver <- tool_output(
+    "adamixture", "python",
+    c("-c", shQuote("import adamixture; print(adamixture.__version__)"))
+  )
   list(
     fastmixture = fast_ver,
-    admixture = adm_ver[length(adm_ver)]
+    admixture = adm_ver[length(adm_ver)],
+    adamixture = ada_ver[length(ada_ver)]
   )
 }

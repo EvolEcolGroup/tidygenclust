@@ -3,7 +3,7 @@
 "R","R version 4.6.1 (2026-06-24)"
 "platform","x86_64-pc-linux-gnu"
 "BLAS","/usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3"
-"tidygenclust","0.1.5.9003"
+"tidygenclust","0.1.5.9004"
 "tidypopgen","0.4.4.9008"
 "CPU","Intel(R) Core(TM) i7-10510U CPU @ 1.80GHz"
 "cores","4"

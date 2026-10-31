@@ -1,4 +1,11 @@
 # tidygenclust (development version)
+* New `gt_adamixture()`: ancestry estimation with the python package
+  ADAMIXTURE (Saurina-i-Ricos, Mas Montserrat & Ioannidis 2026), run with
+  `reticulate` like `gt_fastmixture()`, on a `gen_tibble` (including subsets)
+  or on PLINK files. ADAMIXTURE (version 1.8.9, from PyPI, without PyTorch)
+  is installed by default by `tgc_tools_install()`, or added to an existing
+  environment with the new `tgc_adamixture_install()`, and its version is
+  reported by `tgc_tools_version()`.
 * New `gt_radmix()`: ancestry estimation with the ADMIXTURE method, using a
   modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023).
   Its results are checked
@@ -14,6 +21,13 @@
   with K >= 10: clusters were ordered as text ("1", "10", "2", ...), so the
   same aligned cluster was drawn in a different colour (and position) for
   different values of K.
+* The optional tools (fastmixture, ADMIXTURE and ADAMIXTURE) are only
+  available on Linux at the moment: `tgc_tools_install()` and the other
+  installers explain this on macOS and Windows (on Windows, they said that
+  tidygenclust did not work at all), as the rest of the package does not
+  need conda. On macOS, the OpenMP library of the python tools conflicts with
+  that of R (used by packages such as bigstatsr), which crashes the R
+  session; on Windows, the tools can be used through the WSL.
 * `gt_fastmixture()` now starts from the SVD-based initialisation of
   fastmixture by default (`random_init = FALSE`).
 * `gt_fastmixture()` now uses the individuals and loci selected in a
