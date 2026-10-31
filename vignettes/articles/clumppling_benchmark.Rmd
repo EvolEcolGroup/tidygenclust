@@ -1,0 +1,393 @@
+---
+title: "Benchmarking gt_clumppling() against the python clumppling"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+params:
+  results_dir: "data/clumppling_benchmark"
+vignette: >
+  %\VignetteIndexEntry{Benchmarking gt_clumppling() against the python clumppling}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE, purl = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+# the code of the benchmark is in the script code/clumppling_benchmark.R,
+# from which the chunks below are read (purl = FALSE because pkgdown purls
+# this file from the package root when looking for images, where this
+# relative path does not exist)
+knitr::read_chunk("code/clumppling_benchmark.R")
+# the directory with the results of the benchmark
+results_dir <- params$results_dir
+```
+
+`gt_clumppling()` aligns the clusters of replicate runs of ADMIXTURE-like
+analyses, and groups the runs into modes, with the method of clumppling
+(Liu, Kopelman & Rosenberg 2024). Its R and C++ code is ported, with
+modifications, from the python package clumppling (version 2.0.10, by Xiran
+Liu), which previous versions of `tidygenclust` ran through `reticulate`. This article compares the two
+implementations: do they give the same results, and how long do they take?
+
+The comparison uses the two example datasets of the python clumppling,
+which are also analysed in the paper that describes it (Liu, Kopelman &
+Rosenberg 2024), and which `tidygenclust` includes as `gt_admix` objects
+(in `inst/extdata`):
+
+- capeverde: 200 runs of ADMIXTURE (50 for each K from 2 to 5) on the Cape
+  Verde data of Verdu et al. (2017), with 399 individuals (44 Cape
+  Verdeans, and 355 individuals from British, French, Iberian, Gambian and
+  Mandenka populations);
+- chicken: 60 runs of STRUCTURE (20 for each of K = 17, 19 and 21) on the
+  chicken data of Rosenberg et al. (2001), with 600 chickens from 20
+  breeds.
+
+```{r results-read, include = FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+# the time of each run, and the agreement of the results of the two
+# implementations on each dataset
+timings <- read.csv(file.path(results_dir, "timings.csv"))
+agreement <- read.csv(file.path(results_dir, "agreement.csv"))
+startup <- read.csv(file.path(results_dir, "startup.csv"))
+session <- read.csv(file.path(results_dir, "session.csv"))
+implementation_labels <- c(r = "gt_clumppling()", python = "python clumppling")
+setting_labels <- c(
+  memory = "In memory",
+  files = "From Q files",
+  command_line = "From the command line"
+)
+# the median time of each implementation on each dataset, in each setting
+times <- timings %>%
+  group_by(dataset, setting, implementation) %>%
+  summarise(seconds = median(seconds), .groups = "drop") %>%
+  pivot_wider(names_from = implementation, values_from = seconds) %>%
+  left_join(agreement, by = "dataset") %>%
+  mutate(speed_up = python / r) %>%
+  arrange(
+    factor(setting, names(setting_labels)),
+    desc(n_individuals == 399),
+    n_runs
+  )
+n_repeats <- n_distinct(timings$repeat_run)
+format_seconds <- function(x) {
+  formatC(signif(x, 2), format = "fg", digits = 2, big.mark = ",")
+}
+format_diff <- function(x) {
+  ifelse(is.na(x), "-", formatC(signif(x, 2), format = "g", digits = 2))
+}
+time_of <- function(dataset, implementation, setting = "memory") {
+  times[[implementation]][times$dataset == dataset & times$setting == setting]
+}
+speed_up_of <- function(dataset, setting = "memory") {
+  round(time_of(dataset, "python", setting) / time_of(dataset, "r", setting))
+}
+startup_of <- function(implementation) {
+  median(startup$seconds[startup$implementation == implementation])
+}
+```
+
+# Results
+
+## Summary
+
+- With the Q matrices already in memory, on the 200 runs of the capeverde
+  data (399 individuals, K = 2 to 5), `gt_clumppling()` took
+  `r format_seconds(time_of("capeverde_50", "r"))` s and the python
+  implementation `r format_seconds(time_of("capeverde_50", "python"))` s,
+  about `r speed_up_of("capeverde_50")` times longer. On the 60 runs of the
+  chicken data (600 individuals, K = 17, 19 and 21), they took
+  `r format_seconds(time_of("chicken_20", "r"))` s and
+  `r format_seconds(time_of("chicken_20", "python"))` s.
+- Starting from Q files adds the time taken to read them: on the 200
+  capeverde runs, `r format_seconds(time_of("capeverde_50", "r", "files"))`
+  s and `r format_seconds(time_of("capeverde_50", "python", "files"))` s.
+  In R, reading the files takes longer than `gt_clumppling()` itself.
+- From the command line, each implementation also has to start, and load
+  its packages: about `r format_seconds(startup_of("r"))` s for R and
+  `r format_seconds(startup_of("python"))` s for python. With few runs, this
+  is most of the time, and the difference shrinks: with 5 runs for each K,
+  `r format_seconds(time_of("capeverde_5", "r", "command_line"))` s and
+  `r format_seconds(time_of("capeverde_5", "python", "command_line"))` s.
+  With 200 runs, it is still
+  `r format_seconds(time_of("capeverde_50", "r", "command_line"))` s
+  against
+  `r format_seconds(time_of("capeverde_50", "python", "command_line"))` s.
+- The two implementations found the same modes in
+  `r sum(agreement$same_modes)` of the `r nrow(agreement)` datasets. Where
+  the modes were the same, their aligned ancestry proportions differed by
+  at most `r format_diff(max(agreement$max_diff_aligned, na.rm = TRUE))`.
+  On the chicken data, the modes were the same for K =
+  `r agreement$same_modes_k[agreement$dataset == "chicken_20"]` only, as
+  expected (see below).
+
+## Do they give the same results?
+
+Both implementations were run with the default options (`use_rep = TRUE`,
+`merge = TRUE`, `cd_method = "louvain"`, `use_best_pair = TRUE`) and the
+same seed. Each implementation runs the same code whether the Q matrices
+are in memory, read from Q files or the analysis is run from the command
+line (see below), so the results were compared once, with the Q matrices
+in memory:
+
+```{r table-agreement, echo = FALSE}
+agreement %>%
+  mutate(
+    same_modes_k = if_else(same_modes_k == "", "none", same_modes_k),
+    same_representatives = if_else(same_representatives, "yes", "no"),
+    across(c(max_diff_aligned, max_diff_cost), format_diff)
+  ) %>%
+  select(
+    dataset, n_runs, n_individuals, k_values, n_modes_r, n_modes_python,
+    same_modes_k, same_representatives, max_diff_aligned, max_diff_cost
+  ) %>%
+  knitr::kable(
+    col.names = c(
+      "Dataset", "Runs", "Individuals", "K", "Modes (R)", "Modes (python)",
+      "K with the same modes", "Same representatives",
+      "Largest difference (modes)",
+      "Largest difference (costs)"
+    ),
+    align = "lrrlrrllrr",
+    caption = paste0(
+      "Number of modes found by each implementation, the values of K for ",
+      "which the modes (the runs in each mode) are the same, whether the ",
+      "representative runs of the modes are the same, and, where all the ",
+      "modes are the same, the largest absolute differences ",
+      "between the aligned ancestry proportions of the modes, and between ",
+      "the costs of the alignments across K."
+    )
+  )
+```
+
+Where the modes are the same, the remaining differences are rounding
+errors. Grouping runs into modes uses community detection (the Louvain
+method, by default), which draws random numbers. `gt_clumppling()` draws
+them from R's generator, so the same seed does not give the same random
+choices as in python. This does not change the modes when the community
+structure of the runs is clear, as in the capeverde data. It can when the
+structure is ambiguous, as for K = 17 and 19 in the chicken data, where the
+modes found by python itself change with the seed. The test suite of
+`tidygenclust` checks that, given the same modes, the two implementations
+give the same results on these data.
+
+## How long do they take?
+
+The two implementations are typically used in different ways. In R, the Q
+matrices are usually already in memory, in a `gt_admix` object returned by
+`gt_admixture()` or by `tidypopgen::read_q_files()`, and `gt_clumppling()`
+returns its results as an R object. The python clumppling is usually run
+as a command-line tool, which starts python, loads its packages, reads the
+Q files, and writes its results to files. Timing `gt_clumppling()` on a
+`gt_admix` object against the command-line tool would flatter
+`gt_clumppling()`. So we timed each implementation in three settings:
+
+- **In memory**: the Q matrices are already in memory, and R or python is
+  already running, with the packages loaded. This times the method alone.
+  In python, the Q matrices are converted to numpy arrays before the timing
+  starts, and the results are left as python objects, so the time taken to
+  pass data between R and python (with `reticulate`) is not included.
+- **From Q files**: as above, but starting from a directory of Q files, one
+  for each run. In R, they are read with `tidypopgen::read_q_files()`. In
+  python, they are read by clumppling's own parser, which writes the
+  processed matrices to a directory and reads them back, as the
+  command-line tool does.
+- **From the command line**: each run is a new process, which starts R or
+  python, loads the packages, reads the Q files, and saves the results. In
+  R, this is a script run with `Rscript`, which loads `tidygenclust` and
+  saves the results with `saveRDS()`. In python, it is the command-line
+  tool of clumppling, without figures (`-v False`).
+
+The last setting is the closest to the time a user waits, but the two
+implementations still do slightly different things: the command-line tool
+of clumppling writes more output than `saveRDS()` (the processed Q files,
+the alignment of every pair of runs, the modes and their statistics, and a
+log).
+
+```{r plot-timings, echo = FALSE, fig.width = 7, fig.height = 3.8}
+implementation_colours <- c(r = "#2a78d6", python = "#eb6834")
+# the number of runs of each dataset (capeverde, unless stated)
+dataset_labels <- if_else(
+  agreement$n_individuals == 399,
+  as.character(agreement$n_runs),
+  paste0(agreement$n_runs, "\n(chicken)")
+)
+timings %>%
+  left_join(agreement, by = "dataset") %>%
+  mutate(
+    dataset = factor(dataset, agreement$dataset, dataset_labels),
+    setting = factor(setting, names(setting_labels), setting_labels),
+    implementation = factor(implementation, names(implementation_labels))
+  ) %>%
+  ggplot(aes(x = dataset, y = seconds, colour = implementation)) +
+  stat_summary(
+    data = function(d) filter(d, n_individuals == 399),
+    aes(group = implementation),
+    fun = median,
+    geom = "line",
+    linewidth = 0.8
+  ) +
+  geom_point(size = 1.8, alpha = 0.6) +
+  facet_wrap(~setting) +
+  scale_y_log10() +
+  scale_colour_manual(
+    values = implementation_colours,
+    labels = implementation_labels
+  ) +
+  labs(
+    x = "Number of runs (capeverde data, and chicken data)",
+    y = "Time (s, log scale)",
+    colour = NULL
+  ) +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(), legend.position = "top")
+```
+
+```{r table-timings, echo = FALSE}
+times %>%
+  mutate(
+    setting = setting_labels[setting],
+    setting = if_else(duplicated(setting), "", setting),
+    r = format_seconds(r),
+    python = format_seconds(python),
+    speed_up = formatC(speed_up, format = "f", digits = 0)
+  ) %>%
+  select(setting, dataset, n_runs, k_values, r, python, speed_up) %>%
+  knitr::kable(
+    col.names = c(
+      "Setting", "Dataset", "Runs", "K", "gt_clumppling() (s)",
+      "python (s)", "Speed-up"
+    ),
+    align = "llrlrrr",
+    caption = paste0(
+      "Median time (s) of ", n_repeats, " runs of each implementation, in ",
+      "each setting, and ratio of the times of python and gt_clumppling()."
+    )
+  )
+```
+
+With many runs, most of the time goes into aligning every pair of runs
+with the same K, so the time grows roughly with the square of the number of
+runs for each K. For each pair, clumppling solves an integer linear
+program with GLPK (through cvxpy), whereas `gt_clumppling()` solves the
+same problem exactly as a linear assignment problem, with the Hungarian
+algorithm in C++.
+
+Reading the 200 capeverde Q files took about
+`r format_seconds(time_of("capeverde_50", "r", "files") - time_of("capeverde_50", "r"))`
+s in R (`tidypopgen::read_q_files()` reads each file with `read.table()`),
+more than `gt_clumppling()` itself, but little compared with the time of
+the python implementation, whose own parser took about
+`r format_seconds(time_of("capeverde_50", "python", "files") - time_of("capeverde_50", "python"))`
+s.
+
+From the command line, starting R and loading `tidygenclust` took about
+`r format_seconds(startup_of("r"))` s, and starting python and loading
+clumppling (with numpy, cvxpy, cdlib and matplotlib) about
+`r format_seconds(startup_of("python"))` s (medians of `r n_repeats`
+runs, without doing anything else). This sets a floor to the times of both
+implementations, which dominates with few runs. The rest of the time from
+the command line is within about a second of the time from Q files, so
+writing the results takes little time, although clumppling writes more of
+them.
+
+# How the benchmark was run
+
+The benchmark is run with the script
+`vignettes/articles/code/clumppling_benchmark.R` (in the source code of the
+package), which saves its results in
+`vignettes/articles/data/clumppling_benchmark`; this article reads them
+from there. The code below is taken from that script.
+
+The python implementation is run with the wrapper that previous versions of
+`tidygenclust` used, which is now used to create the reference results of
+the tests (`data-raw/clumppling/py_clumppling.R`). It runs in the conda
+environment created by `data-raw/clumppling/setup_clumppling_env.sh`, with
+clumppling 2.0.10 and pinned versions of its dependencies:
+
+```{r clump-setup, eval = FALSE}
+```
+
+```{r clump-python, eval = FALSE}
+```
+
+The datasets are the example datasets of clumppling (see the
+introduction), and subsets of the capeverde data with fewer runs for each
+K.
+Each is also written as a directory of Q files, and converted to numpy
+arrays:
+
+```{r clump-data, eval = FALSE}
+```
+
+The results of the two implementations are compared with:
+
+```{r clump-compare, eval = FALSE}
+```
+
+The runs that are timed, in each setting, are:
+
+```{r clump-settings, eval = FALSE}
+```
+
+Each implementation is run on each dataset once in memory, to compare the
+results, and once from the Q files, and then timed `r n_repeats` times in
+each setting:
+
+```{r clump-runs, eval = FALSE}
+```
+
+Finally, the time taken to start R or python and load the packages is
+timed on its own:
+
+```{r clump-startup, eval = FALSE}
+```
+
+## Running the benchmark again
+
+Install `tidygenclust` with `R CMD INSTALL`, rather than loading it with
+`devtools::load_all()`, which compiles its C++ code without optimisation.
+Create the conda environment with the python implementation (from the root
+of the package):
+
+```sh
+bash data-raw/clumppling/setup_clumppling_env.sh
+```
+
+or set `CLUMPPLING_REFERENCE_ENV` to the name of another conda environment
+with the same versions of the python packages. Then run, from
+`vignettes/articles`, on an otherwise idle machine:
+
+```sh
+cd vignettes/articles
+Rscript code/clumppling_benchmark.R
+```
+
+This takes a few minutes. Then render this article again.
+
+## Machine and software
+
+```{r table-session, echo = FALSE}
+knitr::kable(session, col.names = c("", ""))
+```
+
+# References
+
+Liu, X., Kopelman, N. M. & Rosenberg, N. A. (2024). Clumppling: cluster
+matching and permutation program with integer linear programming.
+*Bioinformatics*, 40, btad751.
+
+Rosenberg, N. A., Burke, T., Elo, K., Feldman, M. W., Freidlin, P. J.,
+Groenen, M. A. M., Hillel, J., Mäki-Tanila, A., Tixier-Boichard, M.,
+Vignal, A., Wimmers, K. & Weigend, S. (2001). Empirical evaluation of
+genetic clustering methods using multilocus genotypes from 20 chicken
+breeds. *Genetics*, 159, 699-713.
+
+Verdu, P., Jewett, E. M., Pemberton, T. J., Rosenberg, N. A. & Baptista, M.
+(2017). Parallel trajectories of genetic and linguistic admixture in a
+genetically admixed creole population. *Current Biology*, 27, 2529-2535.
