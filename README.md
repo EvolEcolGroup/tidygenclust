@@ -31,9 +31,8 @@ installs in a conda environment on request.
 
 ## Installation
 
-Currently installation is limited to Linux and OSX, but NOT Windows (you
-can use the WSL). You can install the development version of
-`tidygenclust` from [GitHub](https://github.com/) with:
+You can install the development version of `tidygenclust` from
+[GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("pak")
@@ -42,7 +41,9 @@ pak::pak("EvolEcolGroup/tidygenclust")
 
 `gt_radmix()` and `gt_clumppling()` work straight away. The
 optional tools (`fastmixture` and ADMIXTURE) are installed with
-`reticulate` in a conda environment, `ctidygenclust`, when you ask for them:
+`reticulate` in a conda environment, `ctidygenclust`, when you ask for them
+(this only works on Linux and macOS: on Windows, you can use them through
+the WSL):
 
 ``` r
 # both tools

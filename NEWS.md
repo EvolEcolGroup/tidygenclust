@@ -34,6 +34,10 @@
   with K >= 10: clusters were ordered as text ("1", "10", "2", ...), so the
   same aligned cluster was drawn in a different colour (and position) for
   different values of K.
+* On Windows, `tgc_tools_install()`, `tgc_fastmixture_install()` and
+  `tgc_admixture_install()` explain that only the optional tools cannot be
+  installed (they said that tidygenclust did not work on Windows); the rest
+  of the package does not need conda.
 * `gt_fastmixture()` now starts from the SVD-based initialisation of
   fastmixture by default (`random_init = FALSE`), as the fastmixture program
   does: random starting values, the previous default, can take much longer

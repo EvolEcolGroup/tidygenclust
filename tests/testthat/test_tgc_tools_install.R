@@ -327,6 +327,10 @@ test_that("windows is rejected with a readable message", {
     tgc_tools_install(),
     "use the Windows subsystem for Linux \\(WSL\\) instead"
   )
+  # the other installers are rejected too, saying that only the optional
+  # tools are not available
+  expect_error(tgc_fastmixture_install(), "cannot be installed on windows")
+  expect_error(tgc_admixture_install(), "cannot be installed on windows")
 })
 
 test_that("a missing snapshot directory gives a clear error", {

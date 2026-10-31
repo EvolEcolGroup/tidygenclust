@@ -359,12 +359,15 @@ tgc_is_windows <- function() {
   .Platform$OS.type == "windows"
 }
 
-# give error for windows
+# give error for windows, where the optional tools cannot be installed (the
+# rest of the package works)
 tgc_check_os <- function() {
   if (tgc_is_windows()) {
     stop(
-      "tidygenclust does not work on windows; use the Windows subsystem ",
-      "for Linux (WSL) instead"
+      "The optional tools (fastmixture and ADMIXTURE) cannot be installed ",
+      "on windows; to use them, use the Windows subsystem for Linux (WSL) ",
+      "instead. The rest of tidygenclust, including gt_radmix() and ",
+      "gt_clumppling(), works on windows"
     )
   }
 }
