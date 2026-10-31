@@ -48,7 +48,7 @@ Description: A tidy interface for population genetic clustering. This package
    the cluster-alignment method of clumppling 
    (Liu, Kopelman & Rosenberg 2024), ported with modifications from its
    python implementation, for the comparison of multiple clustering runs. Optionally, tidygenclust can also run external clustering
-   software, including fastmixture and ADMIXTURE, which are installed 
+   software, including fastmixture, ADMIXTURE and ADAMIXTURE, which are installed 
    automatically in a dedicated conda environment (the conda environment only
    works in Linux and macOS).
 License: GPL (>= 3)

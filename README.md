@@ -24,10 +24,12 @@ Its core functionality is native, and needs neither Python nor Julia:
   R and C++, with modifications, from the python package
   [clumppling](https://github.com/PopGenClustering/Clumppling).
 
-Optionally, `tidygenclust` can also run the python package
+Optionally, `tidygenclust` can also run the python packages
 [fastmixture](https://github.com/Rosemeis/fastmixture) (`gt_fastmixture()`)
-and the original ADMIXTURE program (`tidypopgen::gt_admixture()`), which it
-installs in a conda environment on request.
+and [ADAMIXTURE](https://github.com/AI-sandbox/ADAMIXTURE)
+(`gt_adamixture()`), and the original ADMIXTURE program
+(`tidypopgen::gt_admixture()`), which it installs in a conda environment on
+request.
 
 ## Installation
 
@@ -40,7 +42,7 @@ pak::pak("EvolEcolGroup/tidygenclust")
 ```
 
 `gt_radmix()` and `gt_clumppling()` work straight away. The
-optional tools (`fastmixture` and ADMIXTURE) are installed with
+optional tools (`fastmixture`, ADMIXTURE and ADAMIXTURE) are installed with
 `reticulate` in a conda environment, `ctidygenclust`, when you ask for them
 (this only works on Linux and macOS: on Windows, you can use them through
 the WSL):
@@ -71,8 +73,8 @@ An overview of the functionality of `tidygenclust` and its integration
 with `tidypopgen` is provided in the "Get Started" vignette. This also
 includes a detailed description of how to align multiple runs of
 clustering and compare them. The article "Installing and running
-ADMIXTURE and fastmixture" shows how to install and run the optional
-external programs.
+external tools" shows how to install and run the optional external
+programs.
 
 ## Clumppling
 

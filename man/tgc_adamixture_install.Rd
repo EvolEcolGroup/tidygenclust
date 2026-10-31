@@ -2,23 +2,20 @@
 % Please edit documentation in R/tgc_tools_install.R
 \name{tgc_adamixture_install}
 \alias{tgc_adamixture_install}
-\title{Install \code{ADAMIXTURE} in the \code{ctidygenclust} conda environment}
+\title{Add \code{ADAMIXTURE} to the conda environment of \code{tidygenclust}}
 \usage{
-tgc_adamixture_install(
-  adamixture_hash = "ffccda93b78a32d2be4be9a674cfe81ad73ce117",
-  adamixture_repo = "AI-sandbox/ADAMIXTURE"
-)
+tgc_adamixture_install(adamixture_version = "1.8.9")
 }
 \arguments{
-\item{adamixture_hash}{a string with the commit hash of the \code{ADAMIXTURE}
-version to install. Default is the latest tested version.}
-
-\item{adamixture_repo}{a string with the github repository (\code{owner/repo})
-from which to install \code{ADAMIXTURE}.}
+\item{adamixture_version}{a string with the version of \code{ADAMIXTURE} to
+install from PyPI. Default is the latest tested version.}
+}
+\value{
+NULL (invisibly)
 }
 \description{
-\code{ADAMIXTURE} (used by \code{\link[=gt_adamixture]{gt_adamixture()}}) is an optional tool.
-This function adds it to an existing \code{ctidygenclust} environment
-(created with \code{\link[=tgc_tools_install]{tgc_tools_install()}}). It installs a lightweight
-CPU version of \code{ADAMIXTURE} without requiring PyTorch.
+\code{ADAMIXTURE} (used by \code{\link[=gt_adamixture]{gt_adamixture()}}) is an optional tool. This function
+adds it to an existing \code{ctidygenclust} environment (created with
+\code{\link[=tgc_tools_install]{tgc_tools_install()}}), or installs another version, from PyPI. Its CPU
+version, used by \code{\link[=gt_adamixture]{gt_adamixture()}}, does not need PyTorch.
 }

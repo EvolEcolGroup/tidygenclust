@@ -5,22 +5,26 @@
 \title{Install optional tools for \code{tidygenclust}}
 \usage{
 tgc_tools_install(
-  tools = c("fastmixture", "admixture"),
+  tools = c("fastmixture", "admixture", "adamixture"),
   reset = FALSE,
   fastmixture_hash = "1f03a8980be4872341e5faca9d6f2dfc7ccbfe35",
+  adamixture_version = "1.8.9",
   conda_yaml = "auto",
   ci_install = FALSE
 )
 }
 \arguments{
-\item{tools}{a vector with the tools to install, any of "fastmixture" and
-"admixture". Defaults to both.}
+\item{tools}{a vector with the tools to install, any of "fastmixture",
+"admixture" and "adamixture". Defaults to all of them.}
 
 \item{reset}{a boolean used to reset the virtual environment. Only set to
 TRUE if you have a broken virtual environment that you want to reset.}
 
 \item{fastmixture_hash}{a string with the commit hash of the \code{fastmixture}
 version to install. Default is the latest tested version.}
+
+\item{adamixture_version}{a string with the version of \code{ADAMIXTURE} to
+install from PyPI. Default is the latest tested version.}
 
 \item{conda_yaml}{A vector of string with the path for the \code{yaml} files used
 for installation (one for \code{ctidygenclust} and, for osx only, one for
@@ -52,7 +56,8 @@ features rely on external tools, which are optional and are only installed
 on request:
 \itemize{
 \item \code{fastmixture}, a python package used by \code{\link[=gt_fastmixture]{gt_fastmixture()}};
-\item \code{ADMIXTURE}, used by \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}}.
+\item \code{ADMIXTURE}, used by \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}};
+\item \code{ADAMIXTURE}, a python package used by \code{\link[=gt_adamixture]{gt_adamixture()}}.
 }
 }
 \details{
@@ -63,8 +68,9 @@ as x86 in bioconda.
 
 \code{tgc_tools_install()} creates the conda environment with the chosen
 \code{tools}. If the environment already exists, it only adds the tools that are
-not installed yet (alternatively, use \code{\link[=tgc_fastmixture_install]{tgc_fastmixture_install()}} and
-\code{\link[=tgc_admixture_install]{tgc_admixture_install()}} to add a tool to an existing environment).
+not installed yet (alternatively, use \code{\link[=tgc_fastmixture_install]{tgc_fastmixture_install()}},
+\code{\link[=tgc_admixture_install]{tgc_admixture_install()}} and \code{\link[=tgc_adamixture_install]{tgc_adamixture_install()}} to add a tool to an
+existing environment).
 \code{\link[=tgc_tools_version]{tgc_tools_version()}} reports the tools that are installed.
 
 For each tool, default to the latest version of these
@@ -75,10 +81,10 @@ lead to incompatibilities and errors.
 The conda environment is created from a conda yaml file with the
 versions of all the packages that have been tested on each operating
 system (see \code{conda_yaml}); \code{fastmixture} is then installed from its
-github repository with \code{pip}, run in the environment with
-\code{reticulate::conda_run2()}. We have found installation on OSX to be
-tricky: if it fails with the tested yaml, you can try \code{conda_yaml = NULL}
-to let conda install the latest available packages.
+github repository, and \code{ADAMIXTURE} from PyPI, with \code{pip}, run in the
+environment with \code{reticulate::conda_run2()}. We have found installation
+on OSX to be tricky: if it fails with the tested yaml, you can try
+\code{conda_yaml = NULL} to let conda install the latest available packages.
 For OSX, you might also need to install a suitable compiler for openmp
 using \code{brew} in \code{bash}, setting the correct paths to use it:
 

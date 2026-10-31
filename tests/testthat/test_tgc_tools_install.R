@@ -17,6 +17,7 @@ test_that("conda yaml files are filtered by the requested tools", {
     "  - python=3.11.0",
     "  - pip:",
     "      - fastmixture==1.3.0",
+    "      - adamixture==1.8.9",
     "prefix: /usr/share/miniconda/envs/ctidygenclust"
   )
   linux_yaml <- withr::local_tempfile(fileext = ".yml")
@@ -28,12 +29,20 @@ test_that("conda yaml files are filtered by the requested tools", {
   }
   # all the tools: the file is unchanged
   expect_identical(
-    filter_lines(linux_yaml, c("fastmixture", "admixture")), yaml_lines
+    filter_lines(linux_yaml, c("fastmixture", "admixture", "adamixture")),
+    yaml_lines
   )
   # only fastmixture
-  expect_identical(filter_lines(linux_yaml, "fastmixture"), yaml_lines[-6])
-  # only admixture: the pip section, which only had fastmixture, is removed
-  expect_identical(filter_lines(linux_yaml, "admixture"), yaml_lines[-10:-11])
+  expect_identical(
+    filter_lines(linux_yaml, "fastmixture"), yaml_lines[-c(6, 12)]
+  )
+  # only ADAMIXTURE
+  expect_identical(
+    filter_lines(linux_yaml, "adamixture"), yaml_lines[-c(6, 11)]
+  )
+  # only admixture: the pip section, which only had the python tools, is
+  # removed
+  expect_identical(filter_lines(linux_yaml, "admixture"), yaml_lines[-10:-12])
   # a pip section with other packages is kept
   yaml_file <- withr::local_tempfile(fileext = ".yml")
   writeLines(c(
@@ -61,12 +70,14 @@ test_that("the tools are found in the latest snapshots", {
     filtered <- tgc_filter_conda_yaml(yaml, character(0))
     on.exit(unlink(filtered), add = TRUE)
     filtered_lines <- readLines(filtered)
-    expect_false(any(grepl("fastmixture|- admixture", filtered_lines)),
+    expect_false(
+      any(grepl("fastmixture|- admixture|- adamixture", filtered_lines)),
       info = yaml
     )
     # nothing else is removed, apart from an empty pip section
     removed <- setdiff(lines, filtered_lines)
-    expect_true(all(grepl("fastmixture|- admixture|- pip:", removed)),
+    expect_true(
+      all(grepl("fastmixture|- admixture|- adamixture|- pip:", removed)),
       info = yaml
     )
   }
@@ -98,10 +109,16 @@ test_that("missing tools are reported", {
   if (Sys.info()[["sysname"]] != "Darwin") {
     expect_false(tgc_tool_installed("admixture"))
   }
+  expect_false(tgc_tool_installed("adamixture"))
   expect_identical(tgc_tools_version()$fastmixture, NA)
+  expect_identical(tgc_tools_version()$adamixture, NA)
   expect_error(
     gt_fastmixture("plink_prefix", k = 2),
     "tgc_tools_install\\(tools = \"fastmixture\"\\)"
+  )
+  expect_error(
+    gt_adamixture("plink_prefix", k = 2),
+    "tgc_tools_install\\(tools = \"adamixture\"\\)"
   )
 })
 
@@ -111,6 +128,10 @@ test_that("the installers report a missing environment", {
   withr::local_options(tidygenclust.conda_env = "tidygenclust_no_such_env")
   expect_error(
     tgc_fastmixture_install(),
+    "'tidygenclust_no_such_env' does not exist"
+  )
+  expect_error(
+    tgc_adamixture_install(),
     "'tidygenclust_no_such_env' does not exist"
   )
   if (Sys.info()[["sysname"]] != "Darwin") {
@@ -165,6 +186,7 @@ local_mock_conda <- function(envs, installed, mac = FALSE,
     },
     tgc_fastmixture_install = function(...) install("fastmixture"),
     tgc_admixture_install = function(...) install("admixture"),
+    tgc_adamixture_install = function(...) install("adamixture"),
     .env = env
   )
   state
@@ -187,6 +209,24 @@ test_that("resetting the environment keeps the other tools", {
     "remove ctidygenclust", "create ctidygenclust admixture+fastmixture",
     "install fastmixture", "install admixture"
   ))
+  # with the three tools in ctidygenclust, both python tools are installed
+  # again
+  state <- local_mock_conda(
+    envs = "ctidygenclust",
+    installed = c(
+      "fastmixture@ctidygenclust", "admixture@ctidygenclust",
+      "adamixture@ctidygenclust"
+    )
+  )
+  expect_message(
+    tgc_tools_install(tools = "admixture", reset = TRUE),
+    "also contains fastmixture and adamixture"
+  )
+  expect_identical(state$log, c(
+    "remove ctidygenclust",
+    "create ctidygenclust adamixture+admixture+fastmixture",
+    "install fastmixture", "install adamixture", "install admixture"
+  ))
   # on osx, ADMIXTURE is in its own environment: ctidygenclust (with
   # fastmixture) must be left alone
   state <- local_mock_conda(
@@ -203,7 +243,7 @@ test_that("resetting the environment keeps the other tools", {
   )
   msgs <- capture_messages(tgc_tools_install())
   expect_match(msgs, "already exists", all = FALSE)
-  expect_identical(state$log, "install admixture")
+  expect_identical(state$log, c("install adamixture", "install admixture"))
 })
 
 test_that("new environments are created for the requested tools only", {
@@ -218,6 +258,12 @@ test_that("new environments are created for the requested tools only", {
     "create ctidygenclust fastmixture", "install fastmixture"
   ))
   expect_match(basename(state$yaml), "^ctidygenclust_linux_\\d+\\.yml$")
+  # linux, ADAMIXTURE only: it is installed from pypi in the new environment
+  state <- local_mock_conda(envs = character(), installed = character())
+  tgc_tools_install(tools = "adamixture")
+  expect_identical(state$log, c(
+    "create ctidygenclust adamixture", "install adamixture"
+  ))
   # without a yaml file, the latest packages are installed
   state <- local_mock_conda(envs = character(), installed = character())
   tgc_tools_install(tools = "fastmixture", conda_yaml = NULL)
@@ -228,25 +274,29 @@ test_that("new environments are created for the requested tools only", {
   )
   tgc_tools_install(tools = "admixture")
   expect_identical(state$log, "install admixture")
-  # osx, both tools (the yaml of ctidygenclust for osx has no ADMIXTURE, so
-  # filtering it for ADMIXTURE keeps nothing more)
+  # osx, all the tools (the yaml of ctidygenclust for osx has no ADMIXTURE,
+  # so filtering it for ADMIXTURE keeps nothing more)
   state <- local_mock_conda(
     envs = character(), installed = character(), mac = TRUE
   )
   tgc_tools_install()
   expect_identical(state$log, c(
-    "create ctidygenclust admixture+fastmixture", "install fastmixture",
-    "install admixture"
+    "create ctidygenclust adamixture+admixture+fastmixture",
+    "install fastmixture", "install adamixture", "install admixture"
   ))
   expect_match(basename(state$yaml), "^ctidygenclust_osx_\\d+\\.yml$")
   # everything installed already: nothing is done
   state <- local_mock_conda(
     envs = "ctidygenclust",
-    installed = c("fastmixture@ctidygenclust", "admixture@ctidygenclust")
+    installed = c(
+      "fastmixture@ctidygenclust", "admixture@ctidygenclust",
+      "adamixture@ctidygenclust"
+    )
   )
   msgs <- capture_messages(tgc_tools_install())
   expect_match(msgs, "'ctidygenclust' already exists", all = FALSE)
   expect_match(msgs, "fastmixture is already installed", all = FALSE)
+  expect_match(msgs, "ADAMIXTURE is already installed", all = FALSE)
   expect_match(msgs, "ADMIXTURE is already installed", all = FALSE)
   expect_identical(state$log, character())
 })
@@ -270,6 +320,26 @@ test_that("fastmixture is installed without reinstalling its dependencies", {
   expect_length(run$cmd_line, 1)
   expect_match(run$cmd_line, "pip install .*--force-reinstall --no-deps")
   expect_match(run$cmd_line, "fastmixture.git@abc123 threadpoolctl$")
+})
+
+test_that("ADAMIXTURE is installed from pypi, without pytorch", {
+  # the tools are not installed on windows
+  skip_on_os("windows")
+  run <- new.env()
+  testthat::local_mocked_bindings(
+    conda_run2 = function(cmd_line, envname, ...) run$cmd_line <- cmd_line,
+    .package = "reticulate"
+  )
+  testthat::local_mocked_bindings(
+    tgc_check_conda_env = function(tool) "ctidygenclust",
+    tgc_tool_installed = function(tool) TRUE
+  )
+  tgc_adamixture_install(adamixture_version = "9.9.9")
+  # the given version, keeping the dependencies that are already installed
+  # (the numpy pinned by the conda yaml), and without the gpu extra
+  expect_identical(
+    run$cmd_line, "python -m pip install adamixture==9.9.9 threadpoolctl"
+  )
 })
 
 test_that("on osx, ADMIXTURE is installed with reticulate's conda", {
@@ -345,6 +415,7 @@ test_that("windows is rejected with a readable message", {
   # tools are not available
   expect_error(tgc_fastmixture_install(), "cannot be installed on windows")
   expect_error(tgc_admixture_install(), "cannot be installed on windows")
+  expect_error(tgc_adamixture_install(), "cannot be installed on windows")
 })
 
 test_that("a missing snapshot directory gives a clear error", {

@@ -10,9 +10,11 @@ gt_adamixture(
   n_runs = 1,
   threads = 1,
   seed = 42,
-  tole = 0.1,
+  tol = 0.1,
+  max_iter = 10000,
   no_freqs = TRUE,
-  cv = NULL
+  cv = NULL,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -26,31 +28,51 @@ or a vector}
 
 \item{threads}{the number of threads to use (1)}
 
-\item{seed}{the random seed (defaults to 42); can be a single integer or a
-vector of length \code{n_runs}}
+\item{seed}{the random seed (defaults to 42): a vector of length
+\code{n_runs}, with one seed per run (the same seeds are used for each value
+of \code{k}), or a single seed, used for the first run and incremented for
+the following ones}
 
-\item{tole}{the tolerance in log-likelihood units between iterations (0.1)}
+\item{tol}{the tolerance: the fit stops when the log-likelihood changes by
+less than \code{tol} between iterations (0.1)}
+
+\item{max_iter}{the maximum number of iterations (10000)}
 
 \item{no_freqs}{do not save P-matrix (TRUE)}
 
-\item{cv}{the number of cross-validation folds (NULL disables CV)}
+\item{cv}{the number of cross-validation folds, greater than 1 (NULL, no
+cross-validation)}
+
+\item{verbose}{boolean; should the progress of ADAMIXTURE be printed
+(TRUE)?}
 }
 \value{
 an object of class \code{gt_admix}. See \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}} for
-details.
+details. As for \code{\link[=gt_radmix]{gt_radmix()}}, the P matrices give the frequency of the
+alternate allele of each locus (for PLINK files, of the first allele in
+the bim file).
 }
 \description{
-This function implements the ADAMIXTURE algorithm for biobank-scale
-population genetics clustering by calling the python module.
+This function runs ADAMIXTURE, a python package for biobank-scale genetic
+clustering with the model of ADMIXTURE. It combines a spectral
+initialisation (SVD and ALS) with accelerated block relaxation (BR-QN) to
+reach high likelihoods with fast convergence. If you use this function, make
+sure that you cite the paper by Saurina-i-Ricos, Mas Montserrat and
+Ioannidis (2026).
 }
 \details{
-This function returns a q_matrix that can be plotted with \code{autoplot}, and
-tidied with \code{tidy} methods from the \code{tidypopgen} package. Cross-validation
-is set to NULL as default, if you want to include cross-validation you can
-set \code{cv} to a value greater than 1 (e.g. 5 for 5-fold cross-validation).
+This function returns a \code{gt_admix} object that can be plotted with
+\code{autoplot}, and tidied with \code{tidy} methods from the \code{tidypopgen} package.
+Cross-validation is not performed by default (\code{cv = NULL}); if you want to
+include cross-validation you can set \code{cv} to the number of folds, a value
+greater than 1 (e.g. 5 for 5-fold cross-validation).
 
-\code{ADAMIXTURE} is not installed by default by \code{\link[=tgc_tools_install]{tgc_tools_install()}}; use
-\code{\link[=tgc_adamixture_install]{tgc_adamixture_install()}} to add it to the \code{ctidygenclust} environment.
+\code{ADAMIXTURE} is an optional tool, which is not needed by the rest of
+\code{tidygenclust} (see \code{\link[=gt_radmix]{gt_radmix()}} for a native implementation of the
+ADMIXTURE model). It is installed by \code{\link[=tgc_tools_install]{tgc_tools_install()}}, or it can be
+added to an existing \code{ctidygenclust} conda environment with
+\code{\link[=tgc_adamixture_install]{tgc_adamixture_install()}}. Its CPU version, used here, does not need
+PyTorch.
 }
 \references{
 Saurina-i-Ricos, J., Mas Montserrat, D., & Ioannidis, A. G.

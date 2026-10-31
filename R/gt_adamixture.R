@@ -1,15 +1,24 @@
 #' ADAMIXTURE algorithm for population genetics clustering
 #'
-#' This function implements the ADAMIXTURE algorithm for biobank-scale
-#' population genetics clustering by calling the python module.
+#' This function runs ADAMIXTURE, a python package for biobank-scale genetic
+#' clustering with the model of ADMIXTURE. It combines a spectral
+#' initialisation (SVD and ALS) with accelerated block relaxation (BR-QN) to
+#' reach high likelihoods with fast convergence. If you use this function, make
+#' sure that you cite the paper by Saurina-i-Ricos, Mas Montserrat and
+#' Ioannidis (2026).
 #'
-#' This function returns a q_matrix that can be plotted with `autoplot`, and
-#' tidied with `tidy` methods from the `tidypopgen` package. Cross-validation
-#' is set to NULL as default, if you want to include cross-validation you can
-#' set `cv` to a value greater than 1 (e.g. 5 for 5-fold cross-validation).
+#' This function returns a `gt_admix` object that can be plotted with
+#' `autoplot`, and tidied with `tidy` methods from the `tidypopgen` package.
+#' Cross-validation is not performed by default (`cv = NULL`); if you want to
+#' include cross-validation you can set `cv` to the number of folds, a value
+#' greater than 1 (e.g. 5 for 5-fold cross-validation).
 #'
-#' `ADAMIXTURE` is not installed by default by [tgc_tools_install()]; use
-#' [tgc_adamixture_install()] to add it to the `ctidygenclust` environment.
+#' `ADAMIXTURE` is an optional tool, which is not needed by the rest of
+#' `tidygenclust` (see [gt_radmix()] for a native implementation of the
+#' ADMIXTURE model). It is installed by [tgc_tools_install()], or it can be
+#' added to an existing `ctidygenclust` conda environment with
+#' [tgc_adamixture_install()]. Its CPU version, used here, does not need
+#' PyTorch.
 #'
 #' @references Saurina-i-Ricos, J., Mas Montserrat, D., & Ioannidis, A. G.
 #'   (2026). ADAMIXTURE: adaptive first-order optimization for biobank-scale
@@ -22,13 +31,22 @@
 #'   or a vector
 #' @param n_runs the number of repeats for each k value (1)
 #' @param threads the number of threads to use (1)
-#' @param seed the random seed (defaults to 42); can be a single integer or a
-#'   vector of length `n_runs`
-#' @param tole the tolerance in log-likelihood units between iterations (0.1)
+#' @param seed the random seed (defaults to 42): a vector of length
+#'   `n_runs`, with one seed per run (the same seeds are used for each value
+#'   of `k`), or a single seed, used for the first run and incremented for
+#'   the following ones
+#' @param tol the tolerance: the fit stops when the log-likelihood changes by
+#'   less than `tol` between iterations (0.1)
+#' @param max_iter the maximum number of iterations (10000)
 #' @param no_freqs do not save P-matrix (TRUE)
-#' @param cv the number of cross-validation folds (NULL disables CV)
+#' @param cv the number of cross-validation folds, greater than 1 (NULL, no
+#'   cross-validation)
+#' @param verbose boolean; should the progress of ADAMIXTURE be printed
+#'   (TRUE)?
 #' @return an object of class `gt_admix`. See [tidypopgen::gt_admixture()] for
-#'   details.
+#'   details. As for [gt_radmix()], the P matrices give the frequency of the
+#'   alternate allele of each locus (for PLINK files, of the first allele in
+#'   the bim file).
 #' @export
 
 gt_adamixture <- function(
@@ -37,31 +55,66 @@ gt_adamixture <- function(
   n_runs = 1,
   threads = 1,
   seed = 42,
-  tole = 0.1,
+  tol = 0.1,
+  max_iter = 10000,
   no_freqs = TRUE,
-  cv = NULL
+  cv = NULL,
+  verbose = TRUE
 ) {
-  .ensure_adamixture_python()
-
-  if (length(seed) == 1L && n_runs > 1L) {
-    seed <- seed + seq_len(n_runs) - 1L
-  } else if (length(seed) != n_runs) {
-    stop("'seed' should be a vector of length 'n_runs'")
+  # check the arguments before starting python
+  check_count(k, "k", scalar = FALSE,
+    message = "'k' should be a vector of positive integers"
+  )
+  check_count(n_runs, "n_runs")
+  check_count(threads, "threads")
+  check_count(max_iter, "max_iter")
+  if (!is.numeric(tol) || length(tol) != 1 || !is.finite(tol) || tol <= 0) {
+    stop("'tol' should be a single positive number")
+  }
+  if (!is.null(cv)) {
+    check_count(cv, "cv", min = 2,
+      message = "cv must be a single integer greater than 1"
+    )
+  }
+  # one seed per run: the same seeds are reused for every value of k. A
+  # single seed (e.g. the default) is used for the first run, and
+  # incremented for the following ones
+  if (!is.numeric(seed) || length(seed) == 0 || any(!is.finite(seed))) {
+    stop("'seed' should only contain numbers")
+  }
+  if (length(seed) == 1 && n_runs > 1) {
+    seed <- seed + seq_len(n_runs) - 1
+  }
+  if (length(seed) != n_runs) {
+    stop("'seed' should be a single number or a vector of length 'n_runs'")
   }
 
+  # the python wrapper reads either a set of PLINK files (from their prefix)
+  # or the backing file of a gen_tibble. The latter is the raw .bk file of
+  # the FBM, which has no header, so its dimensions are passed as well. The
+  # FBM can hold more individuals and loci than the gen_tibble, in a
+  # different order: filtering, reordering and select_loci() only change the
+  # indices of the gen_tibble into the FBM (its rows for the individuals, in
+  # the genotypes column, and its columns for the loci, in `big_index`), so
+  # these indices are passed too (0-based, for python)
+  fbm_dim <- NULL
+  rows <- NULL
+  cols <- NULL
+  group <- NULL
   if (inherits(x, "character")) {
     bfile <- x
-    n_indiv <- NULL
-    n_loci <- NULL
     plink <- TRUE
   } else if (inherits(x, "gen_tbl")) {
-    if (!requireNamespace("tidypopgen", quietly = TRUE)) {
-      stop("Package 'tidypopgen' is required when passing a gen_tbl object.")
-    }
     bfile <- tidypopgen::gt_get_file_names(x)[2]
-    n_indiv <- nrow(x)
-    n_loci <- nrow(tidypopgen::show_loci(x))
+    fbm <- attr(x$genotypes, "fbm")
+    fbm_dim <- as.integer(c(fbm$nrow, fbm$ncol))
+    rows <- as.integer(vctrs::vec_data(x$genotypes)) - 1L
+    cols <- as.integer(tidypopgen::show_loci(x)$big_index) - 1L
     plink <- FALSE
+    # the group of each individual, stored in the result: it is taken now,
+    # so that a gen_tibble grouped by several variables fails before the
+    # fits rather than after them
+    group <- gt_single_group(x)
   } else {
     stop(
       paste0(
@@ -71,91 +124,62 @@ gt_adamixture <- function(
     )
   }
 
-  if (!is.null(cv)) {
-    if (length(cv) != 1L || !is.numeric(cv) || cv <= 1) {
-      stop("cv must be a single integer greater than 1")
-    }
-  }
-
-  argparse <- reticulate::import("argparse")
+  # activate the conda environment and import the python wrapper (this
+  # fails with an informative error if ADAMIXTURE is not installed)
+  py_radamixture <- .ensure_adamixture_python()
 
   adm_list <- list(
     k = NULL,
     Q = list()
   )
-
+  if (!no_freqs) {
+    adm_list$P <- list()
+  }
   if (!is.null(cv)) {
     adm_list$cv <- numeric()
   }
 
-  if (!no_freqs) {
-    adm_list$P <- list()
-  }
-
+  # one run for each combination of k and seed, with all the runs of a given
+  # k stored consecutively (index is the position of the run in the lists
+  # of Q and P matrices); integers are converted explicitly, as R numbers
+  # are passed to python as floats
   index <- 1
   for (this_k in as.integer(k)) {
     for (this_rep in seq_len(n_runs)) {
-      radamixture_args <- argparse$Namespace(
+      res <- py_radamixture$adamixture_fit(
         bfile = bfile,
-        K = this_k,
-        threads = as.integer(threads),
-        seed = as.integer(seed[this_rep]),
-        tole = tole,
-        no_freqs = no_freqs,
         plink = plink,
-        n_indiv = n_indiv,
-        n_loci = n_loci,
-        cv = if (is.null(cv)) NULL else as.integer(cv)
+        fbm_dim = fbm_dim,
+        rows = rows,
+        cols = cols,
+        K = this_k,
+        seed = as.integer(seed[this_rep]),
+        threads = as.integer(threads),
+        tol = tol,
+        max_iter = as.integer(max_iter),
+        cv = if (is.null(cv)) NULL else as.integer(cv),
+        verbose = verbose
       )
-
-      adamixture_res <- .py_radamixture$adamixture_run(
-        args = radamixture_args
-      )
-
-      if (no_freqs) {
-        if (is.null(cv)) {
-          q_matrix <- .as_q_matrix(adamixture_res)
-          adm_list$Q[[index]] <- q_matrix
-        } else {
-          q_matrix <- .as_q_matrix(adamixture_res[[1]])
-          adm_list$Q[[index]] <- q_matrix
-          adm_list$cv <- c(
-            adm_list$cv,
-            adamixture_res[[2]]$avg
-          )
-        }
-      } else {
-        if (is.null(cv)) {
-          names(adamixture_res) <- c("Q", "P")
-          q_matrix <- .as_q_matrix(adamixture_res$Q)
-          p_matrix <- as.matrix(adamixture_res$P)
-          adm_list$Q[[index]] <- q_matrix
-          adm_list$P[[index]] <- p_matrix
-        } else {
-          names(adamixture_res) <- c("Q", "P", "cv")
-          q_matrix <- .as_q_matrix(adamixture_res$Q)
-          p_matrix <- as.matrix(adamixture_res$P)
-          adm_list$Q[[index]] <- q_matrix
-          adm_list$P[[index]] <- p_matrix
-          adm_list$cv <- c(
-            adm_list$cv,
-            adamixture_res$cv$avg
-          )
-        }
+      adm_list$Q[[index]] <- tidypopgen::q_matrix(res$Q)
+      if (!no_freqs) {
+        adm_list$P[[index]] <- as.matrix(res$P)
       }
-      adm_list$k <- sapply(adm_list$Q, ncol)
+      if (!is.null(cv)) {
+        adm_list$cv <- c(adm_list$cv, res$cv)
+      }
       index <- index + 1
     }
   }
+  adm_list$k <- sapply(adm_list$Q, ncol)
 
-  # return list
+  # return list, as a gt_admix object (like tidypopgen::gt_admixture())
   class(adm_list) <- c("gt_admix", class(adm_list))
 
-  # add metadata if x is a gen_tibble
+  # add metadata if x is a gen_tibble (the group was taken before the fits)
   if (inherits(x, "gen_tbl")) {
     adm_list$id <- x$id
-    if (inherits(x, "grouped_gen_tbl")) {
-      adm_list$group <- x[[dplyr::group_vars(x)]]
+    if (!is.null(group)) {
+      adm_list$group <- group
     }
   }
 
@@ -165,23 +189,32 @@ gt_adamixture <- function(
   return(adm_list)
 }
 
-.as_q_matrix <- function(m) {
-  if (requireNamespace("tidypopgen", quietly = TRUE)) {
-    tidypopgen::q_matrix(m)
-  } else {
-    class(m) <- c("q_matrix", "matrix", "array")
-    m
-  }
-}
-
+# Check that ADAMIXTURE is installed, activate its conda environment, and
+# return the python wrapper module (inst/python/py_radamixture.py)
 .ensure_adamixture_python <- function() {
-  reticulate::use_condaenv("ctidygenclust", required = TRUE)
-  if (!reticulate::py_module_available("adamixture")) {
-    cfg <- reticulate::py_config()
+  envname <- tgc_conda_env()
+  if (!tgc_tool_installed("adamixture")) {
     stop(
-      "Python environment selected but 'adamixture' is not importable.\n",
-      "Current python: ", cfg$python, "\n",
-      "Install it with 'tgc_adamixture_install()'"
+      "gt_adamixture() needs the python package 'adamixture', an optional ",
+      "tool that is not installed. Install it with ",
+      "tgc_tools_install(tools = \"adamixture\") or, if the conda ",
+      "environment '", envname, "' already exists, with ",
+      "tgc_adamixture_install()"
     )
   }
+  # use the python of the conda environment (an error if python has already
+  # been started with a different environment in this session)
+  reticulate::use_condaenv(envname, required = TRUE)
+  cfg <- reticulate::py_config()
+  if (!reticulate::py_module_available("adamixture")) {
+    stop(
+      "Python environment selected but 'adamixture' is not importable.\n",
+      "Current python: ", cfg$python
+    )
+  }
+  # import the python module only now, as ADAMIXTURE is an optional tool
+  reticulate::import_from_path(
+    module = "py_radamixture",
+    path = system.file("python", package = "tidygenclust")
+  )
 }

@@ -1,4 +1,11 @@
 # tidygenclust (development version)
+* New `gt_adamixture()`: ancestry estimation with the python package
+  ADAMIXTURE (Saurina-i-Ricos, Mas Montserrat & Ioannidis 2026), run with
+  `reticulate` like `gt_fastmixture()`, on a `gen_tibble` (including subsets)
+  or on PLINK files. ADAMIXTURE (version 1.8.9, from PyPI, without PyTorch)
+  is installed by default by `tgc_tools_install()`, or added to an existing
+  environment with the new `tgc_adamixture_install()`, and its version is
+  reported by `tgc_tools_version()`.
 * `gt_clumppling()` is now a native R and C++ port, with modifications, of
   clumppling 2.0.10 (Liu, Kopelman & Rosenberg 2024, by Xiran Liu),
   previously developed as the separate package `rclump`: it gives the

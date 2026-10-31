@@ -5,7 +5,8 @@
 #' features rely on external tools, which are optional and are only installed
 #' on request:
 #' - `fastmixture`, a python package used by [gt_fastmixture()];
-#' - `ADMIXTURE`, used by [tidypopgen::gt_admixture()].
+#' - `ADMIXTURE`, used by [tidypopgen::gt_admixture()];
+#' - `ADAMIXTURE`, a python package used by [gt_adamixture()].
 #'
 #' We use `reticulate` to install them in a conda environment,
 #' `ctidygenclust`. Additionally, for silicon Macs, `ADMIXTURE` is installed in
@@ -14,8 +15,9 @@
 #'
 #' `tgc_tools_install()` creates the conda environment with the chosen
 #' `tools`. If the environment already exists, it only adds the tools that are
-#' not installed yet (alternatively, use [tgc_fastmixture_install()] and
-#' [tgc_admixture_install()] to add a tool to an existing environment).
+#' not installed yet (alternatively, use [tgc_fastmixture_install()],
+#' [tgc_admixture_install()] and [tgc_adamixture_install()] to add a tool to an
+#' existing environment).
 #' [tgc_tools_version()] reports the tools that are installed.
 #'
 #' @details For each tool, default to the latest version of these
@@ -26,21 +28,23 @@
 #'   The conda environment is created from a conda yaml file with the
 #'   versions of all the packages that have been tested on each operating
 #'   system (see `conda_yaml`); `fastmixture` is then installed from its
-#'   github repository with `pip`, run in the environment with
-#'   `reticulate::conda_run2()`. We have found installation on OSX to be
-#'   tricky: if it fails with the tested yaml, you can try `conda_yaml = NULL`
-#'   to let conda install the latest available packages.
+#'   github repository, and `ADAMIXTURE` from PyPI, with `pip`, run in the
+#'   environment with `reticulate::conda_run2()`. We have found installation
+#'   on OSX to be tricky: if it fails with the tested yaml, you can try
+#'   `conda_yaml = NULL` to let conda install the latest available packages.
 #'   For OSX, you might also need to install a suitable compiler for openmp
 #'   using `brew` in `bash`, setting the correct paths to use it:
 #'
 #'   `brew install llvm libomp`
 #'
-#' @param tools a vector with the tools to install, any of "fastmixture" and
-#'   "admixture". Defaults to both.
+#' @param tools a vector with the tools to install, any of "fastmixture",
+#'   "admixture" and "adamixture". Defaults to all of them.
 #' @param reset a boolean used to reset the virtual environment. Only set to
 #'   TRUE if you have a broken virtual environment that you want to reset.
 #' @param fastmixture_hash a string with the commit hash of the `fastmixture`
 #'   version to install. Default is the latest tested version.
+#' @param adamixture_version a string with the version of `ADAMIXTURE` to
+#'   install from PyPI. Default is the latest tested version.
 #' @param conda_yaml A vector of string with the path for the `yaml` files used
 #'   for installation (one for `ctidygenclust` and, for osx only, one for
 #'   admixture in x86 compatibility mode). The value of each
@@ -63,9 +67,10 @@
 #' @export
 
 tgc_tools_install <-
-  function(tools = c("fastmixture", "admixture"),
+  function(tools = c("fastmixture", "admixture", "adamixture"),
            reset = FALSE,
            fastmixture_hash = "1f03a8980be4872341e5faca9d6f2dfc7ccbfe35",
+           adamixture_version = "1.8.9",
            conda_yaml = "auto",
            ci_install = FALSE) {
     tgc_check_os()
@@ -83,7 +88,8 @@ tgc_tools_install <-
     # ctidygenclust holds all the tools, except ADMIXTURE on osx (so it is not
     # needed on osx if only ADMIXTURE is requested)
     envname <- tgc_conda_env()
-    needs_env <- "fastmixture" %in% tools || ("admixture" %in% tools && !is_mac)
+    needs_env <- any(c("fastmixture", "adamixture") %in% tools) ||
+      ("admixture" %in% tools && !is_mac)
 
     # with reset, remove the existing environments first, so that they are
     # created again from scratch below: ctidygenclust only if it is needed
@@ -93,7 +99,7 @@ tgc_tools_install <-
     # so that resetting an environment does not remove them
     if (reset) {
       if (needs_env && reticulate::condaenv_exists(envname)) {
-        in_env <- c("fastmixture", if (!is_mac) "admixture")
+        in_env <- c("fastmixture", "adamixture", if (!is_mac) "admixture")
         in_env <- in_env[vapply(in_env, tgc_tool_installed, logical(1))]
         also_reset <- setdiff(in_env, tools)
         if (length(also_reset) > 0) {
@@ -137,6 +143,19 @@ tgc_tools_install <-
       } else {
         message(
           "fastmixture is already installed; use tgc_fastmixture_install() ",
+          "to reinstall it"
+        )
+      }
+    }
+
+    # ADAMIXTURE is also always (re)installed in a new environment, so that it
+    # has the requested version whatever the conda yaml
+    if ("adamixture" %in% tools) {
+      if (new_env || !tgc_tool_installed("adamixture")) {
+        tgc_adamixture_install(adamixture_version = adamixture_version)
+      } else {
+        message(
+          "ADAMIXTURE is already installed; use tgc_adamixture_install() ",
           "to reinstall it"
         )
       }
@@ -302,6 +321,40 @@ tgc_admixture_install <- function(conda_yaml = "auto", ci_install = FALSE) {
   invisible(NULL)
 }
 
+#' Add `ADAMIXTURE` to the conda environment of `tidygenclust`
+#'
+#' `ADAMIXTURE` (used by [gt_adamixture()]) is an optional tool. This function
+#' adds it to an existing `ctidygenclust` environment (created with
+#' [tgc_tools_install()]), or installs another version, from PyPI. Its CPU
+#' version, used by [gt_adamixture()], does not need PyTorch.
+#'
+#' @inheritParams tgc_tools_install
+#' @returns NULL (invisibly)
+#' @export
+
+tgc_adamixture_install <- function(adamixture_version = "1.8.9") {
+  tgc_check_os()
+  envname <- tgc_check_conda_env("adamixture")
+  # the given version from pypi (a wheel, which includes its OpenMP library);
+  # pip only installs the dependencies that are missing, so the numpy pinned
+  # by the conda yaml is kept. threadpoolctl is used by gt_adamixture() to
+  # limit the number of threads of ADAMIXTURE
+  ada_install_cmd <- paste0(
+    "python -m pip install adamixture==", adamixture_version, " threadpoolctl"
+  )
+  reticulate::conda_run2(
+    cmd_line = ada_install_cmd,
+    envname = envname
+  )
+  if (!tgc_tool_installed("adamixture")) {
+    warning(
+      "ADAMIXTURE has not been successfully installed in the conda ",
+      "environment '", envname, "'"
+    )
+  }
+  invisible(NULL)
+}
+
 # the name of the conda environment with the optional tools; it can be changed
 # with an option only to test the installation without touching the default
 # environment (tidypopgen::gt_admixture() looks for 'ctidygenclust')
@@ -364,10 +417,10 @@ tgc_is_windows <- function() {
 tgc_check_os <- function() {
   if (tgc_is_windows()) {
     stop(
-      "The optional tools (fastmixture and ADMIXTURE) cannot be installed ",
-      "on windows; to use them, use the Windows subsystem for Linux (WSL) ",
-      "instead. The rest of tidygenclust, including gt_radmix() and ",
-      "gt_clumppling(), works on windows"
+      "The optional tools (fastmixture, ADMIXTURE and ADAMIXTURE) cannot be ",
+      "installed on windows; to use them, use the Windows subsystem for ",
+      "Linux (WSL) instead. The rest of tidygenclust, including gt_radmix() ",
+      "and gt_clumppling(), works on windows"
     )
   }
 }
@@ -485,7 +538,8 @@ tgc_filter_conda_yaml <- function(conda_yaml, tools) {
   # with or without a version
   tool_lines <- c(
     fastmixture = "^\\s*- fastmixture\\s*([=<>]|$)",
-    admixture = "^\\s*- admixture\\s*([=<>]|$)"
+    admixture = "^\\s*- admixture\\s*([=<>]|$)",
+    adamixture = "^\\s*- adamixture\\s*([=<>]|$)"
   )
   for (tool in setdiff(names(tool_lines), tools)) {
     lines <- lines[!grepl(tool_lines[[tool]], lines)]
