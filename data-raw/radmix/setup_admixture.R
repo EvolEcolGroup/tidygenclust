@@ -1,5 +1,5 @@
-# Install ADMIXTURE, used by the article radmix_vs_admixture.Rmd to compare
-# gt_radmix() with the original program, and by
+# Install ADMIXTURE, used by the article admixture_fastmixture.Rmd to run
+# the original program alongside gt_radmix(), and by
 # data-raw/radmix/regenerate_admixture_fixtures.R to create the
 # ADMIXTURE results stored for
 # tests/testthat/test_radmix_vs_admixture.R (the tests themselves do

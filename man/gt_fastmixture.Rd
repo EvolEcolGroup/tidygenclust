@@ -23,7 +23,7 @@ gt_fastmixture(
   als_iter = 1000,
   als_tole = 1e-04,
   no_freqs = TRUE,
-  random_init = TRUE,
+  random_init = FALSE,
   safety = NULL,
   cv = NULL,
   cv_tole = 1e-07
@@ -71,7 +71,11 @@ the following ones}
 
 \item{no_freqs}{do not save P-matrix (TRUE)}
 
-\item{random_init}{random initialisation of parameters (TRUE)}
+\item{random_init}{random initialisation of parameters (FALSE). By
+default, as in the fastmixture program, the parameters are initialised
+from a randomised SVD of the genotypes (followed by alternating least
+squares), which needs all the loci to be polymorphic; random starting
+values can take much longer to converge}
 
 \item{safety}{deprecated and ignored: fastmixture turns on its safety
 updates by itself when an update is unstable}

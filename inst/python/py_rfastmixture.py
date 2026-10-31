@@ -261,7 +261,12 @@ def _fastmixture_run(args):
 		else: # SVD-based initialization
 			f = np.zeros(M, dtype=np.float32)
 			shared.estimateFreq(G, f)
-			assert (np.min(f) > 0.0) & (np.max(f) < 1.0), "Please perform MAF filtering!"
+			# (the message of fastmixture, "Please perform MAF filtering!", is
+			# expanded to explain the options in R)
+			assert (np.min(f) > 0.0) & (np.max(f) < 1.0), \
+				"Please perform MAF filtering! The SVD-based initialisation " \
+				"(random_init = FALSE) needs all loci to be polymorphic: " \
+				"remove the monomorphic loci, or use random_init = TRUE"
 
 			# Initialize P and Q matrices from SVD and ALS
 			print("SVD/ALS initialization.", end="", flush=True)

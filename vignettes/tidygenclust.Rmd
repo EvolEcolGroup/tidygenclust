@@ -61,6 +61,9 @@ use `tidygenclust`, but they can be used to compare results with the native
 implementations. They are both installed in a conda environment using
 `reticulate`, so you do not need to worry about the details of the python
 packages or dependencies (this works both in Linux and macOS, but NOT Windows).
+We show how to install and run them in the article "Installing and running
+ADMIXTURE and fastmixture" (in the Articles section of the website of the
+package).
 
 Genetic data analyses through the integration of `tidypopgen` and `tidygenclust`
 seamlessly joins upstream genetic data manipulation (`tidypopgen`) with
@@ -78,8 +81,8 @@ library(tidygenclust)
 ```
 
 The external programs `fastmixture` and ADMIXTURE are optional: we show how to
-install and use them at the end of this vignette, in "Optional external
-programs".
+install and run them in the article "Installing and running ADMIXTURE and
+fastmixture".
 
 # An example workflow
 
@@ -262,9 +265,10 @@ anole_res %>% autoplot(type = "cv")
 We are looking for the 'elbow' point in the plot where the cross-validation
 error is at its lowest, here it looks like `k = 3` would be a sensible choice.
 
-For a detailed comparison of `gt_radmix()` with the original ADMIXTURE
-program, see the article "Comparing gt_radmix() and ADMIXTURE" (in the
-Articles section of the website of the package).
+For a comparison of `gt_radmix()` with the original ADMIXTURE program and
+with fastmixture, see the article "Benchmarking gt_radmix() against
+ADMIXTURE and fastmixture" (in the Articles section of the website of the
+package).
 
 `gt_radmix()` uses a modified version of the algorithm of OpenADMIXTURE:
 when using it, make sure that you cite the original paper on the algorithm
@@ -540,100 +544,6 @@ prefer by using standard `ggplot2` theme and scale_fill options. For example:
 ```{r}
 plt + scale_fill_viridis_d(guide = "none")
 ```
-
-# Optional external programs
-
-## Installation
-
-The external programs `fastmixture` and ADMIXTURE are optional, and they are
-only needed if you want to use them instead of (or to compare them with) the
-native implementations. We use `reticulate` to install them in a conda
-environment, so you, as a user, should not need to worry about the details of
-the python packages or dependencies. You can install both of them with:
-
-```{r eval=FALSE}
-tgc_tools_install()
-```
-
-or choose which tools to install, e.g. only `fastmixture`:
-
-```{r eval=FALSE}
-tgc_tools_install(tools = "fastmixture")
-```
-
-Tools can be added later to an existing environment with
-`tgc_fastmixture_install()` and `tgc_admixture_install()`, and
-`tgc_tools_version()` reports which tools are installed:
-
-```{r eval=FALSE}
-tgc_admixture_install()
-tgc_tools_version()
-```
-
-### For MacOS users
-
-If you want to install `fastmixture`, you need `llvm` installed via `brew` in
-the first place. In `bash`, you will need:\
-
-``` bash
-# llvm can be installed via brew
-brew install llvm libomp
-```
-
-## Running fastmixture
-
-If `fastmixture` is installed, we can use `gt_fastmixture()` on our `gen_tibble`
-in the same way as `gt_radmix()` (note that `gt_fastmixture()` can also
-work directly on a PLINK bed file). The code below is only run if `fastmixture`
-is available:
-
-```{r}
-tools_version <- tgc_tools_version()
-fastmixture_available <- !is.na(tools_version$fastmixture)
-fastmixture_available
-```
-
-```{r, results='hide', eval = fastmixture_available}
-anole_fm <- anole_gt %>% gt_fastmixture(
-  k = c(2:4), n_runs = 3,
-  seed = c(42, 2, 16), no_freqs = FALSE,
-  cv = 5
-)
-```
-
-`gt_fastmixture()` also returns a `gt_admix` object, which can be used with all
-the functions shown in this vignette, including `gt_clumppling()`:
-
-```{r, eval = fastmixture_available}
-anole_fm %>% autoplot(type = "cv")
-```
-
-## Running ADMIXTURE
-
-If ADMIXTURE is installed, we can run it with `gt_admixture()` from
-`tidypopgen`, which also returns a `gt_admix` object. The code below is only run
-if ADMIXTURE is available:
-
-```{r}
-admixture_available <- !is.na(tools_version$admixture)
-admixture_available
-```
-
-```{r, results='hide', eval = admixture_available}
-anole_adm <- anole_gt %>% gt_admixture(
-  k = c(2:4), n_runs = 3,
-  seed = c(42, 2, 16),
-  crossval = TRUE
-)
-```
-
-```{r, eval = admixture_available}
-anole_adm %>% autoplot(type = "cv")
-```
-
-For a detailed comparison of ADMIXTURE with `gt_radmix()`, see the
-article "Comparing gt_radmix() and ADMIXTURE" (in the Articles section of
-the website of the package).
 
 # References
 

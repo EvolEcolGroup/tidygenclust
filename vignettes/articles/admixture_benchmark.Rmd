@@ -41,9 +41,10 @@ results_dir <- params$results_dir
 `gt_radmix()` estimates ancestry proportions with the method of ADMIXTURE
 (Alexander et al. 2009), directly from the backing file of a `gen_tibble`.
 It uses a modified version of the algorithm of OpenADMIXTURE (Ko et al.
-2023), whose C++ code is largely ported from OpenADMIXTURE.jl, and we
+2023), whose C++ code was initially ported from OpenADMIXTURE.jl, and subsequently
+modified and optimised for performance whilst keeping the same outputs. We also
 implemented the cross-validation of ADMIXTURE, which is not part of
-OpenADMIXTURE. This article compares it with three programs that fit the
+OpenADMIXTURE. This article compares `gt_radmix()` with three programs that fit the
 same model: ADMIXTURE itself, fastmixture (Santander et al. 2024), and
 OpenADMIXTURE.jl, the Julia implementation of OpenADMIXTURE (without its
 selection of ancestry informative markers). The comparison uses the Human

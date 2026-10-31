@@ -64,6 +64,25 @@ test_that("'safety' is deprecated and not passed to python", {
   expect_false(any(vapply(run_args, function(a) "safety" %in% names(a), NA)))
 })
 
+test_that("the SVD-based initialisation is the default", {
+  # a fake python wrapper, which records the arguments of each run
+  run_args <- list()
+  fake_module <- list(fastmixture_run = function(args) {
+    run_args[[length(run_args) + 1]] <<- args
+    matrix(1 / args$K, 3, args$K)
+  })
+  local_mocked_bindings(.ensure_fastmixture_python = function() fake_module)
+  local_mocked_bindings(
+    import = function(module, ...) list(Namespace = function(...) list(...)),
+    .package = "reticulate"
+  )
+  gt_fastmixture("plink_prefix", k = 2)
+  gt_fastmixture("plink_prefix", k = 2, random_init = TRUE)
+  expect_identical(
+    vapply(run_args, function(a) a$random_init, NA), c(FALSE, TRUE)
+  )
+})
+
 test_that("the grouping of a gen_tibble is checked before starting python", {
   test_gt <- radmix_test_gt(matrix(c(0, 1, 2, 1, 0, 2), 3, 2))
   grouped_2 <- test_gt %>%

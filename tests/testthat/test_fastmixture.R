@@ -83,7 +83,7 @@ test_that("gt_fastmixture", {
     als_iter = 1000,
     als_tole = 1e-4,
     no_freqs = TRUE,
-    random_init = TRUE
+    random_init = FALSE
   )
   expect_anole_fastmixture(res, k = 2:3, n_runs = 1, freqs = FALSE)
 
@@ -207,6 +207,22 @@ test_that("gt_fastmixture uses the individuals and loci of a subset", {
   )
   expect_equal(res_gt$P[[1]], res_plink$P[[1]], tolerance = 1e-6)
   expect_identical(res_gt$id, anole_gt$id[idx])
+})
+
+test_that("monomorphic loci need random_init = TRUE", {
+  # some loci are monomorphic in the first 5 individuals
+  sub_gt <- anole_gt[1:5, ]
+  expect_true(any(loci_maf(sub_gt) == 0))
+  # the SVD-based initialisation (the default) needs polymorphic loci
+  expect_error(
+    gt_fastmixture(sub_gt, k = 2, seed = 42, tole = 0.5),
+    "random_init = TRUE"
+  )
+  # random starting values do not
+  res <- gt_fastmixture(sub_gt, k = 2, seed = 42, tole = 0.5,
+    random_init = TRUE
+  )
+  expect_identical(dim(res$Q[[1]]), c(5L, 2L))
 })
 
 test_that("gt_fastmixture uses the requested number of threads", {

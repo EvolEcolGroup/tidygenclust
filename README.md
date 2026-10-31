@@ -66,10 +66,12 @@ brew install llvm libomp
 
 ## Overview of functionality
 
-On overview of the functionality of `tidygenclust` and its integration
-with `tidypopgen` is provided in the "Get Started"" vignette. This also
+An overview of the functionality of `tidygenclust` and its integration
+with `tidypopgen` is provided in the "Get Started" vignette. This also
 includes a detailed description of how to align multiple runs of
-clustering and compare them.
+clustering and compare them. The article "Installing and running
+ADMIXTURE and fastmixture" shows how to install and run the optional
+external programs.
 
 ## Clumppling
 
@@ -125,9 +127,9 @@ OpenADMIXTURE.jl to numerical precision, and it agrees with ADMIXTURE 1.3.0,
 which the test suite checks against stored results; on the 379 individuals
 and 54,051 SNPs of the `EUR_subset` data used to test OpenADMIXTURE.jl, it
 is 2-3 times faster than ADMIXTURE on a single thread, and about 10 times
-faster on 4 threads. See `?gt_radmix`, the article "Comparing gt_radmix()
-and ADMIXTURE" (in the Articles section of the website of the package), and
-`data-raw/radmix/README.md` for details.
+faster on 4 threads. See `?gt_radmix`, the article "Benchmarking
+gt_radmix() against ADMIXTURE and fastmixture" (in the Articles section of
+the website of the package), and `data-raw/radmix/README.md` for details.
 
 ## References
 

@@ -44,7 +44,11 @@
 #' @param als_iter the maximum number of iterations in the ALS algorithm (1000)
 #' @param als_tole the tolerance for the RMSE of P between iterations (1e-4)
 #' @param no_freqs do not save P-matrix (TRUE)
-#' @param random_init random initialisation of parameters (TRUE)
+#' @param random_init random initialisation of parameters (FALSE). By
+#'   default, as in the fastmixture program, the parameters are initialised
+#'   from a randomised SVD of the genotypes (followed by alternating least
+#'   squares), which needs all the loci to be polymorphic; random starting
+#'   values can take much longer to converge
 #' @param safety deprecated and ignored: fastmixture turns on its safety
 #'   updates by itself when an update is unstable
 #' @param cv the number of cross-validation folds, greater than 1 (NULL, no
@@ -74,7 +78,7 @@ gt_fastmixture <- function(
   als_iter = 1000,
   als_tole = 1e-4,
   no_freqs = TRUE,
-  random_init = TRUE,
+  random_init = FALSE,
   safety = NULL,
   cv = NULL,
   cv_tole = 1e-7
