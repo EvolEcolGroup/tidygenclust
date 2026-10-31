@@ -232,23 +232,23 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
 #pragma omp simd
     for (size_t ii = 0; ii < ni; ii++) qp[ii] += qk[ii] * pk;
   }
-  // Decode the genotypes. This loop has a branch (missing or not) and a
-  // table lookup, so it does not vectorise; it is kept separate so that
-  // everything else can. Setting both g and h to 0 for a missing genotype
-  // means it contributes 0 to every coefficient (a, b, wa, wb) and to the
-  // log-likelihood, with no further tests downstream.
+  // Decode the genotypes. This loop has a table lookup, so it does not
+  // vectorise; it is kept separate so that everything else can. Setting
+  // both g and h to 0 for a missing (or hidden) genotype means it
+  // contributes 0 to every coefficient (a, b, wa, wb) and to the
+  // log-likelihood, with no further tests downstream. They are multiplied by
+  // 1 or 0 rather than set in a branch, which would be mispredicted when
+  // missing or hidden genotypes are scattered at random (as the folds of
+  // cross-validation are); the values are the same (gij and n - gij are
+  // finite and non-negative, so 0 times them is +0).
   // The bytes read here are those of individuals i0..i1-1 in column j of
   // the FBM: adjacent bytes when the gen_tibble keeps the rows of the
   // backing file in order, scattered within the column otherwise.
   double gij;
   for (size_t ii = 0; ii < ni; ii++) {
-    if (geno.get(i0 + ii, j, gij)) {
-      g[ii] = gij;
-      h[ii] = geno.n_trials(i0 + ii) - gij;
-    } else {
-      g[ii] = 0.0;
-      h[ii] = 0.0;
-    }
+    const double obs = geno.get(i0 + ii, j, gij) ? 1.0 : 0.0;
+    g[ii] = obs * gij;
+    h[ii] = obs * (geno.n_trials(i0 + ii) - gij);
   }
 }
 
