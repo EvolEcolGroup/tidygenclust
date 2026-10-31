@@ -62,10 +62,9 @@ with `gt_adamixture()`, and the original ADMIXTURE program (Alexander et al.
 required to use `tidygenclust`, but they can be used to compare results with
 the native implementations. They are all installed in a conda environment
 using `reticulate`, so you do not need to worry about the details of the
-python packages or dependencies (this works both in Linux and macOS, but NOT
-Windows). We show how to install and run them in the article "Installing and
-running external tools" (in the Articles section of the website of the
-package).
+python packages or dependencies (this only works on Linux at the moment). We
+show how to install and run them in the article "Installing and running
+external tools" (in the Articles section of the website of the package).
 
 Genetic data analyses through the integration of `tidypopgen` and `tidygenclust`
 seamlessly joins upstream genetic data manipulation (`tidypopgen`) with

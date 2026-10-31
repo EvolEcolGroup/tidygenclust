@@ -107,7 +107,8 @@ greater than 1 (ADMIXTURE performs 5-fold cv as default).
 \code{tidygenclust} (see \code{\link[=gt_radmix]{gt_radmix()}} for a native implementation of
 the ADMIXTURE model). Install it with
 \code{tgc_tools_install(tools = "fastmixture")}, or add it to an existing
-\code{ctidygenclust} conda environment with \code{\link[=tgc_fastmixture_install]{tgc_fastmixture_install()}}.
+\code{ctidygenclust} conda environment with \code{\link[=tgc_fastmixture_install]{tgc_fastmixture_install()}} (only
+on Linux at the moment, see \code{\link[=tgc_tools_install]{tgc_tools_install()}}).
 }
 \references{
 C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster

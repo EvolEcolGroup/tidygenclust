@@ -123,8 +123,8 @@ test_that("missing tools are reported", {
 })
 
 test_that("the installers report a missing environment", {
-  # the tools are not installed on windows (see the test of its message)
-  skip_on_os("windows")
+  # the tools are only installed on linux (see the test of its message)
+  skip_on_os(c("windows", "mac"))
   withr::local_options(tidygenclust.conda_env = "tidygenclust_no_such_env")
   expect_error(
     tgc_fastmixture_install(),
@@ -193,8 +193,8 @@ local_mock_conda <- function(envs, installed, mac = FALSE,
 }
 
 test_that("resetting the environment keeps the other tools", {
-  # the tools are not installed on windows
-  skip_on_os("windows")
+  # the tools are only installed on linux
+  skip_on_os(c("windows", "mac"))
   # on linux, both tools are in ctidygenclust: resetting it to reinstall
   # ADMIXTURE also installs fastmixture again
   state <- local_mock_conda(
@@ -247,8 +247,8 @@ test_that("resetting the environment keeps the other tools", {
 })
 
 test_that("new environments are created for the requested tools only", {
-  # the tools are not installed on windows
-  skip_on_os("windows")
+  # the tools are only installed on linux
+  skip_on_os(c("windows", "mac"))
   # linux, fastmixture only: ctidygenclust is created from the latest
   # snapshot (filtered by tgc_create_conda_env()), and fastmixture is
   # installed from github
@@ -302,8 +302,8 @@ test_that("new environments are created for the requested tools only", {
 })
 
 test_that("fastmixture is installed without reinstalling its dependencies", {
-  # the tools are not installed on windows
-  skip_on_os("windows")
+  # the tools are only installed on linux
+  skip_on_os(c("windows", "mac"))
   # --force-reinstall alone also reinstalled numpy from pypi, replacing the
   # version pinned by the conda yaml
   run <- new.env()
@@ -323,8 +323,8 @@ test_that("fastmixture is installed without reinstalling its dependencies", {
 })
 
 test_that("ADAMIXTURE is installed from pypi, without pytorch", {
-  # the tools are not installed on windows
-  skip_on_os("windows")
+  # the tools are only installed on linux
+  skip_on_os(c("windows", "mac"))
   run <- new.env()
   testthat::local_mocked_bindings(
     conda_run2 = function(cmd_line, envname, ...) run$cmd_line <- cmd_line,
@@ -344,8 +344,8 @@ test_that("ADAMIXTURE is installed from pypi, without pytorch", {
 })
 
 test_that("on osx, ADAMIXTURE is compiled like fastmixture", {
-  # the tools are not installed on windows
-  skip_on_os("windows")
+  # the tools are only installed on linux
+  skip_on_os(c("windows", "mac"))
   # the wheel of ADAMIXTURE includes its own OpenMP library, which crashes
   # the session once fastmixture (compiled against the OpenMP library of the
   # environment) has been used: on osx, ADAMIXTURE is compiled from source,
@@ -385,8 +385,8 @@ test_that("on osx, ADAMIXTURE is compiled like fastmixture", {
 })
 
 test_that("on osx, ADMIXTURE is installed with reticulate's conda", {
-  # the tools are not installed on windows
-  skip_on_os("windows")
+  # the tools are only installed on linux
+  skip_on_os(c("windows", "mac"))
   # fake conda executables, which write their arguments to a file: one is
   # the binary used by reticulate, the other is first on the PATH (the old
   # code called the conda on the PATH, which may not exist, e.g. in RStudio)
@@ -447,17 +447,18 @@ test_that("on osx, a single yaml file is only used for ctidygenclust", {
   )
 })
 
-test_that("windows is rejected with a readable message", {
-  testthat::local_mocked_bindings(tgc_is_windows = function() TRUE)
+test_that("other systems than linux are rejected with a readable message", {
+  testthat::local_mocked_bindings(tgc_is_linux = function() FALSE)
   expect_error(
     tgc_tools_install(),
-    "use the Windows subsystem for Linux \\(WSL\\) instead"
+    "only available on Linux at the moment"
   )
   # the other installers are rejected too, saying that only the optional
   # tools are not available
-  expect_error(tgc_fastmixture_install(), "cannot be installed on windows")
-  expect_error(tgc_admixture_install(), "cannot be installed on windows")
-  expect_error(tgc_adamixture_install(), "cannot be installed on windows")
+  expect_error(tgc_fastmixture_install(), "only available on Linux")
+  expect_error(tgc_admixture_install(), "only available on Linux")
+  expect_error(tgc_adamixture_install(), "only available on Linux")
+  expect_error(tgc_adamixture_install(), "The rest of tidygenclust")
 })
 
 test_that("a missing snapshot directory gives a clear error", {
@@ -471,8 +472,8 @@ test_that("a missing snapshot directory gives a clear error", {
 })
 
 test_that("on osx, fastmixture is compiled with the llvm of homebrew", {
-  # the tools are not installed on windows
-  skip_on_os("windows")
+  # the tools are only installed on linux
+  skip_on_os(c("windows", "mac"))
   run <- new.env()
   testthat::local_mocked_bindings(
     conda_install = function(...) NULL,

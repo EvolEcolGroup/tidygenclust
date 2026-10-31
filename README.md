@@ -44,11 +44,12 @@ pak::pak("EvolEcolGroup/tidygenclust")
 `gt_radmix()` and `gt_clumppling()` work straight away. The
 optional tools (`fastmixture`, ADMIXTURE and ADAMIXTURE) are installed with
 `reticulate` in a conda environment, `ctidygenclust`, when you ask for them
-(this only works on Linux and macOS: on Windows, you can use them through
-the WSL):
+(this only works on Linux at the moment: on Windows, you can use them
+through the WSL; on macOS, they are not available, as their OpenMP library
+conflicts with that of R):
 
 ``` r
-# both tools
+# all the tools
 tgc_tools_install()
 # or only some of them
 tgc_tools_install(tools = "fastmixture")
@@ -56,15 +57,6 @@ tgc_tools_install(tools = "fastmixture")
 tgc_admixture_install()
 # check what is installed
 tgc_tools_version()
-```
-
-**Note for MacOS user**
-
-To install `fastmixture` or ADAMIXTURE on MacOS, you need `llvm` and `libomp`
-installed via `brew` in the first place. In `bash`, you will need:\
-
-``` bash
-brew install llvm libomp
 ```
 
 ## Overview of functionality

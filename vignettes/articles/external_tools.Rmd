@@ -51,11 +51,13 @@ Saurina-i-Ricos et al. (2026), and if you use ADMIXTURE, Alexander et al.
 
 # Installing the external tools
 
-We use `reticulate` to install the three programs in a conda environment
-(`ctidygenclust`; on macOS, ADMIXTURE is installed in an environment of its
-own, `cadmixture86`), so you, as a user, should not need to worry about the
-details of the python packages or their dependencies. This works on Linux
-and macOS, but NOT on Windows (where you can use the WSL). ADAMIXTURE is
+We use `reticulate` to install the three programs in a conda environment,
+`ctidygenclust`, so you, as a user, should not need to worry about the
+details of the python packages or their dependencies. This only works on
+Linux at the moment: on Windows, the programs can be used through the WSL;
+on macOS, they are not available, as the OpenMP library that they use
+conflicts with that of R (used by packages such as `bigstatsr`), which
+crashes the R session. ADAMIXTURE is
 installed from PyPI in its CPU version, which does not need PyTorch. You can
 install all three programs with:
 
@@ -76,18 +78,6 @@ Programs can be added later to an existing environment with
 
 ```{r, eval = FALSE}
 tgc_admixture_install()
-```
-
-## For macOS users
-
-If you want to install `fastmixture` or ADAMIXTURE, which are compiled from
-source on macOS (so that they use the same OpenMP library), you need `llvm`
-and `libomp` installed via `brew` in the first place. In `bash`, you will
-need:
-
-``` bash
-# llvm can be installed via brew
-brew install llvm libomp
 ```
 
 ## Checking which programs are installed

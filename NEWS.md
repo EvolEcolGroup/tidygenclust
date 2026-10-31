@@ -5,8 +5,7 @@
   or on PLINK files. ADAMIXTURE (version 1.8.9, from PyPI, without PyTorch)
   is installed by default by `tgc_tools_install()`, or added to an existing
   environment with the new `tgc_adamixture_install()`, and its version is
-  reported by `tgc_tools_version()`. On macOS, it is compiled from source,
-  like fastmixture, so that both use the same OpenMP library.
+  reported by `tgc_tools_version()`.
 * `gt_clumppling()` is now a native R and C++ port, with modifications, of
   clumppling 2.0.10 (Liu, Kopelman & Rosenberg 2024, by Xiran Liu),
   previously developed as the separate package `rclump`: it gives the
@@ -42,10 +41,13 @@
   with K >= 10: clusters were ordered as text ("1", "10", "2", ...), so the
   same aligned cluster was drawn in a different colour (and position) for
   different values of K.
-* On Windows, `tgc_tools_install()`, `tgc_fastmixture_install()` and
-  `tgc_admixture_install()` explain that only the optional tools cannot be
-  installed (they said that tidygenclust did not work on Windows); the rest
-  of the package does not need conda.
+* The optional tools (fastmixture, ADMIXTURE and ADAMIXTURE) are only
+  available on Linux at the moment: `tgc_tools_install()` and the other
+  installers explain this on macOS and Windows (on Windows, they said that
+  tidygenclust did not work at all), as the rest of the package does not
+  need conda. On macOS, the OpenMP library of the python tools conflicts with
+  that of R (used by packages such as bigstatsr), which crashes the R
+  session; on Windows, the tools can be used through the WSL.
 * `gt_fastmixture()` now starts from the SVD-based initialisation of
   fastmixture by default (`random_init = FALSE`), as the fastmixture program
   does: random starting values, the previous default, can take much longer

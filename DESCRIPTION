@@ -49,8 +49,8 @@ Description: A tidy interface for population genetic clustering. This package
    (Liu, Kopelman & Rosenberg 2024), ported with modifications from its
    python implementation, for the comparison of multiple clustering runs. Optionally, tidygenclust can also run external clustering
    software, including fastmixture, ADMIXTURE and ADAMIXTURE, which are installed 
-   automatically in a dedicated conda environment (the conda environment only
-   works in Linux and macOS).
+   automatically in a dedicated conda environment (the optional tools are
+   only available on Linux at the moment).
 License: GPL (>= 3)
 Copyright: See inst/COPYRIGHTS for the code ported from OpenADMIXTURE.jl,
     clumppling, python-louvain and markov_clustering.

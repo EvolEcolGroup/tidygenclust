@@ -62,9 +62,12 @@ on request:
 }
 \details{
 We use \code{reticulate} to install them in a conda environment,
-\code{ctidygenclust}. Additionally, for silicon Macs, \code{ADMIXTURE} is installed in
-a separate conda environment \code{cadmixture86}, as it is only available for OSX
-as x86 in bioconda.
+\code{ctidygenclust}.
+
+The optional tools are only available on Linux at the moment. On Windows,
+they can be used through the Windows Subsystem for Linux (WSL). On macOS,
+the OpenMP library of the python tools conflicts with the one used by R
+packages such as \code{bigstatsr}, which crashes the R session.
 
 \code{tgc_tools_install()} creates the conda environment with the chosen
 \code{tools}. If the environment already exists, it only adds the tools that are
@@ -82,11 +85,7 @@ The conda environment is created from a conda yaml file with the
 versions of all the packages that have been tested on each operating
 system (see \code{conda_yaml}); \code{fastmixture} is then installed from its
 github repository, and \code{ADAMIXTURE} from PyPI, with \code{pip}, run in the
-environment with \code{reticulate::conda_run2()}. We have found installation
-on OSX to be tricky: if it fails with the tested yaml, you can try
-\code{conda_yaml = NULL} to let conda install the latest available packages.
-For OSX, you might also need to install a suitable compiler for openmp
-using \code{brew} in \code{bash}, setting the correct paths to use it:
-
-\verb{brew install llvm libomp}
+environment with \code{reticulate::conda_run2()}. If the installation fails
+with the tested yaml, you can try \code{conda_yaml = NULL} to let conda
+install the latest available packages.
 }

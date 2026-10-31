@@ -18,6 +18,6 @@ NULL (invisibly)
 \description{
 \code{fastmixture} (used by \code{\link[=gt_fastmixture]{gt_fastmixture()}}) is an optional tool. This
 function adds it to an existing \code{ctidygenclust} environment (created with
-\code{\link[=tgc_tools_install]{tgc_tools_install()}}), or reinstalls it. See \code{\link[=tgc_tools_install]{tgc_tools_install()}} for
-details on installing it on OSX.
+\code{\link[=tgc_tools_install]{tgc_tools_install()}}), or reinstalls it. Like the other optional tools,
+it is only available on Linux at the moment (see \code{\link[=tgc_tools_install]{tgc_tools_install()}}).
 }

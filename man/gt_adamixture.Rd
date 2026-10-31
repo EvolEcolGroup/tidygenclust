@@ -71,7 +71,8 @@ greater than 1 (e.g. 5 for 5-fold cross-validation).
 \code{tidygenclust} (see \code{\link[=gt_radmix]{gt_radmix()}} for a native implementation of the
 ADMIXTURE model). It is installed by \code{\link[=tgc_tools_install]{tgc_tools_install()}}, or it can be
 added to an existing \code{ctidygenclust} conda environment with
-\code{\link[=tgc_adamixture_install]{tgc_adamixture_install()}}. Its CPU version, used here, does not need
+\code{\link[=tgc_adamixture_install]{tgc_adamixture_install()}} (only on Linux at the moment, see
+\code{\link[=tgc_tools_install]{tgc_tools_install()}}). Its CPU version, used here, does not need
 PyTorch.
 }
 \references{

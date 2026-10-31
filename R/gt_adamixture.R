@@ -17,7 +17,8 @@
 #' `tidygenclust` (see [gt_radmix()] for a native implementation of the
 #' ADMIXTURE model). It is installed by [tgc_tools_install()], or it can be
 #' added to an existing `ctidygenclust` conda environment with
-#' [tgc_adamixture_install()]. Its CPU version, used here, does not need
+#' [tgc_adamixture_install()] (only on Linux at the moment, see
+#' [tgc_tools_install()]). Its CPU version, used here, does not need
 #' PyTorch.
 #'
 #' @references Saurina-i-Ricos, J., Mas Montserrat, D., & Ioannidis, A. G.

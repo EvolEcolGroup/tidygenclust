@@ -19,9 +19,9 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: macos-14,   r: 'release',  py: "3.11" }
-          - {os: macos-latest,   r: 'release',  py: "3.11" }
-          # the optional tools cannot be installed on windows
+          # the optional tools are only available on linux at the moment
+          - {os: macos-14,   r: 'release',  py: "3.11",  tools: 'none' }
+          - {os: macos-latest,   r: 'release',  py: "3.11",  tools: 'none' }
           - {os: windows-latest, r: 'release',  py: "3.11",  tools: 'none' }
           - {os: ubuntu-latest,   r: 'devel',  py: "3.11",  http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
@@ -33,7 +33,6 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      KMP_DUPLICATE_LIB_OK: true
 
     steps:
       - uses: actions/checkout@v4
@@ -60,12 +59,6 @@ jobs:
             any::rcmdcheck
             any::devtools
           needs: check
-
-      - name: brew installs
-        if: matrix.config.os == 'macos-latest' || matrix.config.os == 'macos-14'
-        run: |
-          brew install libomp
-          brew install llvm
 
       - name: install tools
         if: matrix.config.tools != 'none'

@@ -9,9 +9,12 @@
 #' - `ADAMIXTURE`, a python package used by [gt_adamixture()].
 #'
 #' We use `reticulate` to install them in a conda environment,
-#' `ctidygenclust`. Additionally, for silicon Macs, `ADMIXTURE` is installed in
-#' a separate conda environment `cadmixture86`, as it is only available for OSX
-#' as x86 in bioconda.
+#' `ctidygenclust`.
+#'
+#' The optional tools are only available on Linux at the moment. On Windows,
+#' they can be used through the Windows Subsystem for Linux (WSL). On macOS,
+#' the OpenMP library of the python tools conflicts with the one used by R
+#' packages such as `bigstatsr`, which crashes the R session.
 #'
 #' `tgc_tools_install()` creates the conda environment with the chosen
 #' `tools`. If the environment already exists, it only adds the tools that are
@@ -29,13 +32,9 @@
 #'   versions of all the packages that have been tested on each operating
 #'   system (see `conda_yaml`); `fastmixture` is then installed from its
 #'   github repository, and `ADAMIXTURE` from PyPI, with `pip`, run in the
-#'   environment with `reticulate::conda_run2()`. We have found installation
-#'   on OSX to be tricky: if it fails with the tested yaml, you can try
-#'   `conda_yaml = NULL` to let conda install the latest available packages.
-#'   For OSX, you might also need to install a suitable compiler for openmp
-#'   using `brew` in `bash`, setting the correct paths to use it:
-#'
-#'   `brew install llvm libomp`
+#'   environment with `reticulate::conda_run2()`. If the installation fails
+#'   with the tested yaml, you can try `conda_yaml = NULL` to let conda
+#'   install the latest available packages.
 #'
 #' @param tools a vector with the tools to install, any of "fastmixture",
 #'   "admixture" and "adamixture". Defaults to all of them.
@@ -180,8 +179,8 @@ tgc_tools_install <-
 #'
 #' `fastmixture` (used by [gt_fastmixture()]) is an optional tool. This
 #' function adds it to an existing `ctidygenclust` environment (created with
-#' [tgc_tools_install()]), or reinstalls it. See [tgc_tools_install()] for
-#' details on installing it on OSX.
+#' [tgc_tools_install()]), or reinstalls it. Like the other optional tools,
+#' it is only available on Linux at the moment (see [tgc_tools_install()]).
 #'
 #' @inheritParams tgc_tools_install
 #' @returns NULL (invisibly)
@@ -231,16 +230,15 @@ tgc_fastmixture_install <-
 
 #' Add `ADMIXTURE` to the conda environment of `tidygenclust`
 #'
-#' `ADMIXTURE` (used by [tidypopgen::gt_admixture()]) is an optional tool. On
-#' Linux, this function adds it to an existing `ctidygenclust` environment
-#' (created with [tgc_tools_install()]). On silicon Macs, `ADMIXTURE` is only
-#' available as x86 in bioconda, so it is installed in a separate conda
-#' environment, `cadmixture86`, which is created by this function.
+#' `ADMIXTURE` (used by [tidypopgen::gt_admixture()]) is an optional tool.
+#' This function adds it to an existing `ctidygenclust` environment (created
+#' with [tgc_tools_install()]). Like the other optional tools, it is only
+#' available on Linux at the moment (see [tgc_tools_install()]).
 #'
-#' @param conda_yaml only used on OSX: the path of the `yaml` file used to
-#'   create the `cadmixture86` environment, "auto" (the default, the latest
-#'   tested yaml) or NULL (the latest version of `ADMIXTURE` in bioconda). See
-#'   [tgc_tools_install()].
+#' @param conda_yaml only used on OSX (not supported at the moment): the path
+#'   of the `yaml` file used to create the `cadmixture86` environment, "auto"
+#'   (the default, the latest tested yaml) or NULL (the latest version of
+#'   `ADMIXTURE` in bioconda). See [tgc_tools_install()].
 #' @inheritParams tgc_tools_install
 #' @returns NULL (invisibly)
 #' @export
@@ -308,11 +306,9 @@ tgc_admixture_install <- function(conda_yaml = "auto", ci_install = FALSE) {
 #' `ADAMIXTURE` (used by [gt_adamixture()]) is an optional tool. This function
 #' adds it to an existing `ctidygenclust` environment (created with
 #' [tgc_tools_install()]), or installs another version, from PyPI. Its CPU
-#' version, used by [gt_adamixture()], does not need PyTorch. On OSX, it is
-#' compiled from source, in the same way as `fastmixture` (see
-#' [tgc_tools_install()]; it needs `llvm` and `libomp` from `brew`), so that
-#' the two tools use the same OpenMP library: the copy included in the
-#' pre-built package crashes R when both tools are used in the same session.
+#' version, used by [gt_adamixture()], does not need PyTorch. Like the other
+#' optional tools, it is only available on Linux at the moment (see
+#' [tgc_tools_install()]).
 #'
 #' @inheritParams tgc_tools_install
 #' @returns NULL (invisibly)
@@ -432,20 +428,27 @@ tgc_is_mac <- function() {
   Sys.info()[["sysname"]] == "Darwin"
 }
 
-# whether we are on windows (a function, so that tests can mock it)
-tgc_is_windows <- function() {
-  .Platform$OS.type == "windows"
+# whether we are on linux (a function, so that tests can mock it)
+tgc_is_linux <- function() {
+  Sys.info()[["sysname"]] == "Linux"
 }
 
-# give error for windows, where the optional tools cannot be installed (the
-# rest of the package works)
+# give an error unless we are on linux, the only operating system on which
+# the optional tools can be installed at the moment (the rest of the package
+# works on all of them). On osx, the python tools use the OpenMP library
+# (libomp) of the conda environment, whereas R packages such as bigstatsr use
+# the libomp of R: two copies of libomp in the same R session abort it (or,
+# with KMP_DUPLICATE_LIB_OK set, crash it later), so the code for osx (e.g.
+# the cadmixture86 environment) is kept, but not used, until this is solved.
+# On windows, the tools can be used through the WSL.
 tgc_check_os <- function() {
-  if (tgc_is_windows()) {
+  if (!tgc_is_linux()) {
     stop(
-      "The optional tools (fastmixture, ADMIXTURE and ADAMIXTURE) cannot be ",
-      "installed on windows; to use them, use the Windows subsystem for ",
-      "Linux (WSL) instead. The rest of tidygenclust, including gt_radmix() ",
-      "and gt_clumppling(), works on windows"
+      "The optional tools (fastmixture, ADMIXTURE and ADAMIXTURE) are only ",
+      "available on Linux at the moment (on Windows, they can be used ",
+      "through the Windows Subsystem for Linux, WSL). The rest of ",
+      "tidygenclust, including gt_radmix() and gt_clumppling(), works on ",
+      "all operating systems"
     )
   }
 }
