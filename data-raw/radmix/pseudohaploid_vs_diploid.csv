@@ -1,0 +1,11 @@
+"replicate","treatment","best_k","pseudo_ancestry_a_k2","cv_k1","cv_k2","cv_k3","cv_k4"
+1,"treated as diploid",1,0.959,0.8193,0.8222,0.9073,1.0323
+1,"pseudohaploid-aware",2,0.968,0.557,0.5556,0.6116,0.6406
+2,"treated as diploid",1,0.946,0.8269,0.8292,0.9147,1.0116
+2,"pseudohaploid-aware",2,0.964,0.5624,0.5603,0.5949,0.6511
+3,"treated as diploid",1,0.959,0.8267,0.8287,0.9087,1.0259
+3,"pseudohaploid-aware",2,0.95,0.5618,0.5602,0.612,0.6541
+4,"treated as diploid",1,0.97,0.8284,0.8297,0.9108,1.045
+4,"pseudohaploid-aware",2,0.977,0.5639,0.5617,0.5959,0.6332
+5,"treated as diploid",1,0.965,0.8245,0.8265,0.9112,1.0161
+5,"pseudohaploid-aware",2,0.967,0.5605,0.5581,0.594,0.6358

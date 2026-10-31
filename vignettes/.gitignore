@@ -1,3 +1,5 @@
 *.html
 *.R
 .Rhistory
+# the scripts of the benchmarks in the articles
+!articles/code/*.R

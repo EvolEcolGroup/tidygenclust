@@ -15,7 +15,7 @@
 \arguments{
 \item{object}{a \code{\link{gt_clumppling}} object}
 
-\item{type}{the type of plot, one of 'modes', 'modes_within_K', 'major_modes'
+\item{type}{the type of plot, one of 'modes', 'modes_within_k', 'major_modes'
 or 'all_modes'.}
 
 \item{group}{a vector of membership to a-priori groups (e.g. populations).
@@ -34,10 +34,11 @@ objects. Available types are:
 \itemize{
 \item 'modes': all aligned modes in structure plots over a multipartite graph,
 where better alignment between the modes is indicated by the darker color of
-the edges connecting their structure plots, and the cost of optimal alignment
-is labelled on each edge.
-\item 'modes_within_K': A set of figures, one for each number of clusters, with
-all modes with the same number of clusters in structure plots in one figure.
+the edges connecting their structure plots (the colour scale of the costs of
+optimal alignment is shown in an empty cell of the grid, if there is one),
+and the number of replicates in each mode is given in brackets.
+\item 'modes_within_k': all the modes with \code{k} clusters, in a series of
+structure plots.
 \item 'major_modes': the major modes of each K aligned in a series of structure
 plots.
 \item 'all_modes': all aligned modes in a series of structure plots.

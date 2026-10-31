@@ -23,8 +23,8 @@ gt_fastmixture(
   als_iter = 1000,
   als_tole = 1e-04,
   no_freqs = TRUE,
-  random_init = TRUE,
-  safety = TRUE,
+  random_init = FALSE,
+  safety = NULL,
   cv = NULL,
   cv_tole = 1e-07
 )
@@ -40,8 +40,10 @@ or a vector}
 
 \item{threads}{the number of threads to use (1)}
 
-\item{seed}{the random seed (defaults to 42);it should be a vector of length
-\code{repeats}}
+\item{seed}{the random seed (defaults to 42): a vector of length
+\code{n_runs}, with one seed per run (the same seeds are used for each value
+of \code{k}), or a single seed, used for the first run and incremented for
+the following ones}
 
 \item{iter}{the maximum number of iterations (1000)}
 
@@ -49,13 +51,13 @@ or a vector}
 
 \item{batches}{the number of maximum mini-batches (32)}
 
-\item{supervised}{the name fo the file with the supervised labels (NULL)}
+\item{supervised}{the name of the file with the supervised labels (NULL)}
 
 \item{check}{the number of iterations to check for convergence (5)}
 
 \item{power}{number of power iterations in randomised SVD (11)}
 
-\item{chunk}{the number of SPs in chunk operations (8192)}
+\item{chunk}{the number of SNPs in chunk operations (8192)}
 
 \item{subsample}{Fraction of SNPs to subsample in SVD/ALS (0.7)}
 
@@ -69,11 +71,17 @@ or a vector}
 
 \item{no_freqs}{do not save P-matrix (TRUE)}
 
-\item{random_init}{random initialisation of parameters (TRUE)}
+\item{random_init}{random initialisation of parameters (FALSE). By
+default, as in the fastmixture program, the parameters are initialised
+from a randomised SVD of the genotypes (followed by alternating least
+squares), which needs all the loci to be polymorphic; random starting
+values can take much longer to converge}
 
-\item{safety}{add extra safety steps in unstable optimizations (TRUE)}
+\item{safety}{deprecated and ignored: fastmixture turns on its safety
+updates by itself when an update is unstable}
 
-\item{cv}{the number of cross-validation folds (0)}
+\item{cv}{the number of cross-validation folds, greater than 1 (NULL, no
+cross-validation)}
 
 \item{cv_tole}{the tolerance for the cross-validation error
 in scaled log-likelihood units (1e-7)}
@@ -89,10 +97,17 @@ that you cite the relevant paper by Santander, Refoyo-Martínez, and Meisner
 (2024).
 }
 \details{
-This function returns a q_matrix that can be plotted with \code{autoplot}, and
-tidied with \code{tidy} methods from the \code{tidypopgen} package. Cross-validation
-is set to 0 as default, if you want to include cross-validation you can set
-\code{cv} to a value greater than 1 (ADMIXTURE performs 5-fold cv as default).
+This function returns a \code{gt_admix} object that can be plotted with
+\code{autoplot}, and tidied with \code{tidy} methods from the \code{tidypopgen} package.
+Cross-validation is not performed by default (\code{cv = NULL}); if you want to
+include cross-validation you can set \code{cv} to the number of folds, a value
+greater than 1 (ADMIXTURE performs 5-fold cv as default).
+
+\code{fastmixture} is an optional tool, which is not needed by the rest of
+\code{tidygenclust} (see \code{\link[=gt_radmix]{gt_radmix()}} for a native implementation of
+the ADMIXTURE model). Install it with
+\code{tgc_tools_install(tools = "fastmixture")}, or add it to an existing
+\code{ctidygenclust} conda environment with \code{\link[=tgc_fastmixture_install]{tgc_fastmixture_install()}}.
 }
 \references{
 C. G. Santander, A. Refoyo Martinez, J. Meisner (2024) Faster

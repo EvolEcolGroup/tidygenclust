@@ -2,77 +2,85 @@
 % Please edit documentation in R/tgc_tools_install.R
 \name{tgc_tools_install}
 \alias{tgc_tools_install}
-\title{Install tools for \code{tidygenclust}}
+\title{Install optional tools for \code{tidygenclust}}
 \usage{
 tgc_tools_install(
+  tools = c("fastmixture", "admixture"),
   reset = FALSE,
-  fastmixture_hash = "29e04339ce6ddf750ee4e06f8aabe40335e0d0ee",
-  clumppling_hash = "2d24e0b2f6ddfcb51a436df96a06d5f57d18d20a",
-  conda_method = c("reticulate", "conda_yaml"),
-  ci_install = FALSE,
-  adamixture = FALSE,
-  adamixture_hash = "ffccda93b78a32d2be4be9a674cfe81ad73ce117"
+  fastmixture_hash = "1f03a8980be4872341e5faca9d6f2dfc7ccbfe35",
+  conda_yaml = "auto",
+  ci_install = FALSE
 )
 }
 \arguments{
-\item{reset}{a boolean used to reset the virtual environment. Only set
-to TRUE if you have a broken virtual environment that you want to reset.}
+\item{tools}{a vector with the tools to install, any of "fastmixture" and
+"admixture". Defaults to both.}
+
+\item{reset}{a boolean used to reset the virtual environment. Only set to
+TRUE if you have a broken virtual environment that you want to reset.}
 
 \item{fastmixture_hash}{a string with the commit hash of the \code{fastmixture}
 version to install. Default is the latest tested version.}
 
-\item{clumppling_hash}{a string with the commit hash of the \code{clumppling}
-version to install. Default is the latest tested version.}
-
-\item{conda_method}{a string indicating the method to create the environment
-used for \code{fastmixture}. Default is \code{reticulate}, which uses the
-\code{reticulate::conda_run2()} function to run the installation commands (this is
-the default, and the only method for Linux.
-Alternatively, for OSX, you can use \code{conda_yaml}, which will create a conda
-environment directly with conda. Use this second method if "reticulate" fails
-whilst trying to install on OSX.}
+\item{conda_yaml}{A vector of string with the path for the \code{yaml} files used
+for installation (one for \code{ctidygenclust} and, for osx only, one for
+admixture in x86 compatibility mode). The value of each
+string can either be "auto" (the default, select the latest available yaml
+that has been tested to work on a given operating system), NULL (let conda
+attempt to install the latest available packages from the internet), or a
+path to a specific conda yaml found in "inst/env_snapshots". For "auto" or
+NULL, it is also possible to provide a vector of length one, and the value
+will apply to all the conda environments (e.g. \code{conda_yaml="auto"} is
+equivalent to \code{conda_yaml = c("auto", "auto")} in osx); a single path is
+used for \code{ctidygenclust} (and "auto" for the environment of ADMIXTURE on
+osx). Tools that are not in \code{tools} are left out of the yaml files.}
 
 \item{ci_install}{a boolean indicating if the installation is being run on
 continuous integration (CI) services. Default is FALSE. If TRUE, the
-function will look for the conda yaml file in the \code{inst/python} folder
-of the package source directory, rather than in the installed package
+function will look for the conda yaml file in the \code{inst/env_snapshots}
+folder of
+the package source directory, rather than in the installed package
 directory. This is useful when testing the package on CI services.}
-
-\item{adamixture}{a boolean indicating whether to install \code{ADAMIXTURE} in
-\code{ctidygenclust}. Default is FALSE.}
-
-\item{adamixture_hash}{a string with the commit hash of the \code{ADAMIXTURE}
-version to install. Default is the latest tested version.}
+}
+\value{
+NULL (invisibly)
 }
 \description{
-\code{tidygenclust} relies on \code{ADMIXTURE} and on python packages \code{fastmixture}
-and \code{clumppling} for a number of
-functionalities. We use \code{reticulate} to install them in conda
-environments. As their dependencies are incompatible, we use two separate
-conda environments, \code{ctidygenclust} (for \code{fastmixture} and \code{admixture}) and
-\code{cclumppling} (for \code{clumppling}). Additionally, for silicon Macs, \code{ADMIXTURE}
-is installed in a separate conda environment \code{cadmixture86}, as it is only
-available for OSX as x86 in bioconda.
+The core functionality of \code{tidygenclust} is native: \code{\link[=gt_radmix]{gt_radmix()}}
+and \code{\link[=gt_clumppling]{gt_clumppling()}} need neither Python nor conda. A few additional
+features rely on external tools, which are optional and are only installed
+on request:
+\itemize{
+\item \code{fastmixture}, a python package used by \code{\link[=gt_fastmixture]{gt_fastmixture()}};
+\item \code{ADMIXTURE}, used by \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}}.
+}
 }
 \details{
-For each tool, default to the latest tested version of
-these packages that have been tested to work with \code{tidegenclust}. It is
-possible to provide a more recent github commit for a specific tool, but
-this might lead to incompatibilities and errors.
+We use \code{reticulate} to install them in a conda environment,
+\code{ctidygenclust}. Additionally, for silicon Macs, \code{ADMIXTURE} is installed in
+a separate conda environment \code{cadmixture86}, as it is only available for OSX
+as x86 in bioconda.
 
-We have found installation on OSX to be tricky, so we provide two methods
-for installing \code{fastmixture} on OSX: \code{reticulate} and \code{conda_yaml}. The
-\code{reticulate} method uses the \code{reticulate::conda_run2()} function to run
-installation commands, while the \code{conda_yaml} method creates a conda
-environment directly with conda. If the \code{reticulate} method fails, you can
-use the \code{conda_yaml} method to create the environment directly with conda.
+\code{tgc_tools_install()} creates the conda environment with the chosen
+\code{tools}. If the environment already exists, it only adds the tools that are
+not installed yet (alternatively, use \code{\link[=tgc_fastmixture_install]{tgc_fastmixture_install()}} and
+\code{\link[=tgc_admixture_install]{tgc_admixture_install()}} to add a tool to an existing environment).
+\code{\link[=tgc_tools_version]{tgc_tools_version()}} reports the tools that are installed.
+
+For each tool, default to the latest version of these
+packages that has been tested to work with \code{tidygenclust}. It is possible
+to provide a more recent github commit for a specific tool, but this might
+lead to incompatibilities and errors.
+
+The conda environment is created from a conda yaml file with the
+versions of all the packages that have been tested on each operating
+system (see \code{conda_yaml}); \code{fastmixture} is then installed from its
+github repository with \code{pip}, run in the environment with
+\code{reticulate::conda_run2()}. We have found installation on OSX to be
+tricky: if it fails with the tested yaml, you can try \code{conda_yaml = NULL}
+to let conda install the latest available packages.
 For OSX, you might also need to install a suitable compiler for openmp
 using \code{brew} in \code{bash}, setting the correct paths to use it:
 
 \verb{brew install llvm libomp}
-
-\code{ADAMIXTURE} (used by \code{\link[=gt_adamixture]{gt_adamixture()}}) is optional. Set \code{adamixture = TRUE} to install it
-in \code{ctidygenclust} together with the other tools, or use
-\code{\link[=tgc_adamixture_install]{tgc_adamixture_install()}} to add it to an existing \code{ctidygenclust}
-environment.
 }

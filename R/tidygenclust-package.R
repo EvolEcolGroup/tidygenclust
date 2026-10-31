@@ -2,10 +2,16 @@
 "_PACKAGE"
 
 ## usethis namespace: start
+#' @useDynLib tidygenclust, .registration = TRUE
+#' @importFrom Rcpp sourceCpp
 ## usethis namespace: end
 NULL
 
 #' @importFrom dplyr .data
+
+# re-export the generics for which tidygenclust (and tidypopgen) provide
+# methods, and the distruct theme and scale used by the structure plots, so
+# that they can be used without attaching the other packages
 
 #' @importFrom generics tidy
 #' @export

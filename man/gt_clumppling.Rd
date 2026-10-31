@@ -2,33 +2,24 @@
 % Please edit documentation in R/gt_clumppling.R
 \name{gt_clumppling}
 \alias{gt_clumppling}
-\title{run clumppling}
+\title{Run clumppling}
 \usage{
 gt_clumppling(
-  input_path,
-  output_path = tempfile("clump_out"),
-  input_format = "admixture",
+  x,
   use_rep = TRUE,
   merge = TRUE,
   cd_method = "louvain",
   use_best_pair = TRUE,
-  extension = ".Q"
+  seed = NULL,
+  output_path = NULL,
+  cd_res = 1,
+  test_comm = FALSE,
+  comm_min = 1e-06,
+  comm_max = 0.01
 )
 }
 \arguments{
-\item{input_path}{the path where the Q files are stored, either a directory
-or a zip archive, or a \code{q_matrix_list} object}
-
-\item{output_path}{(optional) the clumppling functions in python save
-everything to file. By default, R stores the information in objects in the
-environment, and sends those files to a temporary directory that will be
-cleared at the end of a session. \code{output_path} allows to change the
-location of those files. This is only useful to those interested in
-recovering the same files as created by the python clumppling module, or
-for debugging.}
-
-\item{input_format}{a string defining the format of the input files, one of
-'admixture' (default),'structure','fastStructure' or 'generalQ'}
+\item{x}{a \code{gt_admix} object with at least two Q matrices}
 
 \item{use_rep}{boolean, whether to use representative modes (alternative:
 average), defaults to TRUE}
@@ -38,31 +29,135 @@ defaults to TRUE}
 
 \item{cd_method}{the community detection method to use, one of 'louvain'
 (default), 'leiden', 'infomap', 'markov_clustering', 'label_propagation',
-'walktrap', 'custom'}
+'walktrap', 'custom'. 'leiden', 'infomap', 'label_propagation' and
+'walktrap' require the 'igraph' package; as in clumppling (which calls
+them through 'cdlib'), only 'louvain', 'infomap' and 'markov_clustering'
+use the similarity between replicates as edge weights, while 'leiden',
+'label_propagation' and 'walktrap' only use the presence of edges (all
+pairs of replicates are connected, except for the most dissimilar
+pair). 'custom' reproduces the example
+custom method of clumppling (Markov clustering with a pruning threshold
+of 0.2); alternatively, \code{cd_method} can be a function that takes the
+adjacency matrix between replicates (similarities rescaled to [0, 1],
+with ones on the diagonal) and returns a vector of community labels.}
 
 \item{use_best_pair}{boolean, whether to use best pair as anchor for across-K
 alignment (alternative: major), defaults to TRUE}
 
-\item{extension}{(optional) if loading from files rather than a
-\code{q_matrix_list} object specify the extension e.g. ".Q" or ".indivq"}
+\item{seed}{(optional) an integer used to set the random seed, so that
+community detection (e.g. 'louvain') is reproducible. Defaults to NULL
+(no seed is set).}
+
+\item{output_path}{deprecated and ignored. Results are returned as R objects
+rather than written to files.}
+
+\item{cd_res}{the resolution of the 'louvain' community detection method,
+defaults to 1}
+
+\item{test_comm}{boolean, whether to test for community structure (with a
+Tracy-Widom test) before running community detection; if there is no
+structure, all replicates form a single mode. Defaults to FALSE.}
+
+\item{comm_min, comm_max}{cost thresholds for community detection: if all
+pairwise costs between replicates are below \code{comm_min}, they form a
+single mode; if they are all above \code{comm_max}, each replicate is a mode.
+Defaults to 1e-6 and 1e-2.}
 }
 \value{
 a list of class \code{gt_clumppling} containing:
 \itemize{
-\item N: number of individuals
-\item K_range: vector of K values analyzed
-\item mode_replicates: a list of replicate indices for each mode
-\item cost_acrossK: a named list of costs for each pairwise K alignment
 \item aligned_modes: a list of data.frames, each data.frame is a Q-matrix
+\item cost_acrossK: a named list of costs for each pairwise K alignment
+\item mode_replicates: a list of replicate indices for each mode
+\item K_range: vector of K values analyzed
+\item N: number of individuals
+\item mode_stats: a data.frame with the size, cost and performance (average
+similarity among replicates) of each mode
 }
 }
 \description{
-This function runs the clumppling algorithm.
+This function aligns multiple runs of a clustering algorithm (e.g.
+ADMIXTURE or STRUCTURE) with the method of clumppling (Liu, Kopelman and
+Rosenberg 2024). \code{gt_clumppling()} is anative R and C++ code port, with
+modifications to enhance performance, from the
+python package clumppling (version 2.0.10, by Xiran Liu;
+\url{https://github.com/PopGenClustering/Clumppling}), and gives the same
+results without the need for Python. The main modifications are that the
+alignment of each pair of runs, an integer linear program in clumppling,
+is solved exactly as an equivalent assignment problem, and that community
+detection uses ports of the implementations that clumppling uses through
+cdlib (python-louvain, in C++, and markov_clustering, in R) or the
+\code{igraph} package. If you use this function, make sure that
+you cite the paper on clumppling by Liu, Kopelman, and Rosenberg (2024).
 }
 \details{
-If you would like to generate an annotated autoplot from your gt_clumppling
-object, ensure that all individuals from the same population are adjacent to
-one another in the Q-matrix or gt_admix object supplied to gt_clumppling.
-Autoplot 'group' argument requires that all individuals from the same group
-are adjacent.
+The example data (\code{capeverde_admix.rds} and \code{chicken_admix.rds} in
+\code{extdata}) are the example datasets of clumppling: runs of ADMIXTURE on the
+Cape Verde data of Verdu et al. (2017), and runs of STRUCTURE on the
+chicken data of Rosenberg et al. (2001).
+
+The algorithm has three steps:
+\enumerate{
+\item all pairs of replicates with the same K are aligned, finding the
+matching of clusters that minimises the squared distance between their
+memberships;
+\item replicates with the same K are grouped into modes by community
+detection on the network of alignment costs; each mode is summarised by
+a representative replicate (the one with the smallest cost to the
+others) or by the average of its replicates;
+\item modes are aligned across K (merging two clusters of the larger K when
+two values of K differ by one), and their clusters are reordered so that
+they are consistent across K.
+}
+
+The replicates are the Q matrices of a \code{gt_admix} object, as returned by
+the clustering functions of 'tidypopgen' (e.g.
+\code{tidypopgen::gt_admixture()}) and 'tidygenclust' (e.g.
+\code{\link[=gt_radmix]{gt_radmix()}}); to align replicates
+stored as Q files, read them into a \code{gt_admix} object with
+\code{tidypopgen::read_q_files()}. Replicates with the same K are numbered in the
+order in which they appear in the \code{gt_admix} object. The rows of each Q
+matrix must sum to 1 (to within 1e-6), so memberships that were rounded
+(e.g. by STRUCTURE) should be rescaled first.
+
+If you would like to generate an annotated autoplot from your
+\code{gt_clumppling} object, ensure that all individuals from the same
+population are adjacent to one another in the \code{gt_admix} object supplied to
+\code{gt_clumppling} (see \code{tidypopgen::gt_admix_reorder_q()}). Autoplot 'group'
+argument requires that all individuals from the same group are adjacent.
+
+The only random step is community detection. For the default 'louvain'
+method, the C++ implementation follows python-louvain (used by
+clumppling), but random numbers are drawn from R's generator: the modes
+are the same as in python unless the community structure is ambiguous, but
+the same seed does not give the same random choices in R and python. If
+\code{seed} is given, the state of R's random number generator is restored on
+exit. When a mode includes replicates with identical Q matrices, the
+representative of the mode can also differ from the python implementation
+(it is then an identical replicate), as their costs only differ by
+rounding errors.
+}
+\examples{
+capeverde <- readRDS(
+  system.file("extdata", "capeverde_admix.rds", package = "tidygenclust")
+)
+clump_res <- gt_clumppling(capeverde, seed = 1)
+clump_res$mode_stats
+}
+\references{
+X. Liu, N. M. Kopelman, N. A. Rosenberg (2024) Clumppling:
+cluster matching and permutation program with integer linear programming.
+Bioinformatics 40(1): btad751. doi:
+https://doi.org/10.1093/bioinformatics/btad751
+
+N. A. Rosenberg, T. Burke, K. Elo, M. W. Feldman, P. J. Freidlin,
+M. A. M. Groenen, J. Hillel, A. Mäki-Tanila, M. Tixier-Boichard,
+A. Vignal, K. Wimmers, S. Weigend (2001) Empirical evaluation of genetic
+clustering methods using multilocus genotypes from 20 chicken breeds.
+Genetics 159(2): 699-713.
+
+P. Verdu, E. M. Jewett, T. J. Pemberton, N. A. Rosenberg, M. Baptista
+(2017) Parallel trajectories of genetic and linguistic admixture in a
+genetically admixed creole population. Current Biology 27(16):
+2529-2535.
 }

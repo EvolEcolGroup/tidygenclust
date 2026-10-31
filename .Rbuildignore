@@ -7,4 +7,5 @@
 codecov.yml
 ^\.positai$
 ^\.claude$
-^test_adamixture_run\.R$
+^dev$
+^vignettes/articles$

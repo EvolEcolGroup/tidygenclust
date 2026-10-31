@@ -1,17 +1,31 @@
-# this is derived form https://github.com/Rosemeis/fastmixture/blob/main/fastmixture/main.py
+# this is derived from https://github.com/Rosemeis/fastmixture/blob/main/fastmixture/main.py
 # @author of the original file Jonas Meisner
 # modified by Andrea Manica for use with tidygenclust
+#
+# fastmixture_run() follows the main function of fastmixture (version 1.3.0,
+# fastmixture/fastmixture.py), but it returns the estimates to R instead of
+# writing them to files, and it can read the genotypes directly from the
+# backing file of a gen_tibble. It is called by gt_fastmixture(), which
+# passes the arguments as an argparse Namespace with the same fields as the
+# command line options of fastmixture (see the parser below), plus 'plink'
+# (whether 'bfile' is the prefix of PLINK files or the backing file of a
+# gen_tibble), 'fbm_dim' (the numbers of rows and columns of the FBM of the
+# gen_tibble), 'rows' and 'cols' (the 0-based rows and columns of the FBM
+# used by the gen_tibble, i.e. its individuals and loci, in its order).
 
 # Libraries
 import argparse
 import os
 import sys
+import warnings
 from datetime import datetime
 from time import time
 
-VERSION = "1.2.0"
+from fastmixture import __version__ as VERSION
 
 ### Argparse
+# the parser of the command line version, kept for reference: the arguments
+# are now created in R
 # parser = argparse.ArgumentParser(prog="fastmixture")
 # parser.add_argument("--version", action="version",
 # 	version=f"v{VERSION}")
@@ -63,8 +77,30 @@ VERSION = "1.2.0"
 
 
 ##### fastmixture #####
-#def main():
 def fastmixture_run(args):
+	"""Run fastmixture with at most args.threads threads.
+
+	fastmixture parallelises with OpenMP (and numpy with its BLAS library).
+	Their numbers of threads cannot be set with environment variables such as
+	OMP_NUM_THREADS, which are only read when a library is initialised (R
+	has usually started OpenMP already), and which would stay set in the R
+	session, as python shares its environment. Instead, threadpoolctl limits
+	the libraries that are loaded at run time, and restores their previous
+	limits on exit.
+	"""
+	try:
+		from threadpoolctl import threadpool_limits
+	except ImportError:
+		warnings.warn("threadpoolctl is not installed, so the number of "
+			"threads cannot be limited; reinstall fastmixture with "
+			"tgc_fastmixture_install()")
+		return _fastmixture_run(args)
+	with threadpool_limits(limits=args.threads):
+		return _fastmixture_run(args)
+
+
+#def main():
+def _fastmixture_run(args):
 	# args = parser.parse_args()
 	# if len(sys.argv) < 2:
 	# 	parser.print_help()
@@ -116,15 +152,9 @@ def fastmixture_run(args):
 	# 			log.write(f"\t--{key} {full[key]}\n")
 	# del full, deaf, mand
 
-	# Control threads of external numerical libraries
-	os.environ["MKL_NUM_THREADS"] = str(args.threads)
-	os.environ["MKL_MAX_THREADS"] = str(args.threads)
-	os.environ["OMP_NUM_THREADS"] = str(args.threads)
-	os.environ["OMP_MAX_THREADS"] = str(args.threads)
-	os.environ["NUMEXPR_NUM_THREADS"] = str(args.threads)
-	os.environ["NUMEXPR_MAX_THREADS"] = str(args.threads)
-	os.environ["OPENBLAS_NUM_THREADS"] = str(args.threads)
-	os.environ["OPENBLAS_MAX_THREADS"] = str(args.threads)
+	# (the command line version sets the number of threads of the numerical
+	# libraries here, through environment variables; this is done by
+	# fastmixture_run() instead, see above)
 
 	# Load numerical libraries
 	import numpy as np
@@ -134,6 +164,9 @@ def fastmixture_run(args):
 	rng = np.random.default_rng(args.seed) # Set up random number generator
 
 	### Read data
+	# G is the M x N matrix of genotypes (allele counts, 9 for missing), with
+	# the SNPs in random order (s_ord), and q_nrm is the number of
+	# non-missing alleles of each individual
 	if args.plink:
 		assert os.path.isfile(f"{args.bfile}.bed"), "bed file doesn't exist!"
 		assert os.path.isfile(f"{args.bfile}.bim"), "bim file doesn't exist!"
@@ -143,18 +176,41 @@ def fastmixture_run(args):
 		print(f"\rLoaded {N} samples and {M} SNPs.")
 		assert not np.any(q_nrm == 0), "Sample(s) with zero information!"
 	else:
-		N = args.n_indiv
-		M = args.n_loci
-		G = np.fromfile(args.bfile, dtype=np.uint8)
+		# the backing file of a gen_tibble has one byte per genotype (0, 1
+		# and 2 alternate alleles, 3 for missing, larger values for imputed
+		# genotypes), without a header. It holds the whole FBM, of which the
+		# gen_tibble uses some rows (individuals) and columns (loci), in its
+		# own order (R passes length-one vectors as scalars, hence
+		# atleast_1d)
+		rows = np.atleast_1d(np.asarray(args.rows, dtype=np.intp))
+		cols = np.atleast_1d(np.asarray(args.cols, dtype=np.intp))
+		N = rows.shape[0]
+		M = cols.shape[0]
+		fbm_nrow, fbm_ncol = (int(d) for d in args.fbm_dim)
+		assert os.path.getsize(args.bfile) == fbm_nrow*fbm_ncol, \
+			"Backing file doesn't match the dimensions of the FBM!"
+		# the FBM is column-major (individuals x loci), i.e. a row-major
+		# loci x individuals array: select the loci (rows of this array) and
+		# the individuals (columns) of the gen_tibble, reading only those
+		# from the memory-mapped file
+		G_fbm = np.memmap(args.bfile, dtype=np.uint8, mode="r",
+			shape=(fbm_ncol, fbm_nrow))
+		G_raw = G_fbm[np.ix_(cols, rows)]
+		del G_fbm
+		# shuffle SNPs as utils.readPlink does, so that mini-batches are random
+		s_ord = np.arange(M, dtype=np.uint32)
+		rng.shuffle(s_ord)
+		G = np.empty((M, N), dtype=np.uint8)
+		# row s_ord[j] of G holds SNP j, the same permutation applied by
+		# shared.expandShuf() to PLINK files, so that shared.reorderP()
+		# restores the original order of P below
+		G[s_ord] = G_raw
+		del G_raw
 		# set missing/imputed values to 9
 		G[G>=3] = 9
-		# shape the genotype matrix
-		G.shape = (args.n_loci, args.n_indiv)
-		# TODO we need to set q_nrm, which is the number of non-missing loci per individual
-		q_nrm = np.sum(G != 9, axis=0).astype(np.double)
+		# q_nrm is the number of non-missing alleles per individual
+		q_nrm = 2.0*np.sum(G != 9, axis=0, dtype=np.double)
 		assert not np.any(q_nrm == 0), "Sample(s) with zero information!"
-		# check that q_nrm is of length N
-		assert q_nrm.shape[0] == N, "Number of samples differ between files!"	
 
 	if int(M/args.batches) < 10000:
 		print("\nWARNING: Few SNPs per mini-batch!\n")
@@ -205,7 +261,12 @@ def fastmixture_run(args):
 		else: # SVD-based initialization
 			f = np.zeros(M, dtype=np.float32)
 			shared.estimateFreq(G, f)
-			assert (np.min(f) > 0.0) & (np.max(f) < 1.0), "Please perform MAF filtering!"
+			# (the message of fastmixture, "Please perform MAF filtering!", is
+			# expanded to explain the options in R)
+			assert (np.min(f) > 0.0) & (np.max(f) < 1.0), \
+				"Please perform MAF filtering! The SVD-based initialisation " \
+				"(random_init = FALSE) needs all loci to be polymorphic: " \
+				"remove the monomorphic loci, or use random_init = TRUE"
 
 			# Initialize P and Q matrices from SVD and ALS
 			print("SVD/ALS initialization.", end="", flush=True)
@@ -253,7 +314,16 @@ def fastmixture_run(args):
 	t_sec = int(t_tot - t_min*60)
 	print(f"Total elapsed time: {t_min}m{t_sec}s")
 	
+	# return Q, followed by P (unless no_freqs) and the cross-validation
+	# results (a dict with the average and standard deviation of the error
+	# across folds) if cv was requested; reticulate converts the tuple to an
+	# unnamed list
 	if not args.no_freqs:
+		# Return P in the original SNP order
+		if args.projection is None:
+			P_ord = np.zeros_like(P)
+			shared.reorderP(P, P_ord, s_ord)
+			P = P_ord
 		if args.cv is not None:
 			return Q, P, res_crv
 		else:
@@ -265,6 +335,7 @@ def fastmixture_run(args):
 			return Q
 
 
+	# the output files of the command line version, kept for reference
 	# ### Save estimates and write output to log-file
 	# np.savetxt(f"{args.out}.K{args.K}.s{args.seed}.Q", Q, fmt="%.6f")
 	# print(f"Saved Q matrix as {args.out}.K{args.K}.s{args.seed}.Q")

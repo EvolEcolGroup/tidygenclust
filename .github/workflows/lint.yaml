@@ -35,7 +35,7 @@ jobs:
       - name: Install external tools
         run: |
           source("./R/tgc_tools_install.R")
-          tgc_tools_install()
+          tgc_tools_install(reset = TRUE, ci_install = TRUE)
         shell: Rscript {0}
 
       - name: Lint

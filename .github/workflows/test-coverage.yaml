@@ -34,7 +34,7 @@ jobs:
       - name: Install external tools
         run: |
           source("./R/tgc_tools_install.R")
-          tgc_tools_install()
+          tgc_tools_install(ci_install = TRUE, reset = TRUE)
         shell: Rscript {0}
 
       - name: Test coverage

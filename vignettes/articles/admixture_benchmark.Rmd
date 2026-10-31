@@ -1,0 +1,734 @@
+---
+title: "Benchmarking gt_radmix() against ADMIXTURE and fastmixture"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+params:
+  results_dir: "data/admixture_benchmark_quick"
+vignette: >
+  %\VignetteIndexEntry{Benchmarking gt_radmix() against ADMIXTURE and fastmixture}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE, purl = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+# the code of the benchmark is in scripts in the directory code (one to
+# prepare the data, one to run the programs from the command line, with the
+# scripts it runs for gt_radmix() and OpenADMIXTURE.jl, and one to run
+# gt_radmix() in an R session), from which the chunks below are read
+# (purl = FALSE because pkgdown purls this file from the package root when
+# looking for images, where these relative paths do not exist)
+knitr::read_chunk("code/admixture_benchmark_data.R")
+knitr::read_chunk("code/admixture_benchmark_cli.sh")
+knitr::read_chunk("code/admixture_benchmark_radmix_cli.R")
+knitr::read_chunk("code/admixture_benchmark_openadmixture.jl")
+knitr::read_chunk("code/admixture_benchmark_radmix.R")
+# the directory with the results of the benchmark (data/admixture_benchmark,
+# or data/admixture_benchmark_quick for the results of a quick run)
+results_dir <- params$results_dir
+```
+
+> **Note:** the results shown in this article are, for now, those of a
+> small subset of the data (see [The data](#the-data)), run on a laptop
+> with 4 cores, to check the benchmark. They will be replaced by those of
+> the full benchmark.
+
+`gt_radmix()` estimates ancestry proportions with the method of ADMIXTURE
+(Alexander et al. 2009), directly from the backing file of a `gen_tibble`.
+It uses a modified version of the algorithm of OpenADMIXTURE (Ko et al.
+2023), whose C++ code was initially ported from OpenADMIXTURE.jl, and subsequently
+modified and optimised for performance whilst keeping the same outputs. We also
+implemented the cross-validation of ADMIXTURE, which is not part of
+OpenADMIXTURE. This article compares `gt_radmix()` with three programs that fit the
+same model: ADMIXTURE itself, fastmixture (Santander et al. 2024), and
+OpenADMIXTURE.jl, the Julia implementation of OpenADMIXTURE (without its
+selection of ancestry informative markers). The comparison uses the Human
+Genome Diversity Project (HGDP). It checks that the programs find the same
+ancestry proportions, and measures how long each takes on different
+numbers of cores, with and without cross-validation (which OpenADMIXTURE.jl
+does not have).
+
+All the programs are timed from the command line, each run being a new
+process that starts the program, reads the data and saves the results.
+`gt_radmix()` is also timed in an R session, and OpenADMIXTURE.jl in a
+Julia session, in which the package is already loaded (see
+[How long do they take?](#how-long-do-they-take)).
+
+The [results](#results) come first. The second part,
+[How the benchmark was run](#how-the-benchmark-was-run), describes the data
+and the runs, with their code, and how to run the benchmark again.
+
+# Results
+
+```{r results_packages, include = FALSE}
+# to summarise and plot the results
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+```{r read_results, include = FALSE}
+# each program, and how it is run (from the command line, or in an R or
+# Julia session), in the order of the tables and plots
+tool_labels <- c(
+  radmix_cli = "gt_radmix() (command line)",
+  radmix = "gt_radmix() (R session)",
+  admixture = "ADMIXTURE",
+  fastmixture = "fastmixture",
+  openadmixture_cli = "OpenADMIXTURE.jl (command line)",
+  openadmixture = "OpenADMIXTURE.jl (Julia session)"
+)
+# the program of each of them
+tool_program <- c(
+  radmix_cli = "radmix", radmix = "radmix", admixture = "admixture",
+  fastmixture = "fastmixture", openadmixture_cli = "openadmixture",
+  openadmixture = "openadmixture"
+)
+program_labels <- c(
+  radmix = "gt_radmix()",
+  admixture = "ADMIXTURE",
+  fastmixture = "fastmixture",
+  openadmixture = "OpenADMIXTURE.jl"
+)
+# one row per run, with its time, log-likelihood, cross-validation error
+# and number of iterations, and the name of the files of its Q matrix and
+# log (e.g. admixture_t4_cv for ADMIXTURE on 4 cores with cross-validation)
+timings <- bind_rows(
+  read.csv(file.path(results_dir, "timings_cli.csv")),
+  read.csv(file.path(results_dir, "timings_radmix.csv"))
+) %>%
+  mutate(
+    run = paste0(tool, "_t", n_cores, if_else(crossval, "_cv", "_nocv")),
+    tool = factor(tool, names(tool_labels))
+  )
+# the machine and software, and the size of the data
+session_cli <- read.csv(file.path(results_dir, "session_cli.csv"))
+session_r <- read.csv(file.path(results_dir, "session_r.csv"))
+session_value <- function(session, item) session$value[session$item == item]
+n_indiv <- as.integer(session_value(session_cli, "individuals"))
+# the numbers of cores, e.g. "1, 2 and 4"
+cores_text <- knitr::combine_words(
+  sort(unique(timings$n_cores)),
+  oxford_comma = FALSE
+)
+n_loci <- as.integer(session_value(session_cli, "loci"))
+# the population and region of the individual of each row of the Q matrices
+individuals <- read.csv(file.path(results_dir, "individuals.csv"))
+```
+
+```{r align_q, include = FALSE}
+# the Q matrix of a run
+read_q <- function(run) {
+  as.matrix(read.table(file.path(results_dir, "Q", paste0(run, ".Q"))))
+}
+# all the permutations of 1:n, one per row
+permutations <- function(n) {
+  if (n == 1) {
+    return(matrix(1L))
+  }
+  smaller <- permutations(n - 1)
+  do.call(rbind, lapply(seq_len(n), function(first) {
+    others <- setdiff(seq_len(n), first)
+    cbind(first, matrix(others[smaller], ncol = n - 1))
+  }))
+}
+# the clusters of different runs are numbered arbitrarily, so the columns of
+# a Q matrix are reordered to best match those of a reference (with the
+# smallest sum of squared differences, trying all the permutations)
+align_q <- function(q, reference) {
+  perms <- permutations(ncol(q))
+  ssd <- apply(perms, 1, function(perm) sum((q[, perm] - reference)^2))
+  unname(q[, perms[which.min(ssd), ]])
+}
+```
+
+```{r agreement, include = FALSE}
+# the reference: ADMIXTURE on the fewest cores, without cross-validation
+min_cores <- min(timings$n_cores)
+max_cores <- max(timings$n_cores)
+reference_run <- paste0("admixture_t", min_cores, "_nocv")
+q_ref <- read_q(reference_run)
+k <- ncol(q_ref)
+# the Q matrix of each run, with its clusters in the order of the reference
+q_aligned <- lapply(
+  setNames(timings$run, timings$run),
+  function(run) align_q(read_q(run), q_ref)
+)
+max_diff <- function(a, b) max(abs(a - b))
+rmse <- function(a, b) sqrt(mean((a - b)^2))
+# for each run, the difference in log-likelihood from the reference, the
+# largest difference in the ancestry proportions from the run of the same
+# program on the fewest cores without cross-validation, and the RMSE and
+# largest difference from the reference
+agreement <- timings %>%
+  mutate(
+    own_run = paste0(tool, "_t", min_cores, "_nocv"),
+    loglik_diff = loglik - loglik[run == reference_run],
+    diff_own = mapply(
+      function(run, own_run) max_diff(q_aligned[[run]], q_aligned[[own_run]]),
+      run, own_run
+    ),
+    rmse_ref = vapply(run, function(r) rmse(q_aligned[[r]], q_ref), 0),
+    diff_ref = vapply(run, function(r) max_diff(q_aligned[[r]], q_ref), 0)
+  )
+```
+
+```{r numbers, include = FALSE}
+# numbers for the text: the time of a run, the agreement of a program with
+# ADMIXTURE (on the fewest cores, without cross-validation), and the largest
+# difference between the runs of a program
+time_of <- function(tool, n_cores = min_cores, crossval = FALSE) {
+  timings$seconds[
+    timings$tool == tool & timings$n_cores == n_cores &
+      timings$crossval == crossval
+  ]
+}
+format_seconds <- function(x) {
+  formatC(signif(x, 3), format = "fg", digits = 3, big.mark = ",")
+}
+format_diff <- function(x) {
+  ifelse(x == 0, "0", formatC(signif(x, 2), format = "fg", digits = 2))
+}
+agreement_of <- function(tool, column) {
+  agreement[[column]][agreement$run == paste0(tool, "_t", min_cores, "_nocv")]
+}
+runs_differ_by <- function(tool) {
+  diff <- max(agreement$diff_own[agreement$tool == tool])
+  if (diff == 0) {
+    "identical ancestry proportions"
+  } else {
+    paste("ancestry proportions that differ by up to", format_diff(diff))
+  }
+}
+# the time taken to start R and load tidygenclust, and to start Julia, load
+# OpenADMIXTURE.jl and compile its code: the median difference between the
+# runs from the command line and in a session (with the same settings)
+startup_of <- function(program) {
+  runs <- timings[tool_program[as.character(timings$tool)] == program, ]
+  cli <- runs[grepl("_cli$", runs$tool), ]
+  session <- runs[!grepl("_cli$", runs$tool), ]
+  setting <- function(x) paste(x$n_cores, x$crossval)
+  session_seconds <- session$seconds[match(setting(cli), setting(session))]
+  median(cli$seconds - session_seconds, na.rm = TRUE)
+}
+# the runs that ended at a lower log-likelihood than ADMIXTURE (by more than
+# 1), and so at another local optimum
+local_optima <- agreement %>%
+  filter(loglik_diff < -1) %>%
+  mutate(
+    label = paste0(
+      tool_labels[as.character(tool)], " on ", n_cores,
+      if_else(n_cores == 1, " core", " cores"),
+      if_else(crossval, " with cross-validation", "")
+    )
+  )
+local_optima_text <- if (nrow(local_optima) == 0) {
+  paste(
+    "Here, all the runs reached the log-likelihood of ADMIXTURE, to within",
+    "1."
+  )
+} else {
+  paste0(
+    "Here, this happened to ", nrow(local_optima),
+    if_else(nrow(local_optima) == 1, " run", " runs"), " (",
+    paste(local_optima$label, collapse = "; "),
+    "), whose log-likelihood is lower than that of ADMIXTURE by up to ",
+    format_diff(max(-local_optima$loglik_diff)), "."
+  )
+}
+```
+
+## Summary
+
+The four programs estimated the ancestry proportions of `r n_indiv`
+individuals of the HGDP, typed at `r format(n_loci, big.mark = ",")` loci,
+for K = `r k` ancestral populations (see [The data](#the-data)):
+
+- From the command line, on `r min_cores` core, without cross-validation,
+  `gt_radmix()` took `r format_seconds(time_of("radmix_cli"))` s,
+  ADMIXTURE `r format_seconds(time_of("admixture"))` s, fastmixture
+  `r format_seconds(time_of("fastmixture"))` s and OpenADMIXTURE.jl
+  `r format_seconds(time_of("openadmixture_cli"))` s; on `r max_cores`
+  cores, they took `r format_seconds(time_of("radmix_cli", max_cores))` s,
+  `r format_seconds(time_of("admixture", max_cores))` s,
+  `r format_seconds(time_of("fastmixture", max_cores))` s and
+  `r format_seconds(time_of("openadmixture_cli", max_cores))` s.
+- Starting R and loading `tidygenclust` took about
+  `r format_seconds(startup_of("radmix"))` s of the time of `gt_radmix()`
+  from the command line. Starting Julia, loading OpenADMIXTURE.jl and
+  compiling its code took about
+  `r format_seconds(startup_of("openadmixture"))` s: in a Julia session in
+  which OpenADMIXTURE.jl has already been used, its fit took
+  `r format_seconds(time_of("openadmixture"))` s on `r min_cores` core.
+- Compared with ADMIXTURE (on `r min_cores` core, without
+  cross-validation), the log-likelihood of `gt_radmix()` differs by
+  `r format_diff(agreement_of("radmix", "loglik_diff"))`, that of
+  fastmixture by `r format_diff(agreement_of("fastmixture", "loglik_diff"))`,
+  and that of OpenADMIXTURE.jl by
+  `r format_diff(agreement_of("openadmixture", "loglik_diff"))`. Their
+  ancestry proportions differ from those of ADMIXTURE by up to
+  `r format_diff(agreement_of("radmix", "diff_ref"))`,
+  `r format_diff(agreement_of("fastmixture", "diff_ref"))` and
+  `r format_diff(agreement_of("openadmixture", "diff_ref"))` respectively.
+- Across numbers of cores, with and without cross-validation,
+  `gt_radmix()` gives `r runs_differ_by("radmix")`, ADMIXTURE
+  `r runs_differ_by("admixture")`, fastmixture
+  `r runs_differ_by("fastmixture")`, and OpenADMIXTURE.jl (without
+  cross-validation) `r runs_differ_by("openadmixture")`.
+
+## Do the programs find the same ancestry proportions?
+
+All the programs maximise the same likelihood, but each starts from its
+own random values and stops according to its own convergence criterion.
+Each run is compared with ADMIXTURE on `r min_cores` core without
+cross-validation, after matching its clusters to those of ADMIXTURE:
+
+```{r table_agreement, echo = FALSE}
+agreement %>%
+  arrange(tool, n_cores, crossval) %>%
+  mutate(
+    tool = tool_labels[as.character(tool)],
+    crossval = if_else(crossval, "yes", "no"),
+    loglik = formatC(loglik, format = "f", digits = 2, big.mark = ","),
+    across(c(loglik_diff, diff_own, rmse_ref, diff_ref), format_diff)
+  ) %>%
+  select(
+    tool, n_cores, crossval, loglik, loglik_diff, diff_own, rmse_ref, diff_ref
+  ) %>%
+  knitr::kable(
+    col.names = c(
+      "Program", "Cores", "CV", "Log-likelihood", "Difference",
+      "Largest difference (same program)", "RMSE (ADMIXTURE)",
+      "Largest difference (ADMIXTURE)"
+    ),
+    align = "lllrrrrr",
+    caption = paste0(
+      "Log-likelihood of each run (fastmixture reports it with one decimal), ",
+      "and its difference from that of ADMIXTURE on ", min_cores, " core ",
+      "without cross-validation (CV; positive when higher). ",
+      "Largest absolute difference between the ancestry proportions of each ",
+      "run and those of the same program on ", min_cores, " core without ",
+      "CV, and root mean square error (RMSE) and largest absolute difference ",
+      "from those of ADMIXTURE on ", min_cores, " core without CV. The Q ",
+      "matrices are stored with 6 decimals, so differences smaller than ",
+      "1e-6 do not show."
+    )
+  )
+```
+
+Each program was run once for each number of cores, from a single random
+start (with seed 1, but each program draws its own random values), so a
+run can end at another local optimum of the likelihood, with a lower
+log-likelihood and different ancestry proportions.
+`r local_optima_text`
+
+The ancestry proportions from each program (on `r min_cores` core, without
+cross-validation, and in a session for `gt_radmix()` and
+OpenADMIXTURE.jl), with the individuals grouped by region and population:
+
+```{r plot_q, echo = FALSE, fig.width = 7, fig.height = 5.5}
+# the regions of the HGDP, from west to east
+region_levels <- c(
+  "Africa", "Middle_East", "Europe", "Central_South_Asia", "East_Asia",
+  "Oceania", "America"
+)
+# the individuals are ordered by region and population, and, within each
+# population, by the ancestry (in the reference) from its main cluster
+main_cluster <- vapply(
+  split(seq_len(nrow(q_ref)), individuals$population),
+  function(rows) which.max(colMeans(q_ref[rows, , drop = FALSE])),
+  integer(1)
+)
+main_ancestry <- q_ref[cbind(
+  seq_len(nrow(q_ref)),
+  main_cluster[individuals$population]
+)]
+indiv_order <- order(
+  factor(individuals$region, region_levels),
+  individuals$population,
+  -main_ancestry
+)
+q_long <- bind_rows(lapply(names(program_labels), function(tool) {
+  q <- q_aligned[[paste0(tool, "_t", min_cores, "_nocv")]][indiv_order, ]
+  data.frame(
+    tool = tool,
+    individual = rep(seq_len(nrow(q)), k),
+    region = rep(individuals$region[indiv_order], k),
+    cluster = factor(rep(seq_len(k), each = nrow(q))),
+    proportion = as.vector(q)
+  )
+})) %>%
+  mutate(
+    tool = factor(tool, names(program_labels)),
+    region = factor(region, region_levels)
+  )
+# one colour per cluster (from the Okabe-Ito palette)
+cluster_colours <- c(
+  "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00",
+  "#CC79A7", "#999999"
+)
+ggplot(q_long, aes(x = individual, y = proportion, fill = cluster)) +
+  geom_col(width = 1) +
+  facet_grid(
+    tool ~ region,
+    scales = "free_x",
+    space = "free_x",
+    labeller = labeller(
+      tool = program_labels,
+      region = function(x) gsub("_", " ", x)
+    )
+  ) +
+  scale_fill_manual(values = cluster_colours, guide = "none") +
+  scale_x_continuous(breaks = NULL, expand = c(0, 0)) +
+  scale_y_continuous(breaks = NULL, expand = c(0, 0)) +
+  labs(x = NULL, y = NULL) +
+  theme_minimal() +
+  theme(
+    panel.spacing.x = unit(0.1, "lines"),
+    strip.text.x = element_text(angle = 90, hjust = 0),
+    strip.text.y = element_text(angle = 0, hjust = 0)
+  )
+```
+
+## How long do they take?
+
+The times of ADMIXTURE and fastmixture are those of runs from the command
+line: each run is a new process, which starts the program, reads the bed
+file and writes the estimates of Q and P to text files. `gt_radmix()` and
+OpenADMIXTURE.jl are timed in the same way, with `Rscript` and `julia`
+(command line), and also in a session, where R or Julia is already running
+with the package loaded:
+
+- for `gt_radmix()`, the time of reading the bed file into a `gen_tibble`
+  (and its backing file), running `gt_radmix()`, and saving the resulting
+  `gt_admix` object, with Q and P, to an RDS file. In an analysis with
+  several values of K, or several runs, the `gen_tibble` would only be read
+  once;
+- for OpenADMIXTURE.jl, the time of its fit (including reading the bed file
+  and writing Q and P), measured in Julia after a first, untimed run on a
+  small subset of the data. Julia compiles the code of a function the first
+  time it is called, so this is the time of a fit in a Julia session in
+  which OpenADMIXTURE.jl has already been used.
+
+```{r plot_timings, echo = FALSE, fig.width = 7, fig.height = 4.5}
+# one colour per program, and one type of line per way of running it
+program_colours <- c(
+  radmix = "#2a78d6",
+  admixture = "#eb6834",
+  fastmixture = "#1baf7a",
+  openadmixture = "#eda100"
+)
+setting_labels <- c(
+  cli = "Command line",
+  session = "Session (R or Julia)"
+)
+timings %>%
+  mutate(
+    program = factor(tool_program[as.character(tool)], names(program_labels)),
+    setting = factor(
+      if_else(tool %in% c("radmix", "openadmixture"), "session", "cli"),
+      names(setting_labels)
+    ),
+    crossval = if_else(
+      crossval,
+      "With cross-validation",
+      "Without cross-validation"
+    ),
+    crossval = factor(
+      crossval,
+      c("Without cross-validation", "With cross-validation")
+    )
+  ) %>%
+  ggplot(aes(
+    x = n_cores, y = seconds, colour = program, linetype = setting,
+    group = tool
+  )) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2.5) +
+  facet_wrap(~crossval) +
+  scale_x_continuous(breaks = sort(unique(timings$n_cores))) +
+  scale_y_log10() +
+  scale_colour_manual(values = program_colours, labels = program_labels) +
+  scale_linetype_manual(
+    values = c(cli = "solid", session = "22"),
+    labels = setting_labels
+  ) +
+  labs(
+    x = "Cores", y = "Time (s, log scale)", colour = NULL, linetype = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.minor = element_blank(),
+    legend.position = "top",
+    legend.box = "vertical",
+    legend.margin = margin(0, 0, 0, 0)
+  )
+```
+
+```{r table_timings, echo = FALSE}
+timings %>%
+  group_by(tool, crossval) %>%
+  mutate(speed_up = seconds[n_cores == min_cores] / seconds) %>%
+  ungroup() %>%
+  select(tool, n_cores, crossval, seconds, speed_up) %>%
+  pivot_wider(names_from = crossval, values_from = c(seconds, speed_up)) %>%
+  arrange(tool, n_cores) %>%
+  mutate(
+    tool = tool_labels[as.character(tool)],
+    across(
+      starts_with("seconds"),
+      ~ if_else(is.na(.x), "-", format_seconds(.x))
+    ),
+    across(
+      starts_with("speed_up"),
+      ~ if_else(is.na(.x), "-", formatC(.x, format = "f", digits = 1))
+    )
+  ) %>%
+  select(
+    tool, n_cores, seconds_FALSE, speed_up_FALSE, seconds_TRUE, speed_up_TRUE
+  ) %>%
+  knitr::kable(
+    col.names = c(
+      "Program", "Cores", "Time (s)", "Speed-up", "Time with CV (s)",
+      "Speed-up with CV"
+    ),
+    align = "lrrrrr",
+    caption = paste0(
+      "Time (s) taken by each run, without and with cross-validation (CV), ",
+      "and speed-up relative to the run of the same program on ", min_cores,
+      " core. OpenADMIXTURE.jl has no cross-validation."
+    )
+  )
+```
+
+Starting R and loading `tidygenclust` adds about
+`r format_seconds(startup_of("radmix"))` s to each run of `gt_radmix()`
+from the command line. Starting Julia, loading OpenADMIXTURE.jl and
+compiling its code adds about
+`r format_seconds(startup_of("openadmixture"))` s to each run of
+OpenADMIXTURE.jl (these are the median differences between the runs from
+the command line and in a session).
+
+## Cross-validation errors
+
+```{r table_cv, echo = FALSE}
+timings %>%
+  filter(crossval) %>%
+  arrange(tool, n_cores) %>%
+  mutate(
+    tool = tool_labels[as.character(tool)],
+    cv_error = formatC(cv_error, format = "f", digits = 5)
+  ) %>%
+  select(tool, n_cores, cv_error) %>%
+  pivot_wider(names_from = n_cores, values_from = cv_error) %>%
+  knitr::kable(
+    col.names = c(
+      "Program",
+      paste(
+        sort(unique(timings$n_cores)),
+        if_else(sort(unique(timings$n_cores)) == 1, "core", "cores")
+      )
+    ),
+    align = "lrrr",
+    caption = "Cross-validation error of each program, on each number of cores."
+  )
+```
+
+OpenADMIXTURE.jl has no cross-validation: we implemented in `gt_radmix()`
+that of ADMIXTURE. ADMIXTURE and `gt_radmix()` compute the same
+cross-validation error (Alexander and Lange 2011): they hold out a fold of
+the genotypes, refit the model on the others, and average the deviance of
+the held-out genotypes.
+They draw the folds differently, so their errors are close but not
+identical. fastmixture averages the same deviance, but holds out a fold of
+the individuals rather than of the genotypes. The allele frequencies come
+from the other individuals, but the ancestry of the held-out individuals is
+estimated from their own genotypes, the same genotypes on which the error is
+then computed. Its errors can be compared between values of K, but not with
+those of the other two programs.
+
+# How the benchmark was run
+
+The benchmark is run with scripts in `vignettes/articles/code` (in the
+source code of the package). The first prepares the data. The second runs
+the programs from the command line: ADMIXTURE, fastmixture, and
+`gt_radmix()` and OpenADMIXTURE.jl with two more scripts, which `Rscript`
+and `julia` run. The last runs `gt_radmix()` in an R session. The results are read here from
+`vignettes/articles/data/admixture_benchmark`. Each run is done once, as the
+full runs take long enough for the variation between repeated runs to be
+small. The code shown below is taken from these scripts. Timings depend on
+the machine (see [Machine and software](#machine-and-software)), but the
+differences between the programs should be similar on other machines.
+
+## The data
+
+The data are those of the HGDP used in the benchmark of `tidypopgen`
+(1043 individuals typed at about 650,000 loci), downloaded from Zenodo:
+
+```{r download, eval = FALSE}
+```
+
+and prepared as recommended in the manual of ADMIXTURE. The steps are the
+same as in the analyses of the HGDP with `tidygenclust`:
+
+```{r filter, eval = FALSE}
+```
+
+```{r ld-clumping, eval = FALSE}
+```
+
+All the programs are run on this bed file. A small subset of it is also
+saved, to check the scripts quickly (see
+[Running the benchmark again](#running-the-benchmark-again)):
+
+```{r quick-data, eval = FALSE}
+```
+
+## Running the programs from the command line
+
+All the programs are run from the command line with the same settings:
+
+```{bash cli-settings, eval = FALSE}
+```
+
+Each program is run on `r cores_text` cores (with `-j` in ADMIXTURE,
+`--threads` in fastmixture, `n_cores` in `gt_radmix()` and the number of
+threads of Julia for OpenADMIXTURE.jl), with and without cross-validation
+(with `--cv` in ADMIXTURE and fastmixture, and `crossval` in
+`gt_radmix()`; OpenADMIXTURE.jl has none), with these functions:
+
+```{bash cli-functions, eval = FALSE}
+```
+
+and the time, Q matrix, log-likelihood, cross-validation error and number of
+iterations of each run are saved:
+
+```{bash cli-runs, eval = FALSE}
+```
+
+From the command line, `gt_radmix()` is run by this R script (with
+`Rscript`), which reads the same bed file into a `gen_tibble`, runs
+`gt_radmix()`, and saves the result to an RDS file:
+
+```{r r-cli, eval = FALSE}
+```
+
+and OpenADMIXTURE.jl by this Julia script (with `julia`), which runs it on
+all the loci, without its selection of ancestry informative markers, with
+its default settings, which are those of `gt_radmix()`:
+
+```{r julia-run, eval = FALSE, lang = "julia"}
+```
+
+## Running gt_radmix() in an R session
+
+`gt_radmix()` runs on a `gen_tibble`. Its parallel loops use OpenMP,
+with `n_cores` threads. It only calls BLAS for small systems of K
+equations, so BLAS is kept to a single thread:
+
+```{r r-packages, eval = FALSE}
+```
+
+It is run with the same settings as the other programs:
+
+```{r r-settings, eval = FALSE}
+```
+
+Each run reads the same bed file into a `gen_tibble`, runs
+`gt_radmix()`, and saves the result to an RDS file:
+
+```{r r-runs, eval = FALSE}
+```
+
+Each program stops when its own default convergence criterion is met.
+ADMIXTURE stops when the log-likelihood increases by less than 1e-4 between
+iterations. fastmixture checks every 5 iterations, and stops when the
+log-likelihood, divided by the number of observed genotypes, has increased
+by less than 1e-9. `gt_radmix()` and OpenADMIXTURE.jl stop when the
+relative change in the log-likelihood is less than 1e-7. The numbers of
+iterations are not comparable either. An iteration of fastmixture is a pass
+of accelerated EM updates, first over mini-batches of the loci. An
+iteration of ADMIXTURE, `gt_radmix()` and OpenADMIXTURE.jl updates all the
+parameters with block-wise Newton steps.
+
+## From the results to the tables and plots
+
+The results are read, and the Q matrices aligned and compared, with this
+code:
+
+```{r, ref.label = c("results_packages", "read_results", "align_q", "agreement"), eval = FALSE}
+```
+
+## Running the benchmark again
+
+To run the benchmark again (e.g. after changing `tidygenclust`, or on
+another machine), install `tidygenclust` with `R CMD INSTALL`, rather than
+loading it with `devtools::load_all()`, which compiles its C++ code without
+optimisation. Also install ADMIXTURE and fastmixture, e.g. in the conda
+environment created by `tgc_tools_install()`, and OpenADMIXTURE.jl, in the
+conda environment created (from the root of the package) by:
+
+```sh
+bash data-raw/radmix/setup_julia_env.sh
+```
+
+Then run, from `vignettes/articles`, on an otherwise idle machine with at
+least `r max_cores` cores (the largest number of cores tested, set by
+`cores` in the scripts):
+
+```sh
+cd vignettes/articles
+Rscript code/admixture_benchmark_data.R
+conda activate ctidygenclust
+bash code/admixture_benchmark_cli.sh
+Rscript code/admixture_benchmark_radmix.R
+```
+
+The first script downloads and prepares the data in `data/hgdp`, which is
+not part of the repository, and only needs to be run once. The other two
+overwrite the results in `data/admixture_benchmark`; then render this
+article again. With the argument `quick`, the last two scripts run
+everything on the small subset of the data, to check them in less time.
+They then save their results in `data/admixture_benchmark_quick`, which this
+article can be rendered on with:
+
+```r
+rmarkdown::render(
+  "admixture_benchmark.Rmd",
+  params = list(results_dir = "data/admixture_benchmark_quick")
+)
+```
+
+## Machine and software
+
+```{r table_session, echo = FALSE}
+bind_rows(
+  session_cli %>% filter(!item %in% c("individuals", "loci")),
+  session_r %>% filter(item %in% c("R", "BLAS", "tidygenclust", "tidypopgen"))
+) %>%
+  knitr::kable(col.names = c("", ""))
+```
+
+# References
+
+Alexander, D. H., Novembre, J. & Lange, K. (2009). Fast model-based
+estimation of ancestry in unrelated individuals. *Genome Research*, 19,
+1655-1664.
+
+Alexander, D. H. & Lange, K. (2011). Enhancements to the ADMIXTURE algorithm
+for individual ancestry estimation. *BMC Bioinformatics*, 12, 246.
+
+Ko, S., Chu, B. B., Peterson, D., Okenwa, C., Papp, J. C., Alexander, D. H.,
+Sobel, E. M., Zhou, H. & Lange, K. L. (2023). Unsupervised discovery of
+ancestry-informative markers and genetic admixture proportions in
+biobank-scale datasets. *The American Journal of Human Genetics*, 110,
+314-325.
+
+Santander, C. G., Refoyo Martinez, A. & Meisner, J. (2024). Faster
+model-based estimation of ancestry proportions. *Peer Community Journal*, 4,
+e115.

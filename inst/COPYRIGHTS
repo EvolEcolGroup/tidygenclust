@@ -1,0 +1,139 @@
+tidygenclust is distributed under the GPL (>= 3). It includes code derived
+from the following software, distributed under other licences: OpenADMIXTURE.jl
+(in gt_radmix()), and clumppling, python-louvain and markov_clustering (in
+gt_clumppling()).
+
+OpenADMIXTURE.jl
+----------------
+
+gt_radmix() uses a modified version of the algorithm of OpenADMIXTURE (Ko et
+al. 2023), and much of its C++ code (src/radmix_*.cpp and src/radmix_*.h) is
+ported from the Julia package OpenADMIXTURE.jl
+(https://github.com/OpenMendel/OpenADMIXTURE.jl, commit
+401ac5c4056f0f6f2a7ea6ffc3af69c2b1e56fdc), which is distributed under the
+MIT licence:
+
+MIT License
+
+Copyright (c) 2022 Seyoon Ko <kos@ucla.edu>, Kenneth Lange <klange@ucla.edu> and contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+clumppling
+----------
+
+gt_clumppling() implements the method of clumppling (Liu, Kopelman and
+Rosenberg 2024), and its R and C++ code (R/gt_clumppling.R,
+R/clumppling_*.R, src/clumppling_assignment.cpp) is ported, with
+modifications, from the python package clumppling, version 2.0.10
+(https://github.com/PopGenClustering/Clumppling), whose author is Xiran Liu.
+clumppling is distributed under the MIT licence (as stated in its
+pyproject.toml; its repository includes no licence file with a copyright
+notice), whose terms are:
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+python-louvain
+--------------
+
+The default community detection method of gt_clumppling() ('louvain',
+src/clumppling_louvain.cpp) is a C++ port of best_partition() of the python
+package python-louvain, version 0.16 (https://github.com/taynaud/python-louvain),
+which clumppling uses through cdlib. python-louvain is distributed under the
+following licence:
+
+Copyright (c) 2009-2018, Thomas Aynaud <thomas.aynaud@lip6.fr>
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+* Neither the name of the python-louvain Developers nor the names of its
+contributors may be used to endorse or promote products derived from this
+software without specific prior written permission.
+
+
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+markov_clustering
+-----------------
+
+The 'markov_clustering' community detection method of gt_clumppling()
+(clumppling_mcl() in R/clumppling_community.R) is a port of the python
+package markov_clustering (https://github.com/GuyAllard/markov_clustering),
+which clumppling uses through cdlib. markov_clustering is distributed under
+the MIT licence:
+
+Copyright (c) 2017 Guy Allard <w.g.allard@lumc.nl>
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

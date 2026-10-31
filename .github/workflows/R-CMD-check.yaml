@@ -2,7 +2,7 @@
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
 
 name: R-CMD-check.yaml
@@ -13,7 +13,7 @@ jobs:
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
 
-    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
+    name: ${{ matrix.config.os }} (${{ matrix.config.r }}${{ matrix.config.tools == 'none' && ', no tools' || '' }})
 
     strategy:
       fail-fast: false
@@ -21,10 +21,14 @@ jobs:
         config:
           - {os: macos-14,   r: 'release',  py: "3.11" }
           - {os: macos-latest,   r: 'release',  py: "3.11" }
-#          - {os: windows-latest, r: 'release',  py: "3.11" }
+          # the optional tools cannot be installed on windows
+          - {os: windows-latest, r: 'release',  py: "3.11",  tools: 'none' }
           - {os: ubuntu-latest,   r: 'devel',  py: "3.11",  http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
           - {os: ubuntu-latest,   r: 'oldrel-1',  py: "3.11" }
+          # check that everything works without the optional tools (and
+          # without conda)
+          - {os: ubuntu-latest,   r: 'release',  py: "3.11",  tools: 'none' }
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -34,7 +38,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      # without the optional tools, conda is not installed, as on a machine
+      # where tidygenclust is installed without them
       - uses: conda-incubator/setup-miniconda@v3
+        if: matrix.config.tools != 'none'
         with:
           auto-update-conda: true
           python-version: ${{ matrix.config.py }}
@@ -61,8 +68,9 @@ jobs:
           brew install llvm
 
       - name: install tools
+        if: matrix.config.tools != 'none'
         run: |
-          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install(ci_install = TRUE)'
+          Rscript -e 'source("./R/tgc_tools_install.R"); tgc_tools_install(reset = TRUE, ci_install = TRUE)'
 
       - uses: r-lib/actions/check-r-package@v2
         with:

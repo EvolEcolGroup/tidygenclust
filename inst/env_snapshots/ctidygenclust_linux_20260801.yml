@@ -1,0 +1,49 @@
+name: ctidygenclust
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - _openmp_mutex=4.5
+  - admixture=1.3.0
+  - bzip2=1.0.8
+  - ca-certificates=2026.7.22
+  - cython=3.2.9
+  - icu=78.3
+  - ld_impl_linux-64=2.46.1
+  - libblas=3.11.0
+  - libcblas=3.11.0
+  - libffi=3.7.0
+  - libgcc=16.1.0
+  - libgcc-ng=16.1.0
+  - libgfortran=16.1.0
+  - libgfortran5=16.1.0
+  - libgomp=16.1.0
+  - liblapack=3.11.0
+  - liblzma=5.8.3
+  - liblzma-devel=5.8.3
+  - libnsl=2.0.1
+  - libopenblas=0.3.33
+  - libsqlite=3.53.4
+  - libstdcxx=16.1.0
+  - libuuid=2.42.2
+  - libzlib=1.3.2
+  - ncurses=6.6
+  - numpy=2.4.6
+  - openssl=3.6.3
+  - packaging=26.2
+  - pip=26.2
+  - python=3.11.0
+  - python_abi=3.11
+  - readline=8.3
+  - setuptools=83.0.0
+  - tk=8.6.13
+  - tzdata=2026c
+  - wheel=0.47.0
+  - xz=5.8.3
+  - xz-gpl-tools=5.8.3
+  - xz-tools=5.8.3
+  - zstd=1.5.7
+  - pip:
+      - fastmixture==1.3.0
+prefix: /usr/share/miniconda/envs/ctidygenclust

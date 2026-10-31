@@ -1,67 +1,39 @@
-#' Print version of the python tools installed by `tidygenclust`
-#' @description This function prints the version of the python tools installed
-#'   by `tidygenclust`
-#' @return A list with the version of the python tools installed by
+#' Print version of the optional tools installed by `tidygenclust`
+#' @description This function returns the version of the optional tools
+#'   installed by [tgc_tools_install()]: `fastmixture` and `ADMIXTURE`. Tools
+#'   that are not installed have version NA.
+#' @return A list with the version of the optional tools installed by
 #' `tidygenclust`
 #' @export
 
 tgc_tools_version <- function() {
-  # use pip, as the fastmixture cli fails to parse on python < 3.12
-  fast_ver <- tryCatch(
-    reticulate::conda_run2(
-      cmd = "pip",
-      args = c("show fastmixture | grep Version"),
-      envname = "ctidygenclust",
-      echo = FALSE,
-      intern = TRUE
-    ),
-    error = function(e) NA,
-    warning = function(w) NA
-  )
-
-  clump_ver <- tryCatch(
-    reticulate::conda_run2(
-      cmd = "pip",
-      args = c("show clumppling | grep Version"),
-      envname = "cclumppling",
-      echo = FALSE,
-      intern = TRUE
-    ),
-    error = function(e) NA,
-    warning = function(w) NA
-  )
-
-  ada_ver <- tryCatch(
-    reticulate::conda_run2(
-      cmd = "pip",
-      args = c("show adamixture | grep Version"),
-      envname = "ctidygenclust",
-      echo = FALSE,
-      intern = TRUE
-    ),
-    error = function(e) NA,
-    warning = function(w) NA
-  )
-
-  tgc_vers <- list(
-    fastmixture = fast_ver, clumppling = clump_ver,
-    adamixture = ada_ver
-  )
-
-  if (.Platform$OS.type %in% c("unix", "darwin")) {
-    adm_ver <- tryCatch(
+  # run a command in the conda environment of a tool, returning NA if the
+  # tool is not installed
+  tool_output <- function(tool, cmd, args) {
+    if (!tgc_tool_installed(tool)) {
+      return(NA)
+    }
+    # the output lines of the command (a non-zero exit status gives a
+    # warning, which is also turned into NA)
+    tryCatch(
       reticulate::conda_run2(
-        cmd = "admixture",
-        args = c("--version"),
-        envname = "ctidygenclust",
+        cmd = cmd,
+        args = args,
+        envname = tgc_tool_env(tool),
         echo = FALSE,
         intern = TRUE
       ),
       error = function(e) NA,
       warning = function(w) NA
     )
-
-    tgc_vers[["admixture"]] <- adm_ver[length(adm_ver)]
   }
-  return(tgc_vers)
+
+  fast_ver <- tool_output("fastmixture", "fastmixture", "--version")
+  # ADMIXTURE prints a banner before its version number, which is the last
+  # line of the output
+  adm_ver <- tool_output("admixture", "admixture", "--version")
+  list(
+    fastmixture = fast_ver,
+    admixture = adm_ver[length(adm_ver)]
+  )
 }

@@ -7,4 +7,13 @@ tidygenclust.Rproj
 /data-raw/hgdp/
 .DS_Store
 .positai
-test_adamixture_run.R
+/check/
+/data-raw/radmix/data/
+src/*.o
+src/*.so
+src/*.dll
+__pycache__/
+/vignettes/articles/data/hgdp/
+# the results of the benchmark are shown by the article, but the logs of the
+# runs are not (and they include local paths)
+/vignettes/articles/data/admixture_benchmark*/logs/

@@ -1,6 +1,6 @@
 Package: tidygenclust
 Title: Clustering for Population Genetics in R
-Version: 0.1.1
+Version: 0.1.5.9004
 Authors@R: c(
     person("Eirlys", "Tysall", role = c("aut")),
     person("Anahit", "Hovhannisyan", role = c("aut")),
@@ -12,35 +12,82 @@ Authors@R: c(
     person("Ondrej", "Pelanek", role = c("aut")),
     person("Nile", "Stephenson", role = c("aut")),
     person("Margherita", "Colucci", role = c("aut")),
-        person("Andrea", "Manica", , "am315@cam.ac.uk", role = c("aut", "cre"),
-           comment = c(ORCID = "0000-0003-1895-450X"))
+    person("Andrea", "Manica", , "am315@cam.ac.uk", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0003-1895-450X")),
+    person("Seyoon", "Ko", role = "cph",
+           comment = paste("Copyright holder of OpenADMIXTURE.jl, from which",
+                           "much of the C++ code of gt_radmix() is ported",
+                           "(see inst/COPYRIGHTS)")),
+    person("Kenneth", "Lange", role = "cph",
+           comment = paste("Copyright holder of OpenADMIXTURE.jl, from which",
+                           "much of the C++ code of gt_radmix() is ported",
+                           "(see inst/COPYRIGHTS)")),
+    person("Xiran", "Liu", role = "cph",
+           comment = paste("Author of clumppling, from which the code of",
+                           "gt_clumppling() is ported (see inst/COPYRIGHTS)")),
+    person("Thomas", "Aynaud", role = "cph",
+           comment = paste("Copyright holder of python-louvain, from which",
+                           "the Louvain method of gt_clumppling() is ported",
+                           "(see inst/COPYRIGHTS)")),
+    person("Guy", "Allard", role = "cph",
+           comment = paste("Copyright holder of markov_clustering, from",
+                           "which the Markov clustering of gt_clumppling()",
+                           "is ported (see inst/COPYRIGHTS)"))
     )
-Description: A tidy interface to clustering in population genetics. This package provides a set of
-  functions to perform clustering on genetic data, and to visualize the results, both for single
-  runs and for multiple repeats of the same analysis. 'tidygenclust' ports the 'fastmixture' 
-  and 'clumppling' python modules to R, and it is built on top of the 'tidypopgen' package.
-  Currently it works only on Linux and OSX (you can use the WSL on Windows).
+Description: A tidy interface for population genetic clustering. This package
+   provides a unified workflow to estimate, compare, summarize, and
+   visualize genetic clustering analyses, supporting both single runs and
+   collections of replicate analyses. It is designed to work natively with
+   diploid and pseudohaploid data, and integrates seamlessly with the
+   tidypopgen ecosystem. The package includes native R/C++ implementations of the 
+   ancestry estimation method of ADMIXTURE (Alexander et al. 2009), using a
+   modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023),
+   adapted to operate directly on the backing files of tidypopgen objects
+   while correctly handling pseudohaploid data, and extended with the
+   cross-validation of ADMIXTURE, and of
+   the cluster-alignment method of clumppling 
+   (Liu, Kopelman & Rosenberg 2024), ported with modifications from its
+   python implementation, for the comparison of multiple clustering runs. Optionally, tidygenclust can also run external clustering
+   software, including fastmixture and ADMIXTURE, which are installed 
+   automatically in a dedicated conda environment (the conda environment only
+   works in Linux and macOS).
 License: GPL (>= 3)
+Copyright: See inst/COPYRIGHTS for the code ported from OpenADMIXTURE.jl,
+    clumppling, python-louvain and markov_clustering.
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends: 
-    R (>= 3.5.0)
+    R (>= 3.6.0)
 Imports:
     dplyr,
     generics,
-    ggplot2,
-    patchwork,
+    ggplot2 (>= 3.4.0),
+    patchwork (>= 1.2.0),
+    Rcpp,
     reticulate,
     rlang,
+    stats,
     tibble,
     tidypopgen,
     tidyr,
-    utils
+    utils,
+    vctrs
+LinkingTo:
+    bigstatsr,
+    Rcpp,
+    RcppArmadillo,
+    rmio
 Suggests: 
+    data.table,
+    igraph,
     knitr,
+    numDeriv,
+    quadprog,
     readr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    tidyselect,
+    withr
 LazyData: true
 VignetteBuilder: knitr
 Config/testthat/edition: 3

@@ -15,19 +15,21 @@
 \item{x}{the \code{\link{gt_clumppling}} object}
 
 \item{matrix}{a string defining the information to be extracted, one of:
-"modes", "major_modes", "Q_modes", "Q_major_modes".}
+"modes", "major_modes", "Q_modes" (or "q_modes"), "Q_major_modes" (or
+"q_major_modes").}
 
 \item{...}{Additional arguments. Not used. Needed to match generic signature
 only.}
 }
 \value{
-a \link[tibble:tibble]{tibble::tibble} of the information of interest
+a \link[tibble:tibble]{tibble::tibble} of the information of interest (for "Q_modes"
+and "Q_major_modes", a named list of tibbles, one per mode)
 }
 \description{
 A \code{tidy} method to extract information from a \code{\link{gt_clumppling}} object, and
 return it as a tibble. It can extract:
 \itemize{
-\item 'modes': all the modes detected by \code{\link[=gt_clumppling]{gt_clumppling()}}. The models have label
+\item 'modes': all the modes detected by \code{\link[=gt_clumppling]{gt_clumppling()}}. The modes have label
 'KxMy', where 'x' and 'y' represent the K value and the mode rank.
 \item 'major_modes': modes of rank 1 for each K.
 \item 'Q_modes', 'q_modes': a list of q matrices, one per mode, each tidied
