@@ -1,5 +1,5 @@
 ---
-title: "Benchmarking gt_radmix() against ADMIXTURE and fastmixture"
+title: "Benchmarking gt_radmix() against ADMIXTURE, fastmixture and ADAMIXTURE"
 output:
   rmarkdown::html_vignette:
     toc: true
@@ -7,7 +7,7 @@ output:
 params:
   results_dir: "data/admixture_benchmark_quick"
 vignette: >
-  %\VignetteIndexEntry{Benchmarking gt_radmix() against ADMIXTURE and fastmixture}
+  %\VignetteIndexEntry{Benchmarking gt_radmix() against ADMIXTURE, fastmixture and ADAMIXTURE}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -44,10 +44,11 @@ It uses a modified version of the algorithm of OpenADMIXTURE (Ko et al.
 2023), whose C++ code was initially ported from OpenADMIXTURE.jl, and subsequently
 modified and optimised for performance whilst keeping the same outputs. We also
 implemented the cross-validation of ADMIXTURE, which is not part of
-OpenADMIXTURE. This article compares `gt_radmix()` with three programs that fit the
-same model: ADMIXTURE itself, fastmixture (Santander et al. 2024), and
-OpenADMIXTURE.jl, the Julia implementation of OpenADMIXTURE (without its
-selection of ancestry informative markers). The comparison uses the Human
+OpenADMIXTURE. This article compares `gt_radmix()` with four programs that fit the
+same model: ADMIXTURE itself, fastmixture (Santander et al. 2024), ADAMIXTURE
+(Saurina-i-Ricos et al. 2026), and OpenADMIXTURE.jl, the Julia
+implementation of OpenADMIXTURE (without its selection of ancestry
+informative markers). The comparison uses the Human
 Genome Diversity Project (HGDP). It checks that the programs find the same
 ancestry proportions, and measures how long each takes on different
 numbers of cores, with and without cross-validation (which OpenADMIXTURE.jl
@@ -80,19 +81,21 @@ tool_labels <- c(
   radmix = "gt_radmix() (R session)",
   admixture = "ADMIXTURE",
   fastmixture = "fastmixture",
+  adamixture = "ADAMIXTURE",
   openadmixture_cli = "OpenADMIXTURE.jl (command line)",
   openadmixture = "OpenADMIXTURE.jl (Julia session)"
 )
 # the program of each of them
 tool_program <- c(
   radmix_cli = "radmix", radmix = "radmix", admixture = "admixture",
-  fastmixture = "fastmixture", openadmixture_cli = "openadmixture",
-  openadmixture = "openadmixture"
+  fastmixture = "fastmixture", adamixture = "adamixture",
+  openadmixture_cli = "openadmixture", openadmixture = "openadmixture"
 )
 program_labels <- c(
   radmix = "gt_radmix()",
   admixture = "ADMIXTURE",
   fastmixture = "fastmixture",
+  adamixture = "ADAMIXTURE",
   openadmixture = "OpenADMIXTURE.jl"
 )
 # one row per run, with its time, log-likelihood, cross-validation error
@@ -122,9 +125,13 @@ individuals <- read.csv(file.path(results_dir, "individuals.csv"))
 ```
 
 ```{r align_q, include = FALSE}
-# the Q matrix of a run
+# the Q matrix of a run, with 6 decimals (as written by ADMIXTURE and most
+# of the other programs; ADAMIXTURE writes 18 significant digits)
 read_q <- function(run) {
-  as.matrix(read.table(file.path(results_dir, "Q", paste0(run, ".Q"))))
+  round(
+    as.matrix(read.table(file.path(results_dir, "Q", paste0(run, ".Q")))),
+    6
+  )
 }
 # all the permutations of 1:n, one per row
 permutations <- function(n) {
@@ -189,7 +196,7 @@ time_of <- function(tool, n_cores = min_cores, crossval = FALSE) {
   ]
 }
 format_seconds <- function(x) {
-  formatC(signif(x, 3), format = "fg", digits = 3, big.mark = ",")
+  trimws(formatC(signif(x, 3), format = "fg", digits = 3, big.mark = ","))
 }
 format_diff <- function(x) {
   ifelse(x == 0, "0", formatC(signif(x, 2), format = "fg", digits = 2))
@@ -245,18 +252,20 @@ local_optima_text <- if (nrow(local_optima) == 0) {
 
 ## Summary
 
-The four programs estimated the ancestry proportions of `r n_indiv`
+The five programs estimated the ancestry proportions of `r n_indiv`
 individuals of the HGDP, typed at `r format(n_loci, big.mark = ",")` loci,
 for K = `r k` ancestral populations (see [The data](#the-data)):
 
 - From the command line, on `r min_cores` core, without cross-validation,
   `gt_radmix()` took `r format_seconds(time_of("radmix_cli"))` s,
   ADMIXTURE `r format_seconds(time_of("admixture"))` s, fastmixture
-  `r format_seconds(time_of("fastmixture"))` s and OpenADMIXTURE.jl
+  `r format_seconds(time_of("fastmixture"))` s, ADAMIXTURE
+  `r format_seconds(time_of("adamixture"))` s and OpenADMIXTURE.jl
   `r format_seconds(time_of("openadmixture_cli"))` s; on `r max_cores`
   cores, they took `r format_seconds(time_of("radmix_cli", max_cores))` s,
   `r format_seconds(time_of("admixture", max_cores))` s,
-  `r format_seconds(time_of("fastmixture", max_cores))` s and
+  `r format_seconds(time_of("fastmixture", max_cores))` s,
+  `r format_seconds(time_of("adamixture", max_cores))` s and
   `r format_seconds(time_of("openadmixture_cli", max_cores))` s.
 - Starting R and loading `tidygenclust` took about
   `r format_seconds(startup_of("radmix"))` s of the time of `gt_radmix()`
@@ -269,16 +278,20 @@ for K = `r k` ancestral populations (see [The data](#the-data)):
   cross-validation), the log-likelihood of `gt_radmix()` differs by
   `r format_diff(agreement_of("radmix", "loglik_diff"))`, that of
   fastmixture by `r format_diff(agreement_of("fastmixture", "loglik_diff"))`,
-  and that of OpenADMIXTURE.jl by
+  that of ADAMIXTURE by
+  `r format_diff(agreement_of("adamixture", "loglik_diff"))`, and that of
+  OpenADMIXTURE.jl by
   `r format_diff(agreement_of("openadmixture", "loglik_diff"))`. Their
   ancestry proportions differ from those of ADMIXTURE by up to
   `r format_diff(agreement_of("radmix", "diff_ref"))`,
-  `r format_diff(agreement_of("fastmixture", "diff_ref"))` and
+  `r format_diff(agreement_of("fastmixture", "diff_ref"))`,
+  `r format_diff(agreement_of("adamixture", "diff_ref"))` and
   `r format_diff(agreement_of("openadmixture", "diff_ref"))` respectively.
 - Across numbers of cores, with and without cross-validation,
   `gt_radmix()` gives `r runs_differ_by("radmix")`, ADMIXTURE
   `r runs_differ_by("admixture")`, fastmixture
-  `r runs_differ_by("fastmixture")`, and OpenADMIXTURE.jl (without
+  `r runs_differ_by("fastmixture")`, ADAMIXTURE
+  `r runs_differ_by("adamixture")`, and OpenADMIXTURE.jl (without
   cross-validation) `r runs_differ_by("openadmixture")`.
 
 ## Do the programs find the same ancestry proportions?
@@ -308,7 +321,8 @@ agreement %>%
     ),
     align = "lllrrrrr",
     caption = paste0(
-      "Log-likelihood of each run (fastmixture reports it with one decimal), ",
+      "Log-likelihood of each run (fastmixture and ADAMIXTURE report it with ",
+      "one decimal), ",
       "and its difference from that of ADMIXTURE on ", min_cores, " core ",
       "without cross-validation (CV; positive when higher). ",
       "Largest absolute difference between the ancestry proportions of each ",
@@ -331,7 +345,7 @@ The ancestry proportions from each program (on `r min_cores` core, without
 cross-validation, and in a session for `gt_radmix()` and
 OpenADMIXTURE.jl), with the individuals grouped by region and population:
 
-```{r plot_q, echo = FALSE, fig.width = 7, fig.height = 5.5}
+```{r plot_q, echo = FALSE, fig.width = 7, fig.height = 6.8}
 # the regions of the HGDP, from west to east
 region_levels <- c(
   "Africa", "Middle_East", "Europe", "Central_South_Asia", "East_Asia",
@@ -397,9 +411,11 @@ ggplot(q_long, aes(x = individual, y = proportion, fill = cluster)) +
 
 ## How long do they take?
 
-The times of ADMIXTURE and fastmixture are those of runs from the command
-line: each run is a new process, which starts the program, reads the bed
-file and writes the estimates of Q and P to text files. `gt_radmix()` and
+The times of ADMIXTURE, fastmixture and ADAMIXTURE are those of runs from
+the command line: each run is a new process, which starts the program, reads
+the bed file and writes the estimates of Q and P to text files (ADAMIXTURE
+also always draws a plot of the ancestry proportions, which is included in
+its time). `gt_radmix()` and
 OpenADMIXTURE.jl are timed in the same way, with `Rscript` and `julia`
 (command line), and also in a session, where R or Julia is already running
 with the package loaded:
@@ -421,6 +437,7 @@ program_colours <- c(
   radmix = "#2a78d6",
   admixture = "#eb6834",
   fastmixture = "#1baf7a",
+  adamixture = "#e87ba4",
   openadmixture = "#eda100"
 )
 setting_labels <- c(
@@ -550,15 +567,18 @@ the individuals rather than of the genotypes. The allele frequencies come
 from the other individuals, but the ancestry of the held-out individuals is
 estimated from their own genotypes, the same genotypes on which the error is
 then computed. Its errors can be compared between values of K, but not with
-those of the other two programs.
+those of the other programs. ADAMIXTURE also averages the deviance of
+held-out genotypes, but it refits the model on each fold with only 5
+iterations, starting from the estimates on all the genotypes, so its errors
+are close to those of ADMIXTURE and `gt_radmix()`, but not identical.
 
 # How the benchmark was run
 
 The benchmark is run with scripts in `vignettes/articles/code` (in the
 source code of the package). The first prepares the data. The second runs
-the programs from the command line: ADMIXTURE, fastmixture, and
-`gt_radmix()` and OpenADMIXTURE.jl with two more scripts, which `Rscript`
-and `julia` run. The last runs `gt_radmix()` in an R session. The results are read here from
+the programs from the command line: ADMIXTURE, fastmixture, ADAMIXTURE,
+and `gt_radmix()` and OpenADMIXTURE.jl with two more scripts, which
+`Rscript` and `julia` run. The last runs `gt_radmix()` in an R session. The results are read here from
 `vignettes/articles/data/admixture_benchmark`. Each run is done once, as the
 full runs take long enough for the variation between repeated runs to be
 small. The code shown below is taken from these scripts. Timings depend on
@@ -597,10 +617,11 @@ All the programs are run from the command line with the same settings:
 ```
 
 Each program is run on `r cores_text` cores (with `-j` in ADMIXTURE,
-`--threads` in fastmixture, `n_cores` in `gt_radmix()` and the number of
-threads of Julia for OpenADMIXTURE.jl), with and without cross-validation
-(with `--cv` in ADMIXTURE and fastmixture, and `crossval` in
-`gt_radmix()`; OpenADMIXTURE.jl has none), with these functions:
+`--threads` in fastmixture, `-t` and `OMP_NUM_THREADS` in ADAMIXTURE,
+`n_cores` in `gt_radmix()` and the number of threads of Julia for
+OpenADMIXTURE.jl), with and without cross-validation (with `--cv` in
+ADMIXTURE, fastmixture and ADAMIXTURE, and `crossval` in `gt_radmix()`;
+OpenADMIXTURE.jl has none), with these functions:
 
 ```{bash cli-functions, eval = FALSE}
 ```
@@ -649,12 +670,16 @@ Each program stops when its own default convergence criterion is met.
 ADMIXTURE stops when the log-likelihood increases by less than 1e-4 between
 iterations. fastmixture checks every 5 iterations, and stops when the
 log-likelihood, divided by the number of observed genotypes, has increased
-by less than 1e-9. `gt_radmix()` and OpenADMIXTURE.jl stop when the
-relative change in the log-likelihood is less than 1e-7. The numbers of
-iterations are not comparable either. An iteration of fastmixture is a pass
-of accelerated EM updates, first over mini-batches of the loci. An
-iteration of ADMIXTURE, `gt_radmix()` and OpenADMIXTURE.jl updates all the
-parameters with block-wise Newton steps.
+by less than 1e-9. ADAMIXTURE, with its default solver (BR-QN; it also
+offers the Adam-EM algorithm of its paper), stops when the log-likelihood
+changes by less than 0.1 between iterations. `gt_radmix()` and
+OpenADMIXTURE.jl stop when the relative change in the log-likelihood is less
+than 1e-7. The numbers of iterations are not comparable either. An
+iteration of fastmixture is a pass of accelerated EM updates, first over
+mini-batches of the loci. An iteration of ADMIXTURE, ADAMIXTURE,
+`gt_radmix()` and OpenADMIXTURE.jl updates all the parameters with
+block-wise Newton steps (ADAMIXTURE first initialises them with a truncated
+SVD of the genotypes and alternating least squares, as fastmixture does).
 
 ## From the results to the tables and plots
 
@@ -669,8 +694,9 @@ code:
 To run the benchmark again (e.g. after changing `tidygenclust`, or on
 another machine), install `tidygenclust` with `R CMD INSTALL`, rather than
 loading it with `devtools::load_all()`, which compiles its C++ code without
-optimisation. Also install ADMIXTURE and fastmixture, e.g. in the conda
-environment created by `tgc_tools_install()`, and OpenADMIXTURE.jl, in the
+optimisation. Also install ADMIXTURE, fastmixture and ADAMIXTURE, e.g. in
+the conda environment created by `tgc_tools_install()`, and OpenADMIXTURE.jl,
+in the
 conda environment created (from the root of the package) by:
 
 ```sh
@@ -728,6 +754,10 @@ Sobel, E. M., Zhou, H. & Lange, K. L. (2023). Unsupervised discovery of
 ancestry-informative markers and genetic admixture proportions in
 biobank-scale datasets. *The American Journal of Human Genetics*, 110,
 314-325.
+
+Saurina-i-Ricos, J., Mas Montserrat, D. & Ioannidis, A. G. (2026).
+ADAMIXTURE: adaptive first-order optimization for biobank-scale genetic
+clustering. *Bioinformatics*, 42(Supplement_1), btag236.
 
 Santander, C. G., Refoyo Martinez, A. & Meisner, J. (2024). Faster
 model-based estimation of ancestry proportions. *Peer Community Journal*, 4,

@@ -5,6 +5,7 @@
 "RAM","15 GB"
 "ADMIXTURE","1.3.0"
 "fastmixture","1.3.0"
+"ADAMIXTURE","1.8.9"
 "Julia","1.12.7"
 "OpenADMIXTURE.jl","0.1.0 (401ac5c4056f0f6f2a7ea6ffc3af69c2b1e56fdc)"
 "individuals","209"

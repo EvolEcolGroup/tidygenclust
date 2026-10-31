@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 # Benchmark of the programs run from the command line, on the HGDP data
 # prepared by admixture_benchmark_data.R (in the same directory as this
-# script): ADMIXTURE, fastmixture, gt_radmix() (with Rscript, running
-# admixture_benchmark_radmix_cli.R) and OpenADMIXTURE.jl (with julia, running
-# admixture_benchmark_openadmixture.jl). Together with
+# script): ADMIXTURE, fastmixture, ADAMIXTURE, gt_radmix() (with Rscript,
+# running admixture_benchmark_radmix_cli.R) and OpenADMIXTURE.jl (with julia,
+# running admixture_benchmark_openadmixture.jl). Together with
 # admixture_benchmark_radmix.R, which runs gt_radmix() in an R session with
 # the same settings, it gives the results shown in the article
 # admixture_benchmark.Rmd (in the parent directory of this script), which
 # also shows the code of the chunks of this script (the sections that start
 # with a "## ---- label" line, read with knitr::read_chunk()).
 #
-# Run from the directory of the article (vignettes/articles), with ADMIXTURE
-# and fastmixture available, e.g. in the conda environment created by
-# tidygenclust::tgc_tools_install() (the programs can also be given with the
-# environment variables ADMIXTURE and FASTMIXTURE), tidygenclust installed
+# Run from the directory of the article (vignettes/articles), with ADMIXTURE,
+# fastmixture and ADAMIXTURE available, e.g. in the conda environment created
+# by tidygenclust::tgc_tools_install() (the programs can also be given with
+# the environment variables ADMIXTURE, FASTMIXTURE and ADAMIXTURE, and the
+# python of ADAMIXTURE, for its version, with ADAMIXTURE_PYTHON), tidygenclust
+# installed
 # (Rscript can be given with RSCRIPT), and OpenADMIXTURE.jl installed in the
 # conda environment created by data-raw/radmix/setup_julia_env.sh (from the
 # root of the package; another environment can be given with
@@ -43,6 +45,8 @@ else
 fi
 admixture=${ADMIXTURE:-admixture}
 fastmixture=${FASTMIXTURE:-fastmixture}
+adamixture=${ADAMIXTURE:-adamixture}
+adamixture_python=${ADAMIXTURE_PYTHON:-python}
 rscript=${RSCRIPT:-Rscript}
 julia_env=${OPENADMIXTURE_JULIA_ENV:-openadmixturer_julia}
 julia_prefix=${OPENADMIXTURE_JULIA_PREFIX:-$(conda info --base)/envs/$julia_env}
@@ -96,6 +100,25 @@ run_fastmixture() {
   "$fastmixture" "${args[@]}" > "$run_dir/console.log" 2>&1
 }
 
+# ADAMIXTURE writes its output (Q, P and a plot, which cannot be turned off)
+# in --save_dir, named after --name and K (e.g. adamixture.5.Q), and prints
+# its progress. Its command line drops the chromosomes that are not
+# autosomes by default (hence --chrom_mode all), and -t alone does not limit
+# its number of threads (it sets OMP_NUM_THREADS after loading its OpenMP
+# library), so OMP_NUM_THREADS is set before starting it
+run_adamixture() {
+  local n_cores=$1 crossval=$2 run_dir=$3
+  local args=(
+    --data_path "$bed" --save_dir "$run_dir" --name adamixture -k "$k"
+    -t "$n_cores" -s "$seed" --chrom_mode all
+  )
+  if [[ $crossval == TRUE ]]; then
+    args+=(--cv "$n_folds")
+  fi
+  OMP_NUM_THREADS=$n_cores "$adamixture" "${args[@]}" \
+    > "$run_dir/console.log" 2>&1
+}
+
 # gt_radmix() is run by a new R process, which loads tidygenclust, reads the
 # bed file into a gen_tibble, runs gt_radmix(), saves the results, and
 # prints the log-likelihood and cross-validation error
@@ -145,7 +168,8 @@ run_openadmixture() {
 mkdir -p "$out_dir/Q" "$out_dir/logs"
 timings=$out_dir/timings_cli.csv
 echo "tool,n_cores,crossval,seconds,loglik,cv_error,iterations" > "$timings"
-for tool in admixture fastmixture radmix_cli openadmixture_cli openadmixture; do
+for tool in admixture fastmixture adamixture radmix_cli openadmixture_cli \
+  openadmixture; do
   for n_cores in "${cores[@]}"; do
     for crossval in FALSE TRUE; do
       if [[ $crossval == TRUE && $tool == openadmixture* ]]; then
@@ -180,6 +204,16 @@ for tool in admixture fastmixture radmix_cli openadmixture_cli openadmixture; do
             '^Final log-likelihood: ([^[:space:]]+).*' "$log_file")
           cv_error=$(extract \
             '^Cross-validation error \(SD\): ([^[:space:]]+).*' "$log_file")
+          ;;
+        adamixture)
+          q_file=$run_dir/adamixture.$k.Q
+          log_file=$run_dir/console.log
+          loglik=$(extract \
+            '^ *Final log-likelihood: ([^[:space:]]+).*' "$log_file")
+          cv_error=$(extract \
+            '^ *K=[0-9]+: CV index = ([^[:space:]]+).*' "$log_file")
+          # (the lines indented further are those of the initialisation)
+          iterations_pattern='^ {4}Converged at iteration ([0-9]+).*'
           ;;
         radmix_cli)
           q_file=$run_dir/radmix.Q
@@ -221,6 +255,9 @@ ram=$(awk '/^MemTotal/ { printf "%.0f GB", $2 / 1024^2 }' /proc/meminfo \
 admixture_version=$("$admixture" 2>&1 |
   sed -n -E 's/.*ADMIXTURE Version ([^[:space:]]+).*/\1/p' | head -n 1 || true)
 fastmixture_version=$("$fastmixture" --version 2>&1 | sed 's/^v//' || true)
+# (the command line of ADAMIXTURE has no --version)
+adamixture_version=$("$adamixture_python" -c \
+  'import adamixture; print(adamixture.__version__)' 2>&1 || true)
 julia_version=$(julia_run --startup-file=no -e 'println(VERSION)' || true)
 openadmixture_version=$(julia_run --startup-file=no -e '
   import Pkg
@@ -236,6 +273,7 @@ openadmixture_version=$(julia_run --startup-file=no -e '
   row RAM "${ram:-NA}"
   row ADMIXTURE "${admixture_version:-NA}"
   row fastmixture "${fastmixture_version:-NA}"
+  row ADAMIXTURE "${adamixture_version:-NA}"
   row Julia "${julia_version:-NA}"
   row OpenADMIXTURE.jl "${openadmixture_version:-NA}"
   row individuals "$(wc -l < "${bed%.bed}.fam" | tr -d ' ')"
