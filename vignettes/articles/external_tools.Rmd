@@ -1,11 +1,11 @@
 ---
-title: "Installing and running ADMIXTURE and fastmixture"
+title: "Installing and running external tools"
 output:
   rmarkdown::html_vignette:
     toc: true
     toc_depth: 2
 vignette: >
-  %\VignetteIndexEntry{Installing and running ADMIXTURE and fastmixture}
+  %\VignetteIndexEntry{Installing and running external tools}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -20,18 +20,19 @@ knitr::opts_chunk$set(
 ```
 
 `tidygenclust` estimates ancestry with the ADMIXTURE model natively, with
-`gt_radmix()`. It also provides interfaces to two external programs that
+`gt_radmix()`. It also provides interfaces to three external programs that
 fit the same model: the original ADMIXTURE program (Alexander et al. 2009),
-run with `tidypopgen::gt_admixture()`, and the python package fastmixture
-(Santander et al. 2024), run with `gt_fastmixture()`. These programs are
-optional: they are not needed by the rest of `tidygenclust`.
+run with `tidypopgen::gt_admixture()`, and the python packages fastmixture
+(Santander et al. 2024), run with `gt_fastmixture()`, and ADAMIXTURE
+(Saurina-i-Ricos et al. 2026), run with `gt_adamixture()`. These programs
+are optional: they are not needed by the rest of `tidygenclust`.
 
-In this article, we show how to install the two programs and how to run
+In this article, we show how to install the three programs and how to run
 them, alongside `gt_radmix()`, on the dataset of the lizard *Anolis
 punctatus* (Prates et al. 2018) used in the main vignette, and we check that
-the three programs give consistent ancestry proportions. For a comparison
+the four programs give consistent ancestry proportions. For a comparison
 of their performance, see the article "Benchmarking gt_radmix() against
-ADMIXTURE and fastmixture".
+ADMIXTURE, fastmixture and ADAMIXTURE".
 
 `gt_radmix()` estimates individual ancestry proportions (Q) and ancestral
 allele frequencies (P) with the method of ADMIXTURE, using a modified
@@ -44,17 +45,19 @@ ADMIXTURE, to choose K, which is not part of OpenADMIXTURE; it supports
 pseudohaploid data; and it changes some details of the computations (see
 `?gt_radmix`). If you use it, please cite Ko et al. (2023) for the
 algorithm, as well as Alexander et al. (2009) for the method. If you use
-fastmixture, cite Santander et al. (2024), and if you use ADMIXTURE,
-Alexander et al. (2009).
+fastmixture, cite Santander et al. (2024), if you use ADAMIXTURE,
+Saurina-i-Ricos et al. (2026), and if you use ADMIXTURE, Alexander et al.
+(2009).
 
-# Installing ADMIXTURE and fastmixture
+# Installing the external tools
 
-We use `reticulate` to install the two programs in a conda environment
+We use `reticulate` to install the three programs in a conda environment
 (`ctidygenclust`; on macOS, ADMIXTURE is installed in an environment of its
 own, `cadmixture86`), so you, as a user, should not need to worry about the
 details of the python packages or their dependencies. This works on Linux
-and macOS, but NOT on Windows (where you can use the WSL). You can install
-both programs with:
+and macOS, but NOT on Windows (where you can use the WSL). ADAMIXTURE is
+installed from PyPI in its CPU version, which does not need PyTorch. You can
+install all three programs with:
 
 ```{r, eval = FALSE}
 library(tidygenclust)
@@ -68,7 +71,8 @@ tgc_tools_install(tools = "fastmixture")
 ```
 
 Programs can be added later to an existing environment with
-`tgc_fastmixture_install()` and `tgc_admixture_install()`:
+`tgc_fastmixture_install()`, `tgc_admixture_install()` and
+`tgc_adamixture_install()`:
 
 ```{r, eval = FALSE}
 tgc_admixture_install()
@@ -98,12 +102,14 @@ tools_version
 ```
 
 The code that runs each program in this article is only run if that
-program is available, and the comparison only if both are:
+program is available, and the comparison only if all three are:
 
 ```{r}
 fastmixture_available <- !is.na(tools_version$fastmixture)
 admixture_available <- !is.na(tools_version$admixture)
-all_available <- fastmixture_available && admixture_available
+adamixture_available <- !is.na(tools_version$adamixture)
+all_available <- fastmixture_available && admixture_available &&
+  adamixture_available
 ```
 
 # The data
@@ -186,16 +192,34 @@ anole_adm <- gt_admixture(anole_gt, k = 3, seed = 1)
 summary(anole_adm)
 ```
 
+# Running ADAMIXTURE
+
+```{r, include = FALSE, eval = TRUE}
+knitr::opts_chunk$set(eval = adamixture_available)
+```
+
+`gt_adamixture()` runs ADAMIXTURE, which combines a spectral initialisation
+(SVD and ALS) with accelerated block relaxation (BR-QN), on a `gen_tibble` or
+on a set of PLINK files. Like `gt_fastmixture()`, it sets the number of
+cores with `threads` and cross-validation with `cv`, and by default it only
+returns the Q matrices (set `no_freqs = FALSE` to also keep the P matrices).
+ADAMIXTURE prints its progress, which we turn off with `verbose = FALSE`:
+
+```{r}
+anole_ada <- gt_adamixture(anole_gt, k = 3, seed = 1, verbose = FALSE)
+summary(anole_ada)
+```
+
 # Comparing the results
 
 ```{r, include = FALSE, eval = TRUE}
 knitr::opts_chunk$set(eval = all_available)
 ```
 
-All three programs return `gt_admix` objects, which can be plotted with
+All four programs return `gt_admix` objects, which can be plotted with
 `autoplot()`. The labels of the clusters are arbitrary, so we first match
-the clusters of `gt_radmix()` and fastmixture to those of ADMIXTURE, so
-that each cluster has the same colour in all the plots:
+the clusters of `gt_radmix()`, fastmixture and ADAMIXTURE to those of
+ADMIXTURE, so that each cluster has the same colour in all the plots:
 
 ```{r}
 # all permutations of 1:n
@@ -224,9 +248,10 @@ match_clusters <- function(adm, q_ref) {
 q_adm <- unclass(anole_adm$Q[[1]])
 anole_radmix <- match_clusters(anole_radmix, q_adm)
 anole_fm <- match_clusters(anole_fm, q_adm)
+anole_ada <- match_clusters(anole_ada, q_adm)
 ```
 
-```{r, fig.height = 8}
+```{r, fig.height = 10.5}
 library(ggplot2)
 plots <- list(
   autoplot(anole_radmix, type = "barplot", k = 3, run = 1,
@@ -237,6 +262,10 @@ plots <- list(
     annotate_group = TRUE
   ) +
     ggtitle("fastmixture"),
+  autoplot(anole_ada, type = "barplot", k = 3, run = 1,
+    annotate_group = TRUE
+  ) +
+    ggtitle("ADAMIXTURE"),
   autoplot(anole_adm, type = "barplot", k = 3, run = 1,
     annotate_group = TRUE
   ) +
@@ -245,7 +274,7 @@ plots <- list(
 patchwork::wrap_plots(plots, ncol = 1)
 ```
 
-The three plots look the same. To confirm it, we compare the ancestry
+The four plots look the same. To confirm it, we compare the ancestry
 proportions of each individual with those estimated by ADMIXTURE:
 
 ```{r}
@@ -258,7 +287,8 @@ q_differences <- function(adm) {
 }
 rbind(
   gt_radmix = q_differences(anole_radmix),
-  fastmixture = q_differences(anole_fm)
+  fastmixture = q_differences(anole_fm),
+  ADAMIXTURE = q_differences(anole_ada)
 )
 ```
 
@@ -268,20 +298,24 @@ rbind(
 knitr::opts_chunk$set(eval = FALSE)
 ```
 
-To choose K, all three programs can compute a cross-validation error for
+To choose K, all four programs can compute a cross-validation error for
 each run, with `crossval = TRUE` in `gt_radmix()` and `gt_admixture()`, and
-with `cv` (the number of folds) in `gt_fastmixture()`:
+with `cv` (the number of folds) in `gt_fastmixture()` and
+`gt_adamixture()`:
 
 ```{r}
 gt_radmix(anole_gt, k = 2:4, n_runs = 3, crossval = TRUE)
 gt_admixture(anole_gt, k = 2:4, n_runs = 3, crossval = TRUE)
 gt_fastmixture(anole_gt, k = 2:4, n_runs = 3, cv = 5)
+gt_adamixture(anole_gt, k = 2:4, n_runs = 3, cv = 5)
 ```
 
 `gt_radmix()` implements the procedure of ADMIXTURE, which hides random
-genotypes, whereas fastmixture hides whole individuals: its errors are on
-a different scale, and only the value of K that they favour can be
-compared with those of the other two programs.
+genotypes. ADAMIXTURE also hides random genotypes, but it refits each fold
+with only 5 iterations, starting from the estimates of the full data.
+fastmixture instead hides whole individuals. The errors of the programs are
+therefore on different scales, and only the values of K that they favour
+can be compared.
 
 # References
 
@@ -296,6 +330,11 @@ Journal of Human Genetics, 110(2), 314-325.
 Prates I, Penna A, Rodrigues MT, Carnaval AC (2018) Local adaptation in
 mainland anole lizards: Integrating population history and genome-environment
 associations. Ecology and Evolution, 8(23), 11932-11944.
+
+Saurina-i-Ricos J, Mas Montserrat D, Ioannidis AG (2026) ADAMIXTURE:
+adaptive first-order optimization for biobank-scale genetic clustering.
+Bioinformatics, 42(Supplement_1), btag236.
+https://doi.org/10.1093/bioinformatics/btag236
 
 Santander CG, Refoyo Martinez A, Meisner J (2024) Faster model-based
 estimation of ancestry proportions. Peer Community Journal, 4: e115.

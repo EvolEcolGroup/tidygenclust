@@ -131,8 +131,9 @@ which the test suite checks against stored results; on the 379 individuals
 and 54,051 SNPs of the `EUR_subset` data used to test OpenADMIXTURE.jl, it
 is 2-3 times faster than ADMIXTURE on a single thread, and about 10 times
 faster on 4 threads. See `?gt_radmix`, the article "Benchmarking
-gt_radmix() against ADMIXTURE and fastmixture" (in the Articles section of
-the website of the package), and `data-raw/radmix/README.md` for details.
+gt_radmix() against ADMIXTURE, fastmixture and ADAMIXTURE" (in the Articles
+section of the website of the package), and `data-raw/radmix/README.md` for
+details.
 
 ## References
 
