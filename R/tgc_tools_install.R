@@ -1,6 +1,6 @@
 #' Install optional tools for `tidygenclust`
 #'
-#' The core functionality of `tidygenclust` is native: [gt_openadmixture()]
+#' The core functionality of `tidygenclust` is native: [gt_radmix()]
 #' and [gt_clumppling()] need neither Python nor conda. A few additional
 #' features rely on external tools, which are optional and are only installed
 #' on request:

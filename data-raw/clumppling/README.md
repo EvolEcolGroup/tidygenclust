@@ -1,9 +1,13 @@
 # data-raw/clumppling
 
-`gt_clumppling()` is a native R and C++ reimplementation of the python
-package [clumppling](https://github.com/PopGenClustering/Clumppling) (Liu,
-Kopelman and Rosenberg 2024), version 2.0.10, which previous versions of
-`tidygenclust` ran through `reticulate`. The scripts in this directory create
+`gt_clumppling()` implements the method of clumppling (Liu, Kopelman and
+Rosenberg 2024). Its R and C++ code is a port, with the modifications listed
+below, of the python package
+[clumppling](https://github.com/PopGenClustering/Clumppling) by Xiran Liu
+(version 2.0.10, MIT licence), which previous versions of `tidygenclust` ran
+through `reticulate`. The Louvain method and Markov clustering are ported
+from python-louvain and markov_clustering, which clumppling uses through
+cdlib; the licences of all the ported code are in `inst/COPYRIGHTS`. The scripts in this directory create
 the example data used by `gt_clumppling()`, and the reference results of the
 python implementation used by the tests. Run every script from the root of
 the package. None of this is needed to use the package or to run its tests.
@@ -35,7 +39,9 @@ versions of `tidygenclust`, kept here); function names follow the python ones
 On the 200 capeverde replicates (K = 2 to 5) the results are identical to
 those of the python implementation (same modes, representatives and cluster
 order, with numerical differences of about 1e-16), and the run takes about
-0.1 seconds instead of about 9 seconds.
+0.1 seconds instead of about 9 seconds. The article
+`vignettes/articles/clumppling_benchmark.Rmd` compares the times and the
+results of the two implementations on the example data.
 
 ### Differences from the python implementation
 
@@ -61,16 +67,19 @@ order, with numerical differences of about 1e-16), and the run takes about
 
 ## Example data: `inst/extdata/*_admix.rds`
 
-`create_example_gt_admix.R` creates two `gt_admix` objects from the examples
-of clumppling, stored here as the original Q files (which previous versions
-of `tidygenclust` distributed in `inst/extdata`):
+`create_example_gt_admix.R` creates two `gt_admix` objects from the example
+datasets of clumppling, also analysed in the paper that describes it, and
+stored here as the original Q files (which previous versions of
+`tidygenclust` distributed in `inst/extdata`):
 
 - `capeverde_admix.rds`, from `capeverde.zip`: 200 ADMIXTURE runs (50 for
   each K from 2 to 5) for 399 individuals, with their ids and populations
-  (the names of the populations are those of the `capeverde_pops` dataset);
+  (the names of the populations are those of the `capeverde_pops` dataset),
+  from the Cape Verde data of Verdu et al. (2017);
 - `chicken_admix.rds`, from `chicken_gapk.zip`: 60 STRUCTURE runs (K = 17, 19
-  and 21) for 600 chickens. STRUCTURE rounds memberships to 3 decimals, so
-  rows are rescaled to sum to 1.
+  and 21) for 600 chickens from 20 breeds, from the data of Rosenberg et
+  al. (2001). STRUCTURE rounds memberships to 3 decimals, so rows are
+  rescaled to sum to 1.
 
 Files are added in alphabetical order, as the python reference sorts them, so
 that replicates are numbered in the same way.
@@ -134,3 +143,18 @@ The results are in `validate_vs_python.csv`: in all 60 scenarios, the modes,
 their statistics, the costs across K and the aligned modes are the same; in
 two of them, a mode had several identical replicates, and the two
 implementations chose different (identical) representatives.
+
+## References
+
+Liu X, Kopelman NM, Rosenberg NA (2024) Clumppling: cluster matching and
+permutation program with integer linear programming. Bioinformatics, 40(1),
+btad751.
+
+Rosenberg NA, Burke T, Elo K, Feldman MW, Freidlin PJ, Groenen MAM, Hillel J,
+Mäki-Tanila A, Tixier-Boichard M, Vignal A, Wimmers K, Weigend S (2001)
+Empirical evaluation of genetic clustering methods using multilocus
+genotypes from 20 chicken breeds. Genetics, 159(2), 699-713.
+
+Verdu P, Jewett EM, Pemberton TJ, Rosenberg NA, Baptista M (2017) Parallel
+trajectories of genetic and linguistic admixture in a genetically admixed
+creole population. Current Biology, 27(16), 2529-2535.

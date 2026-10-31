@@ -1,10 +1,13 @@
-# Implementation of `gt_openadmixture()`
+# Implementation of `gt_radmix()`
 
-`gt_openadmixture()` estimates ancestry proportions (Q) and ancestral allele
-frequencies (P) under the model of ADMIXTURE (Alexander et al. 2009). It
-follows the algorithm of OpenADMIXTURE.jl (Ko et al. 2023), reimplemented in
-C++ with OpenMP. It reads the genotypes directly from the backing file of a
-`gen_tibble`.
+`gt_radmix()` estimates ancestry proportions (Q) and ancestral allele
+frequencies (P) with the method of ADMIXTURE (Alexander et al. 2009). It
+uses a modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023),
+and much of its code is ported to C++ (with OpenMP) from the Julia
+implementation, OpenADMIXTURE.jl. It reads the genotypes directly from the
+backing file of a `gen_tibble`. It is not called OpenADMIXTURE because it
+differs from it: it does not include the selection of ancestry informative
+markers, and it changes the algorithm in the ways described below.
 
 This document describes how the algorithm works, step by step. It then lists
 the changes from OpenADMIXTURE.jl that make it faster (and use less memory),
@@ -12,27 +15,27 @@ and finally the changes made for other reasons. The port was made from
 OpenADMIXTURE.jl at commit `401ac5c4056f0f6f2a7ea6ffc3af69c2b1e56fdc`, and
 the source files of that version are cited below by name (e.g. `loops.jl`).
 
-Starting from the same values, `gt_openadmixture()` reproduces the
+Starting from the same values, `gt_radmix()` reproduces the
 computations of OpenADMIXTURE.jl to numerical precision. The test suite checks
 this step by step, against stored results of the Julia code
-(`tests/testthat/test_openadmixture_vs_julia.R`). It also checks that the
+(`tests/testthat/test_radmix_vs_julia.R`). It also checks that the
 estimates and cross-validation errors agree with those of ADMIXTURE 1.3.0
-(`tests/testthat/test_openadmixture_vs_admixture.R`).
+(`tests/testthat/test_radmix_vs_admixture.R`).
 
 ## Where the code is
 
 | File | Role |
 |---|---|
-| `R/gt_openadmixture.R` | User interface: checks the arguments, prepares the data once, loops over K and runs, assembles the `gt_admix` object |
-| `R/openadmixture_data.R` | Builds the description of the genotypes passed to C++ (backing file, selected rows and columns, decoding table, ploidy) and the cross-validation masks |
-| `R/openadmixture_fit.R` | Thin wrapper around the C++ fitting loop |
-| `R/openadmixture_cv.R` | Cross-validation, as in ADMIXTURE |
-| `src/openadmixture_fit.cpp` | The fitting loop: random start, EM priming, block updates, quasi-Newton acceleration, convergence |
-| `src/openadmixture_kernels.cpp` | Passes over the genotypes: log-likelihood, EM step, gradients and Hessians, Newton updates of Q and P, deviance |
-| `src/openadmixture_qp_sweep.cpp` | Solver of the small quadratic program of each individual and locus (sweep operator, active set) |
-| `src/openadmixture_quasi_newton.cpp` | Quasi-Newton step from the secant pairs |
-| `src/openadmixture_projections.cpp` | Projections onto the simplex (Q) and the box (P) |
-| `src/openadmixture_geno_access.h` | Read-only view of the genotypes in the backing file, with cross-validation masks |
+| `R/gt_radmix.R` | User interface: checks the arguments, prepares the data once, loops over K and runs, assembles the `gt_admix` object |
+| `R/radmix_data.R` | Builds the description of the genotypes passed to C++ (backing file, selected rows and columns, decoding table, ploidy) and the cross-validation masks |
+| `R/radmix_fit.R` | Thin wrapper around the C++ fitting loop |
+| `R/radmix_cv.R` | Cross-validation, as in ADMIXTURE |
+| `src/radmix_fit.cpp` | The fitting loop: random start, EM priming, block updates, quasi-Newton acceleration, convergence |
+| `src/radmix_kernels.cpp` | Passes over the genotypes: log-likelihood, EM step, gradients and Hessians, Newton updates of Q and P, deviance |
+| `src/radmix_qp_sweep.cpp` | Solver of the small quadratic program of each individual and locus (sweep operator, active set) |
+| `src/radmix_quasi_newton.cpp` | Quasi-Newton step from the secant pairs |
+| `src/radmix_projections.cpp` | Projections onto the simplex (Q) and the box (P) |
+| `src/radmix_geno_access.h` | Read-only view of the genotypes in the backing file, with cross-validation masks |
 
 The C++ files are commented in detail, and each change from the Julia code
 is documented where it is implemented.
@@ -69,7 +72,7 @@ updated together, are therefore contiguous.
 
 ### 1. Preparing the data (once per call)
 
-`openadmixture_prepare()` gathers what the C++ code needs, without copying
+`radmix_prepare()` gathers what the C++ code needs, without copying
 the genotypes:
 
 - the file-backed matrix (FBM) of the `gen_tibble`, one byte per genotype,
@@ -86,13 +89,13 @@ the genotypes:
   of `n_i` (pseudohaploids are stored as 0/2).
 
 This is shared by all the runs and values of K. In C++, a `GenoView`
-(`openadmixture_geno_access.h`) reads genotype `(i, j)` as a memory read, a
+(`radmix_geno_access.h`) reads genotype `(i, j)` as a memory read, a
 table lookup and a multiplication.
 
 ### 2. Runs
 
-For each value of K and each run, `gt_openadmixture()` sets the seed (if
-given) and calls the fitting loop (`openadmixture_fit_cpp()`). The random
+For each value of K and each run, `gt_radmix()` sets the seed (if
+given) and calls the fitting loop (`radmix_fit_cpp()`). The random
 start is drawn from R's random number generator, so `set.seed()` makes fits
 reproducible. The user's random number state is restored on exit.
 
@@ -148,7 +151,7 @@ The log-likelihood of the starting point is computed. Then each iteration:
      model `grad' delta - 0.5 delta' H delta` subject to
      `0 <= x + delta <= 1`, plus `sum_k delta_k = 1 - sum_k q_ki` for Q. It
      is solved exactly with K. Lange's active-set method based on the sweep
-     operator (`openadmixture_qp_sweep.cpp`, ported from `qp.jl`). The
+     operator (`radmix_qp_sweep.cpp`, ported from `qp.jl`). The
      method:
      - builds a tableau that bundles H, the gradient and (for Q) the sum
        constraint;
@@ -165,7 +168,7 @@ The log-likelihood of the starting point is computed. Then each iteration:
      the solution on the simplex.
    - **Projection.** The new column `x + delta` is projected onto
      `{sum = 1, q >= 1e-5}` for Q (sort-and-threshold algorithm), or clamped
-     to `[1e-5, 1 - 1e-5]` for P (`openadmixture_projections.cpp`).
+     to `[1e-5, 1 - 1e-5]` for P (`radmix_projections.cpp`).
 
 2. **Quasi-Newton acceleration** (Zhou, Alexander and Lange 2011). The
    maximum likelihood estimate is a fixed point of `F`. Each iteration gives
@@ -219,7 +222,7 @@ None of these changes alters the estimates of Q and P, except through
 rounding. The sums are accumulated in a different order from the Julia code,
 but always in the same order for any number of threads.
 
-| OpenADMIXTURE.jl | `gt_openadmixture()` | Effect |
+| OpenADMIXTURE.jl | `gt_radmix()` | Effect |
 |---|---|---|
 | Log-likelihood of `x2` in every iteration | Only when the quasi-Newton step is rejected | 5 passes over the genotypes per iteration instead of 6, in most iterations |
 | Log-likelihood after every EM step | Only with `verbose = TRUE`, every 5 steps | Saves `n_em_iter` passes per run |
@@ -237,7 +240,7 @@ but always in the same order for any number of threads.
 Every pass over the genotypes reads the whole genotype matrix, so the number
 of passes per iteration largely determines the run time on large datasets.
 
-1. **Log-likelihood of `x2` only when needed** (`openadmixture_fit.cpp`).
+1. **Log-likelihood of `x2` only when needed** (`radmix_fit.cpp`).
    Julia computes `L(x2)` (`ll_basic`) in every iteration, before the
    quasi-Newton step. But the decision compares `L(x_qn)` with `L(x0)`, so
    `L(x2)` is only needed when the step is rejected: `x2` then becomes the
@@ -254,7 +257,7 @@ of passes per iteration largely determines the run time on large datasets.
    EM is the initial log-likelihood of the main loop, which is always
    computed.
 
-3. **Batched logarithms** (`loglik_slice()` in `openadmixture_kernels.cpp`).
+3. **Batched logarithms** (`loglik_slice()` in `radmix_kernels.cpp`).
    For hard calls, the contribution of a genotype is `log(z)` with
    `z = qp^g (1 - qp)^(n - g)`, computed without logarithms or branches.
    Within a slice of 64 individuals, the z of 8 genotypes are multiplied
@@ -375,7 +378,7 @@ The innermost unit of work is a *slice*: one locus and up to 64 individuals
 12. **Reading the backing file of the `gen_tibble` directly.** Julia reads a
     PLINK bed file through SnpArrays. Running ADMIXTURE from R
     (`tidypopgen::gt_admixture()`) also requires exporting the `gen_tibble`
-    to a bed file first. `gt_openadmixture()` instead reads the memory-mapped
+    to a bed file first. `gt_radmix()` instead reads the memory-mapped
     backing file of the `gen_tibble`, through the row and column indices of
     the current selection, so filtering individuals or selecting loci costs
     nothing. When the rows are in their original order, the 64 individuals
@@ -434,26 +437,26 @@ computations are well behaved.
 
 On the `EUR_subset` data of SnpArrays.jl (379 individuals, 54,051 loci), on a
 laptop with an Intel i7-10510U
-(`data-raw/openadmixture/benchmark_admixture.csv`), times are in seconds,
+(`data-raw/radmix/benchmark_admixture.csv`), times are in seconds,
 with the number of iterations in brackets:
 
-| K | ADMIXTURE 1.3.0, 1 core | `gt_openadmixture()`, 1 core | `gt_openadmixture()`, 1 core, ADMIXTURE's threshold | `gt_openadmixture()`, 4 cores |
+| K | ADMIXTURE 1.3.0, 1 core | `gt_radmix()`, 1 core | `gt_radmix()`, 1 core, ADMIXTURE's threshold | `gt_radmix()`, 4 cores |
 |---|---|---|---|---|
 | 2 | 37.3 (20) | 13.2 (14) | 16.8 (17) | 3.8 (14) |
 | 3 | 109.3 (39) | 23.7 (19) | 39.1 (29) | 8.5 (19) |
 | 4 | 121.5 (33) | 32.7 (22) | 46.0 (31) | 12.6 (22) |
 
 With its default threshold (relative change in log-likelihood below 1e-7),
-`gt_openadmixture()` stops earlier than ADMIXTURE (absolute change below
+`gt_radmix()` stops earlier than ADMIXTURE (absolute change below
 1e-4). The column "ADMIXTURE's threshold" uses ADMIXTURE's criterion, for a
 like-for-like comparison. On this laptop the 4-core speed-up is limited by
 the CPU, which slows down after 10-20 s with 4 busy cores. The benchmark on
 the HGDP (`vignettes/articles/admixture_benchmark.Rmd`) also compares
-`gt_openadmixture()` with fastmixture, on 1 to 8 cores.
+`gt_radmix()` with fastmixture, on 1 to 8 cores.
 
 ## Possible further improvements
 
-From `data-raw/openadmixture/Notes_to_do`:
+From `data-raw/radmix/Notes_to_do`:
 
 - store the secant pairs in single precision, saving 3 of the 10 copies of
   the parameters;

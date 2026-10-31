@@ -21,21 +21,25 @@ focus on genetic clustering.
 At its core, `tidygenclust` includes native R and C++ implementations of two
 algorithms:
 
-- `gt_openadmixture()` is a reimplementation of the Julia package
-  `OpenADMIXTURE.jl` (<https://github.com/OpenMendel/OpenADMIXTURE.jl>) (Ko et
-  al. 2023), based on a fast algorithm to estimate individual ancestry
-  proportions and ancestral allele frequencies under the model of the popular
-  clustering tool ADMIXTURE. It works directly on the backing files of a
-  `gen_tibble`, and it can use multiple cores. Note that our implementation does
-  not include the selection of ancestry informative markers implemented in the
-  original Julia package, it only provides the clustering algorithm. It also
+- `gt_radmix()` estimates individual ancestry proportions and ancestral
+  allele frequencies with the method of the popular clustering tool
+  ADMIXTURE (Alexander et al. 2009), using a modified version of the fast
+  algorithm of OpenADMIXTURE (Ko et al. 2023). Much of its code is ported
+  from the Julia package `OpenADMIXTURE.jl`
+  (<https://github.com/OpenMendel/OpenADMIXTURE.jl>). It works directly on the
+  backing files of a `gen_tibble`, and it can use multiple cores. It has a
+  different name from OpenADMIXTURE because it differs from it: it does not
+  include the selection of ancestry informative markers implemented in the
+  original Julia package (it only provides the clustering algorithm), and it
+  changes some details of the algorithm (see `?gt_radmix`). It also
   does not have the GPU acceleration of the original Julia implementation, but
   it is still faster than the original ADMIXTURE implementation and can handle
   large datasets.
 
-- `gt_clumppling()` is a reimplementation of the python package `Clumppling`
-  (<https://github.com/PopGenClustering/Clumppling>) (Liu, Kopelman, &
-  Rosenberg, 2024), which aligns multiple runs of clustering analyses, allowing
+- `gt_clumppling()` implements the method of clumppling (Liu, Kopelman, &
+  Rosenberg, 2024), with code ported, with modifications, from the python
+  package `Clumppling` (<https://github.com/PopGenClustering/Clumppling>). It
+  aligns multiple runs of clustering analyses, allowing
   for easy comparison and summary of clustering results both across different
   values of K and for repeated runs within K. It works on the results of any
   clustering algorithm once they have been imported as `gt_admix` objects.
@@ -64,7 +68,7 @@ within R.
 
 # Installation
 
-`gt_openadmixture()` and `gt_clumppling()` work as soon as `tidygenclust` is
+`gt_radmix()` and `gt_clumppling()` work as soon as `tidygenclust` is
 installed:
 
 ```{r}
@@ -169,25 +173,25 @@ populations separate quite clearly. Additionally, whilst the Atlantic forest
 individuals cluster tightly together the Amazonian forest individuals are quite
 spread indicating three major clusters in the anolis.
 
-## Running the OpenADMIXTURE algorithm
+## Running gt_radmix()
 
-Now we can run `gt_openadmixture()` on our `gen_tibble` object. Note that,
-unlike the PCA, `gt_openadmixture()` does not need imputed data: missing
+Now we can run `gt_radmix()` on our `gen_tibble` object. Note that,
+unlike the PCA, `gt_radmix()` does not need imputed data: missing
 genotypes are simply ignored when computing the likelihood (imputed genotypes
 are treated as missing, unless we set `use_imputed = TRUE`).
 
-As a minimum `gt_openadmixture()` requires you to supply your input data, in
+As a minimum `gt_radmix()` requires you to supply your input data, in
 this case a `gen_tibble`, and specify a value for the number of clusters K.
 Based on our PCA results K = 3 may be a good place to start:
 
 ```{r}
-anole_res <- anole_gt %>% gt_openadmixture(k = 3)
+anole_res <- anole_gt %>% gt_radmix(k = 3)
 ```
 
 This will very quickly return a single Q matrix, for one specified K value. But,
 most likely we want to explore multiple values for K and should run multiple
 repeats of each K to assess the stability of the clustering.
-`gt_openadmixture()` allows you to specify a vector of K values you wish to run
+`gt_radmix()` allows you to specify a vector of K values you wish to run
 and the number of repeats per K value.
 
 Since we are trying multiple values for K, we can also choose to compute the
@@ -202,7 +206,7 @@ a different random seed for each repeat. We turn on 5-fold cross-validation with
 `crossval = TRUE`:
 
 ```{r}
-anole_res <- anole_gt %>% gt_openadmixture(
+anole_res <- anole_gt %>% gt_radmix(
   k = c(2:4), n_runs = 3,
   seed = c(42, 2, 16),
   crossval = TRUE
@@ -256,12 +260,12 @@ anole_res %>% autoplot(type = "cv")
 We are looking for the 'elbow' point in the plot where the cross-validation
 error is at its lowest, here it looks like `k = 3` would be a sensible choice.
 
-For a detailed comparison of `gt_openadmixture()` with the original ADMIXTURE
-program, see the vignette "Ancestry estimation with OpenADMIXTURE".
+For a detailed comparison of `gt_radmix()` with the original ADMIXTURE
+program, see the vignette "Ancestry estimation with gt_radmix()".
 
-When using this algorithm, make sure that you cite the original paper on
-the algorithm (Ko et al. 2023) and the original ADMIXTURE paper (Alexander
-et al. 2009).
+`gt_radmix()` uses a modified version of the algorithm of OpenADMIXTURE:
+when using it, make sure that you cite the original paper on the algorithm
+(Ko et al. 2023) and the original ADMIXTURE paper (Alexander et al. 2009).
 
 ## Visualising the results
 
@@ -451,7 +455,8 @@ We can plot the membership plots on top of the multipartite plot with:
 chicken_res %>% autoplot()
 ```
 
-When using `gt_clumppling()` make sure that you cite the original paper on
+`gt_clumppling()` is ported, with modifications, from the python package
+clumppling: when using it, make sure that you cite the original paper on
 the algorithm (Liu, Kopelman, & Rosenberg, 2024).
 
 
@@ -575,7 +580,7 @@ brew install llvm libomp
 ## Running fastmixture
 
 If `fastmixture` is installed, we can use `gt_fastmixture()` on our `gen_tibble`
-in the same way as `gt_openadmixture()` (note that `gt_fastmixture()` can also
+in the same way as `gt_radmix()` (note that `gt_fastmixture()` can also
 work directly on a PLINK bed file). The code below is only run if `fastmixture`
 is available:
 
@@ -623,8 +628,8 @@ anole_adm <- anole_gt %>% gt_admixture(
 anole_adm %>% autoplot(type = "cv")
 ```
 
-For a detailed comparison of ADMIXTURE with `gt_openadmixture()`, see the
-vignette "Ancestry estimation with OpenADMIXTURE".
+For a detailed comparison of ADMIXTURE with `gt_radmix()`, see the
+vignette "Ancestry estimation with gt_radmix()".
 
 # References
 

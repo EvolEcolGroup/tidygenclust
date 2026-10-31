@@ -231,9 +231,9 @@ clumppling_cd_default <- function(adj_mat, method = "louvain", res = 1) {
 #'
 #' A port of the implementation of MCL used by cdlib (and by the 'custom'
 #' example in clumppling), from the 'markov_clustering' python package (Guy
-#' Allard, MIT license). Nodes that belong to more than one cluster are
-#' assigned to the last one, and nodes that belong to none get the label -1,
-#' as in cdlib.
+#' Allard, MIT license; see inst/COPYRIGHTS). Nodes that belong to more than
+#' one cluster are assigned to the last one, and nodes that belong to none get
+#' the label -1, as in cdlib.
 #' @param adj_mat the adjacency matrix of the graph
 #' @param expansion,inflation,loop_value,iterations parameters of MCL
 #'   (defaults as in cdlib)

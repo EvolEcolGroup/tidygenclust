@@ -1,0 +1,342 @@
+---
+title: "Ancestry estimation with gt_radmix()"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Ancestry estimation with gt_radmix()}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4
+)
+```
+
+`gt_radmix()` estimates individual ancestry proportions (Q) and
+ancestral allele frequencies (P) with the method of ADMIXTURE (Alexander et
+al. 2009), using a modified version of the algorithm of OpenADMIXTURE (Ko et
+al. 2023). Much of its C++ code is ported from the Julia implementation of
+OpenADMIXTURE, OpenADMIXTURE.jl, so no Julia or Python is needed. It differs
+from OpenADMIXTURE, hence its different name: it does not include the
+selection of ancestry informative markers, it supports pseudohaploid data
+and cross-validation, and it changes some details of the computations (see
+`?gt_radmix`). If you use it, please cite Ko et al. (2023) for the
+algorithm, as well as Alexander et al. (2009) for the method. It works directly on the backing
+files of `tidypopgen` `gen_tibble` objects, and returns `gt_admix` objects
+that can be explored and plotted with the methods provided by `tidypopgen`.
+
+In this vignette, we use the dataset of the lizard *Anolis punctatus* from
+Prates et al. (2018), the same example used in `tidypopgen` and in the main
+`tidygenclust` vignette, and compare our results with those of the original
+ADMIXTURE program.
+
+# Read the data
+
+We read the vcf file of the 46 lizards into a `gen_tibble`, add the
+population information, and group the individuals by population:
+
+```{r}
+library(tidypopgen)
+library(tidygenclust)
+
+vcf_path <- system.file(
+  "/extdata/anolis/punctatus_t70_s10_n46_filtered.recode.vcf.gz",
+  package = "tidypopgen"
+)
+anole_gt <- gen_tibble(vcf_path,
+  quiet = TRUE, backingfile = tempfile("anolis_"),
+  parser = "cpp"
+)
+pops_path <- system.file("/extdata/anolis/punctatus_n46_meta.csv",
+  package = "tidypopgen"
+)
+pops <- utils::read.csv(pops_path)
+anole_gt <- anole_gt %>%
+  left_join(pops, by = "id") %>%
+  group_by(population)
+anole_gt
+```
+
+The data include missing genotypes:
+
+```{r}
+mean(is.na(show_genotypes(anole_gt)))
+```
+
+`gt_radmix()` simply ignores missing genotypes when computing the
+likelihood, so there is no need to impute them first.
+
+# Run gt_radmix()
+
+We estimate ancestry for K = 2 to 4, with 3 runs for each value of K, each
+run starting from a different random seed:
+
+```{r}
+seeds <- c(42, 2, 16)
+time_radmix <- system.time(
+  anole_radmix <- gt_radmix(anole_gt,
+    k = 2:4, n_runs = 3, seed = seeds
+  )
+)
+time_radmix
+summary(anole_radmix)
+```
+
+The results are stored in a `gt_admix` object, so we can use all the methods
+from `tidypopgen`. For example, we can plot the run with the highest
+log-likelihood for K = 3:
+
+```{r}
+best_run <- function(adm, k) {
+  runs <- which(adm$k == k)
+  which.max(adm$loglik[runs])
+}
+autoplot(anole_radmix,
+  type = "barplot", k = 3, run = best_run(anole_radmix, 3),
+  annotate_group = TRUE
+)
+```
+
+Our three clusters correspond to the three genetic groups found by Prates et
+al. (2018): Eastern Amazonia, Western Amazonia and the Atlantic Forest.
+
+We can extract the Q matrix of a given run, and use `augment()` to add it to
+the `gen_tibble`:
+
+```{r}
+q_mat <- get_q_matrix(anole_radmix, k = 3, run = best_run(anole_radmix, 3))
+augment(q_mat, data = anole_gt) %>%
+  select(id, population, pop, .Q1, .Q2, .Q3) %>%
+  head()
+```
+
+The P matrices give the frequency of the alternate allele of each locus
+(`allele_alt` in `show_loci()`) in each ancestral population:
+
+```{r}
+head(get_p_matrix(anole_radmix, k = 3, run = best_run(anole_radmix, 3)))
+```
+
+# Comparison with ADMIXTURE
+
+We now compare `gt_radmix()` with the original ADMIXTURE program
+(Alexander et al. 2009), run through `tidypopgen::gt_admixture()`. ADMIXTURE
+is an optional tool, which is not needed by `gt_radmix()`. The
+easiest way to get it is with `tgc_tools_install()`, which installs it in a
+conda environment (`ctidygenclust`):
+
+```{r, eval = FALSE}
+tgc_tools_install(tools = "admixture")
+```
+
+or, if the conda environment already exists (e.g. because `fastmixture` was
+installed in it), with:
+
+```{r, eval = FALSE}
+tgc_admixture_install()
+```
+
+The rest of this section is only run if ADMIXTURE is available:
+
+```{r}
+admixture_available <- !is.na(tgc_tools_version()$admixture)
+admixture_available
+```
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(eval = admixture_available)
+```
+
+We run ADMIXTURE with the same values of K, number of runs and seeds:
+
+```{r}
+time_adm <- system.time(
+  anole_adm <- gt_admixture(anole_gt,
+    k = 2:4, n_runs = 3, seed = seeds,
+    conda_env = "auto"
+  )
+)
+time_adm
+```
+
+## Speed
+
+On this small dataset, both programs are fast, but `gt_radmix()`
+avoids writing PLINK files and starting an external program for each run:
+
+```{r}
+data.frame(
+  method = c("gt_radmix", "ADMIXTURE"),
+  elapsed_seconds = c(time_radmix[["elapsed"]], time_adm[["elapsed"]])
+)
+```
+
+The advantage grows with the size of the dataset; on the 379 individuals and
+54,051 SNPs of the `EUR_subset` data used to test OpenADMIXTURE.jl (K = 4,
+4 cores), `gt_radmix()` took 19 seconds and ADMIXTURE 153 seconds,
+reaching log-likelihoods within 1 unit of each other (-15,552,193.2 and
+-15,552,192.6).
+
+## Log-likelihoods
+
+Both programs maximise the same likelihood, so their log-likelihoods can be
+compared directly:
+
+```{r}
+loglik_tbl <- data.frame(
+  k = anole_radmix$k,
+  run = rep(1:3, 3),
+  radmix = anole_radmix$loglik,
+  admixture = anole_adm$loglik
+)
+loglik_tbl$difference <- loglik_tbl$radmix - loglik_tbl$admixture
+loglik_tbl
+```
+
+For a given K, runs started from different seeds end at slightly different
+log-likelihoods. This is not a convergence problem: the likelihood surface
+of this small dataset has many local optima, and both programs end up in
+one of them depending on the starting point. Neither program is
+systematically better; comparing the best run of each:
+
+```{r}
+best_tbl <- do.call(rbind, lapply(2:4, function(k) {
+  data.frame(
+    k = k,
+    radmix = max(anole_radmix$loglik[anole_radmix$k == k]),
+    admixture = max(anole_adm$loglik[anole_adm$k == k])
+  )
+}))
+best_tbl
+```
+
+## Ancestry proportions
+
+The labels of the clusters are arbitrary, so to compare Q matrices we first
+match each cluster of `gt_radmix()` to the most similar cluster of
+ADMIXTURE:
+
+```{r}
+# all permutations of 1:n
+permutations <- function(n) {
+  if (n == 1) {
+    return(matrix(1))
+  }
+  sub <- permutations(n - 1)
+  do.call(rbind, lapply(seq_len(n), function(i) {
+    cbind(i, matrix(setdiff(seq_len(n), i)[sub], nrow = nrow(sub)))
+  }))
+}
+# reorder the columns of q so that they best match q_ref
+match_q <- function(q, q_ref) {
+  perms <- permutations(ncol(q))
+  diffs <- apply(perms, 1, function(x) sum(abs(q[, x] - q_ref)))
+  q[, perms[which.min(diffs), ]]
+}
+```
+
+For the best run of each method, the ancestry proportions are very similar:
+
+```{r}
+q_comparison <- do.call(rbind, lapply(2:4, function(k) {
+  q_radmix <- unclass(
+    get_q_matrix(anole_radmix, k = k, run = best_run(anole_radmix, k))
+  )
+  q_adm <- unclass(
+    get_q_matrix(anole_adm, k = k, run = best_run(anole_adm, k))
+  )
+  q_radmix <- match_q(q_radmix, q_adm)
+  data.frame(
+    k = k,
+    mean_abs_difference = mean(abs(q_radmix - q_adm)),
+    max_abs_difference = max(abs(q_radmix - q_adm)),
+    correlation = stats::cor(as.vector(q_radmix), as.vector(q_adm))
+  )
+}))
+q_comparison
+```
+
+We can visualise the comparison for K = 3 by plotting the ancestry
+proportions estimated by the two methods against each other:
+
+```{r, fig.width = 5, fig.height = 5}
+library(ggplot2)
+q_radmix <- unclass(
+  get_q_matrix(anole_radmix, k = 3, run = best_run(anole_radmix, 3))
+)
+q_adm <- unclass(get_q_matrix(anole_adm, k = 3, run = best_run(anole_adm, 3)))
+q_radmix <- match_q(q_radmix, q_adm)
+data.frame(
+  admixture = as.vector(q_adm),
+  radmix = as.vector(q_radmix),
+  cluster = factor(rep(1:3, each = nrow(q_adm)))
+) %>%
+  ggplot(aes(x = admixture, y = radmix, colour = cluster)) +
+  geom_abline(linetype = "dashed", colour = "grey50") +
+  geom_point() +
+  coord_equal() +
+  labs(x = "Q (ADMIXTURE)", y = "Q (gt_radmix)") +
+  theme_minimal()
+```
+
+and by comparing the bar plots:
+
+```{r}
+autoplot(anole_radmix,
+  type = "barplot", k = 3, run = best_run(anole_radmix, 3),
+  annotate_group = TRUE
+) +
+  ggtitle("gt_radmix")
+autoplot(anole_adm,
+  type = "barplot", k = 3, run = best_run(anole_adm, 3),
+  annotate_group = TRUE
+) +
+  ggtitle("ADMIXTURE")
+```
+
+## Allele frequencies
+
+So far we have only compared the Q matrices. Comparing the P matrices needs
+care, for two reasons:
+
+1. ADMIXTURE writes its P matrix with the loci sorted by chromosome and
+   position, rather than in the order of the input. In current releases of
+   `tidypopgen`, `gt_admixture()` does not undo this reordering, so the rows
+   of its P matrices do not match the loci of the `gen_tibble` when the loci
+   are not already sorted (as is the case for this dataset, whose chromosome
+   names are not numeric). A fix (EvolEcolGroup/tidypopgen#211) will soon be
+   available in the development version of `tidypopgen`.
+2. Even with the rows in the correct order, the two methods report the
+   frequency of different alleles: `gt_radmix()` gives the frequency
+   of the alternate allele (`allele_alt`), whilst ADMIXTURE gives the
+   frequency of the second allele in the PLINK bim file, which for a
+   `gen_tibble` is the reference allele (`allele_ref`). The P matrices of
+   ADMIXTURE therefore need to be flipped before comparing them with those of
+   `gt_radmix()`:
+
+```{r, eval = FALSE}
+# with a version of tidypopgen that includes the fix
+p_radmix <- get_p_matrix(anole_radmix, k = 3, run = best_run(anole_radmix, 3))
+p_adm <- 1 - as.matrix(
+  get_p_matrix(anole_adm, k = 3, run = best_run(anole_adm, 3))
+)
+# columns should first be matched as for the Q matrices
+```
+
+# References
+
+Alexander DH, Novembre J, Lange K (2009) Fast model-based estimation of
+ancestry in unrelated individuals. Genome Research, 19(9), 1655-1664.
+
+Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH, Sobel EM, Zhou H,
+Lange KL (2023) Unsupervised discovery of ancestry informative markers and
+genetic admixture proportions in biobank-scale datasets. The American
+Journal of Human Genetics, 110(2), 314-325.
+
+Prates I, Penna A, Rodrigues MT, Carnaval AC (2018) Local adaptation in
+mainland anole lizards: Integrating population history and genome-environment
+associations. Ecology and Evolution, 8(23), 11932-11944.

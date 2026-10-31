@@ -12,7 +12,7 @@
 #' greater than 1 (ADMIXTURE performs 5-fold cv as default).
 #'
 #' `fastmixture` is an optional tool, which is not needed by the rest of
-#' `tidygenclust` (see [gt_openadmixture()] for a native implementation of
+#' `tidygenclust` (see [gt_radmix()] for a native implementation of
 #' the ADMIXTURE model). Install it with
 #' `tgc_tools_install(tools = "fastmixture")`, or add it to an existing
 #' `ctidygenclust` conda environment with [tgc_fastmixture_install()].

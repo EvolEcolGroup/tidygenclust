@@ -1,6 +1,7 @@
 # tidygenclust (development version)
-* `gt_clumppling()` is now a native R and C++ reimplementation of clumppling
-  2.0.10, previously developed as the separate package `rclump`: it gives the
+* `gt_clumppling()` is now a native R and C++ port, with modifications, of
+  clumppling 2.0.10 (Liu, Kopelman & Rosenberg 2024, by Xiran Liu),
+  previously developed as the separate package `rclump`: it gives the
   same results as the python implementation (which the test suite checks
   against stored results), without Python, and is much faster. Its input is
   always a `gt_admix` object: Q files can be read with
@@ -16,10 +17,15 @@
   `tgc_fastmixture_install()` and `tgc_admixture_install()` add a tool to an
   existing environment. clumppling is no longer installed, and the package no
   longer warns at startup if the conda environment is missing.
-* New `gt_openadmixture()`: a native C++ (OpenMP) reimplementation of
-  OpenADMIXTURE.jl, previously developed as the separate package
-  `openadmixturer`. It estimates ancestry proportions directly from the
-  backing files of `gen_tibble` objects (no Python or Julia needed), supports
+* New `gt_radmix()`: ancestry estimation with the ADMIXTURE method, using a
+  modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023), with
+  much of the C++ (OpenMP) code ported from OpenADMIXTURE.jl. It was
+  previously developed as the separate package `openadmixturer`, and named
+  `gt_openadmixture()` during development; it was renamed because it differs
+  from OpenADMIXTURE (it does not select ancestry informative markers, and
+  changes some details of the algorithm). It estimates ancestry proportions
+  directly from the backing files of `gen_tibble` objects (no Python or Julia
+  needed), supports
   diploid and pseudohaploid data, missing genotypes and ADMIXTURE-style
   cross-validation, and returns `gt_admix` objects. Its results are checked
   against OpenADMIXTURE.jl and ADMIXTURE in the test suite.
@@ -44,13 +50,13 @@
   were not in `K_range`.
 * `subset_gt_clumppling(indivs = )` checks that the individuals are between 1
   and N, rather than silently returning rows of NA.
-* `gt_openadmixture()` with `fix_p = TRUE` can project fewer individuals than
+* `gt_radmix()` with `fix_p = TRUE` can project fewer individuals than
   `k` (e.g. a single new sample) onto a reference panel.
-* `gt_openadmixture()` matches the rows of `init_p` to the loci by their
+* `gt_radmix()` matches the rows of `init_p` to the loci by their
   names, when it has row names (as its P matrices do): a P with the loci in a
   different order was silently accepted, giving wrong results, and a P with
   additional loci was rejected.
-* `gt_openadmixture(crossval = TRUE)` no longer changes the estimates of the
+* `gt_radmix(crossval = TRUE)` no longer changes the estimates of the
   following runs when `seed` is not given.
 * `tgc_tools_install(reset = TRUE)` with some of the tools no longer removes
   the others: the tools that were installed in `ctidygenclust` are installed
@@ -76,22 +82,22 @@
 * The vignette and the documentation of `autoplot()` no longer say that the
   edges of the 'modes' plot are labelled with their cost: they are coloured by
   it.
-* The Newton update of Q in `gt_openadmixture()` stops cycling at vertex
+* The Newton update of Q in `gt_radmix()` stops cycling at vertex
   solutions, which made it up to about 20% slower near convergence (results
   are unchanged).
-* `gt_openadmixture()` checks all its arguments before fitting: `fix_q = NA`
+* `gt_radmix()` checks all its arguments before fitting: `fix_q = NA`
   was taken as TRUE, `rtol = NA` silently prevented convergence, non-integer
   values of `k`, `n_runs` and `n_folds` were truncated, invalid `max_iter`,
   `n_qn` and `n_cores` gave a generic error, and invalid seeds were only
   detected after the first fits.
-* `gt_openadmixture()` on a `gen_tibble` grouped by more than one variable
+* `gt_radmix()` on a `gen_tibble` grouped by more than one variable
   fails with a clear error before fitting, rather than after all the fits.
 * `gt_fastmixture()` checks its arguments before starting python, with error
   messages naming the right arguments, and a single `seed` (such as the
   default) can be used with `n_runs > 1`: it is incremented for each run.
-* `gt_openadmixture(fix_q = TRUE)` keeps Q exactly at its starting value (it
+* `gt_radmix(fix_q = TRUE)` keeps Q exactly at its starting value (it
   moved by rounding errors).
-* `gt_openadmixture()` on a `gen_tibble` without individuals or loci gives an
+* `gt_radmix()` on a `gen_tibble` without individuals or loci gives an
   error, rather than crashing R.
 * On Intel Macs, fastmixture is compiled with the llvm installed by Homebrew
   (its location was hard-coded for Apple silicon).

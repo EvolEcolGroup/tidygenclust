@@ -77,13 +77,25 @@ similarity among replicates) of each mode
 }
 \description{
 This function aligns multiple runs of a clustering algorithm (e.g.
-ADMIXTURE or STRUCTURE) with the clumppling algorithm. It is a native R and
-C++ reimplementation of the 'clumppling' python module (version 2.0.10),
-which gives the same results without the need for Python. If you use this
-function, make sure that you cite the relevant paper by Liu, Kopelman, and
-Rosenberg (2024).
+ADMIXTURE or STRUCTURE) with the method of clumppling (Liu, Kopelman and
+Rosenberg 2024). Its R and C++ code is ported, with modifications, from the
+python package clumppling (version 2.0.10, by Xiran Liu;
+\url{https://github.com/PopGenClustering/Clumppling}), and gives the same
+results without the need for Python. The main modifications are that the
+alignment of each pair of runs, an integer linear program in clumppling,
+is solved exactly as an equivalent assignment problem, and that community
+detection uses ports of the implementations that clumppling uses through
+cdlib (python-louvain, in C++, and markov_clustering, in R) or the
+\code{igraph} package; see \code{data-raw/clumppling/README.md} in the source of the
+package for all the differences. If you use this function, make sure that
+you cite the paper on clumppling by Liu, Kopelman, and Rosenberg (2024).
 }
 \details{
+The example data (\code{capeverde_admix.rds} and \code{chicken_admix.rds} in
+\code{extdata}) are the example datasets of clumppling: runs of ADMIXTURE on the
+Cape Verde data of Verdu et al. (2017), and runs of STRUCTURE on the
+chicken data of Rosenberg et al. (2001).
+
 The algorithm has three steps:
 \enumerate{
 \item all pairs of replicates with the same K are aligned, finding the
@@ -101,7 +113,7 @@ they are consistent across K.
 The replicates are the Q matrices of a \code{gt_admix} object, as returned by
 the clustering functions of 'tidypopgen' (e.g.
 \code{tidypopgen::gt_admixture()}) and 'tidygenclust' (e.g.
-\code{\link[=gt_openadmixture]{gt_openadmixture()}}); to align replicates
+\code{\link[=gt_radmix]{gt_radmix()}}); to align replicates
 stored as Q files, read them into a \code{gt_admix} object with
 \code{tidypopgen::read_q_files()}. Replicates with the same K are numbered in the
 order in which they appear in the \code{gt_admix} object. The rows of each Q
@@ -137,4 +149,15 @@ X. Liu, N. M. Kopelman, N. A. Rosenberg (2024) Clumppling:
 cluster matching and permutation program with integer linear programming.
 Bioinformatics 40(1): btad751. doi:
 https://doi.org/10.1093/bioinformatics/btad751
+
+N. A. Rosenberg, T. Burke, K. Elo, M. W. Feldman, P. J. Freidlin,
+M. A. M. Groenen, J. Hillel, A. Mäki-Tanila, M. Tixier-Boichard,
+A. Vignal, K. Wimmers, S. Weigend (2001) Empirical evaluation of genetic
+clustering methods using multilocus genotypes from 20 chicken breeds.
+Genetics 159(2): 699-713.
+
+P. Verdu, E. M. Jewett, T. J. Pemberton, N. A. Rosenberg, M. Baptista
+(2017) Parallel trajectories of genetic and linguistic admixture in a
+genetically admixed creole population. Current Biology 27(16):
+2529-2535.
 }

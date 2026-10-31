@@ -46,7 +46,7 @@ directory. This is useful when testing the package on CI services.}
 NULL (invisibly)
 }
 \description{
-The core functionality of \code{tidygenclust} is native: \code{\link[=gt_openadmixture]{gt_openadmixture()}}
+The core functionality of \code{tidygenclust} is native: \code{\link[=gt_radmix]{gt_radmix()}}
 and \code{\link[=gt_clumppling]{gt_clumppling()}} need neither Python nor conda. A few additional
 features rely on external tools, which are optional and are only installed
 on request:

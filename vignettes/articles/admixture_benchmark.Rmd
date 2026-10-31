@@ -1,5 +1,5 @@
 ---
-title: "Benchmarking gt_openadmixture() against ADMIXTURE and fastmixture"
+title: "Benchmarking gt_radmix() against ADMIXTURE and fastmixture"
 output:
   rmarkdown::html_vignette:
     toc: true
@@ -7,7 +7,7 @@ output:
 params:
   results_dir: "data/admixture_benchmark_quick"
 vignette: >
-  %\VignetteIndexEntry{Benchmarking gt_openadmixture() against ADMIXTURE and fastmixture}
+  %\VignetteIndexEntry{Benchmarking gt_radmix() against ADMIXTURE and fastmixture}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -19,20 +19,21 @@ knitr::opts_chunk$set(
 )
 # the code of the benchmark is in three scripts in the directory code (one to
 # prepare the data, one to run ADMIXTURE and fastmixture, and one to run
-# gt_openadmixture()), from which the chunks below are read (purl = FALSE
+# gt_radmix()), from which the chunks below are read (purl = FALSE
 # because pkgdown purls this file from the package root when looking for
 # images, where these relative paths do not exist)
 knitr::read_chunk("code/admixture_benchmark_data.R")
 knitr::read_chunk("code/admixture_benchmark_cli.sh")
-knitr::read_chunk("code/admixture_benchmark_openadmixture.R")
+knitr::read_chunk("code/admixture_benchmark_radmix.R")
 # the directory with the results of the benchmark (data/admixture_benchmark,
 # or data/admixture_benchmark_quick for the results of a quick run)
 results_dir <- params$results_dir
 ```
 
-`gt_openadmixture()` estimates ancestry proportions under the model of
-ADMIXTURE (Alexander et al. 2009), with the algorithm of OpenADMIXTURE.jl
-(Ko et al. 2023), directly from the backing file of a `gen_tibble`.
+`gt_radmix()` estimates ancestry proportions with the method of ADMIXTURE
+(Alexander et al. 2009), using a modified version of the algorithm of
+OpenADMIXTURE (Ko et al. 2023), whose C++ code is largely ported from
+OpenADMIXTURE.jl, directly from the backing file of a `gen_tibble`.
 This article compares it with two programs that fit the same model:
 ADMIXTURE itself, and fastmixture (Santander et al. 2024). Both are run from
 the command line. The comparison uses the Human Genome Diversity Project
@@ -56,7 +57,7 @@ library(ggplot2)
 ```{r read_results, include = FALSE}
 # the name of each program, in the order of the tables and plots
 tool_labels <- c(
-  openadmixture = "gt_openadmixture()",
+  radmix = "gt_radmix()",
   admixture = "ADMIXTURE",
   fastmixture = "fastmixture"
 )
@@ -65,7 +66,7 @@ tool_labels <- c(
 # log (e.g. admixture_t4_cv for ADMIXTURE on 4 cores with cross-validation)
 timings <- bind_rows(
   read.csv(file.path(results_dir, "timings_cli.csv")),
-  read.csv(file.path(results_dir, "timings_openadmixture.csv"))
+  read.csv(file.path(results_dir, "timings_radmix.csv"))
 ) %>%
   mutate(
     run = paste0(tool, "_t", n_cores, if_else(crossval, "_cv", "_nocv")),
@@ -173,23 +174,23 @@ The three programs estimated the ancestry proportions of `r n_indiv`
 individuals of the HGDP, typed at `r format(n_loci, big.mark = ",")` loci,
 for K = `r k` ancestral populations (see [The data](#the-data)):
 
-- On `r min_cores` core, without cross-validation, `gt_openadmixture()` took
-  `r format_seconds(time_of("openadmixture", min_cores))` s, ADMIXTURE
+- On `r min_cores` core, without cross-validation, `gt_radmix()` took
+  `r format_seconds(time_of("radmix", min_cores))` s, ADMIXTURE
   `r format_seconds(time_of("admixture", min_cores))` s and fastmixture
   `r format_seconds(time_of("fastmixture", min_cores))` s; on
   `r max_cores` cores, they took
-  `r format_seconds(time_of("openadmixture", max_cores))` s,
+  `r format_seconds(time_of("radmix", max_cores))` s,
   `r format_seconds(time_of("admixture", max_cores))` s and
   `r format_seconds(time_of("fastmixture", max_cores))` s.
 - Compared with ADMIXTURE (on `r min_cores` core, without
-  cross-validation), the log-likelihood of `gt_openadmixture()` differs by
-  `r format_diff(agreement_of("openadmixture", "loglik_diff"))`, and that of
+  cross-validation), the log-likelihood of `gt_radmix()` differs by
+  `r format_diff(agreement_of("radmix", "loglik_diff"))`, and that of
   fastmixture by `r format_diff(agreement_of("fastmixture", "loglik_diff"))`.
   Their ancestry proportions differ from those of ADMIXTURE by up to
-  `r format_diff(agreement_of("openadmixture", "diff_ref"))` and
+  `r format_diff(agreement_of("radmix", "diff_ref"))` and
   `r format_diff(agreement_of("fastmixture", "diff_ref"))` respectively.
 - Across numbers of cores, with and without cross-validation,
-  `gt_openadmixture()` gives `r runs_differ_by("openadmixture")`, ADMIXTURE
+  `gt_radmix()` gives `r runs_differ_by("radmix")`, ADMIXTURE
   `r runs_differ_by("admixture")`, and fastmixture
   `r runs_differ_by("fastmixture")`.
 
@@ -305,7 +306,7 @@ ggplot(q_long, aes(x = individual, y = proportion, fill = cluster)) +
 ```{r plot_timings, echo = FALSE, fig.width = 7, fig.height = 4}
 # one colour per program
 tool_colours <- c(
-  openadmixture = "#2a78d6",
+  radmix = "#2a78d6",
   admixture = "#eb6834",
   fastmixture = "#1baf7a"
 )
@@ -365,7 +366,7 @@ timings %>%
 
 All the times include reading the data and saving the results.
 ADMIXTURE and fastmixture read the bed file and write their estimates of Q
-and P to text files. For `gt_openadmixture()`, the time includes reading
+and P to text files. For `gt_radmix()`, the time includes reading
 the bed file into a `gen_tibble` (and its backing file), and saving the
 resulting `gt_admix` object, with Q and P, to an RDS file. In an analysis
 with several values of K, or several runs, the `gen_tibble` would only be
@@ -396,7 +397,7 @@ timings %>%
   )
 ```
 
-ADMIXTURE and `gt_openadmixture()` compute the same cross-validation error
+ADMIXTURE and `gt_radmix()` compute the same cross-validation error
 (Alexander and Lange 2011): they hold out a fold of the genotypes, refit the
 model on the others, and average the deviance of the held-out genotypes.
 They draw the folds differently, so their errors are close but not
@@ -412,7 +413,7 @@ those of the other two programs.
 The benchmark is run with three scripts, in `vignettes/articles/code` (in
 the source code of the package). The first prepares the data. The second
 runs ADMIXTURE and fastmixture from the command line. The third runs
-`gt_openadmixture()` in R. The results are read here from
+`gt_radmix()` in R. The results are read here from
 `vignettes/articles/data/admixture_benchmark`. Each run is done once, as the
 full runs take long enough for the variation between repeated runs to be
 small. The code shown below is taken from these scripts. Timings depend on
@@ -446,7 +447,7 @@ saved, to check the scripts quickly (see
 ## Running ADMIXTURE and fastmixture
 
 ADMIXTURE and fastmixture are run from the command line, with the same
-settings as `gt_openadmixture()`:
+settings as `gt_radmix()`:
 
 ```{bash cli-settings, eval = FALSE}
 ```
@@ -464,9 +465,9 @@ iterations of each run are saved:
 ```{bash cli-runs, eval = FALSE}
 ```
 
-## Running gt_openadmixture()
+## Running gt_radmix()
 
-`gt_openadmixture()` runs on a `gen_tibble`. Its parallel loops use OpenMP,
+`gt_radmix()` runs on a `gen_tibble`. Its parallel loops use OpenMP,
 with `n_cores` threads. It only calls BLAS for small systems of K
 equations, so BLAS is kept to a single thread:
 
@@ -479,7 +480,7 @@ It is run with the same settings as ADMIXTURE and fastmixture:
 ```
 
 Each run reads the same bed file into a `gen_tibble`, runs
-`gt_openadmixture()`, and saves the result to an RDS file:
+`gt_radmix()`, and saves the result to an RDS file:
 
 ```{r r-runs, eval = FALSE}
 ```
@@ -488,11 +489,11 @@ Each program stops when its own default convergence criterion is met.
 ADMIXTURE stops when the log-likelihood increases by less than 1e-4 between
 iterations. fastmixture checks every 5 iterations, and stops when the
 log-likelihood, divided by the number of observed genotypes, has increased
-by less than 1e-9. `gt_openadmixture()` stops when the relative change in
+by less than 1e-9. `gt_radmix()` stops when the relative change in
 the log-likelihood is less than 1e-7. The numbers of iterations are not
 comparable either. An iteration of fastmixture is a pass of accelerated EM
 updates, first over mini-batches of the loci. An iteration of ADMIXTURE and
-`gt_openadmixture()` updates all the parameters with block-wise Newton
+`gt_radmix()` updates all the parameters with block-wise Newton
 steps.
 
 ## From the results to the tables and plots
@@ -517,7 +518,7 @@ cd vignettes/articles
 Rscript code/admixture_benchmark_data.R
 conda activate ctidygenclust
 bash code/admixture_benchmark_cli.sh
-Rscript code/admixture_benchmark_openadmixture.R
+Rscript code/admixture_benchmark_radmix.R
 ```
 
 The first script downloads and prepares the data in `data/hgdp`, which is

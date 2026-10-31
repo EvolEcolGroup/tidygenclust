@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Benchmark of ADMIXTURE and fastmixture, run from the command line, on the
 # HGDP data prepared by admixture_benchmark_data.R (in the same directory as
-# this script). Together with admixture_benchmark_openadmixture.R, which runs
-# gt_openadmixture() with the same settings, it gives the results shown in
+# this script). Together with admixture_benchmark_radmix.R, which runs
+# gt_radmix() with the same settings, it gives the results shown in
 # the article admixture_benchmark.Rmd (in the parent directory of this
 # script), which also shows the code of the chunks of this script (the
 # sections that start with a "## ---- label" line, read with
@@ -39,7 +39,7 @@ admixture=${ADMIXTURE:-admixture}
 fastmixture=${FASTMIXTURE:-fastmixture}
 
 ## ---- cli-settings ----
-# the same settings as in admixture_benchmark_openadmixture.R
+# the same settings as in admixture_benchmark_radmix.R
 k=5
 seed=1
 n_folds=5

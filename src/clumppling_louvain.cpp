@@ -2,10 +2,11 @@
 //
 // clumppling detects modes with cdlib's louvain(), which calls
 // best_partition() from python-louvain (Thomas Aynaud, BSD-3-Clause,
-// https://github.com/taynaud/python-louvain). This is a C++ port of that
-// implementation: the same local moving phase (nodes and candidate
-// communities are visited in random order, a node only moves for a strictly
-// positive gain, a level stops when modularity improves by less than 1e-7),
+// https://github.com/taynaud/python-louvain; see inst/COPYRIGHTS). This is a
+// C++ port of that implementation: the same local moving phase (nodes and
+// candidate communities are visited in random order, a node only moves for a
+// strictly positive gain, a level stops when modularity improves by less than
+// 1e-7),
 // the same aggregation into an induced graph, and the partition at the top
 // level of the dendrogram is returned. Random orders are drawn from R's RNG
 // rather than numpy's, so results for a given seed are not identical to the

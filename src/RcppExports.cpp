@@ -69,9 +69,9 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_fit_cpp
-List openadmixture_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q, Nullable<NumericMatrix> init_p, bool fix_q, bool fix_p, int max_iter, double rtol, int n_em_iter, int n_qn, int n_cores, bool verbose);
-RcppExport SEXP _tidygenclust_openadmixture_fit_cpp(SEXP dataSEXP, SEXP kSEXP, SEXP init_qSEXP, SEXP init_pSEXP, SEXP fix_qSEXP, SEXP fix_pSEXP, SEXP max_iterSEXP, SEXP rtolSEXP, SEXP n_em_iterSEXP, SEXP n_qnSEXP, SEXP n_coresSEXP, SEXP verboseSEXP) {
+// radmix_fit_cpp
+List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q, Nullable<NumericMatrix> init_p, bool fix_q, bool fix_p, int max_iter, double rtol, int n_em_iter, int n_qn, int n_cores, bool verbose);
+RcppExport SEXP _tidygenclust_radmix_fit_cpp(SEXP dataSEXP, SEXP kSEXP, SEXP init_qSEXP, SEXP init_pSEXP, SEXP fix_qSEXP, SEXP fix_pSEXP, SEXP max_iterSEXP, SEXP rtolSEXP, SEXP n_em_iterSEXP, SEXP n_qnSEXP, SEXP n_coresSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -87,24 +87,24 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type n_qn(n_qnSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
     Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_fit_cpp(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose));
+    rcpp_result_gen = Rcpp::wrap(radmix_fit_cpp(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_decode_cpp
-NumericMatrix openadmixture_decode_cpp(const List& data);
-RcppExport SEXP _tidygenclust_openadmixture_decode_cpp(SEXP dataSEXP) {
+// radmix_decode_cpp
+NumericMatrix radmix_decode_cpp(const List& data);
+RcppExport SEXP _tidygenclust_radmix_decode_cpp(SEXP dataSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const List& >::type data(dataSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_decode_cpp(data));
+    rcpp_result_gen = Rcpp::wrap(radmix_decode_cpp(data));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_loglik_cpp
-double openadmixture_loglik_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
-RcppExport SEXP _tidygenclust_openadmixture_loglik_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
+// radmix_loglik_cpp
+double radmix_loglik_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
+RcppExport SEXP _tidygenclust_radmix_loglik_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -112,25 +112,25 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericMatrix >::type q(qSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type p(pSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_loglik_cpp(data, q, p, n_cores));
+    rcpp_result_gen = Rcpp::wrap(radmix_loglik_cpp(data, q, p, n_cores));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_q_segments_cpp
-int openadmixture_q_segments_cpp(double I, double J);
-RcppExport SEXP _tidygenclust_openadmixture_q_segments_cpp(SEXP ISEXP, SEXP JSEXP) {
+// radmix_q_segments_cpp
+int radmix_q_segments_cpp(double I, double J);
+RcppExport SEXP _tidygenclust_radmix_q_segments_cpp(SEXP ISEXP, SEXP JSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< double >::type I(ISEXP);
     Rcpp::traits::input_parameter< double >::type J(JSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_q_segments_cpp(I, J));
+    rcpp_result_gen = Rcpp::wrap(radmix_q_segments_cpp(I, J));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_deviance_cpp
-NumericVector openadmixture_deviance_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
-RcppExport SEXP _tidygenclust_openadmixture_deviance_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
+// radmix_deviance_cpp
+NumericVector radmix_deviance_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
+RcppExport SEXP _tidygenclust_radmix_deviance_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -138,13 +138,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericMatrix >::type q(qSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type p(pSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_deviance_cpp(data, q, p, n_cores));
+    rcpp_result_gen = Rcpp::wrap(radmix_deviance_cpp(data, q, p, n_cores));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_em_cpp
-List openadmixture_em_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
-RcppExport SEXP _tidygenclust_openadmixture_em_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
+// radmix_em_cpp
+List radmix_em_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
+RcppExport SEXP _tidygenclust_radmix_em_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -152,13 +152,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericMatrix >::type q(qSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type p(pSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_em_cpp(data, q, p, n_cores));
+    rcpp_result_gen = Rcpp::wrap(radmix_em_cpp(data, q, p, n_cores));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_grad_q_cpp
-List openadmixture_grad_q_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
-RcppExport SEXP _tidygenclust_openadmixture_grad_q_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
+// radmix_grad_q_cpp
+List radmix_grad_q_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
+RcppExport SEXP _tidygenclust_radmix_grad_q_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -166,13 +166,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericMatrix >::type q(qSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type p(pSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_grad_q_cpp(data, q, p, n_cores));
+    rcpp_result_gen = Rcpp::wrap(radmix_grad_q_cpp(data, q, p, n_cores));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_grad_p_cpp
-List openadmixture_grad_p_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
-RcppExport SEXP _tidygenclust_openadmixture_grad_p_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
+// radmix_grad_p_cpp
+List radmix_grad_p_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
+RcppExport SEXP _tidygenclust_radmix_grad_p_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -180,13 +180,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericMatrix >::type q(qSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type p(pSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_grad_p_cpp(data, q, p, n_cores));
+    rcpp_result_gen = Rcpp::wrap(radmix_grad_p_cpp(data, q, p, n_cores));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_update_q_cpp
-NumericMatrix openadmixture_update_q_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
-RcppExport SEXP _tidygenclust_openadmixture_update_q_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
+// radmix_update_q_cpp
+NumericMatrix radmix_update_q_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
+RcppExport SEXP _tidygenclust_radmix_update_q_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -194,13 +194,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericMatrix >::type q(qSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type p(pSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_update_q_cpp(data, q, p, n_cores));
+    rcpp_result_gen = Rcpp::wrap(radmix_update_q_cpp(data, q, p, n_cores));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_update_p_cpp
-NumericMatrix openadmixture_update_p_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
-RcppExport SEXP _tidygenclust_openadmixture_update_p_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
+// radmix_update_p_cpp
+NumericMatrix radmix_update_p_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
+RcppExport SEXP _tidygenclust_radmix_update_p_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -208,13 +208,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericMatrix >::type q(qSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type p(pSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_update_p_cpp(data, q, p, n_cores));
+    rcpp_result_gen = Rcpp::wrap(radmix_update_p_cpp(data, q, p, n_cores));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_qp_solve_cpp
-List openadmixture_qp_solve_cpp(const NumericMatrix& H, const NumericVector& grad, const NumericVector& par, bool simplex);
-RcppExport SEXP _tidygenclust_openadmixture_qp_solve_cpp(SEXP HSEXP, SEXP gradSEXP, SEXP parSEXP, SEXP simplexSEXP) {
+// radmix_qp_solve_cpp
+List radmix_qp_solve_cpp(const NumericMatrix& H, const NumericVector& grad, const NumericVector& par, bool simplex);
+RcppExport SEXP _tidygenclust_radmix_qp_solve_cpp(SEXP HSEXP, SEXP gradSEXP, SEXP parSEXP, SEXP simplexSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -222,47 +222,47 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const NumericVector& >::type grad(gradSEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type par(parSEXP);
     Rcpp::traits::input_parameter< bool >::type simplex(simplexSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_qp_solve_cpp(H, grad, par, simplex));
+    rcpp_result_gen = Rcpp::wrap(radmix_qp_solve_cpp(H, grad, par, simplex));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_project_q_cpp
-NumericMatrix openadmixture_project_q_cpp(const NumericMatrix& q);
-RcppExport SEXP _tidygenclust_openadmixture_project_q_cpp(SEXP qSEXP) {
+// radmix_project_q_cpp
+NumericMatrix radmix_project_q_cpp(const NumericMatrix& q);
+RcppExport SEXP _tidygenclust_radmix_project_q_cpp(SEXP qSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const NumericMatrix& >::type q(qSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_project_q_cpp(q));
+    rcpp_result_gen = Rcpp::wrap(radmix_project_q_cpp(q));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_project_p_cpp
-NumericMatrix openadmixture_project_p_cpp(const NumericMatrix& p);
-RcppExport SEXP _tidygenclust_openadmixture_project_p_cpp(SEXP pSEXP) {
+// radmix_project_p_cpp
+NumericMatrix radmix_project_p_cpp(const NumericMatrix& p);
+RcppExport SEXP _tidygenclust_radmix_project_p_cpp(SEXP pSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const NumericMatrix& >::type p(pSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_project_p_cpp(p));
+    rcpp_result_gen = Rcpp::wrap(radmix_project_p_cpp(p));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_qn_new_cpp
-SEXP openadmixture_qn_new_cpp(double n_par, int n_qn);
-RcppExport SEXP _tidygenclust_openadmixture_qn_new_cpp(SEXP n_parSEXP, SEXP n_qnSEXP) {
+// radmix_qn_new_cpp
+SEXP radmix_qn_new_cpp(double n_par, int n_qn);
+RcppExport SEXP _tidygenclust_radmix_qn_new_cpp(SEXP n_parSEXP, SEXP n_qnSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< double >::type n_par(n_parSEXP);
     Rcpp::traits::input_parameter< int >::type n_qn(n_qnSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_qn_new_cpp(n_par, n_qn));
+    rcpp_result_gen = Rcpp::wrap(radmix_qn_new_cpp(n_par, n_qn));
     return rcpp_result_gen;
 END_RCPP
 }
-// openadmixture_qn_push_cpp
-void openadmixture_qn_push_cpp(SEXP state, int col, const NumericMatrix& q, const NumericMatrix& p, const NumericMatrix& q1, const NumericMatrix& p1, const NumericMatrix& q2, const NumericMatrix& p2);
-RcppExport SEXP _tidygenclust_openadmixture_qn_push_cpp(SEXP stateSEXP, SEXP colSEXP, SEXP qSEXP, SEXP pSEXP, SEXP q1SEXP, SEXP p1SEXP, SEXP q2SEXP, SEXP p2SEXP) {
+// radmix_qn_push_cpp
+void radmix_qn_push_cpp(SEXP state, int col, const NumericMatrix& q, const NumericMatrix& p, const NumericMatrix& q1, const NumericMatrix& p1, const NumericMatrix& q2, const NumericMatrix& p2);
+RcppExport SEXP _tidygenclust_radmix_qn_push_cpp(SEXP stateSEXP, SEXP colSEXP, SEXP qSEXP, SEXP pSEXP, SEXP q1SEXP, SEXP p1SEXP, SEXP q2SEXP, SEXP p2SEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type state(stateSEXP);
@@ -273,13 +273,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const NumericMatrix& >::type p1(p1SEXP);
     Rcpp::traits::input_parameter< const NumericMatrix& >::type q2(q2SEXP);
     Rcpp::traits::input_parameter< const NumericMatrix& >::type p2(p2SEXP);
-    openadmixture_qn_push_cpp(state, col, q, p, q1, p1, q2, p2);
+    radmix_qn_push_cpp(state, col, q, p, q1, p1, q2, p2);
     return R_NilValue;
 END_RCPP
 }
-// openadmixture_qn_step_cpp
-SEXP openadmixture_qn_step_cpp(SEXP state, int n_used, const NumericMatrix& q, const NumericMatrix& p, const NumericMatrix& q1, const NumericMatrix& p1, int n_cores);
-RcppExport SEXP _tidygenclust_openadmixture_qn_step_cpp(SEXP stateSEXP, SEXP n_usedSEXP, SEXP qSEXP, SEXP pSEXP, SEXP q1SEXP, SEXP p1SEXP, SEXP n_coresSEXP) {
+// radmix_qn_step_cpp
+SEXP radmix_qn_step_cpp(SEXP state, int n_used, const NumericMatrix& q, const NumericMatrix& p, const NumericMatrix& q1, const NumericMatrix& p1, int n_cores);
+RcppExport SEXP _tidygenclust_radmix_qn_step_cpp(SEXP stateSEXP, SEXP n_usedSEXP, SEXP qSEXP, SEXP pSEXP, SEXP q1SEXP, SEXP p1SEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -290,7 +290,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const NumericMatrix& >::type q1(q1SEXP);
     Rcpp::traits::input_parameter< const NumericMatrix& >::type p1(p1SEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(openadmixture_qn_step_cpp(state, n_used, q, p, q1, p1, n_cores));
+    rcpp_result_gen = Rcpp::wrap(radmix_qn_step_cpp(state, n_used, q, p, q1, p1, n_cores));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -301,22 +301,22 @@ static const R_CallMethodDef CallEntries[] = {
     {"_tidygenclust_clumppling_align_ilp_diff1_cpp", (DL_FUNC) &_tidygenclust_clumppling_align_ilp_diff1_cpp, 2},
     {"_tidygenclust_clumppling_align_within_k_cpp", (DL_FUNC) &_tidygenclust_clumppling_align_within_k_cpp, 1},
     {"_tidygenclust_clumppling_louvain_cpp", (DL_FUNC) &_tidygenclust_clumppling_louvain_cpp, 2},
-    {"_tidygenclust_openadmixture_fit_cpp", (DL_FUNC) &_tidygenclust_openadmixture_fit_cpp, 12},
-    {"_tidygenclust_openadmixture_decode_cpp", (DL_FUNC) &_tidygenclust_openadmixture_decode_cpp, 1},
-    {"_tidygenclust_openadmixture_loglik_cpp", (DL_FUNC) &_tidygenclust_openadmixture_loglik_cpp, 4},
-    {"_tidygenclust_openadmixture_q_segments_cpp", (DL_FUNC) &_tidygenclust_openadmixture_q_segments_cpp, 2},
-    {"_tidygenclust_openadmixture_deviance_cpp", (DL_FUNC) &_tidygenclust_openadmixture_deviance_cpp, 4},
-    {"_tidygenclust_openadmixture_em_cpp", (DL_FUNC) &_tidygenclust_openadmixture_em_cpp, 4},
-    {"_tidygenclust_openadmixture_grad_q_cpp", (DL_FUNC) &_tidygenclust_openadmixture_grad_q_cpp, 4},
-    {"_tidygenclust_openadmixture_grad_p_cpp", (DL_FUNC) &_tidygenclust_openadmixture_grad_p_cpp, 4},
-    {"_tidygenclust_openadmixture_update_q_cpp", (DL_FUNC) &_tidygenclust_openadmixture_update_q_cpp, 4},
-    {"_tidygenclust_openadmixture_update_p_cpp", (DL_FUNC) &_tidygenclust_openadmixture_update_p_cpp, 4},
-    {"_tidygenclust_openadmixture_qp_solve_cpp", (DL_FUNC) &_tidygenclust_openadmixture_qp_solve_cpp, 4},
-    {"_tidygenclust_openadmixture_project_q_cpp", (DL_FUNC) &_tidygenclust_openadmixture_project_q_cpp, 1},
-    {"_tidygenclust_openadmixture_project_p_cpp", (DL_FUNC) &_tidygenclust_openadmixture_project_p_cpp, 1},
-    {"_tidygenclust_openadmixture_qn_new_cpp", (DL_FUNC) &_tidygenclust_openadmixture_qn_new_cpp, 2},
-    {"_tidygenclust_openadmixture_qn_push_cpp", (DL_FUNC) &_tidygenclust_openadmixture_qn_push_cpp, 8},
-    {"_tidygenclust_openadmixture_qn_step_cpp", (DL_FUNC) &_tidygenclust_openadmixture_qn_step_cpp, 7},
+    {"_tidygenclust_radmix_fit_cpp", (DL_FUNC) &_tidygenclust_radmix_fit_cpp, 12},
+    {"_tidygenclust_radmix_decode_cpp", (DL_FUNC) &_tidygenclust_radmix_decode_cpp, 1},
+    {"_tidygenclust_radmix_loglik_cpp", (DL_FUNC) &_tidygenclust_radmix_loglik_cpp, 4},
+    {"_tidygenclust_radmix_q_segments_cpp", (DL_FUNC) &_tidygenclust_radmix_q_segments_cpp, 2},
+    {"_tidygenclust_radmix_deviance_cpp", (DL_FUNC) &_tidygenclust_radmix_deviance_cpp, 4},
+    {"_tidygenclust_radmix_em_cpp", (DL_FUNC) &_tidygenclust_radmix_em_cpp, 4},
+    {"_tidygenclust_radmix_grad_q_cpp", (DL_FUNC) &_tidygenclust_radmix_grad_q_cpp, 4},
+    {"_tidygenclust_radmix_grad_p_cpp", (DL_FUNC) &_tidygenclust_radmix_grad_p_cpp, 4},
+    {"_tidygenclust_radmix_update_q_cpp", (DL_FUNC) &_tidygenclust_radmix_update_q_cpp, 4},
+    {"_tidygenclust_radmix_update_p_cpp", (DL_FUNC) &_tidygenclust_radmix_update_p_cpp, 4},
+    {"_tidygenclust_radmix_qp_solve_cpp", (DL_FUNC) &_tidygenclust_radmix_qp_solve_cpp, 4},
+    {"_tidygenclust_radmix_project_q_cpp", (DL_FUNC) &_tidygenclust_radmix_project_q_cpp, 1},
+    {"_tidygenclust_radmix_project_p_cpp", (DL_FUNC) &_tidygenclust_radmix_project_p_cpp, 1},
+    {"_tidygenclust_radmix_qn_new_cpp", (DL_FUNC) &_tidygenclust_radmix_qn_new_cpp, 2},
+    {"_tidygenclust_radmix_qn_push_cpp", (DL_FUNC) &_tidygenclust_radmix_qn_push_cpp, 8},
+    {"_tidygenclust_radmix_qn_step_cpp", (DL_FUNC) &_tidygenclust_radmix_qn_step_cpp, 7},
     {NULL, NULL, 0}
 };
 

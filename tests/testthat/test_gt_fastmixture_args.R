@@ -65,7 +65,7 @@ test_that("'safety' is deprecated and not passed to python", {
 })
 
 test_that("the grouping of a gen_tibble is checked before starting python", {
-  test_gt <- openadmixture_test_gt(matrix(c(0, 1, 2, 1, 0, 2), 3, 2))
+  test_gt <- radmix_test_gt(matrix(c(0, 1, 2, 1, 0, 2), 3, 2))
   grouped_2 <- test_gt %>%
     dplyr::mutate(pop2 = .data$population) %>%
     dplyr::group_by(.data$population, .data$pop2)

@@ -1,4 +1,4 @@
-# Preparation of the data for the benchmark of gt_openadmixture() against
+# Preparation of the data for the benchmark of gt_radmix() against
 # ADMIXTURE and fastmixture on the HGDP. The results are shown in the article
 # admixture_benchmark.Rmd (in the parent directory of this script), which
 # also shows the code of the chunks of this script (the sections that start

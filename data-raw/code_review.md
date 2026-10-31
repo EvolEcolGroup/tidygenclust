@@ -2,7 +2,7 @@
 
 A review of the whole package on the `rclump` branch, after the native
 clumppling port, the optional conda tools and the simplification of the
-OpenADMIXTURE genotype view. It covers correctness, the test suite and ways
+genotype view of `gt_radmix()`. It covers correctness, the test suite and ways
 to simplify the code without losing performance. Every bug listed under
 "High" and "Medium" was reproduced; "Low" items were found by reading the
 code and checked where noted.
@@ -35,7 +35,7 @@ tested):
 | 7. installer: reset; numpy; conda on macOS; yaml on macOS | bf94bec; c4d50ef; 9eba8b9; 250277b |
 | 8. plots: subsets; factor groups; `k`; single K; edge labels | e2b4f92; aefa0f9; 31a53ea; 2698544; 74b0bf6 |
 | 9. cycling of the QP solver | 0850d80 |
-| Low: arguments of `gt_openadmixture()`; grouping | 59eba8d; a524fbb |
+| Low: arguments of `gt_radmix()`; grouping | 59eba8d; a524fbb |
 | Low: arguments of `gt_fastmixture()` | ce0bc07 |
 | Low: `message()`; fixed Q | 775cf0f; 5cf546f |
 | Low: empty inputs; quasi-Newton export; empty P; seeds | 05b1517; 45a89ad; 45a002f; 6dfdf2e |
@@ -44,7 +44,7 @@ tested):
 | Low: unused `safety` of `gt_fastmixture()` (deprecated) | b12fd04 |
 
 Also fixed after the review: `gt_fastmixture()` checks the grouping of the
-gen_tibble before the fits, like `gt_openadmixture()` (b3af5e6); two
+gen_tibble before the fits, like `gt_radmix()` (b3af5e6); two
 paragraphs of the vignettes were wrapped to 80 characters (c3e017a), and
 the two links to the Anolis data in the main vignette, which were broken,
 were fixed (f8322fc).
@@ -59,7 +59,7 @@ The issues of the test suite were then addressed, one commit each:
 | fragile: lines of the latest conda snapshot | 8bdf1e0 |
 | weak: `n_cores = 1` vs `2` | 04d044e |
 | weak: fixed Q with `tolerance = 1e-4` | 5cf546f (exact test) |
-| dead: `openadmixture_has_real_qp()` skips | caadc34 |
+| dead: `radmix_has_real_qp()` skips | caadc34 |
 | kernel test of `p = 0` depends on the simulation | baa5235 |
 | installer decisions untested | bf94bec; 84eac02 |
 
@@ -112,7 +112,7 @@ Still open: the simplification plan, now in `dev/simplification_plan.md`.
      that are not in `K_range` silently give an empty object;
    - `indivs` is not checked against `N` (`indivs = 390:420` with N = 399
      returns rows of NA).
-6. **`gt_openadmixture()`** (`R/gt_openadmixture.R`):
+6. **`gt_radmix()`** (`R/gt_radmix.R`):
    - it refuses `k >= n_indiv` even with `fix_p = TRUE`, where each
      individual is estimated independently, so a small set of samples
      (e.g. one new sample) cannot be projected onto a reference panel;
@@ -149,7 +149,7 @@ Still open: the simplification plan, now in `dev/simplification_plan.md`.
    - the vignette and the documentation said that edges of the 'modes' plot
      are labelled with their cost, but they are only coloured.
 9. **The QP solver of Q cycles until its iteration limit at vertex
-   solutions** (`src/openadmixture_qp_sweep.cpp`). When the solution of a
+   solutions** (`src/radmix_qp_sweep.cpp`). When the solution of a
    column is at a vertex, a parameter is freed, takes a step of exactly 0,
    and is fixed again, up to the limit of 1000 passes; about 4% of columns
    do this near convergence, making `update_q` 6-21% slower. An early exit
@@ -157,28 +157,28 @@ Still open: the simplification plan, now in `dev/simplification_plan.md`.
 
 ### Low
 
-- **Argument validation in `gt_openadmixture()`**: `fix_q = NA` is treated
+- **Argument validation in `gt_radmix()`**: `fix_q = NA` is treated
   as TRUE by C++; `rtol = NA` (or negative) silently disables convergence;
   `max_iter`, `n_qn` and `n_cores` give a generic C++ error; non-integer `k`,
   `n_runs` and `n_folds` are truncated; seeds are only checked by
   `set.seed()`, after the first fit.
 - **A gen_tibble grouped by more than one variable** makes
-  `gt_openadmixture()` fail only after all the fits have run.
+  `gt_radmix()` fail only after all the fits have run.
 - **Argument validation in `gt_fastmixture()`**: the error message names
   `seeds` and `repeats` rather than `seed` and `n_runs`; the default `seed`
   fails with `n_runs > 1`; arguments are only checked after python is
   started; `cv = NA` gives a cryptic error. The `safety` argument is never
   used by the python wrapper (fastmixture 1.3.0 has no such option).
 - **`message()` is looked up in the global environment** by the C++ fit
-  (`Function message("message")` in `src/openadmixture_fit.cpp`), so a
+  (`Function message("message")` in `src/radmix_fit.cpp`), so a
   user-defined `message()` receives the log of verbose fits.
 - **`fix_q = TRUE` does not keep Q exactly fixed**: the quasi-Newton step
   re-projects the fixed block, which changes it at the level of rounding
   errors (P stays exact).
 - **Internal C++ functions crash R on degenerate inputs** (not reachable
-  from the exported functions): `openadmixture_q_segments_cpp()` and the Q
+  from the exported functions): `radmix_q_segments_cpp()` and the Q
   kernels divide by zero with no individuals (SIGFPE); `project_q()` with
-  K = 0; `openadmixture_qn_step_cpp()` writes past the end of its output if
+  K = 0; `radmix_qn_step_cpp()` writes past the end of its output if
   q and p have different numbers of rows; `clumppling_align_ilp_cpp()`
   with an empty P; the cross-validation seed accepts `Inf`/very large
   values (undefined behaviour in the cast to uint64_t).
@@ -209,7 +209,7 @@ Still open: the simplification plan, now in `dev/simplification_plan.md`.
   latest conda snapshot.
 - Weak or dead: `n_cores = 1` vs `2` compared with `expect_equal` although
   results are bit-identical; the fixed-Q test uses `tolerance = 1e-4`;
-  `openadmixture_has_real_qp()` skips are dead (the solver is always
+  `radmix_has_real_qp()` skips are dead (the solver is always
   compiled in); a kernel test exercises its `p = 0` branch only if the
   simulation happens to produce such loci.
 - The installer's decisions (reset, existing environments, operating

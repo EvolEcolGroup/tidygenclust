@@ -21,67 +21,67 @@ clumppling_louvain_cpp <- function(adj, resolution = 1.0) {
     .Call(`_tidygenclust_clumppling_louvain_cpp`, adj, resolution)
 }
 
-openadmixture_fit_cpp <- function(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose) {
-    .Call(`_tidygenclust_openadmixture_fit_cpp`, data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose)
+radmix_fit_cpp <- function(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose) {
+    .Call(`_tidygenclust_radmix_fit_cpp`, data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose)
 }
 
-openadmixture_decode_cpp <- function(data) {
-    .Call(`_tidygenclust_openadmixture_decode_cpp`, data)
+radmix_decode_cpp <- function(data) {
+    .Call(`_tidygenclust_radmix_decode_cpp`, data)
 }
 
-openadmixture_loglik_cpp <- function(data, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_loglik_cpp`, data, q, p, n_cores)
+radmix_loglik_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_radmix_loglik_cpp`, data, q, p, n_cores)
 }
 
-openadmixture_q_segments_cpp <- function(I, J) {
-    .Call(`_tidygenclust_openadmixture_q_segments_cpp`, I, J)
+radmix_q_segments_cpp <- function(I, J) {
+    .Call(`_tidygenclust_radmix_q_segments_cpp`, I, J)
 }
 
-openadmixture_deviance_cpp <- function(data, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_deviance_cpp`, data, q, p, n_cores)
+radmix_deviance_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_radmix_deviance_cpp`, data, q, p, n_cores)
 }
 
-openadmixture_em_cpp <- function(data, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_em_cpp`, data, q, p, n_cores)
+radmix_em_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_radmix_em_cpp`, data, q, p, n_cores)
 }
 
-openadmixture_grad_q_cpp <- function(data, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_grad_q_cpp`, data, q, p, n_cores)
+radmix_grad_q_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_radmix_grad_q_cpp`, data, q, p, n_cores)
 }
 
-openadmixture_grad_p_cpp <- function(data, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_grad_p_cpp`, data, q, p, n_cores)
+radmix_grad_p_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_radmix_grad_p_cpp`, data, q, p, n_cores)
 }
 
-openadmixture_update_q_cpp <- function(data, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_update_q_cpp`, data, q, p, n_cores)
+radmix_update_q_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_radmix_update_q_cpp`, data, q, p, n_cores)
 }
 
-openadmixture_update_p_cpp <- function(data, q, p, n_cores) {
-    .Call(`_tidygenclust_openadmixture_update_p_cpp`, data, q, p, n_cores)
+radmix_update_p_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_radmix_update_p_cpp`, data, q, p, n_cores)
 }
 
-openadmixture_qp_solve_cpp <- function(H, grad, par, simplex) {
-    .Call(`_tidygenclust_openadmixture_qp_solve_cpp`, H, grad, par, simplex)
+radmix_qp_solve_cpp <- function(H, grad, par, simplex) {
+    .Call(`_tidygenclust_radmix_qp_solve_cpp`, H, grad, par, simplex)
 }
 
-openadmixture_project_q_cpp <- function(q) {
-    .Call(`_tidygenclust_openadmixture_project_q_cpp`, q)
+radmix_project_q_cpp <- function(q) {
+    .Call(`_tidygenclust_radmix_project_q_cpp`, q)
 }
 
-openadmixture_project_p_cpp <- function(p) {
-    .Call(`_tidygenclust_openadmixture_project_p_cpp`, p)
+radmix_project_p_cpp <- function(p) {
+    .Call(`_tidygenclust_radmix_project_p_cpp`, p)
 }
 
-openadmixture_qn_new_cpp <- function(n_par, n_qn) {
-    .Call(`_tidygenclust_openadmixture_qn_new_cpp`, n_par, n_qn)
+radmix_qn_new_cpp <- function(n_par, n_qn) {
+    .Call(`_tidygenclust_radmix_qn_new_cpp`, n_par, n_qn)
 }
 
-openadmixture_qn_push_cpp <- function(state, col, q, p, q1, p1, q2, p2) {
-    invisible(.Call(`_tidygenclust_openadmixture_qn_push_cpp`, state, col, q, p, q1, p1, q2, p2))
+radmix_qn_push_cpp <- function(state, col, q, p, q1, p1, q2, p2) {
+    invisible(.Call(`_tidygenclust_radmix_qn_push_cpp`, state, col, q, p, q1, p1, q2, p2))
 }
 
-openadmixture_qn_step_cpp <- function(state, n_used, q, p, q1, p1, n_cores) {
-    .Call(`_tidygenclust_openadmixture_qn_step_cpp`, state, n_used, q, p, q1, p1, n_cores)
+radmix_qn_step_cpp <- function(state, n_used, q, p, q1, p1, n_cores) {
+    .Call(`_tidygenclust_radmix_qn_step_cpp`, state, n_used, q, p, q1, p1, n_cores)
 }
 
