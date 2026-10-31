@@ -93,9 +93,6 @@ test_that("conda yaml files are found", {
 })
 
 test_that("missing tools are reported", {
-  # the installers stop on windows, before looking for the environment (as
-  # tested below), so these tests are of the other systems
-  testthat::local_mocked_bindings(tgc_is_windows = function() FALSE)
   withr::local_options(tidygenclust.conda_env = "tidygenclust_no_such_env")
   expect_false(tgc_tool_installed("fastmixture"))
   if (Sys.info()[["sysname"]] != "Darwin") {
@@ -106,6 +103,12 @@ test_that("missing tools are reported", {
     gt_fastmixture("plink_prefix", k = 2),
     "tgc_tools_install\\(tools = \"fastmixture\"\\)"
   )
+})
+
+test_that("the installers report a missing environment", {
+  # the tools are not installed on windows (see the test of its message)
+  skip_on_os("windows")
+  withr::local_options(tidygenclust.conda_env = "tidygenclust_no_such_env")
   expect_error(
     tgc_fastmixture_install(),
     "'tidygenclust_no_such_env' does not exist"
@@ -150,7 +153,6 @@ local_mock_conda <- function(envs, installed, mac = FALSE,
   )
   testthat::local_mocked_bindings(
     tgc_is_mac = function() mac,
-    tgc_is_windows = function() FALSE,
     tgc_check_brew = function() NULL,
     tgc_conda_env = function() "ctidygenclust",
     tgc_tool_installed = function(tool) {
@@ -169,6 +171,8 @@ local_mock_conda <- function(envs, installed, mac = FALSE,
 }
 
 test_that("resetting the environment keeps the other tools", {
+  # the tools are not installed on windows
+  skip_on_os("windows")
   # on linux, both tools are in ctidygenclust: resetting it to reinstall
   # ADMIXTURE also installs fastmixture again
   state <- local_mock_conda(
@@ -203,6 +207,8 @@ test_that("resetting the environment keeps the other tools", {
 })
 
 test_that("new environments are created for the requested tools only", {
+  # the tools are not installed on windows
+  skip_on_os("windows")
   # linux, fastmixture only: ctidygenclust is created from the latest
   # snapshot (filtered by tgc_create_conda_env()), and fastmixture is
   # installed from github
@@ -246,6 +252,8 @@ test_that("new environments are created for the requested tools only", {
 })
 
 test_that("fastmixture is installed without reinstalling its dependencies", {
+  # the tools are not installed on windows
+  skip_on_os("windows")
   # --force-reinstall alone also reinstalled numpy from pypi, replacing the
   # version pinned by the conda yaml
   run <- new.env()
@@ -255,7 +263,6 @@ test_that("fastmixture is installed without reinstalling its dependencies", {
   )
   testthat::local_mocked_bindings(
     tgc_is_mac = function() FALSE,
-    tgc_is_windows = function() FALSE,
     tgc_check_conda_env = function(tool) "ctidygenclust",
     tgc_tool_installed = function(tool) TRUE
   )
@@ -266,6 +273,8 @@ test_that("fastmixture is installed without reinstalling its dependencies", {
 })
 
 test_that("on osx, ADMIXTURE is installed with reticulate's conda", {
+  # the tools are not installed on windows
+  skip_on_os("windows")
   # fake conda executables, which write their arguments to a file: one is
   # the binary used by reticulate, the other is first on the PATH (the old
   # code called the conda on the PATH, which may not exist, e.g. in RStudio)
@@ -297,7 +306,6 @@ test_that("on osx, ADMIXTURE is installed with reticulate's conda", {
   )
   testthat::local_mocked_bindings(
     tgc_is_mac = function() TRUE,
-    tgc_is_windows = function() FALSE,
     tgc_tool_installed = function(tool) TRUE
   )
   tgc_admixture_install(conda_yaml = yaml_file)
@@ -350,6 +358,8 @@ test_that("a missing snapshot directory gives a clear error", {
 })
 
 test_that("on osx, fastmixture is compiled with the llvm of homebrew", {
+  # the tools are not installed on windows
+  skip_on_os("windows")
   run <- new.env()
   testthat::local_mocked_bindings(
     conda_install = function(...) NULL,
@@ -358,7 +368,6 @@ test_that("on osx, fastmixture is compiled with the llvm of homebrew", {
   )
   testthat::local_mocked_bindings(
     tgc_is_mac = function() TRUE,
-    tgc_is_windows = function() FALSE,
     tgc_check_brew = function() NULL,
     tgc_check_conda_env = function(tool) "ctidygenclust",
     tgc_tool_installed = function(tool) TRUE
