@@ -2,7 +2,8 @@
 #'
 #' This function aligns multiple runs of a clustering algorithm (e.g.
 #' ADMIXTURE or STRUCTURE) with the method of clumppling (Liu, Kopelman and
-#' Rosenberg 2024). Its R and C++ code is ported, with modifications, from the
+#' Rosenberg 2024). `gt_clumppling()` is anative R and C++ code port, with
+#' modifications to enhance performance, from the
 #' python package clumppling (version 2.0.10, by Xiran Liu;
 #' <https://github.com/PopGenClustering/Clumppling>), and gives the same
 #' results without the need for Python. The main modifications are that the
@@ -10,8 +11,7 @@
 #' is solved exactly as an equivalent assignment problem, and that community
 #' detection uses ports of the implementations that clumppling uses through
 #' cdlib (python-louvain, in C++, and markov_clustering, in R) or the
-#' `igraph` package; see `data-raw/clumppling/README.md` in the source of the
-#' package for all the differences. If you use this function, make sure that
+#' `igraph` package. If you use this function, make sure that
 #' you cite the paper on clumppling by Liu, Kopelman, and Rosenberg (2024).
 #'
 #' The example data (`capeverde_admix.rds` and `chicken_admix.rds` in
