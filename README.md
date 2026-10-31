@@ -124,8 +124,9 @@ OpenADMIXTURE.jl to numerical precision, and it agrees with ADMIXTURE 1.3.0,
 which the test suite checks against stored results; on the 379 individuals
 and 54,051 SNPs of the `EUR_subset` data used to test OpenADMIXTURE.jl, it
 is 2-3 times faster than ADMIXTURE on a single thread, and about 10 times
-faster on 4 threads. See the vignette "Ancestry estimation with
-gt_radmix()", `?gt_radmix`, and `data-raw/radmix/README.md` for details.
+faster on 4 threads. See `?gt_radmix`, the article "Comparing gt_radmix()
+and ADMIXTURE" (in the Articles section of the website of the package), and
+`data-raw/radmix/README.md` for details.
 
 ## References
 

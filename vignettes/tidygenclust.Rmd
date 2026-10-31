@@ -261,7 +261,8 @@ We are looking for the 'elbow' point in the plot where the cross-validation
 error is at its lowest, here it looks like `k = 3` would be a sensible choice.
 
 For a detailed comparison of `gt_radmix()` with the original ADMIXTURE
-program, see the vignette "Ancestry estimation with gt_radmix()".
+program, see the article "Comparing gt_radmix() and ADMIXTURE" (in the
+Articles section of the website of the package).
 
 `gt_radmix()` uses a modified version of the algorithm of OpenADMIXTURE:
 when using it, make sure that you cite the original paper on the algorithm
@@ -629,7 +630,8 @@ anole_adm %>% autoplot(type = "cv")
 ```
 
 For a detailed comparison of ADMIXTURE with `gt_radmix()`, see the
-vignette "Ancestry estimation with gt_radmix()".
+article "Comparing gt_radmix() and ADMIXTURE" (in the Articles section of
+the website of the package).
 
 # References
 

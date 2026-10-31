@@ -1,8 +1,11 @@
 ---
-title: "Ancestry estimation with gt_radmix()"
-output: rmarkdown::html_vignette
+title: "Comparing gt_radmix() and ADMIXTURE"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
 vignette: >
-  %\VignetteIndexEntry{Ancestry estimation with gt_radmix()}
+  %\VignetteIndexEntry{Comparing gt_radmix() and ADMIXTURE}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -16,23 +19,31 @@ knitr::opts_chunk$set(
 )
 ```
 
-`gt_radmix()` estimates individual ancestry proportions (Q) and
-ancestral allele frequencies (P) with the method of ADMIXTURE (Alexander et
-al. 2009), using a modified version of the algorithm of OpenADMIXTURE (Ko et
-al. 2023). Much of its C++ code is ported from the Julia implementation of
-OpenADMIXTURE, OpenADMIXTURE.jl, so no Julia or Python is needed. It differs
-from OpenADMIXTURE, hence its different name: it does not include the
-selection of ancestry informative markers, it supports pseudohaploid data
-and cross-validation, and it changes some details of the computations (see
-`?gt_radmix`). If you use it, please cite Ko et al. (2023) for the
-algorithm, as well as Alexander et al. (2009) for the method. It works directly on the backing
-files of `tidypopgen` `gen_tibble` objects, and returns `gt_admix` objects
-that can be explored and plotted with the methods provided by `tidypopgen`.
+This article compares `gt_radmix()` with the original ADMIXTURE program
+(Alexander et al. 2009), which fit the same model, on a small dataset: how
+long they take, and the log-likelihoods, ancestry proportions and allele
+frequencies that they estimate. For a benchmark on a larger dataset (the
+Human Genome Diversity Project), which also includes fastmixture, see the
+article "Benchmarking gt_radmix() against ADMIXTURE and fastmixture".
 
-In this vignette, we use the dataset of the lizard *Anolis punctatus* from
-Prates et al. (2018), the same example used in `tidypopgen` and in the main
-`tidygenclust` vignette, and compare our results with those of the original
-ADMIXTURE program.
+`gt_radmix()` estimates individual ancestry proportions (Q) and
+ancestral allele frequencies (P) with the method of ADMIXTURE, using a
+modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023). Much of
+its C++ code is ported from the Julia implementation of OpenADMIXTURE,
+OpenADMIXTURE.jl, so no Julia or Python is needed. It differs from
+OpenADMIXTURE, hence its different name: it does not include the selection
+of ancestry informative markers, it supports pseudohaploid data and
+cross-validation, and it changes some details of the computations (see
+`?gt_radmix`). If you use it, please cite Ko et al. (2023) for the
+algorithm, as well as Alexander et al. (2009) for the method. It works
+directly on the backing files of `tidypopgen` `gen_tibble` objects, and
+returns `gt_admix` objects that can be explored and plotted with the
+methods provided by `tidypopgen`.
+
+We use the dataset of the lizard *Anolis punctatus* from Prates et al.
+(2018), the same example used in `tidypopgen` and in the main
+`tidygenclust` vignette. We first run `gt_radmix()`, and then ADMIXTURE
+with the same settings.
 
 # Read the data
 
