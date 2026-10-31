@@ -27,16 +27,10 @@ on the 60 scenarios of `data-raw/clumppling/validate_vs_python.R`
 
 ## Tier 2: refactoring off the hot path
 
-- **`gt_fastmixture()`**: the two argparse namespaces differ only in the
-  cross-validation arguments, and the four branches that collect the results
-  only in which elements they keep. One call and one result format would
-  remove about 60 lines.
 - **Plots**: `plot_major_modes()`, `plot_all_modes()` and
   `plot_modes_within_k()` (`R/autoplot_gt_clumppling.R`) differ only in the
   modes they select (about 50 lines); `R/plot_modes.R` repeats its inset and
   rescaling code (about 70 lines).
-- **`inst/python/py_rfastmixture.py`**: about 120 lines of commented-out
-  code (the command line parser and the code that writes files).
 - **Test-only C++**: the external-pointer API of the quasi-Newton state
   (`radmix_qn_new_cpp()`, `_push_cpp()`, `_step_cpp()`) can be one
   stateless function (about 75 lines, including generated code). The two
