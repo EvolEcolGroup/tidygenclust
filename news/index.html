@@ -35,13 +35,13 @@
     <span class="caret"></span>
   </a>
   <ul class="dropdown-menu" role="menu"><li>
-      <a href="../articles/admixture_benchmark.html">Benchmarking gt_radmix() against ADMIXTURE and fastmixture</a>
-    </li>
-    <li>
-      <a href="../articles/admixture_fastmixture.html">Installing and running ADMIXTURE and fastmixture</a>
+      <a href="../articles/admixture_benchmark.html">Benchmarking gt_radmix() against ADMIXTURE, fastmixture and ADAMIXTURE</a>
     </li>
     <li>
       <a href="../articles/clumppling_benchmark.html">Benchmarking gt_clumppling() against the python clumppling</a>
+    </li>
+    <li>
+      <a href="../articles/external_tools.html">Installing and running external tools</a>
     </li>
     <li>
       <a href="../articles/pseudohaploids.html">Why pseudohaploids must be declared</a>
@@ -65,11 +65,13 @@
 
     <div class="section level2">
 <h2 class="page-header" data-toc-text="development version" id="tidygenclust-development-version">tidygenclust (development version)<a class="anchor" aria-label="anchor" href="#tidygenclust-development-version"></a></h2>
-<ul><li>New <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>: ancestry estimation with the ADMIXTURE method, using a modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023). Its results are checked against OpenADMIXTURE.jl and ADMIXTURE in the test suite.</li>
+<ul><li>New <code><a href="../reference/gt_adamixture.html">gt_adamixture()</a></code>: ancestry estimation with the python package ADAMIXTURE (Saurina-i-Ricos, Mas Montserrat &amp; Ioannidis 2026), run with <code>reticulate</code> like <code><a href="../reference/gt_fastmixture.html">gt_fastmixture()</a></code>, on a <code>gen_tibble</code> (including subsets) or on PLINK files. ADAMIXTURE (version 1.8.9, from PyPI, without PyTorch) is installed by default by <code><a href="../reference/tgc_tools_install.html">tgc_tools_install()</a></code>, or added to an existing environment with the new <code><a href="../reference/tgc_adamixture_install.html">tgc_adamixture_install()</a></code>, and its version is reported by <code><a href="../reference/tgc_tools_version.html">tgc_tools_version()</a></code>.</li>
+<li>New <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>: ancestry estimation with the ADMIXTURE method, using a modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023). Its results are checked against OpenADMIXTURE.jl and ADMIXTURE in the test suite.</li>
 <li>
 <code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code> is now a native R and C++ port, with modifications, of clumppling 2.0.10 (Liu, Kopelman &amp; Rosenberg 2024, by Xiran Liu).</li>
 <li>The conda environment is no longer needed by default, as the core functionality is native. <code><a href="../reference/tgc_tools_install.html">tgc_tools_install()</a></code> gains a <code>tools</code> argument to choose which optional tools to install (<code>fastmixture</code> and ADMIXTURE), and <code><a href="../reference/tgc_fastmixture_install.html">tgc_fastmixture_install()</a></code> and <code><a href="../reference/tgc_admixture_install.html">tgc_admixture_install()</a></code> add a tool to an existing environment.</li>
 <li>Fixed the colours of the clusters in the plots of <code>gt_clumppling</code> objects with K &gt;= 10: clusters were ordered as text (“1”, “10”, “2”, …), so the same aligned cluster was drawn in a different colour (and position) for different values of K.</li>
+<li>The optional tools (fastmixture, ADMIXTURE and ADAMIXTURE) are only available on Linux at the moment: <code><a href="../reference/tgc_tools_install.html">tgc_tools_install()</a></code> and the other installers explain this on macOS and Windows (on Windows, they said that tidygenclust did not work at all), as the rest of the package does not need conda. On macOS, the OpenMP library of the python tools conflicts with that of R (used by packages such as bigstatsr), which crashes the R session; on Windows, the tools can be used through the WSL.</li>
 <li>
 <code><a href="../reference/gt_fastmixture.html">gt_fastmixture()</a></code> now starts from the SVD-based initialisation of fastmixture by default (<code>random_init = FALSE</code>).</li>
 <li>

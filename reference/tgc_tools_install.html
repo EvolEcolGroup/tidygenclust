@@ -4,7 +4,8 @@ and gt_clumppling() need neither Python nor conda. A few additional
 features rely on external tools, which are optional and are only installed
 on request:
 fastmixture, a python package used by gt_fastmixture();
-ADMIXTURE, used by tidypopgen::gt_admixture().
+ADMIXTURE, used by tidypopgen::gt_admixture();
+ADAMIXTURE, a python package used by gt_adamixture().
 
 "><meta property="og:image" content="/logo.png"><!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha256-nvJJv9wWKEm88qvoQl9ekL2J+k/RWIsaSScxxlsrv8k=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/config/TeX-AMS-MML_HTMLorMML.js" integrity="sha256-84DKXVJXs0/F8OTMzX4UR909+jtl4G7SPypPavF+GfA=" crossorigin="anonymous"></script><!--[if lt IE 9]>
 <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
@@ -42,13 +43,13 @@ ADMIXTURE, used by tidypopgen::gt_admixture().
     <span class="caret"></span>
   </a>
   <ul class="dropdown-menu" role="menu"><li>
-      <a href="../articles/admixture_benchmark.html">Benchmarking gt_radmix() against ADMIXTURE and fastmixture</a>
-    </li>
-    <li>
-      <a href="../articles/admixture_fastmixture.html">Installing and running ADMIXTURE and fastmixture</a>
+      <a href="../articles/admixture_benchmark.html">Benchmarking gt_radmix() against ADMIXTURE, fastmixture and ADAMIXTURE</a>
     </li>
     <li>
       <a href="../articles/clumppling_benchmark.html">Benchmarking gt_clumppling() against the python clumppling</a>
+    </li>
+    <li>
+      <a href="../articles/external_tools.html">Installing and running external tools</a>
     </li>
     <li>
       <a href="../articles/pseudohaploids.html">Why pseudohaploids must be declared</a>
@@ -76,14 +77,16 @@ ADMIXTURE, used by tidypopgen::gt_admixture().
 and <code><a href="gt_clumppling.html">gt_clumppling()</a></code> need neither Python nor conda. A few additional
 features rely on external tools, which are optional and are only installed
 on request:</p><ul><li><p><code>fastmixture</code>, a python package used by <code><a href="gt_fastmixture.html">gt_fastmixture()</a></code>;</p></li>
-<li><p><code>ADMIXTURE</code>, used by <code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_admixture.html" class="external-link">tidypopgen::gt_admixture()</a></code>.</p></li>
+<li><p><code>ADMIXTURE</code>, used by <code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_admixture.html" class="external-link">tidypopgen::gt_admixture()</a></code>;</p></li>
+<li><p><code>ADAMIXTURE</code>, a python package used by <code><a href="gt_adamixture.html">gt_adamixture()</a></code>.</p></li>
 </ul></div>
 
     <div id="ref-usage">
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">tgc_tools_install</span><span class="op">(</span></span>
-<span>  tools <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fastmixture"</span>, <span class="st">"admixture"</span><span class="op">)</span>,</span>
+<span>  tools <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fastmixture"</span>, <span class="st">"admixture"</span>, <span class="st">"adamixture"</span><span class="op">)</span>,</span>
 <span>  reset <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  fastmixture_hash <span class="op">=</span> <span class="st">"1f03a8980be4872341e5faca9d6f2dfc7ccbfe35"</span>,</span>
+<span>  adamixture_version <span class="op">=</span> <span class="st">"1.8.9"</span>,</span>
 <span>  conda_yaml <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  ci_install <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -94,8 +97,8 @@ on request:</p><ul><li><p><code>fastmixture</code>, a python package used by <co
 
 
 <dl><dt id="arg-tools">tools<a class="anchor" aria-label="anchor" href="#arg-tools"></a></dt>
-<dd><p>a vector with the tools to install, any of "fastmixture" and
-"admixture". Defaults to both.</p></dd>
+<dd><p>a vector with the tools to install, any of "fastmixture",
+"admixture" and "adamixture". Defaults to all of them.</p></dd>
 
 
 <dt id="arg-reset">reset<a class="anchor" aria-label="anchor" href="#arg-reset"></a></dt>
@@ -106,6 +109,11 @@ TRUE if you have a broken virtual environment that you want to reset.</p></dd>
 <dt id="arg-fastmixture-hash">fastmixture_hash<a class="anchor" aria-label="anchor" href="#arg-fastmixture-hash"></a></dt>
 <dd><p>a string with the commit hash of the <code>fastmixture</code>
 version to install. Default is the latest tested version.</p></dd>
+
+
+<dt id="arg-adamixture-version">adamixture_version<a class="anchor" aria-label="anchor" href="#arg-adamixture-version"></a></dt>
+<dd><p>a string with the version of <code>ADAMIXTURE</code> to
+install from PyPI. Default is the latest tested version.</p></dd>
 
 
 <dt id="arg-conda-yaml">conda_yaml<a class="anchor" aria-label="anchor" href="#arg-conda-yaml"></a></dt>
@@ -139,13 +147,16 @@ directory. This is useful when testing the package on CI services.</p></dd>
     <div id="details">
     <h2>Details</h2>
     <p>We use <code>reticulate</code> to install them in a conda environment,
-<code>ctidygenclust</code>. Additionally, for silicon Macs, <code>ADMIXTURE</code> is installed in
-a separate conda environment <code>cadmixture86</code>, as it is only available for OSX
-as x86 in bioconda.</p>
+<code>ctidygenclust</code>.</p>
+<p>The optional tools are only available on Linux at the moment. On Windows,
+they can be used through the Windows Subsystem for Linux (WSL). On macOS,
+the OpenMP library of the python tools conflicts with the one used by R
+packages such as <code>bigstatsr</code>, which crashes the R session.</p>
 <p><code>tgc_tools_install()</code> creates the conda environment with the chosen
 <code>tools</code>. If the environment already exists, it only adds the tools that are
-not installed yet (alternatively, use <code><a href="tgc_fastmixture_install.html">tgc_fastmixture_install()</a></code> and
-<code><a href="tgc_admixture_install.html">tgc_admixture_install()</a></code> to add a tool to an existing environment).
+not installed yet (alternatively, use <code><a href="tgc_fastmixture_install.html">tgc_fastmixture_install()</a></code>,
+<code><a href="tgc_admixture_install.html">tgc_admixture_install()</a></code> and <code><a href="tgc_adamixture_install.html">tgc_adamixture_install()</a></code> to add a tool to an
+existing environment).
 <code><a href="tgc_tools_version.html">tgc_tools_version()</a></code> reports the tools that are installed.</p>
 <p>For each tool, default to the latest version of these
 packages that has been tested to work with <code>tidygenclust</code>. It is possible
@@ -154,13 +165,10 @@ lead to incompatibilities and errors.</p>
 <p>The conda environment is created from a conda yaml file with the
 versions of all the packages that have been tested on each operating
 system (see <code>conda_yaml</code>); <code>fastmixture</code> is then installed from its
-github repository with <code>pip</code>, run in the environment with
-<code><a href="https://rstudio.github.io/reticulate/reference/conda_run2.html" class="external-link">reticulate::conda_run2()</a></code>. We have found installation on OSX to be
-tricky: if it fails with the tested yaml, you can try <code>conda_yaml = NULL</code>
-to let conda install the latest available packages.
-For OSX, you might also need to install a suitable compiler for openmp
-using <code>brew</code> in <code>bash</code>, setting the correct paths to use it:</p>
-<p><code>brew install llvm libomp</code></p>
+github repository, and <code>ADAMIXTURE</code> from PyPI, with <code>pip</code>, run in the
+environment with <code><a href="https://rstudio.github.io/reticulate/reference/conda_run2.html" class="external-link">reticulate::conda_run2()</a></code>. If the installation fails
+with the tested yaml, you can try <code>conda_yaml = NULL</code> to let conda
+install the latest available packages.</p>
     </div>
 
   </div>

@@ -52,13 +52,13 @@
   </a>
   <ul class="dropdown-menu" role="menu">
 <li>
-      <a href="../articles/admixture_benchmark.html">Benchmarking gt_radmix() against ADMIXTURE and fastmixture</a>
-    </li>
-    <li>
-      <a href="../articles/admixture_fastmixture.html">Installing and running ADMIXTURE and fastmixture</a>
+      <a href="../articles/admixture_benchmark.html">Benchmarking gt_radmix() against ADMIXTURE, fastmixture and ADAMIXTURE</a>
     </li>
     <li>
       <a href="../articles/clumppling_benchmark.html">Benchmarking gt_clumppling() against the python clumppling</a>
+    </li>
+    <li>
+      <a href="../articles/external_tools.html">Installing and running external tools</a>
     </li>
     <li>
       <a href="../articles/pseudohaploids.html">Why pseudohaploids must be declared</a>
@@ -136,19 +136,19 @@ as <code>gt_admix</code> objects, which can be explored and plotted with
 the methods provided by <code>tidypopgen</code>, and aligned with
 <code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code>.</p>
 <p>Optionally, <code>tidygenclust</code> also provides an interface to
-two external clustering programs: the python package
+three external clustering programs: the python packages
 <code>fastmixture</code> (<a href="https://github.com/Rosemeis/fastmixture" class="external-link uri">https://github.com/Rosemeis/fastmixture</a>) (Santander et
-al. 2024), with <code><a href="../reference/gt_fastmixture.html">gt_fastmixture()</a></code>, and the original
-ADMIXTURE program (Alexander et al. 2009), with
+al. 2024), with <code><a href="../reference/gt_fastmixture.html">gt_fastmixture()</a></code>, and ADAMIXTURE (<a href="https://github.com/AI-sandbox/ADAMIXTURE" class="external-link uri">https://github.com/AI-sandbox/ADAMIXTURE</a>)
+(Saurina-i-Ricos et al. 2026), with <code><a href="../reference/gt_adamixture.html">gt_adamixture()</a></code>, and
+the original ADMIXTURE program (Alexander et al. 2009), with
 <code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_admixture.html" class="external-link">tidypopgen::gt_admixture()</a></code>. These external programs are not
 required to use <code>tidygenclust</code>, but they can be used to
-compare results with the native implementations. They are both installed
+compare results with the native implementations. They are all installed
 in a conda environment using <code>reticulate</code>, so you do not need
 to worry about the details of the python packages or dependencies (this
-works both in Linux and macOS, but NOT Windows). We show how to install
-and run them in the article “Installing and running ADMIXTURE and
-fastmixture” (in the Articles section of the website of the
-package).</p>
+only works on Linux at the moment). We show how to install and run them
+in the article “Installing and running external tools” (in the Articles
+section of the website of the package).</p>
 <p>Genetic data analyses through the integration of
 <code>tidypopgen</code> and <code>tidygenclust</code> seamlessly joins
 upstream genetic data manipulation (<code>tidypopgen</code>) with
@@ -163,9 +163,9 @@ pipeline all natively within R.</p>
 soon as <code>tidygenclust</code> is installed:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">tidygenclust</span><span class="op">)</span></span></code></pre></div>
-<p>The external programs <code>fastmixture</code> and ADMIXTURE are
-optional: we show how to install and run them in the article “Installing
-and running ADMIXTURE and fastmixture”.</p>
+<p>The external programs <code>fastmixture</code>, ADAMIXTURE and
+ADMIXTURE are optional: we show how to install and run them in the
+article “Installing and running external tools”.</p>
 </div>
 <div class="section level2">
 <h2 id="an-example-workflow">An example workflow<a class="anchor" aria-label="anchor" href="#an-example-workflow"></a>
@@ -390,9 +390,9 @@ value of K for our dataset:</p>
 cross-validation error is at its lowest, here it looks like
 <code>k = 3</code> would be a sensible choice.</p>
 <p>For a comparison of <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> with the original
-ADMIXTURE program and with fastmixture, see the article “Benchmarking
-gt_radmix() against ADMIXTURE and fastmixture” (in the Articles section
-of the website of the package).</p>
+ADMIXTURE program, with fastmixture and with ADAMIXTURE, see the article
+“Benchmarking gt_radmix() against ADMIXTURE, fastmixture and ADAMIXTURE”
+(in the Articles section of the website of the package).</p>
 <p><code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> uses a modified version of the algorithm of
 OpenADMIXTURE: when using it, make sure that you cite the original paper
 on the algorithm (Ko et al. 2023) and the original ADMIXTURE paper
@@ -697,6 +697,9 @@ and permutation program with integer linear programming. Bioinformatics,
 in mainland anole lizards: Integrating population history and
 genome-environment associations. Ecology and Evolution, 8(23),
 11932-11944.</p>
+<p>Saurina-i-Ricos J, Mas Montserrat D, Ioannidis AG (2026) ADAMIXTURE:
+adaptive first-order optimization for biobank-scale genetic clustering.
+Bioinformatics, 42(Supplement_1), btag236.</p>
 <p>Santander CG, Refoyo Martinez A, Meisner J (2024) Faster model-based
 estimation of ancestry proportions. Peer Community Journal, 4: e115. <a href="https://doi.org/10.24072/pcjournal.503" class="external-link uri">https://doi.org/10.24072/pcjournal.503</a></p>
 </div>

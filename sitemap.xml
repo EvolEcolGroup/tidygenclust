@@ -2,8 +2,8 @@
 <url><loc>/404.html</loc></url>
 <url><loc>/LICENSE.html</loc></url>
 <url><loc>/articles/admixture_benchmark.html</loc></url>
-<url><loc>/articles/admixture_fastmixture.html</loc></url>
 <url><loc>/articles/clumppling_benchmark.html</loc></url>
+<url><loc>/articles/external_tools.html</loc></url>
 <url><loc>/articles/index.html</loc></url>
 <url><loc>/articles/pseudohaploids.html</loc></url>
 <url><loc>/articles/tidygenclust.html</loc></url>
@@ -12,6 +12,7 @@
 <url><loc>/news/index.html</loc></url>
 <url><loc>/reference/autoplot_gt_clumppling.html</loc></url>
 <url><loc>/reference/capeverde_pops.html</loc></url>
+<url><loc>/reference/gt_adamixture.html</loc></url>
 <url><loc>/reference/gt_clumppling.html</loc></url>
 <url><loc>/reference/gt_fastmixture.html</loc></url>
 <url><loc>/reference/gt_radmix.html</loc></url>
@@ -19,6 +20,7 @@
 <url><loc>/reference/pipe.html</loc></url>
 <url><loc>/reference/reexports.html</loc></url>
 <url><loc>/reference/subset_gt_clumppling.html</loc></url>
+<url><loc>/reference/tgc_adamixture_install.html</loc></url>
 <url><loc>/reference/tgc_admixture_install.html</loc></url>
 <url><loc>/reference/tgc_fastmixture_install.html</loc></url>
 <url><loc>/reference/tgc_tools_install.html</loc></url>
