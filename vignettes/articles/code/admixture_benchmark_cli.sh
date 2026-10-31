@@ -1,26 +1,32 @@
 #!/usr/bin/env bash
-# Benchmark of ADMIXTURE and fastmixture, run from the command line, on the
-# HGDP data prepared by admixture_benchmark_data.R (in the same directory as
-# this script). Together with admixture_benchmark_radmix.R, which runs
-# gt_radmix() with the same settings, it gives the results shown in
-# the article admixture_benchmark.Rmd (in the parent directory of this
-# script), which also shows the code of the chunks of this script (the
-# sections that start with a "## ---- label" line, read with
-# knitr::read_chunk()).
+# Benchmark of the programs run from the command line, on the HGDP data
+# prepared by admixture_benchmark_data.R (in the same directory as this
+# script): ADMIXTURE, fastmixture, gt_radmix() (with Rscript, running
+# admixture_benchmark_radmix_cli.R) and OpenADMIXTURE.jl (with julia, running
+# admixture_benchmark_openadmixture.jl). Together with
+# admixture_benchmark_radmix.R, which runs gt_radmix() in an R session with
+# the same settings, it gives the results shown in the article
+# admixture_benchmark.Rmd (in the parent directory of this script), which
+# also shows the code of the chunks of this script (the sections that start
+# with a "## ---- label" line, read with knitr::read_chunk()).
 #
 # Run from the directory of the article (vignettes/articles), with ADMIXTURE
 # and fastmixture available, e.g. in the conda environment created by
 # tidygenclust::tgc_tools_install() (the programs can also be given with the
-# environment variables ADMIXTURE and FASTMIXTURE):
+# environment variables ADMIXTURE and FASTMIXTURE), tidygenclust installed
+# (Rscript can be given with RSCRIPT), and OpenADMIXTURE.jl installed in the
+# conda environment created by data-raw/radmix/setup_julia_env.sh (from the
+# root of the package; another environment can be given with
+# OPENADMIXTURE_JULIA_ENV, or its path with OPENADMIXTURE_JULIA_PREFIX):
 #
 #   cd vignettes/articles
 #   conda activate ctidygenclust
 #   bash code/admixture_benchmark_cli.sh
 #
-# Run it on an otherwise idle machine with at least 8 cores. It saves the Q
-# matrix, log and timing of each run in data/admixture_benchmark, which the
-# article reads (the other outputs, such as the P matrices, are left in
-# data/hgdp/runs). `bash code/admixture_benchmark_cli.sh quick` runs
+# Run it on an otherwise idle machine with at least as many cores as the
+# largest number in cores (below). It saves the Q matrix, log and timing of
+# each run in data/admixture_benchmark, which the article reads (the other
+# outputs, such as the P matrices, are left in data/hgdp/runs). `bash code/admixture_benchmark_cli.sh quick` runs
 # everything on a small subset of the data, to check the script, and saves
 # its results in data/admixture_benchmark_quick instead.
 
@@ -37,13 +43,19 @@ else
 fi
 admixture=${ADMIXTURE:-admixture}
 fastmixture=${FASTMIXTURE:-fastmixture}
+rscript=${RSCRIPT:-Rscript}
+julia_env=${OPENADMIXTURE_JULIA_ENV:-openadmixturer_julia}
+julia_prefix=${OPENADMIXTURE_JULIA_PREFIX:-$(conda info --base)/envs/$julia_env}
+# the data on which OpenADMIXTURE.jl is run first, so that Julia compiles its
+# code before the fit is timed (the small subset of the data)
+warmup_bed=data/hgdp/hgdp_bench_quick.bed
 
 ## ---- cli-settings ----
 # the same settings as in admixture_benchmark_radmix.R
 k=5
 seed=1
 n_folds=5
-cores=(1 4 8)
+cores=(1 2 4)
 
 ## ---- cli-functions ----
 # the wall-clock time, in seconds
@@ -84,18 +96,61 @@ run_fastmixture() {
   "$fastmixture" "${args[@]}" > "$run_dir/console.log" 2>&1
 }
 
+# gt_radmix() is run by a new R process, which loads tidygenclust, reads the
+# bed file into a gen_tibble, runs gt_radmix(), saves the results, and
+# prints the log-likelihood and cross-validation error
+run_radmix_cli() {
+  local n_cores=$1 crossval=$2 run_dir=$3
+  "$rscript" code/admixture_benchmark_radmix_cli.R "$bed" "$k" "$seed" \
+    "$n_cores" "$crossval" "$n_folds" "$run_dir" > "$run_dir/console.log" 2>&1
+}
+
+# julia, with the variables that activating its conda environment would
+# set, so that it finds the packages installed in it (without the time
+# taken by conda run)
+julia_run() {
+  env JULIA_DEPOT_PATH="$julia_prefix/share/julia:" \
+    JULIA_PROJECT="@$julia_env" JULIA_LOAD_PATH="@:@$julia_env:@stdlib" \
+    "$julia_prefix/bin/julia" "$@"
+}
+
+# OpenADMIXTURE.jl is run by a new Julia process, which writes Q and P with
+# the prefix openadmixture, and prints its progress, the log-likelihood and
+# the time of the fit (Julia is started without an interactive thread, see
+# admixture_benchmark_openadmixture.jl); it has no cross-validation
+run_openadmixture_cli() {
+  local n_cores=$1 run_dir=$3
+  julia_run --threads="$n_cores,0" code/admixture_benchmark_openadmixture.jl \
+    "$bed" "$k" "$seed" "$run_dir/openadmixture" > "$run_dir/console.log" 2>&1
+}
+
+# the same, after a warm-up on the small subset of the data, so that the
+# fit, timed in Julia, does not include compiling the code
+run_openadmixture() {
+  local n_cores=$1 run_dir=$3
+  julia_run --threads="$n_cores,0" code/admixture_benchmark_openadmixture.jl \
+    "$bed" "$k" "$seed" "$run_dir/openadmixture" "$warmup_bed" \
+    > "$run_dir/console.log" 2>&1
+}
+
 ## ---- cli-runs ----
 # each combination of program, number of cores and cross-validation (or
-# not) is run once, in its own directory; the time includes reading the
-# data. The Q matrix and log of each run are then copied to the results,
-# and its log-likelihood, cross-validation error and number of iterations
-# are extracted from its log
+# not) is run once, in its own directory; the time includes starting the
+# program, reading the data and saving the results. OpenADMIXTURE.jl, which
+# has no cross-validation, is run without it, both from the command line
+# (openadmixture_cli) and after a warm-up (openadmixture, timed in Julia).
+# The Q matrix and log of each run are then copied to the results, and its
+# log-likelihood, cross-validation error and number of iterations are
+# extracted from its log
 mkdir -p "$out_dir/Q" "$out_dir/logs"
 timings=$out_dir/timings_cli.csv
 echo "tool,n_cores,crossval,seconds,loglik,cv_error,iterations" > "$timings"
-for tool in admixture fastmixture; do
+for tool in admixture fastmixture radmix_cli openadmixture_cli openadmixture; do
   for n_cores in "${cores[@]}"; do
     for crossval in FALSE TRUE; do
+      if [[ $crossval == TRUE && $tool == openadmixture* ]]; then
+        continue
+      fi
       if [[ $crossval == TRUE ]]; then
         run=${tool}_t${n_cores}_cv
       else
@@ -109,6 +164,7 @@ for tool in admixture fastmixture; do
       "run_$tool" "$n_cores" "$crossval" "$run_dir"
       seconds=$(awk -v start="$start" -v end="$(now)" \
         'BEGIN { printf "%.3f", end - start }')
+      iterations_pattern='^Converged in ([0-9]+) iterations.*'
       case $tool in
         admixture)
           q_file=$run_dir/$(basename "$bed" .bed).$k.Q
@@ -125,8 +181,27 @@ for tool in admixture fastmixture; do
           cv_error=$(extract \
             '^Cross-validation error \(SD\): ([^[:space:]]+).*' "$log_file")
           ;;
+        radmix_cli)
+          q_file=$run_dir/radmix.Q
+          log_file=$run_dir/radmix.log
+          loglik=$(extract '^Loglikelihood: ([^[:space:]]+).*' \
+            "$run_dir/console.log")
+          cv_error=$(extract '^CV error \(K=[0-9]+\): ([^[:space:]]+).*' \
+            "$run_dir/console.log")
+          ;;
+        openadmixture*)
+          q_file=$run_dir/openadmixture.Q
+          log_file=$run_dir/console.log
+          loglik=$(extract '^Loglikelihood: ([^[:space:]]+).*' "$log_file")
+          cv_error=NA
+          iterations_pattern='^Main algorithm converged in ([0-9]+) iterations.*'
+          if [[ $tool == openadmixture ]]; then
+            # after the warm-up, the time of the fit alone
+            seconds=$(extract '^Fit time \(s\): ([^[:space:]]+).*' "$log_file")
+          fi
+          ;;
       esac
-      iterations=$(extract '^Converged in ([0-9]+) iterations.*' "$log_file")
+      iterations=$(extract "$iterations_pattern" "$log_file")
       cp "$q_file" "$out_dir/Q/$run.Q"
       cp "$log_file" "$out_dir/logs/$run.log"
       echo "$tool,$n_cores,$crossval,$seconds,$loglik,$cv_error,$iterations" \
@@ -146,6 +221,13 @@ ram=$(awk '/^MemTotal/ { printf "%.0f GB", $2 / 1024^2 }' /proc/meminfo \
 admixture_version=$("$admixture" 2>&1 |
   sed -n -E 's/.*ADMIXTURE Version ([^[:space:]]+).*/\1/p' | head -n 1 || true)
 fastmixture_version=$("$fastmixture" --version 2>&1 | sed 's/^v//' || true)
+julia_version=$(julia_run --startup-file=no -e 'println(VERSION)' || true)
+openadmixture_version=$(julia_run --startup-file=no -e '
+  import Pkg
+  for p in values(Pkg.dependencies())
+    p.name == "OpenADMIXTURE" &&
+      println(p.version, " (", something(p.git_revision, "?"), ")")
+  end' || true)
 {
   row item value
   row date "$(date +%F)"
@@ -154,6 +236,8 @@ fastmixture_version=$("$fastmixture" --version 2>&1 | sed 's/^v//' || true)
   row RAM "${ram:-NA}"
   row ADMIXTURE "${admixture_version:-NA}"
   row fastmixture "${fastmixture_version:-NA}"
+  row Julia "${julia_version:-NA}"
+  row OpenADMIXTURE.jl "${openadmixture_version:-NA}"
   row individuals "$(wc -l < "${bed%.bed}.fam" | tr -d ' ')"
   row loci "$(wc -l < "${bed%.bed}.bim" | tr -d ' ')"
 } > "$out_dir/session_cli.csv"

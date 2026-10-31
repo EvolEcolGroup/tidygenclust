@@ -30,8 +30,10 @@ algorithms:
   backing files of a `gen_tibble`, and it can use multiple cores. It has a
   different name from OpenADMIXTURE because it differs from it: it does not
   include the selection of ancestry informative markers implemented in the
-  original Julia package (it only provides the clustering algorithm), and it
-  changes some details of the algorithm (see `?gt_radmix`). It also
+  original Julia package (it only provides the clustering algorithm); we
+  implemented the cross-validation of ADMIXTURE, to choose K, which is not
+  part of OpenADMIXTURE; and it changes some details of the algorithm (see
+  `?gt_radmix`). It also
   does not have the GPU acceleration of the original Julia implementation, but
   it is still faster than the original ADMIXTURE implementation and can handle
   large datasets.

@@ -10,8 +10,9 @@
 #' [OpenADMIXTURE.jl](https://github.com/OpenMendel/OpenADMIXTURE.jl), by Ko
 #' et al. The function has a different name because it differs from
 #' OpenADMIXTURE: it does not include the selection of ancestry informative
-#' markers (sparse K-means) that is a central part of OpenADMIXTURE, it
-#' supports pseudohaploid data and cross-validation, and it changes some
+#' markers (sparse K-means) that is a central part of OpenADMIXTURE; we
+#' implemented the cross-validation of ADMIXTURE, to choose K, which is not
+#' part of OpenADMIXTURE; it supports pseudohaploid data; and it changes some
 #' details of the computations (see "Differences from OpenADMIXTURE.jl"
 #' below). If you use this function, please cite Ko et al. (2023) for the
 #' algorithm, as well as Alexander et al. (2009) for the method.
@@ -102,8 +103,8 @@
 #'   computations of OpenADMIXTURE.jl to numerical precision (this is checked
 #'   by the test suite), except for the following:
 #'   - there is no GPU (CUDA) support;
-#'   - cross-validation, which OpenADMIXTURE.jl does not offer, is available
-#'     (see above);
+#'   - we implemented cross-validation, as in ADMIXTURE (see above), which
+#'     is not part of OpenADMIXTURE;
 #'   - sparse K-means selection of ancestry informative markers (SKFR) is not
 #'     implemented; loci can be selected beforehand with
 #'     [tidypopgen::select_loci()];

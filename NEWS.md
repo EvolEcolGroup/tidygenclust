@@ -22,12 +22,13 @@
   much of the C++ (OpenMP) code ported from OpenADMIXTURE.jl. It was
   previously developed as the separate package `openadmixturer`, and named
   `gt_openadmixture()` during development; it was renamed because it differs
-  from OpenADMIXTURE (it does not select ancestry informative markers, and
-  changes some details of the algorithm). It estimates ancestry proportions
-  directly from the backing files of `gen_tibble` objects (no Python or Julia
-  needed), supports
-  diploid and pseudohaploid data, missing genotypes and ADMIXTURE-style
-  cross-validation, and returns `gt_admix` objects. Its results are checked
+  from OpenADMIXTURE (it does not select ancestry informative markers, it
+  adds cross-validation, and it changes some details of the algorithm). It
+  estimates ancestry proportions directly from the backing files of
+  `gen_tibble` objects (no Python or Julia needed), supports diploid and
+  pseudohaploid data and missing genotypes, implements the cross-validation
+  of ADMIXTURE (which is not part of OpenADMIXTURE), and returns `gt_admix`
+  objects. Its results are checked
   against OpenADMIXTURE.jl and ADMIXTURE in the test suite.
 * Fixed the colours of the clusters in the plots of `gt_clumppling` objects
   with K >= 10: clusters were ordered as text ("1", "10", "2", ...), so the

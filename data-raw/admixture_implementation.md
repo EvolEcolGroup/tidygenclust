@@ -7,7 +7,9 @@ and much of its code is ported to C++ (with OpenMP) from the Julia
 implementation, OpenADMIXTURE.jl. It reads the genotypes directly from the
 backing file of a `gen_tibble`. It is not called OpenADMIXTURE because it
 differs from it: it does not include the selection of ancestry informative
-markers, and it changes the algorithm in the ways described below.
+markers, we implemented the cross-validation of ADMIXTURE (which is not part
+of OpenADMIXTURE), and it changes the algorithm in the ways described
+below.
 
 This document describes how the algorithm works, step by step. It then lists
 the changes from OpenADMIXTURE.jl that make it faster (and use less memory),

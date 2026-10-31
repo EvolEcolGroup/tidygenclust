@@ -2,12 +2,12 @@
 
 `gt_radmix()` estimates ancestry proportions with the method of ADMIXTURE,
 using a modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023),
-much of it ported from OpenADMIXTURE.jl (see
-`data-raw/admixture_implementation.md`). This directory holds the scripts
+much of it ported from OpenADMIXTURE.jl, to which we added the
+cross-validation of ADMIXTURE (see `data-raw/admixture_implementation.md`). This directory holds the scripts
 used to validate `gt_radmix()` against the original implementations
 (OpenADMIXTURE.jl and ADMIXTURE), and to create the reference results
-(fixtures) used by the test suite. Run every script from the root of the package. None of this is
-needed to use the package or to run its tests.
+(fixtures) used by the test suite. Run every script from the root of the
+package. None of this is needed to use the package or to run its tests.
 
 ## Test fixtures
 
@@ -41,6 +41,8 @@ To regenerate it:
    OpenADMIXTURE.jl is pinned to the commit used for the port. Julia is
    pinned to 1.12.7: conda-forge's Julia 1.10.4 crashes when downloading
    packages on recent Linux kernels, and conda-forge has no 1.11 builds.
+   The benchmark of the article `vignettes/articles/admixture_benchmark.Rmd`
+   also uses this environment to run OpenADMIXTURE.jl.
 
 2. Run OpenADMIXTURE.jl and save the results:
 

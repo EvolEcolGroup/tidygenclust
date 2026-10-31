@@ -1,7 +1,9 @@
-# Benchmark of gt_radmix() on the HGDP data prepared by
+# Benchmark of gt_radmix() in an R session, on the HGDP data prepared by
 # admixture_benchmark_data.R (in the same directory as this script), with
-# the same settings as admixture_benchmark_cli.sh, which runs ADMIXTURE and
-# fastmixture from the command line. The results are shown in the article
+# the same settings as admixture_benchmark_cli.sh, which runs the programs
+# from the command line (including gt_radmix(), with Rscript). Here, R is
+# already running and tidygenclust is loaded, so the time of each run does
+# not include starting them. The results are shown in the article
 # admixture_benchmark.Rmd (in the parent directory of this script), which
 # also shows the code of the chunks of this script (the sections that start
 # with a "## ---- label" line, read with knitr::read_chunk()).
@@ -11,14 +13,15 @@
 # its C++ code without optimisation):
 #
 #   cd vignettes/articles
-#   Rscript code/admixture_benchmark_openadmixture.R
+#   Rscript code/admixture_benchmark_radmix.R
 #
-# Run it on an otherwise idle machine with at least 8 cores. It saves the Q
-# matrix, log and timing of each run in data/admixture_benchmark, which the
-# article reads (the gen_tibble and gt_admix object of each run are left in
-# data/hgdp/runs). `Rscript code/admixture_benchmark_openadmixture.R quick`
-# runs everything on a small subset of the data, to check the script, and
-# saves its results in data/admixture_benchmark_quick instead.
+# Run it on an otherwise idle machine with at least as many cores as the
+# largest number in cores (below). It saves the Q matrix, log and timing of
+# each run in data/admixture_benchmark, which the article reads (the
+# gen_tibble and gt_admix object of each run are left in data/hgdp/runs).
+# `Rscript code/admixture_benchmark_radmix.R quick` runs everything on a
+# small subset of the data, to check the script, and saves its results in
+# data/admixture_benchmark_quick instead.
 
 ## ---- r-setup ----
 start_time <- Sys.time()
@@ -40,7 +43,7 @@ dir.create(file.path(out_dir, "logs"), showWarnings = FALSE)
 k <- 5
 seed <- 1
 n_folds <- 5
-cores <- c(1, 4, 8)
+cores <- c(1, 2, 4)
 
 ## ---- r-packages ----
 library(tidygenclust)
@@ -148,7 +151,7 @@ session <- data.frame(
 ## ---- r-save ----
 write.csv(
   timings,
-  file.path(out_dir, "timings_openadmixture.csv"),
+  file.path(out_dir, "timings_radmix.csv"),
   row.names = FALSE
 )
 write.csv(

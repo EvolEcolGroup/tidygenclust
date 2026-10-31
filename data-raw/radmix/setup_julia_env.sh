@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Create the conda environment used by data-raw/radmix/regenerate_julia_fixtures.R to
 # run OpenADMIXTURE.jl and store its results for tests/testthat/test_radmix_vs_julia.R
-# (the tests themselves do not need Julia).
+# (the tests themselves do not need Julia), and by
+# vignettes/articles/code/admixture_benchmark_cli.sh to include OpenADMIXTURE.jl
+# in the benchmark of the article admixture_benchmark.Rmd.
 #
 # Julia and all its packages live inside the conda environment (the
 # conda-forge julia package points JULIA_DEPOT_PATH at

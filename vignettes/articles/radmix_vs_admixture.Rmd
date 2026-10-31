@@ -32,8 +32,9 @@ modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023). Much of
 its C++ code is ported from the Julia implementation of OpenADMIXTURE,
 OpenADMIXTURE.jl, so no Julia or Python is needed. It differs from
 OpenADMIXTURE, hence its different name: it does not include the selection
-of ancestry informative markers, it supports pseudohaploid data and
-cross-validation, and it changes some details of the computations (see
+of ancestry informative markers; we implemented the cross-validation of
+ADMIXTURE, to choose K, which is not part of OpenADMIXTURE; it supports
+pseudohaploid data; and it changes some details of the computations (see
 `?gt_radmix`). If you use it, please cite Ko et al. (2023) for the
 algorithm, as well as Alexander et al. (2009) for the method. It works
 directly on the backing files of `tidypopgen` `gen_tibble` objects, and

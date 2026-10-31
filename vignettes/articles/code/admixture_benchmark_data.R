@@ -8,7 +8,7 @@
 # recommended in the manual of ADMIXTURE, and writes the PLINK bed file that
 # all the tools are run on (data/hgdp/hgdp_bench.bed), as well as a small
 # subset of it (data/hgdp/hgdp_bench_quick.bed), to check the benchmark
-# scripts in a few minutes. Run it once, from the directory of the article
+# scripts in less time. Run it once, from the directory of the article
 # (vignettes/articles):
 #
 #   cd vignettes/articles
@@ -78,12 +78,14 @@ hgdp <- hgdp |>
 gt_as_plink(hgdp, file = file.path(hgdp_dir, "hgdp_bench.bed"))
 
 ## ---- quick-data ----
-# a small subset to check the benchmark scripts: every 10th individual, and
-# 10,000 of the loci that are still polymorphic among them
-hgdp_quick <- hgdp[seq(1, nrow(hgdp), by = 10), ] |>
+# a small subset to check the benchmark scripts (on which ADMIXTURE takes
+# about 30 s on one core): every 5th individual, and 25,000 of the loci that
+# are still polymorphic among them
+hgdp_quick <- hgdp[seq(1, nrow(hgdp), by = 5), ] |>
   select_loci_if(loci_maf(genotypes) > 0)
 n_loci <- count_loci(hgdp_quick)
-quick_loci <- seq_len(n_loci) %in% sample(n_loci, min(10000, n_loci))
+set.seed(2)
+quick_loci <- seq_len(n_loci) %in% sample(n_loci, min(25000, n_loci))
 hgdp_quick <- select_loci_if(hgdp_quick, quick_loci)
 gt_as_plink(hgdp_quick, file = file.path(hgdp_dir, "hgdp_bench_quick.bed"))
 

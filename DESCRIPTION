@@ -43,7 +43,8 @@ Description: A tidy interface for population genetic clustering. This package
    ancestry estimation method of ADMIXTURE (Alexander et al. 2009), using a
    modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023),
    adapted to operate directly on the backing files of tidypopgen objects
-   while correctly handling pseudohaploid data, and of
+   while correctly handling pseudohaploid data, and extended with the
+   cross-validation of ADMIXTURE, and of
    the cluster-alignment method of clumppling 
    (Liu, Kopelman & Rosenberg 2024), ported with modifications from its
    python implementation, for the comparison of multiple clustering runs. Optionally, tidygenclust can also run external clustering

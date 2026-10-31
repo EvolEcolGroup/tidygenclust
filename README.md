@@ -104,14 +104,15 @@ using a modified version of the fast algorithm of OpenADMIXTURE (Ko et al.
 [OpenADMIXTURE.jl](https://github.com/OpenMendel/OpenADMIXTURE.jl), and we
 are grateful to its authors. It has a different name because it differs
 from OpenADMIXTURE: it does not include the selection of ancestry
-informative markers that is part of OpenADMIXTURE, it supports pseudohaploid
-data and cross-validation, and it changes some details of the computations
-(see `?gt_radmix`). If you use it, please cite Ko et al. (2023) for the
+informative markers that is part of OpenADMIXTURE; we implemented the
+cross-validation of ADMIXTURE, to choose K, which is not part of
+OpenADMIXTURE; it supports pseudohaploid data; and it changes some details
+of the computations (see `?gt_radmix`). If you use it, please cite Ko et al. (2023) for the
 algorithm, as well as Alexander et al. (2009) for the method. It needs
 neither Python nor Julia: genotypes are read directly from the backing file
 of a `gen_tibble`, and results are returned as `gt_admix` objects, which work
 with all the methods of `tidypopgen` and with `gt_clumppling()`.
-Cross-validation, as in ADMIXTURE, is available with `crossval = TRUE`.
+Cross-validation, as in ADMIXTURE, is computed with `crossval = TRUE`.
 
 ```r
 adm <- gt_radmix(anole_gt, k = 2:4, n_runs = 3, seed = c(1, 2, 3),
