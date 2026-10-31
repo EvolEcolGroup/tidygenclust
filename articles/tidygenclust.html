@@ -32,7 +32,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidygenclust</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.5</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.5.9004</span>
       </span>
     </div>
 
@@ -43,6 +43,27 @@
 </li>
 <li>
   <a href="../reference/index.html">Reference</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+    Articles
+
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+<li>
+      <a href="../articles/admixture_benchmark.html">Benchmarking gt_radmix() against ADMIXTURE and fastmixture</a>
+    </li>
+    <li>
+      <a href="../articles/admixture_fastmixture.html">Installing and running ADMIXTURE and fastmixture</a>
+    </li>
+    <li>
+      <a href="../articles/clumppling_benchmark.html">Benchmarking gt_clumppling() against the python clumppling</a>
+    </li>
+    <li>
+      <a href="../articles/pseudohaploids.html">Why pseudohaploids must be declared</a>
+    </li>
+  </ul>
 </li>
 <li>
   <a href="../news/index.html">Changelog</a>
@@ -75,31 +96,59 @@
 <h2 id="using-tidygenclust-for-clustering-in-r">Using <code>tidygenclust</code> for clustering in R<a class="anchor" aria-label="anchor" href="#using-tidygenclust-for-clustering-in-r"></a>
 </h2>
 <p><code>tidygenclust</code> provides functions and methods to run
-genetic clustering in R, using the commonly used ADMIXTURE program, as
-well as the python package <code>fastmixture</code>. It also helps to
-align and compare multiple runs of the same or different K using the
-functionalities of the python package <code>Clumppling</code>. This
-package builds on <code>tidypopgen</code>, enhancing the grammar of
-population genetics with a focus on genetic clustering.</p>
-<p><code>fastmixture</code> (<a href="https://github.com/Rosemeis/fastmixture" class="external-link uri">https://github.com/Rosemeis/fastmixture</a>) (Santander et
-al. 2024) is a python tool for ancestry estimation using genotype data.
-It uses a model-based approach with comparable accuracy to that of of
-popular clustering tool ADMIXTURE, but over considerably faster time
-scales making it a more scaleable option for large genetic data
-sets.</p>
-<p><code>Clumppling</code> (<a href="https://github.com/PopGenClustering/Clumppling" class="external-link uri">https://github.com/PopGenClustering/Clumppling</a>) (Liu,
-Kopelman, &amp; Rosenberg, 2024) is a python package which aligns
-multiple runs of a clustering analyses allowing for easy comparison and
-summary of clustering results both across different values of K and for
-repeated runs within K.</p>
-<p>With the <code>tidygenclust</code> package we provide a direct R
-interface to the python based <code>fastmixture</code> using
-<code>reticulate</code> and integrate it with the
-<code>tidypopgen</code> package for easy genetic data manipulation
-entirely within R. Additionally, the outputs from clustering analyses
-(irrespective of the algorithm used) can be easily visualised using the
-<code>gt_clumppling</code> function, which allows for easy alignment and
-comparison of multiple clustering results.</p>
+genetic clustering in R, and to align and compare multiple runs of the
+same or different K. This package builds on <code>tidypopgen</code>,
+enhancing the grammar of population genetics with a focus on genetic
+clustering.</p>
+<p>At its core, <code>tidygenclust</code> includes native R and C++
+implementations of two algorithms:</p>
+<ul>
+<li><p><code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> estimates individual ancestry
+proportions and ancestral allele frequencies with the method of the
+popular clustering tool ADMIXTURE (Alexander et al. 2009), using a
+modified version of the fast algorithm of OpenADMIXTURE (Ko et
+al. 2023). Much of its code is ported from the Julia package
+<code>OpenADMIXTURE.jl</code> (<a href="https://github.com/OpenMendel/OpenADMIXTURE.jl" class="external-link uri">https://github.com/OpenMendel/OpenADMIXTURE.jl</a>). It
+works directly on the backing files of a <code>gen_tibble</code>, and it
+can use multiple cores. It has a different name from OpenADMIXTURE
+because it differs from it: it does not include the selection of
+ancestry informative markers implemented in the original Julia package
+(it only provides the clustering algorithm); we implemented the
+cross-validation of ADMIXTURE, to choose K, which is not part of
+OpenADMIXTURE; and it changes some details of the algorithm (see
+<code><a href="../reference/gt_radmix.html">?gt_radmix</a></code>). It also does not have the GPU acceleration of
+the original Julia implementation, but it is still faster than the
+original ADMIXTURE implementation and can handle large
+datasets.</p></li>
+<li><p><code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code> implements the method of clumppling
+(Liu, Kopelman, &amp; Rosenberg, 2024), with code ported, with
+modifications, from the python package <code>Clumppling</code> (<a href="https://github.com/PopGenClustering/Clumppling" class="external-link uri">https://github.com/PopGenClustering/Clumppling</a>). It
+aligns multiple runs of clustering analyses, allowing for easy
+comparison and summary of clustering results both across different
+values of K and for repeated runs within K. It works on the results of
+any clustering algorithm once they have been imported as
+<code>gt_admix</code> objects.</p></li>
+</ul>
+<p>Both functions reproduce the results of the original implementations
+(which the test suite checks against stored results). They are
+integrated with <code>tidypopgen</code>: clustering results are stored
+as <code>gt_admix</code> objects, which can be explored and plotted with
+the methods provided by <code>tidypopgen</code>, and aligned with
+<code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code>.</p>
+<p>Optionally, <code>tidygenclust</code> also provides an interface to
+two external clustering programs: the python package
+<code>fastmixture</code> (<a href="https://github.com/Rosemeis/fastmixture" class="external-link uri">https://github.com/Rosemeis/fastmixture</a>) (Santander et
+al. 2024), with <code><a href="../reference/gt_fastmixture.html">gt_fastmixture()</a></code>, and the original
+ADMIXTURE program (Alexander et al. 2009), with
+<code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_admixture.html" class="external-link">tidypopgen::gt_admixture()</a></code>. These external programs are not
+required to use <code>tidygenclust</code>, but they can be used to
+compare results with the native implementations. They are both installed
+in a conda environment using <code>reticulate</code>, so you do not need
+to worry about the details of the python packages or dependencies (this
+works both in Linux and macOS, but NOT Windows). We show how to install
+and run them in the article “Installing and running ADMIXTURE and
+fastmixture” (in the Articles section of the website of the
+package).</p>
 <p>Genetic data analyses through the integration of
 <code>tidypopgen</code> and <code>tidygenclust</code> seamlessly joins
 upstream genetic data manipulation (<code>tidypopgen</code>) with
@@ -110,28 +159,13 @@ pipeline all natively within R.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>We use <code>reticulate</code> to seamlessly integrate the required
-python packages into R, this means that you, as a user, should not need
-to worry about the details of the python packages or dependencies.</p>
-<p>The first time we run <code>tidygenclust</code>, we need to install
-the python packages. We can do this by simply running the following
-commands:</p>
+<p><code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> and <code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code> work as
+soon as <code>tidygenclust</code> is installed:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">tidygenclust</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/tgc_tools_install.html">tgc_tools_install</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<div class="section level3">
-<h3 id="for-macos-users">For MacOS users<a class="anchor" aria-label="anchor" href="#for-macos-users"></a>
-</h3>
-<p>We use <code>reticulate</code> to seamlessly integrate the required
-python packages and dependencies into R without additional installation
-steps for the user. However, for this to work correctly for
-<strong>MacOS users</strong>, you need <code>llvm</code> installed via
-<code>brew</code> in the first place. In <code>bash</code>, you will
-need:<br></p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># llvm can be installed via brew</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="ex">brew</span> install llvm libomp</span></code></pre></div>
-</div>
+<p>The external programs <code>fastmixture</code> and ADMIXTURE are
+optional: we show how to install and run them in the article “Installing
+and running ADMIXTURE and fastmixture”.</p>
 </div>
 <div class="section level2">
 <h2 id="an-example-workflow">An example workflow<a class="anchor" aria-label="anchor" href="#an-example-workflow"></a>
@@ -141,14 +175,14 @@ need:<br></p>
 anolis lizard <em>Anolis punctatus</em> across its range in South
 America, using data from Prates et al 2018.</p>
 <p>We downloaded the vcf file of the genotype data from the Prates et al
-2018 GitHub repository which can be accessed <a href="%22%3Chttps://github.com/ivanprates/2018_Anolis_EcolEvol/blob/master/data/VCFtools_SNMF_punctatus_t70_s10_n46/punctatus_t70_s10_n46_filtered.recode.vcf?raw=true%3E%22" class="external-link">here</a>
+2018 GitHub repository which can be accessed <a href="https://github.com/ivanprates/2018_Anolis_EcolEvol/blob/master/data/VCFtools_SNMF_punctatus_t70_s10_n46/punctatus_t70_s10_n46_filtered.recode.vcf?raw=true" class="external-link">here</a>
 and compressed it to a vcf.gz file.</p>
 <div class="section level3">
 <h3 id="read-data-into-gen_tibble-format">Read data into <code>gen_tibble</code> format<a class="anchor" aria-label="anchor" href="#read-data-into-gen_tibble-format"></a>
 </h3>
 <p>First, using <code>tidypopgen</code> we can read our compressed vcf
 file directly into R to create our <code>gen_tibble</code>:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/EvolEcolGroup/tidypopgen" class="external-link">tidypopgen</a></span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Loading required package: dplyr</span></span></code></pre>
 <pre><code><span><span class="co">## </span></span>
@@ -160,7 +194,7 @@ file directly into R to create our <code>gen_tibble</code>:</p>
 <span><span class="co">## </span></span>
 <span><span class="co">##     intersect, setdiff, setequal, union</span></span></code></pre>
 <pre><code><span><span class="co">## Loading required package: tibble</span></span></code></pre>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">vcf_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span></span>
 <span>  <span class="st">"/extdata/anolis/punctatus_t70_s10_n46_filtered.recode.vcf.gz"</span>,</span>
 <span>  package <span class="op">=</span> <span class="st">"tidypopgen"</span></span>
@@ -172,7 +206,7 @@ file directly into R to create our <code>gen_tibble</code>:</p>
 <p>By inspecting our <code>gen_tibble</code> we can see that we have a
 total of 46 individuals and 3249 loci, but no population information
 attached yet:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_gt</span></span></code></pre></div>
 <pre><code><span><span class="co">## <span style="color: #949494;"># A gen_tibble: 3249 loci</span></span></span>
 <span><span class="co">## <span style="color: #949494;"># A tibble:     46 × 2</span></span></span>
@@ -191,10 +225,10 @@ attached yet:</p>
 <span><span class="co">## <span style="color: #949494;"># ℹ 36 more rows</span></span></span></code></pre>
 <p>We can easily attach the population metadata to our
 <code>gen_tibble</code> which is stored in another file that can be
-found on the Prates et al 2018 GitHub repository <a href="%22%3Chttps://github.com/ivanprates/2018_Anolis_EcolEvol/raw/master/data/plot_order_punctatus_n46.csv%3E" class="external-link">here</a>.</p>
+found on the Prates et al 2018 GitHub repository <a href="https://github.com/ivanprates/2018_Anolis_EcolEvol/raw/master/data/plot_order_punctatus_n46.csv" class="external-link">here</a>.</p>
 <p>We can read this file into R and attach the population information to
 our <code>gen_tibble</code>:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">pops_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"/extdata/anolis/punctatus_n46_meta.csv"</span>,</span>
 <span>  package <span class="op">=</span> <span class="st">"tidypopgen"</span></span>
 <span><span class="op">)</span></span>
@@ -207,11 +241,11 @@ our <code>gen_tibble</code>:</p>
 <span><span class="co">## </span></span>
 <span><span class="co">## <span style="color: #00BBBB;">ℹ</span> Use `spec()` to retrieve the full column specification for this data.</span></span>
 <span><span class="co">## <span style="color: #00BBBB;">ℹ</span> Specify the column types or set `show_col_types = FALSE` to quiet this message.</span></span></code></pre>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_gt</span> <span class="op">&lt;-</span> <span class="va">anole_gt</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="va">pops</span>, by <span class="op">=</span> <span class="st">"id"</span><span class="op">)</span></span></code></pre></div>
 <p>Now we can inspect the <code>gen_tibble</code> object again to see
 that the population information has been added to our genotypes:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_gt</span></span></code></pre></div>
 <pre><code><span><span class="co">## <span style="color: #949494;"># A gen_tibble: 3249 loci</span></span></span>
 <span><span class="co">## <span style="color: #949494;"># A tibble:     46 × 6</span></span></span>
@@ -231,7 +265,7 @@ that the population information has been added to our genotypes:</p>
 <p>Finally, we group our <code>gen_tibble</code> by population to make
 it easier to plot later, as the grouping information will be passed to
 objects created by clustering algorithms:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_gt</span> <span class="op">&lt;-</span> <span class="va">anole_gt</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">population</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
@@ -239,13 +273,13 @@ objects created by clustering algorithms:</p>
 </h3>
 <p>To get an initial idea of our data and potentially help choose a
 reasonable starting value for K we may want to run a principal component
-analyses (PCA) to explore the data prior to running the
-<code>fastmixture</code> analyses.</p>
+analyses (PCA) to explore the data prior to running a clustering
+algorithm.</p>
 <p>Before running the PCA we also need to impute any missing values that
 may be present in our data.</p>
 <p>We can quickly and easily impute and perform a PCA on our
 <code>gen_tibble</code> with <code>tidypopgen</code>:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_gt</span> <span class="op">&lt;-</span> <span class="va">anole_gt</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_impute_simple.html" class="external-link">gt_impute_simple</a></span><span class="op">(</span>method <span class="op">=</span> <span class="st">"mode"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">anole_pca</span> <span class="op">&lt;-</span> <span class="va">anole_gt</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_pca_partialSVD.html" class="external-link">gt_pca_partialSVD</a></span><span class="op">(</span>k <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
@@ -254,7 +288,7 @@ may be present in our data.</p>
 <span><span class="va">anole_pca</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"scores"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>color <span class="op">=</span> <span class="va">anole_gt</span><span class="op">$</span><span class="va">population</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>color <span class="op">=</span> <span class="st">"Population"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tidygenclust_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" alt="" width="700"></p>
+<p><img src="tidygenclust_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="" width="700"></p>
 <p>From the PCA plot we can see that the Amazonian forest and Atlantic
 forest populations separate quite clearly. Additionally, whilst the
 Atlantic forest individuals cluster tightly together the Amazonian
@@ -262,88 +296,47 @@ forest individuals are quite spread indicating three major clusters in
 the anolis.</p>
 </div>
 <div class="section level3">
-<h3 id="running-the-fastmixture-algorithm">Running the fastmixture algorithm<a class="anchor" aria-label="anchor" href="#running-the-fastmixture-algorithm"></a>
+<h3 id="running-gt_radmix">Running gt_radmix()<a class="anchor" aria-label="anchor" href="#running-gt_radmix"></a>
 </h3>
-<p>Now we can run <code>gt_fastmixture</code> on our
-<code>gen_tibble</code> object (note that <code>gt_fastmixture</code>
-can also work directly on a PLINK bed file).</p>
-<p>As a minimum the <code>gt_fastmixture</code> command requires you to
-supply your input data, in this case a <code>gen_tibble</code>, and
-specify a value for the number of clusters K.</p>
-<p>Based on our PCA results K = 3 may be a good place to start:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">anole_res</span> <span class="op">&lt;-</span> <span class="va">anole_gt</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_fastmixture.html">gt_fastmixture</a></span><span class="op">(</span>k <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## -------------------------------------------------</span></span>
-<span><span class="co">## fastmixture v1.3.0</span></span>
-<span><span class="co">## C.G. Santander, A. Refoyo-Martinez and J. Meisner</span></span>
-<span><span class="co">## K=3, seed=42, batches=32, threads=1</span></span>
-<span><span class="co">## -------------------------------------------------</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## WARNING: Few SNPs per mini-batch!</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## Random initialization.</span></span>
-<span><span class="co">## Initial log-like: -216353.9</span></span>
-<span><span class="co">## Performed priming iteration. (0.0s)</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## Estimating Q and P using mini-batch EM.</span></span>
-<span><span class="co">## Using 32 mini-batches.</span></span>
-<span><span class="co">## (5)  Log-like: -58478.0  (0.0s)</span></span>
-<span><span class="co">## (10) Log-like: -58453.1  (0.0s)</span></span>
-<span><span class="co">## (15) Log-like: -58478.7  (0.0s)</span></span>
-<span><span class="co">## Halving mini-batches to 16.</span></span>
-<span><span class="co">## (20) Log-like: -58451.5  (0.0s)</span></span>
-<span><span class="co">## (25) Log-like: -58460.2  (0.0s)</span></span>
-<span><span class="co">## Halving mini-batches to 8.</span></span>
-<span><span class="co">## (30) Log-like: -58443.3  (0.0s)</span></span>
-<span><span class="co">## (35) Log-like: -58438.9  (0.0s)</span></span>
-<span><span class="co">## (40) Log-like: -58448.1  (0.0s)</span></span>
-<span><span class="co">## Halving mini-batches to 4.</span></span>
-<span><span class="co">## (45) Log-like: -58438.1  (0.0s)</span></span>
-<span><span class="co">## (50) Log-like: -58439.1  (0.0s)</span></span>
-<span><span class="co">## Halving mini-batches to 2.</span></span>
-<span><span class="co">## (55) Log-like: -58437.7  (0.0s)</span></span>
-<span><span class="co">## (60) Log-like: -58437.7  (0.0s)</span></span>
-<span><span class="co">## Running standard updates.</span></span>
-<span><span class="co">## (65) Log-like: -58437.6  (0.0s)</span></span>
-<span><span class="co">## (70) Log-like: -58437.6  (0.0s)</span></span>
-<span><span class="co">## (75) Log-like: -58437.6  (0.0s)</span></span>
-<span><span class="co">## (80) Log-like: -58437.6  (0.0s)</span></span>
-<span><span class="co">## Converged!</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## Final log-likelihood: -58437.6</span></span>
-<span><span class="co">## Total elapsed time: 0m0s</span></span></code></pre>
-<p>This will <em>very</em> quickly return a single Q matrix, for one
-specified K value. But, most likely we want to explore multiple values
-for K and should run multiple repeats of each K to assess the stability
-of the clustering. The <code>gt_fastmixture</code> function allows you
-to specify a vector of K values you wish to run and the number of
-repeats per K value.</p>
-<p>Since we are trying multiple values for K, we can also choose to use
-fastmixture’s cross-validation procedure to help identify the most
-appropriate value of K for our dataset.</p>
+<p>Now we can run <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> on our
+<code>gen_tibble</code> object. Note that, unlike the PCA,
+<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> does not need imputed data: missing genotypes
+are simply ignored when computing the likelihood (imputed genotypes are
+treated as missing, unless we set <code>use_imputed = TRUE</code>).</p>
+<p>As a minimum <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> requires you to supply your
+input data, in this case a <code>gen_tibble</code>, and specify a value
+for the number of clusters K. Based on our PCA results K = 3 may be a
+good place to start:</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">anole_res</span> <span class="op">&lt;-</span> <span class="va">anole_gt</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_radmix.html">gt_radmix</a></span><span class="op">(</span>k <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
+<p>This will very quickly return a single Q matrix, for one specified K
+value. But, most likely we want to explore multiple values for K and
+should run multiple repeats of each K to assess the stability of the
+clustering. <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> allows you to specify a vector of K
+values you wish to run and the number of repeats per K value.</p>
+<p>Since we are trying multiple values for K, we can also choose to
+compute the cross-validation error, as in ADMIXTURE, to help identify
+the most appropriate value of K for our dataset.</p>
 <p>For our multiple repeat runs it is also important that for each
 repeat we specify a different seed number to ensure consistent and
 robust results.</p>
 <p>Let’s now set values of K from 2 to 4 and run 3 repeats of each K
-value, setting a different random seed for each repeat. We can turn on
-cross-validation of our different values of K by setting a number of
-cross-validation folds, in this case 5, using the option
-<code>cv = 5</code>. We also set the option <code>no_freqs</code> to
-<code>FALSE</code> to include P-matrices, containing ancestral allele
-frequencies, to our output:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">anole_res</span> <span class="op">&lt;-</span> <span class="va">anole_gt</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_fastmixture.html">gt_fastmixture</a></span><span class="op">(</span></span>
+value, setting a different random seed for each repeat. We turn on
+5-fold cross-validation with <code>crossval = TRUE</code>:</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">anole_res</span> <span class="op">&lt;-</span> <span class="va">anole_gt</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_radmix.html">gt_radmix</a></span><span class="op">(</span></span>
 <span>  k <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span>, n_runs <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>  seed <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">42</span>, <span class="fl">2</span>, <span class="fl">16</span><span class="op">)</span>, no_freqs <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  cv <span class="op">=</span> <span class="fl">5</span></span>
+<span>  seed <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">42</span>, <span class="fl">2</span>, <span class="fl">16</span><span class="op">)</span>,</span>
+<span>  crossval <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>Our results are returned as a <code>gt_admix</code> object which
-neatly packages the outputted Q matrices, the corresponding K value for
-that run and the cross-validation score in a structured list.</p>
+neatly packages the Q matrices, the P matrices (containing ancestral
+allele frequencies), the corresponding K value for each run, the
+log-likelihoods and the cross-validation errors in a structured
+list.</p>
 <p>We can get a summary of our <code>gt_admix</code> results object to
 see exactly what it contains:</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Admixture results for multiple runs:       </span></span>
 <span><span class="co">## k 2 3 4</span></span>
@@ -351,6 +344,7 @@ see exactly what it contains:</p>
 <span><span class="co">## with slots:</span></span>
 <span><span class="co">## $Q for Q matrices</span></span>
 <span><span class="co">## $P for  matrices</span></span>
+<span><span class="co">## $log for logs from the algorithm</span></span>
 <span><span class="co">## $cv for cross validation error</span></span></code></pre>
 <p>From the summary we can see our <code>gt_admix</code> object contains
 Q and P matrices for 3 repeat runs of K values 2, 3 and 4 as
@@ -362,66 +356,74 @@ simply need to specify the K value and the repeat run number we are
 interested in.</p>
 <p>For example we can view the Q matrix corresponding to the second run
 of K = 4 like so:</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/get_q_matrix.html" class="external-link">get_q_matrix</a></span><span class="op">(</span>k <span class="op">=</span> <span class="fl">4</span>, run <span class="op">=</span> <span class="fl">2</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##               .Q1          .Q2          .Q3          .Q4</span></span>
-<span><span class="co">## [1,] 9.999949e-06 9.999949e-06 9.999700e-01 9.999949e-06</span></span>
-<span><span class="co">## [2,] 9.999935e-06 9.999935e-06 9.999700e-01 9.999935e-06</span></span>
-<span><span class="co">## [3,] 9.999899e-06 9.999899e-06 9.999899e-06 9.999700e-01</span></span>
-<span><span class="co">## [4,] 9.999855e-06 9.999855e-06 9.999855e-06 9.999700e-01</span></span>
-<span><span class="co">## [5,] 9.999902e-06 9.999902e-06 9.999902e-06 9.999700e-01</span></span>
-<span><span class="co">## [6,] 9.999700e-01 9.999873e-06 9.999873e-06 9.999873e-06</span></span></code></pre>
+<pre><code><span><span class="co">##            .Q1     .Q2       .Q3     .Q4</span></span>
+<span><span class="co">## [1,] 0.0000100 0.99997 0.0000100 0.00001</span></span>
+<span><span class="co">## [2,] 0.0000100 0.99997 0.0000100 0.00001</span></span>
+<span><span class="co">## [3,] 0.6707194 0.00001 0.3292606 0.00001</span></span>
+<span><span class="co">## [4,] 0.0000100 0.00001 0.9999700 0.00001</span></span>
+<span><span class="co">## [5,] 0.7261928 0.00001 0.2737872 0.00001</span></span>
+<span><span class="co">## [6,] 0.0000100 0.00001 0.0000100 0.99997</span></span></code></pre>
 <p>Or the P matrix of the first run of K = 3:</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/get_p_matrix.html" class="external-link">get_p_matrix</a></span><span class="op">(</span>k <span class="op">=</span> <span class="fl">3</span>, run <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##           [,1]      [,2]  [,3]</span></span>
-<span><span class="co">## [1,] 0.0000100 0.3920911 1e-05</span></span>
-<span><span class="co">## [2,] 0.8353825 0.1677636 1e-05</span></span>
-<span><span class="co">## [3,] 0.8399723 0.0000100 1e-05</span></span>
-<span><span class="co">## [4,] 0.4999375 0.1833640 1e-05</span></span>
-<span><span class="co">## [5,] 0.0000100 0.3321197 1e-05</span></span>
-<span><span class="co">## [6,] 0.9999900 0.2612219 1e-05</span></span></code></pre>
-<p>We can now compare the cross-validation scores for our range of K
+<pre><code><span><span class="co">##                    .P1   .P2       .P3</span></span>
+<span><span class="co">## locus_137_2  0.0000100 1e-05 0.3920996</span></span>
+<span><span class="co">## locus_137_13 0.8360442 1e-05 0.1676845</span></span>
+<span><span class="co">## locus_137_16 0.8407303 1e-05 0.0000100</span></span>
+<span><span class="co">## locus_203_57 0.4998483 1e-05 0.1834460</span></span>
+<span><span class="co">## locus_346_34 0.0000100 1e-05 0.3321086</span></span>
+<span><span class="co">## locus_346_37 0.9999900 1e-05 0.2612285</span></span></code></pre>
+<p>We can now compare the cross-validation errors for our range of K
 values 2-4, stored in the <code>cv</code> element of our
 <code>gt_admix</code> object, to help identify the most appropriate
 value of K for our dataset:</p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"cv"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tidygenclust_files/figure-html/unnamed-chunk-14-1.png" class="r-plt" alt="" width="700"></p>
+<p><img src="tidygenclust_files/figure-html/unnamed-chunk-13-1.png" class="r-plt" alt="" width="700"></p>
 <p>We are looking for the ‘elbow’ point in the plot where the
-cross-validation is at its lowest, here it looks like <code>k = 3</code>
-would be a sensible choice.</p>
+cross-validation error is at its lowest, here it looks like
+<code>k = 3</code> would be a sensible choice.</p>
+<p>For a comparison of <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> with the original
+ADMIXTURE program and with fastmixture, see the article “Benchmarking
+gt_radmix() against ADMIXTURE and fastmixture” (in the Articles section
+of the website of the package).</p>
+<p><code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> uses a modified version of the algorithm of
+OpenADMIXTURE: when using it, make sure that you cite the original paper
+on the algorithm (Ko et al. 2023) and the original ADMIXTURE paper
+(Alexander et al. 2009).</p>
 </div>
 <div class="section level3">
 <h3 id="visualising-the-results">Visualising the results<a class="anchor" aria-label="anchor" href="#visualising-the-results"></a>
 </h3>
 <p>For a quick visualisation of a single Q matrix we can use the
 autoplot function in <code>tidypopgen</code>:</p>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"barplot"</span>, k <span class="op">=</span> <span class="fl">3</span>, run <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tidygenclust_files/figure-html/unnamed-chunk-15-1.png" class="r-plt" alt="" width="700"></p>
+<p><img src="tidygenclust_files/figure-html/unnamed-chunk-14-1.png" class="r-plt" alt="" width="700"></p>
 <p>It is possible to rearrange individual within groups according to
 their ancestral components. This makes for a visually appealing plots
 that focuses on the main ancestral component within each plot, but makes
 multiple plots not comparable (as individuals will not be in the same
 order across plots):</p>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span></span>
 <span>  type <span class="op">=</span> <span class="st">"barplot"</span>, k <span class="op">=</span> <span class="fl">3</span>, run <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  reorder_within_groups <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p><img src="tidygenclust_files/figure-html/unnamed-chunk-16-1.png" class="r-plt" alt="" width="700"></p>
+<p><img src="tidygenclust_files/figure-html/unnamed-chunk-15-1.png" class="r-plt" alt="" width="700"></p>
 <p>Note that the colours assigned to each component are arbitrary and
-may (and in this case did) change if we reorder individuals. If you want
-complete control of your plot, you can create your own customised plot
-with <code>ggplot2</code>; we can use <code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy()</a></code> to easily
-extract the required information from a <code>gt_admix</code> object to
-use for the plot:</p>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+may change if we reorder individuals. If you want complete control of
+your plot, you can create your own customised plot with
+<code>ggplot2</code>; we can use <code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy()</a></code> to easily extract
+the required information from a <code>gt_admix</code> object to use for
+the plot:</p>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_q_tbl</span> <span class="op">&lt;-</span> <span class="va">anole_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/get_q_matrix.html" class="external-link">get_q_matrix</a></span><span class="op">(</span>k <span class="op">=</span> <span class="fl">3</span>, run <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">anole_gt</span><span class="op">)</span></span>
@@ -429,16 +431,16 @@ use for the plot:</p>
 <pre><code><span><span class="co">## <span style="color: #949494;"># A tibble: 138 × 4</span></span></span>
 <span><span class="co">##    id         group            q     percentage</span></span>
 <span><span class="co">##    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>            <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 1</span> punc_BM288 Amazonian_Forest .Q1   0.000<span style="text-decoration: underline;">010</span>00</span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 2</span> punc_BM288 Amazonian_Forest .Q2   1.000     </span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 3</span> punc_BM288 Amazonian_Forest .Q3   0.000<span style="text-decoration: underline;">010</span>00</span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 4</span> punc_GN71  Amazonian_Forest .Q1   0.000<span style="text-decoration: underline;">010</span>00</span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 5</span> punc_GN71  Amazonian_Forest .Q2   1.000     </span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 6</span> punc_GN71  Amazonian_Forest .Q3   0.000<span style="text-decoration: underline;">010</span>00</span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 7</span> punc_H1907 Amazonian_Forest .Q1   1.000     </span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 8</span> punc_H1907 Amazonian_Forest .Q2   0.000<span style="text-decoration: underline;">010</span>00</span></span>
-<span><span class="co">## <span style="color: #BCBCBC;"> 9</span> punc_H1907 Amazonian_Forest .Q3   0.000<span style="text-decoration: underline;">010</span>00</span></span>
-<span><span class="co">## <span style="color: #BCBCBC;">10</span> punc_H1911 Amazonian_Forest .Q1   1.000     </span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 1</span> punc_BM288 Amazonian_Forest .Q1      0.000<span style="text-decoration: underline;">01</span></span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 2</span> punc_BM288 Amazonian_Forest .Q2      0.000<span style="text-decoration: underline;">01</span></span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 3</span> punc_BM288 Amazonian_Forest .Q3      1.000  </span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 4</span> punc_GN71  Amazonian_Forest .Q1      0.000<span style="text-decoration: underline;">01</span></span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 5</span> punc_GN71  Amazonian_Forest .Q2      0.000<span style="text-decoration: underline;">01</span></span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 6</span> punc_GN71  Amazonian_Forest .Q3      1.000  </span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 7</span> punc_H1907 Amazonian_Forest .Q1      1.000  </span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 8</span> punc_H1907 Amazonian_Forest .Q2      0.000<span style="text-decoration: underline;">01</span></span></span>
+<span><span class="co">## <span style="color: #BCBCBC;"> 9</span> punc_H1907 Amazonian_Forest .Q3      0.000<span style="text-decoration: underline;">01</span></span></span>
+<span><span class="co">## <span style="color: #BCBCBC;">10</span> punc_H1911 Amazonian_Forest .Q1      1.000  </span></span>
 <span><span class="co">## <span style="color: #949494;"># ℹ 128 more rows</span></span></span></code></pre>
 <p>In the Prates et al 2018 study, the anolis lizards were found to
 split into three genetic groups, two in the Amazonian forest; the
@@ -449,15 +451,15 @@ these groups we can use the <code>gt_admix_reorder_q</code> function
 which will reorder the Q matrix by a chosen grouping variable. Our
 metadata contains this new grouping information in the column
 <code>pop</code>:</p>
-<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_gt_admix</span> <span class="op">&lt;-</span> <span class="va">anole_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_admix_reorder_q.html" class="external-link">gt_admix_reorder_q</a></span><span class="op">(</span>group <span class="op">=</span> <span class="va">anole_gt</span><span class="op">$</span><span class="va">pop</span><span class="op">)</span></span></code></pre></div>
 <p>We can then visualise our results again with this new grouping:</p>
-<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_gt_admix</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span></span>
 <span>  type <span class="op">=</span> <span class="st">"barplot"</span>, k <span class="op">=</span> <span class="fl">3</span>, run <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  reorder_within_groups <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p><img src="tidygenclust_files/figure-html/unnamed-chunk-19-1.png" class="r-plt" alt="" width="700"></p>
+<p><img src="tidygenclust_files/figure-html/unnamed-chunk-18-1.png" class="r-plt" alt="" width="700"></p>
 </div>
 <div class="section level3">
 <h3 id="visualisations-with-gt_clumppling">Visualisations with <code>gt_clumppling</code><a class="anchor" aria-label="anchor" href="#visualisations-with-gt_clumppling"></a>
@@ -467,97 +469,126 @@ matrix, ideally we want to be able to compare the different K values we
 tried in our clustering analyses and to assess the stability of the
 multiple repeat runs. For proper comparative visualisation and
 assessment of the different K values and repeats we can use the
-<code>gt_clummpling</code> function which aligns multiple clustering
+<code>gt_clumppling</code> function which aligns multiple clustering
 results within and between different values of K and allows for easy
 visualisation in multipartite plots.</p>
+<p><code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code> works on <code>gt_admix</code> objects,
+irrespective of the algorithm used to create them. Results of clustering
+programs run outside of R can be read into a <code>gt_admix</code>
+object with <code><a href="https://evolecolgroup.github.io/tidypopgen/reference/read_q_files.html" class="external-link">tidypopgen::read_q_files()</a></code>.</p>
 <p>Once we use <code>gt_clumppling</code>, the resulting plots will only
 show individuals in the order in which they were found in the
 <code>gt_admix</code> object. This means that, if they were not ordered
 into groups, we will not be able to annotate groups. One solution would
 be to arrange our original gen_tibble by group before starting the
 analysis, but we can also use <code>gt_admix_reorder_q</code> to reorder
-the individuals in the groups<br>
-which we have done in the previous step.</p>
+the individuals in the groups which we have done in the previous
+step.</p>
 <p>Now let’s run the <code>Clumppling</code> analysis on our
-<code>gt_admix</code> object:</p>
-<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">anole_clump</span> <span class="op">&lt;-</span> <span class="va">anole_gt_admix</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_clumppling.html">gt_clumppling</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Note: to be able to use all crisp methods, you need to install some additional packages:  {'wurlitzer', 'bayanpy', 'graph_tool', 'leidenalg', 'infomap'}</span></span>
-<span><span class="co">## Note: to be able to use all crisp methods, you need to install some additional packages:  {'torch', 'pyclustering', 'ASLPAw', 'hidef'}</span></span>
-<span><span class="co">## Note: to be able to use all crisp methods, you need to install some additional packages:  {'wurlitzer', 'infomap', 'scikit-network', 'leidenalg'}</span></span></code></pre>
+<code>gt_admix</code> object (as community detection is stochastic, we
+set a seed to make the results reproducible):</p>
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">anole_clump</span> <span class="op">&lt;-</span> <span class="va">anole_gt_admix</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_clumppling.html">gt_clumppling</a></span><span class="op">(</span>seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
 <p>Now we can visualise the aligned Q matrices for each value of K we
 tried:</p>
-<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_clump</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"all_modes"</span>, group <span class="op">=</span> <span class="va">anole_gt_admix</span><span class="op">$</span><span class="va">group</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tidygenclust_files/figure-html/unnamed-chunk-21-1.png" class="r-plt" alt="" width="700"></p>
+<p><img src="tidygenclust_files/figure-html/unnamed-chunk-20-1.png" class="r-plt" alt="" width="700"></p>
 <p>We can see that for the anolis dataset there is only one mode for
 each value of K. For a more complex example, where multiple modes are
 found in runs of the same K, we can explore a dataset investigating the
 the ancestry of Cape Verde individuals, the same example used in the
 <code>Clumppling</code> manual.</p>
-<p>This time we will read in the Q matrices directly from a directory.
-The text files containing the matrices are stored as a zip archive,
-which we can pass directly to <code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code>:</p>
-<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">input_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata/capeverde.zip"</span>, package <span class="op">=</span> <span class="st">"tidygenclust"</span><span class="op">)</span></span>
-<span><span class="va">clump_res</span> <span class="op">&lt;-</span> <span class="va">input_path</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_clumppling.html">gt_clumppling</a></span><span class="op">(</span>extension <span class="op">=</span> <span class="st">".indivq"</span><span class="op">)</span></span></code></pre></div>
+<p>The results of 200 ADMIXTURE runs (50 runs for each K from 2 to 5)
+are stored in the package as a <code>gt_admix</code> object:</p>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">capeverde_admix</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"capeverde_admix.rds"</span>, package <span class="op">=</span> <span class="st">"tidygenclust"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">capeverde_admix</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">## Admixture results for multiple runs:             </span></span>
+<span><span class="co">## k  2  3  4  5</span></span>
+<span><span class="co">## n 50 50 50 50</span></span>
+<span><span class="co">## with slots:</span></span>
+<span><span class="co">## $Q for Q matrices</span></span></code></pre>
+<p>and we can align them with:</p>
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">clump_res</span> <span class="op">&lt;-</span> <span class="va">capeverde_admix</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_clumppling.html">gt_clumppling</a></span><span class="op">(</span>seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
+<p>The statistics of each mode (the number of runs that it includes, and
+the average cost and similarity of the alignment between pairs of runs)
+are stored in <code>mode_stats</code>:</p>
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">clump_res</span><span class="op">$</span><span class="va">mode_stats</span></span></code></pre></div>
+<pre><code><span><span class="co">##   Mode Representative Size         Cost Performance</span></span>
+<span><span class="co">## 1 K2M1       39_K2R39   50 8.043783e-14   0.9999998</span></span>
+<span><span class="co">## 2 K3M1       65_K3R15   50 3.067899e-09   0.9999592</span></span>
+<span><span class="co">## 3 K4M1      112_K4R12   39 7.341008e-04   0.9788892</span></span>
+<span><span class="co">## 4 K4M2      138_K4R38   11 4.944349e-02   0.7918295</span></span>
+<span><span class="co">## 5 K5M1      192_K5R42   18 5.074185e-02   0.7939366</span></span>
+<span><span class="co">## 6 K5M2      167_K5R17   18 3.704965e-02   0.8188414</span></span>
+<span><span class="co">## 7 K5M3      160_K5R10   14 2.550706e-02   0.8478811</span></span></code></pre>
 <p>Once we have a <code>gt_clumppling</code> results object, we can use
 <code>autoplot</code> to make a number of default plots.</p>
 <p>We can plot the modes for all values of k with:</p>
 <div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"all_modes"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tidygenclust_files/figure-html/unnamed-chunk-22-1.png" class="r-plt" alt="" width="700"></p>
+<p><img src="tidygenclust_files/figure-html/unnamed-chunk-23-1.png" class="r-plt" alt="" width="700"></p>
 <p>It is often informative to overlay information on the population from
 which each individual was sampled. This can be done by providing a
 vector of population labels for each individual. In the case of the Cape
-Verde dataset, we have such a vector stored in the package:</p>
+Verde dataset, the populations are stored in the <code>group</code>
+element of the <code>gt_admix</code> object (and in the
+<code>capeverde_pops</code> dataset):</p>
 <div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">capeverde_pops</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] "Mandenka" "Mandenka" "Mandenka" "Mandenka" "Mandenka" "Mandenka"</span></span></code></pre>
-<p>Let’s get a summary:</p>
-<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">capeverde_pops</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">capeverde_admix</span><span class="op">$</span><span class="va">group</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## .</span></span>
 <span><span class="co">##      British Cape Verdean       French      Gambian      Iberian     Mandenka </span></span>
 <span><span class="co">##           89           44           28          109          107           22</span></span></code></pre>
 <p>We can now add it to our plots with the <code>group</code>
 argument:</p>
-<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"all_modes"</span>, group <span class="op">=</span> <span class="va">capeverde_pops</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"all_modes"</span>, group <span class="op">=</span> <span class="va">capeverde_admix</span><span class="op">$</span><span class="va">group</span><span class="op">)</span></span></code></pre></div>
 <p><img src="tidygenclust_files/figure-html/unnamed-chunk-25-1.png" class="r-plt" alt="" width="700"></p>
 <p>And subset our visualisation to only the major modes with:</p>
-<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"major_modes"</span>, group <span class="op">=</span> <span class="va">capeverde_pops</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"major_modes"</span>, group <span class="op">=</span> <span class="va">capeverde_admix</span><span class="op">$</span><span class="va">group</span><span class="op">)</span></span></code></pre></div>
 <p><img src="tidygenclust_files/figure-html/unnamed-chunk-26-1.png" class="r-plt" alt="" width="700"></p>
 <p>The modes of a specific k value can be plotted with:</p>
-<div class="sourceCode" id="cb47"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"modes_within_k"</span>, k <span class="op">=</span> <span class="fl">4</span>, group <span class="op">=</span> <span class="va">capeverde_pops</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span></span>
+<span>  type <span class="op">=</span> <span class="st">"modes_within_k"</span>, k <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  group <span class="op">=</span> <span class="va">capeverde_admix</span><span class="op">$</span><span class="va">group</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 <p><img src="tidygenclust_files/figure-html/unnamed-chunk-27-1.png" class="r-plt" alt="" width="700"></p>
 <p>We can also visualise the relationship among modes by plotting over a
 multipartite graph, where better alignment between the modes is
 indicated by the darker color of the edges connecting their structure
-plots (i.e edges with a lower cost of optimal alignment are labelled on
-each edge):</p>
-<div class="sourceCode" id="cb48"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"modes"</span>, group <span class="op">=</span> <span class="va">capeverde_pops</span><span class="op">)</span></span></code></pre></div>
+plots (edges are coloured by the cost of the optimal alignment, as shown
+by the legend):</p>
+<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"modes"</span>, group <span class="op">=</span> <span class="va">capeverde_admix</span><span class="op">$</span><span class="va">group</span><span class="op">)</span></span></code></pre></div>
 <p><img src="tidygenclust_files/figure-html/unnamed-chunk-28-1.png" class="r-plt" alt="" width="700"></p>
 <p><code>gt_clumppling</code> can also deal with very large K values and
 gaps in the K values explored.</p>
 <p>For example, we can use the ‘chicken_gapK’ data example also from
-<code>Clumppling</code>, which uses outputs from STRUCTURE (so we need
-to specify the <code>input_format</code>):</p>
-<div class="sourceCode" id="cb49"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">input_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata/chicken_gapk.zip"</span>, package <span class="op">=</span> <span class="st">"tidygenclust"</span><span class="op">)</span></span>
-<span><span class="va">chicken_res</span> <span class="op">&lt;-</span> <span class="va">input_path</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="../reference/gt_clumppling.html">gt_clumppling</a></span><span class="op">(</span></span>
-<span>    input_format <span class="op">=</span> <span class="st">"structure"</span>,</span>
-<span>    extension <span class="op">=</span> <span class="st">"_f"</span></span>
-<span>  <span class="op">)</span></span></code></pre></div>
+<code>Clumppling</code>, with the results of 60 STRUCTURE runs for K =
+17, 19 and 21 (STRUCTURE rounds memberships to three decimals, so they
+have been rescaled to sum to one, as <code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code>
+requires):</p>
+<div class="sourceCode" id="cb47"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">chicken_admix</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"chicken_admix.rds"</span>, package <span class="op">=</span> <span class="st">"tidygenclust"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">chicken_res</span> <span class="op">&lt;-</span> <span class="va">chicken_admix</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="../reference/gt_clumppling.html">gt_clumppling</a></span><span class="op">(</span>seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
 <p>We can plot the membership plots on top of the multipartite plot
 with:</p>
-<div class="sourceCode" id="cb50"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb48"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">chicken_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p><img src="tidygenclust_files/figure-html/unnamed-chunk-29-1.png" class="r-plt" alt="" width="700"></p>
+<p><code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code> is ported, with modifications, from the
+python package clumppling: when using it, make sure that you cite the
+original paper on the algorithm (Liu, Kopelman, &amp; Rosenberg,
+2024).</p>
 </div>
 <div class="section level3">
 <h3 id="making-custom-plots-with-ggplot2">Making custom plots with <code>ggplot2</code><a class="anchor" aria-label="anchor" href="#making-custom-plots-with-ggplot2"></a>
@@ -566,7 +597,7 @@ with:</p>
 <code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy()</a></code> to easily extract the required information from a
 <code>gt_clumppling</code> object.</p>
 <p>To get all the modes for each k, we use:</p>
-<div class="sourceCode" id="cb51"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb49"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span>matrix <span class="op">=</span> <span class="st">"modes"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## <span style="color: #949494;"># A tibble: 7 × 3</span></span></span>
 <span><span class="co">##       k     m label</span></span>
@@ -579,7 +610,7 @@ with:</p>
 <span><span class="co">## <span style="color: #BCBCBC;">6</span>     5     2 K5M2 </span></span>
 <span><span class="co">## <span style="color: #BCBCBC;">7</span>     5     3 K5M3</span></span></code></pre>
 <p>The major modes can be obtained simply with:</p>
-<div class="sourceCode" id="cb53"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb51"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span>matrix <span class="op">=</span> <span class="st">"major_modes"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## <span style="color: #949494;"># A tibble: 4 × 3</span></span></span>
 <span><span class="co">##       k     m label</span></span>
@@ -590,19 +621,19 @@ with:</p>
 <span><span class="co">## <span style="color: #BCBCBC;">4</span>     5     1 K5M1</span></span></code></pre>
 <p>To create custom plots, we can also extract the Q matrices for modes,
 with their clusters aligned, by typing:</p>
-<div class="sourceCode" id="cb55"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb53"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">q_modes</span> <span class="op">&lt;-</span> <span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span>matrix <span class="op">=</span> <span class="st">"Q_modes"</span><span class="op">)</span></span></code></pre></div>
 <p><code>q_modes</code> is a list of tibbles, one per mode:</p>
-<div class="sourceCode" id="cb56"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb54"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">q_modes</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] "K2M1" "K3M1" "K4M1" "K4M2" "K5M1" "K5M2" "K5M3"</span></span></code></pre>
 <p>If we only want the major modes, we can simply use:</p>
-<div class="sourceCode" id="cb58"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb56"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">q_major_modes</span> <span class="op">&lt;-</span> <span class="va">clump_res</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span>matrix <span class="op">=</span> <span class="st">"Q_major_modes"</span><span class="op">)</span></span>
 <span><span class="va">q_major_modes</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] "K2M1" "K3M1" "K4M1" "K5M1"</span></span></code></pre>
 <p>Let us inspect one of the tidied modes:</p>
-<div class="sourceCode" id="cb60"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb58"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">q4_tidied</span> <span class="op">&lt;-</span> <span class="va">q_major_modes</span><span class="op">[[</span><span class="st">"K4M1"</span><span class="op">]</span><span class="op">]</span></span>
 <span><span class="va">q4_tidied</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## <span style="color: #949494;"># A tibble: 6 × 3</span></span></span>
@@ -615,7 +646,7 @@ with their clusters aligned, by typing:</p>
 <span><span class="co">## <span style="color: #BCBCBC;">5</span>     2 1      0.000<span style="text-decoration: underline;">010</span>0</span></span>
 <span><span class="co">## <span style="color: #BCBCBC;">6</span>     2 2      0.000<span style="text-decoration: underline;">010</span>0</span></span></code></pre>
 <p>We can now create a simple plot of this mode with:</p>
-<div class="sourceCode" id="cb62"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb60"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
 <span><span class="co"># set up the ggplot object</span></span>
 <span><span class="va">plt</span> <span class="op">&lt;-</span> <span class="va">q4_tidied</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span></span>
@@ -642,12 +673,32 @@ with their clusters aligned, by typing:</p>
 <p>We used a preset theme and colour scale, but you could use any custom
 option you prefer by using standard <code>ggplot2</code> theme and
 scale_fill options. For example:</p>
-<div class="sourceCode" id="cb63"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb61"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">plt</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_viridis.html" class="external-link">scale_fill_viridis_d</a></span><span class="op">(</span>guide <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Scale for <span style="color: #00BB00;">fill</span> is already present.</span></span>
 <span><span class="co">## Adding another scale for <span style="color: #00BB00;">fill</span>, which will replace the existing scale.</span></span></code></pre>
 <p><img src="tidygenclust_files/figure-html/unnamed-chunk-37-1.png" class="r-plt" alt="" width="700"></p>
 </div>
+</div>
+<div class="section level2">
+<h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+</h2>
+<p>Alexander DH, Novembre J, Lange K (2009) Fast model-based estimation
+of ancestry in unrelated individuals. Genome Research, 19(9),
+1655-1664.</p>
+<p>Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH, Sobel EM,
+Zhou H, Lange KL (2023) Unsupervised discovery of ancestry informative
+markers and genetic admixture proportions in biobank-scale datasets. The
+American Journal of Human Genetics, 110(2), 314-325.</p>
+<p>Liu X, Kopelman NM, Rosenberg NA (2024) Clumppling: cluster matching
+and permutation program with integer linear programming. Bioinformatics,
+40(1), btad751.</p>
+<p>Prates I, Penna A, Rodrigues MT, Carnaval AC (2018) Local adaptation
+in mainland anole lizards: Integrating population history and
+genome-environment associations. Ecology and Evolution, 8(23),
+11932-11944.</p>
+<p>Santander CG, Refoyo Martinez A, Meisner J (2024) Faster model-based
+estimation of ancestry proportions. Peer Community Journal, 4: e115. <a href="https://doi.org/10.24072/pcjournal.503" class="external-link uri">https://doi.org/10.24072/pcjournal.503</a></p>
 </div>
   </div>
 

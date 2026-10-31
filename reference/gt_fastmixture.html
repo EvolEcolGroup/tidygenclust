@@ -20,7 +20,7 @@ that you cite the relevant paper by Santander, Refoyo-Martínez, and Meisner
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidygenclust</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.5</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.5.9004</span>
       </span>
     </div>
 
@@ -31,6 +31,25 @@ that you cite the relevant paper by Santander, Refoyo-Martínez, and Meisner
 <li>
   <a href="../reference/index.html">Reference</a>
 </li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+    Articles
+
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu"><li>
+      <a href="../articles/admixture_benchmark.html">Benchmarking gt_radmix() against ADMIXTURE and fastmixture</a>
+    </li>
+    <li>
+      <a href="../articles/admixture_fastmixture.html">Installing and running ADMIXTURE and fastmixture</a>
+    </li>
+    <li>
+      <a href="../articles/clumppling_benchmark.html">Benchmarking gt_clumppling() against the python clumppling</a>
+    </li>
+    <li>
+      <a href="../articles/pseudohaploids.html">Why pseudohaploids must be declared</a>
+    </li>
+  </ul></li>
 <li>
   <a href="../news/index.html">Changelog</a>
 </li>
@@ -75,8 +94,8 @@ that you cite the relevant paper by Santander, Refoyo-Martínez, and Meisner
 <span>  als_iter <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  als_tole <span class="op">=</span> <span class="fl">1e-04</span>,</span>
 <span>  no_freqs <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  random_init <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  safety <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  random_init <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  safety <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  cv <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  cv_tole <span class="op">=</span> <span class="fl">1e-07</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -105,8 +124,10 @@ or a vector</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>the random seed (defaults to 42);it should be a vector of length
-<code>repeats</code></p></dd>
+<dd><p>the random seed (defaults to 42): a vector of length
+<code>n_runs</code>, with one seed per run (the same seeds are used for each value
+of <code>k</code>), or a single seed, used for the first run and incremented for
+the following ones</p></dd>
 
 
 <dt id="arg-iter">iter<a class="anchor" aria-label="anchor" href="#arg-iter"></a></dt>
@@ -122,7 +143,7 @@ or a vector</p></dd>
 
 
 <dt id="arg-supervised">supervised<a class="anchor" aria-label="anchor" href="#arg-supervised"></a></dt>
-<dd><p>the name fo the file with the supervised labels (NULL)</p></dd>
+<dd><p>the name of the file with the supervised labels (NULL)</p></dd>
 
 
 <dt id="arg-check">check<a class="anchor" aria-label="anchor" href="#arg-check"></a></dt>
@@ -134,7 +155,7 @@ or a vector</p></dd>
 
 
 <dt id="arg-chunk">chunk<a class="anchor" aria-label="anchor" href="#arg-chunk"></a></dt>
-<dd><p>the number of SPs in chunk operations (8192)</p></dd>
+<dd><p>the number of SNPs in chunk operations (8192)</p></dd>
 
 
 <dt id="arg-subsample">subsample<a class="anchor" aria-label="anchor" href="#arg-subsample"></a></dt>
@@ -162,15 +183,21 @@ or a vector</p></dd>
 
 
 <dt id="arg-random-init">random_init<a class="anchor" aria-label="anchor" href="#arg-random-init"></a></dt>
-<dd><p>random initialisation of parameters (TRUE)</p></dd>
+<dd><p>random initialisation of parameters (FALSE). By
+default, as in the fastmixture program, the parameters are initialised
+from a randomised SVD of the genotypes (followed by alternating least
+squares), which needs all the loci to be polymorphic; random starting
+values can take much longer to converge</p></dd>
 
 
 <dt id="arg-safety">safety<a class="anchor" aria-label="anchor" href="#arg-safety"></a></dt>
-<dd><p>add extra safety steps in unstable optimizations (TRUE)</p></dd>
+<dd><p>deprecated and ignored: fastmixture turns on its safety
+updates by itself when an update is unstable</p></dd>
 
 
 <dt id="arg-cv">cv<a class="anchor" aria-label="anchor" href="#arg-cv"></a></dt>
-<dd><p>the number of cross-validation folds (0)</p></dd>
+<dd><p>the number of cross-validation folds, greater than 1 (NULL, no
+cross-validation)</p></dd>
 
 
 <dt id="arg-cv-tole">cv_tole<a class="anchor" aria-label="anchor" href="#arg-cv-tole"></a></dt>
@@ -185,10 +212,16 @@ details.</p>
     </div>
     <div id="details">
     <h2>Details</h2>
-    <p>This function returns a q_matrix that can be plotted with <code>autoplot</code>, and
-tidied with <code>tidy</code> methods from the <code>tidypopgen</code> package. Cross-validation
-is set to 0 as default, if you want to include cross-validation you can set
-<code>cv</code> to a value greater than 1 (ADMIXTURE performs 5-fold cv as default).</p>
+    <p>This function returns a <code>gt_admix</code> object that can be plotted with
+<code>autoplot</code>, and tidied with <code>tidy</code> methods from the <code>tidypopgen</code> package.
+Cross-validation is not performed by default (<code>cv = NULL</code>); if you want to
+include cross-validation you can set <code>cv</code> to the number of folds, a value
+greater than 1 (ADMIXTURE performs 5-fold cv as default).</p>
+<p><code>fastmixture</code> is an optional tool, which is not needed by the rest of
+<code>tidygenclust</code> (see <code><a href="gt_radmix.html">gt_radmix()</a></code> for a native implementation of
+the ADMIXTURE model). Install it with
+<code>tgc_tools_install(tools = "fastmixture")</code>, or add it to an existing
+<code>ctidygenclust</code> conda environment with <code><a href="tgc_fastmixture_install.html">tgc_fastmixture_install()</a></code>.</p>
     </div>
     <div id="references">
     <h2>References</h2>

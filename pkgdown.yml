@@ -2,5 +2,9 @@ pandoc: 3.8.3
 pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
+  articles/admixture_benchmark: admixture_benchmark.html
+  articles/admixture_fastmixture: admixture_fastmixture.html
+  articles/clumppling_benchmark: clumppling_benchmark.html
+  articles/pseudohaploids: pseudohaploids.html
   tidygenclust: tidygenclust.html
-last_built: 2026-10-17T19:44Z
+last_built: 2026-10-31T11:10Z
