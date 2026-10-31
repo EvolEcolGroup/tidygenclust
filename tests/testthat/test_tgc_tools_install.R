@@ -93,6 +93,9 @@ test_that("conda yaml files are found", {
 })
 
 test_that("missing tools are reported", {
+  # the installers stop on windows, before looking for the environment (as
+  # tested below), so these tests are of the other systems
+  testthat::local_mocked_bindings(tgc_is_windows = function() FALSE)
   withr::local_options(tidygenclust.conda_env = "tidygenclust_no_such_env")
   expect_false(tgc_tool_installed("fastmixture"))
   if (Sys.info()[["sysname"]] != "Darwin") {
@@ -147,6 +150,7 @@ local_mock_conda <- function(envs, installed, mac = FALSE,
   )
   testthat::local_mocked_bindings(
     tgc_is_mac = function() mac,
+    tgc_is_windows = function() FALSE,
     tgc_check_brew = function() NULL,
     tgc_conda_env = function() "ctidygenclust",
     tgc_tool_installed = function(tool) {
@@ -251,6 +255,7 @@ test_that("fastmixture is installed without reinstalling its dependencies", {
   )
   testthat::local_mocked_bindings(
     tgc_is_mac = function() FALSE,
+    tgc_is_windows = function() FALSE,
     tgc_check_conda_env = function(tool) "ctidygenclust",
     tgc_tool_installed = function(tool) TRUE
   )
@@ -292,6 +297,7 @@ test_that("on osx, ADMIXTURE is installed with reticulate's conda", {
   )
   testthat::local_mocked_bindings(
     tgc_is_mac = function() TRUE,
+    tgc_is_windows = function() FALSE,
     tgc_tool_installed = function(tool) TRUE
   )
   tgc_admixture_install(conda_yaml = yaml_file)
@@ -352,6 +358,7 @@ test_that("on osx, fastmixture is compiled with the llvm of homebrew", {
   )
   testthat::local_mocked_bindings(
     tgc_is_mac = function() TRUE,
+    tgc_is_windows = function() FALSE,
     tgc_check_brew = function() NULL,
     tgc_check_conda_env = function(tool) "ctidygenclust",
     tgc_tool_installed = function(tool) TRUE
