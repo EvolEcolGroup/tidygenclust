@@ -17,5 +17,9 @@ NULL (invisibly)
 \code{ADAMIXTURE} (used by \code{\link[=gt_adamixture]{gt_adamixture()}}) is an optional tool. This function
 adds it to an existing \code{ctidygenclust} environment (created with
 \code{\link[=tgc_tools_install]{tgc_tools_install()}}), or installs another version, from PyPI. Its CPU
-version, used by \code{\link[=gt_adamixture]{gt_adamixture()}}, does not need PyTorch.
+version, used by \code{\link[=gt_adamixture]{gt_adamixture()}}, does not need PyTorch. On OSX, it is
+compiled from source, in the same way as \code{fastmixture} (see
+\code{\link[=tgc_tools_install]{tgc_tools_install()}}; it needs \code{llvm} and \code{libomp} from \code{brew}), so that
+the two tools use the same OpenMP library: the copy included in the
+pre-built package crashes R when both tools are used in the same session.
 }

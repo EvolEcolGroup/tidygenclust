@@ -5,7 +5,8 @@
   or on PLINK files. ADAMIXTURE (version 1.8.9, from PyPI, without PyTorch)
   is installed by default by `tgc_tools_install()`, or added to an existing
   environment with the new `tgc_adamixture_install()`, and its version is
-  reported by `tgc_tools_version()`.
+  reported by `tgc_tools_version()`. On macOS, it is compiled from source,
+  like fastmixture, so that both use the same OpenMP library.
 * `gt_clumppling()` is now a native R and C++ port, with modifications, of
   clumppling 2.0.10 (Liu, Kopelman & Rosenberg 2024, by Xiran Liu),
   previously developed as the separate package `rclump`: it gives the

@@ -81,7 +81,7 @@ tgc_tools_install <-
     conda_yaml <- tgc_resolve_conda_yaml(conda_yaml, ci_install)
 
     # for osx, check that we have installed the right packages in brew
-    if (is_mac && "fastmixture" %in% tools) {
+    if (is_mac && any(c("fastmixture", "adamixture") %in% tools)) {
       tgc_check_brew()
     }
 
@@ -211,25 +211,7 @@ tgc_fastmixture_install <-
 
     # on OSX we need to also install a suitable compiler for openmp
     if (is_mac) {
-      # install clang and llvm-openmp in the environment, and run pip with
-      # the brew llvm first in the PATH and openmp enabled, so that the cython
-      # extensions of fastmixture are compiled with openmp
-      reticulate::conda_install(
-        envname = envname,
-        packages = c("clang", "clangxx", "llvm-openmp"),
-        channel = c("conda-forge", "defaults")
-      )
-      fast_install_cmd <- c(
-        # (brew --prefix gives the location of llvm both on silicon Macs,
-        # /opt/homebrew, and on Intel ones, /usr/local)
-        "export PATH=\"$(brew --prefix llvm)/bin:$PATH\"",
-        "export CC=clang",
-        "export CXX=clang++",
-        "export CFLAGS=-fopenmp",
-        "export CXXFLAGS=-fopenmp",
-        "export LDFLAGS=-fopenmp",
-        fast_install_cmd
-      )
+      fast_install_cmd <- c(tgc_osx_openmp_setup(envname), fast_install_cmd)
     }
 
     # now install fastmixture in the conda environment (conda_run2() writes
@@ -326,7 +308,11 @@ tgc_admixture_install <- function(conda_yaml = "auto", ci_install = FALSE) {
 #' `ADAMIXTURE` (used by [gt_adamixture()]) is an optional tool. This function
 #' adds it to an existing `ctidygenclust` environment (created with
 #' [tgc_tools_install()]), or installs another version, from PyPI. Its CPU
-#' version, used by [gt_adamixture()], does not need PyTorch.
+#' version, used by [gt_adamixture()], does not need PyTorch. On OSX, it is
+#' compiled from source, in the same way as `fastmixture` (see
+#' [tgc_tools_install()]; it needs `llvm` and `libomp` from `brew`), so that
+#' the two tools use the same OpenMP library: the copy included in the
+#' pre-built package crashes R when both tools are used in the same session.
 #'
 #' @inheritParams tgc_tools_install
 #' @returns NULL (invisibly)
@@ -335,13 +321,29 @@ tgc_admixture_install <- function(conda_yaml = "auto", ci_install = FALSE) {
 tgc_adamixture_install <- function(adamixture_version = "1.8.9") {
   tgc_check_os()
   envname <- tgc_check_conda_env("adamixture")
-  # the given version from pypi (a wheel, which includes its OpenMP library);
-  # pip only installs the dependencies that are missing, so the numpy pinned
-  # by the conda yaml is kept. threadpoolctl is used by gt_adamixture() to
-  # limit the number of threads of ADAMIXTURE
+  # the given version from pypi; pip only installs the dependencies that are
+  # missing, so the numpy pinned by the conda yaml is kept. threadpoolctl is
+  # used by gt_adamixture() to limit the number of threads of ADAMIXTURE
   ada_install_cmd <- paste0(
     "python -m pip install adamixture==", adamixture_version, " threadpoolctl"
   )
+  # On OSX, the wheel of ADAMIXTURE includes its own copy of the OpenMP
+  # library (libomp), whereas fastmixture is compiled in the environment and
+  # uses the libomp of the environment: two copies of libomp in the same
+  # python session crash it (a segfault once both have been used). So
+  # ADAMIXTURE is compiled from source, in the same way as fastmixture, so
+  # that both use the same libomp. (On Linux, both use the OpenMP library of
+  # gcc, of which several copies can be loaded.)
+  if (tgc_is_mac()) {
+    tgc_check_brew()
+    ada_install_cmd <- c(
+      tgc_osx_openmp_setup(envname),
+      sub("pip install ", "pip install --no-binary adamixture ",
+        ada_install_cmd,
+        fixed = TRUE
+      )
+    )
+  }
   reticulate::conda_run2(
     cmd_line = ada_install_cmd,
     envname = envname
@@ -353,6 +355,29 @@ tgc_adamixture_install <- function(adamixture_version = "1.8.9") {
     )
   }
   invisible(NULL)
+}
+
+# On OSX, install a compiler for openmp (clang and llvm-openmp) in the conda
+# environment, and return the commands that, run before pip, put the clang
+# of brew's llvm first in the PATH and enable openmp, so that the cython
+# extensions of fastmixture and ADAMIXTURE are compiled with openmp, against
+# the same OpenMP library
+tgc_osx_openmp_setup <- function(envname) {
+  reticulate::conda_install(
+    envname = envname,
+    packages = c("clang", "clangxx", "llvm-openmp"),
+    channel = c("conda-forge", "defaults")
+  )
+  c(
+    # (brew --prefix gives the location of llvm both on silicon Macs,
+    # /opt/homebrew, and on Intel ones, /usr/local)
+    "export PATH=\"$(brew --prefix llvm)/bin:$PATH\"",
+    "export CC=clang",
+    "export CXX=clang++",
+    "export CFLAGS=-fopenmp",
+    "export CXXFLAGS=-fopenmp",
+    "export LDFLAGS=-fopenmp"
+  )
 }
 
 # the name of the conda environment with the optional tools; it can be changed

@@ -80,8 +80,10 @@ tgc_admixture_install()
 
 ## For macOS users
 
-If you want to install `fastmixture`, you need `llvm` installed via `brew` in
-the first place. In `bash`, you will need:
+If you want to install `fastmixture` or ADAMIXTURE, which are compiled from
+source on macOS (so that they use the same OpenMP library), you need `llvm`
+and `libomp` installed via `brew` in the first place. In `bash`, you will
+need:
 
 ``` bash
 # llvm can be installed via brew

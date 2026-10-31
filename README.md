@@ -60,8 +60,8 @@ tgc_tools_version()
 
 **Note for MacOS user**
 
-To install `fastmixture` on MacOS, you need `llvm` installed via `brew` in
-the first place. In `bash`, you will need:\
+To install `fastmixture` or ADAMIXTURE on MacOS, you need `llvm` and `libomp`
+installed via `brew` in the first place. In `bash`, you will need:\
 
 ``` bash
 brew install llvm libomp

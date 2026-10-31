@@ -331,6 +331,7 @@ test_that("ADAMIXTURE is installed from pypi, without pytorch", {
     .package = "reticulate"
   )
   testthat::local_mocked_bindings(
+    tgc_is_mac = function() FALSE,
     tgc_check_conda_env = function(tool) "ctidygenclust",
     tgc_tool_installed = function(tool) TRUE
   )
@@ -339,6 +340,47 @@ test_that("ADAMIXTURE is installed from pypi, without pytorch", {
   # (the numpy pinned by the conda yaml), and without the gpu extra
   expect_identical(
     run$cmd_line, "python -m pip install adamixture==9.9.9 threadpoolctl"
+  )
+})
+
+test_that("on osx, ADAMIXTURE is compiled like fastmixture", {
+  # the tools are not installed on windows
+  skip_on_os("windows")
+  # the wheel of ADAMIXTURE includes its own OpenMP library, which crashes
+  # the session once fastmixture (compiled against the OpenMP library of the
+  # environment) has been used: on osx, ADAMIXTURE is compiled from source,
+  # with the same settings as fastmixture
+  run <- new.env()
+  testthat::local_mocked_bindings(
+    conda_install = function(...) NULL,
+    conda_run2 = function(cmd_line, envname, ...) {
+      run$cmd_lines <- c(run$cmd_lines, list(cmd_line))
+    },
+    .package = "reticulate"
+  )
+  testthat::local_mocked_bindings(
+    tgc_is_mac = function() TRUE,
+    tgc_check_brew = function() NULL,
+    tgc_check_conda_env = function(tool) "ctidygenclust",
+    tgc_tool_installed = function(tool) TRUE
+  )
+  tgc_fastmixture_install()
+  tgc_adamixture_install(adamixture_version = "9.9.9")
+  fast_cmd <- run$cmd_lines[[1]]
+  ada_cmd <- run$cmd_lines[[2]]
+  # the same commands before pip
+  expect_identical(
+    ada_cmd[-length(ada_cmd)], fast_cmd[-length(fast_cmd)]
+  )
+  expect_identical(
+    ada_cmd[1], "export PATH=\"$(brew --prefix llvm)/bin:$PATH\""
+  )
+  expect_identical(
+    ada_cmd[length(ada_cmd)],
+    paste(
+      "python -m pip install --no-binary adamixture adamixture==9.9.9",
+      "threadpoolctl"
+    )
   )
 })
 
