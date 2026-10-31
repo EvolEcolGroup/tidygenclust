@@ -69,6 +69,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// radmix_als_cpp
+List radmix_als_cpp(NumericMatrix za, NumericMatrix ua, NumericVector w, NumericMatrix init_p, int max_iter, double tol, int n_cores);
+RcppExport SEXP _tidygenclust_radmix_als_cpp(SEXP zaSEXP, SEXP uaSEXP, SEXP wSEXP, SEXP init_pSEXP, SEXP max_iterSEXP, SEXP tolSEXP, SEXP n_coresSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type za(zaSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type ua(uaSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type w(wSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type init_p(init_pSEXP);
+    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    rcpp_result_gen = Rcpp::wrap(radmix_als_cpp(za, ua, w, init_p, max_iter, tol, n_cores));
+    return rcpp_result_gen;
+END_RCPP
+}
 // radmix_fit_cpp
 List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q, Nullable<NumericMatrix> init_p, bool fix_q, bool fix_p, int max_iter, double rtol, int n_em_iter, int n_qn, int n_cores, bool verbose);
 RcppExport SEXP _tidygenclust_radmix_fit_cpp(SEXP dataSEXP, SEXP kSEXP, SEXP init_qSEXP, SEXP init_pSEXP, SEXP fix_qSEXP, SEXP fix_pSEXP, SEXP max_iterSEXP, SEXP rtolSEXP, SEXP n_em_iterSEXP, SEXP n_qnSEXP, SEXP n_coresSEXP, SEXP verboseSEXP) {
@@ -301,6 +318,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_tidygenclust_clumppling_align_ilp_diff1_cpp", (DL_FUNC) &_tidygenclust_clumppling_align_ilp_diff1_cpp, 2},
     {"_tidygenclust_clumppling_align_within_k_cpp", (DL_FUNC) &_tidygenclust_clumppling_align_within_k_cpp, 1},
     {"_tidygenclust_clumppling_louvain_cpp", (DL_FUNC) &_tidygenclust_clumppling_louvain_cpp, 2},
+    {"_tidygenclust_radmix_als_cpp", (DL_FUNC) &_tidygenclust_radmix_als_cpp, 7},
     {"_tidygenclust_radmix_fit_cpp", (DL_FUNC) &_tidygenclust_radmix_fit_cpp, 12},
     {"_tidygenclust_radmix_decode_cpp", (DL_FUNC) &_tidygenclust_radmix_decode_cpp, 1},
     {"_tidygenclust_radmix_loglik_cpp", (DL_FUNC) &_tidygenclust_radmix_loglik_cpp, 4},

@@ -21,6 +21,10 @@ clumppling_louvain_cpp <- function(adj, resolution = 1.0) {
     .Call(`_tidygenclust_clumppling_louvain_cpp`, adj, resolution)
 }
 
+radmix_als_cpp <- function(za, ua, w, init_p, max_iter, tol, n_cores) {
+    .Call(`_tidygenclust_radmix_als_cpp`, za, ua, w, init_p, max_iter, tol, n_cores)
+}
+
 radmix_fit_cpp <- function(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose) {
     .Call(`_tidygenclust_radmix_fit_cpp`, data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose)
 }
