@@ -235,20 +235,24 @@ plot_q <- function(q) {
   )
   q <- q %>%
     mutate(
-      group = paste0(population, "\n(", type, ")"),
-      row = factor(paste0("K = ", k, "\n", treatment), rows)
+      group = paste0(.data$population, "\n(", .data$type, ")"),
+      row = factor(paste0("K = ", .data$k, "\n", .data$treatment), rows)
     ) %>%
-    group_by(treatment, k, group, cluster) %>%
-    mutate(cluster_mean = mean(q)) %>%
-    group_by(treatment, k, group) %>%
-    mutate(main_cluster = cluster[which.max(cluster_mean)]) %>%
-    group_by(treatment, k, id) %>%
-    mutate(main_q = q[cluster == main_cluster[1]]) %>%
-    group_by(treatment, k) %>%
-    arrange(group, desc(main_q), id, .by_group = TRUE) %>%
-    mutate(individual = match(id, unique(id))) %>%
+    group_by(.data$treatment, .data$k, .data$group, .data$cluster) %>%
+    mutate(cluster_mean = mean(.data$q)) %>%
+    group_by(.data$treatment, .data$k, .data$group) %>%
+    mutate(
+      main_cluster = .data$cluster[which.max(.data$cluster_mean)]
+    ) %>%
+    group_by(.data$treatment, .data$k, .data$id) %>%
+    mutate(main_q = .data$q[.data$cluster == .data$main_cluster[1]]) %>%
+    group_by(.data$treatment, .data$k) %>%
+    arrange(.data$group, desc(.data$main_q), .data$id, .by_group = TRUE) %>%
+    mutate(individual = match(.data$id, unique(.data$id))) %>%
     ungroup()
-  ggplot(q, aes(x = individual, y = q, fill = factor(cluster))) +
+  ggplot(q, aes(
+    x = .data$individual, y = .data$q, fill = factor(.data$cluster)
+  )) +
     geom_col(width = 1) +
     facet_grid(
       row ~ group,

@@ -31,32 +31,37 @@ anole_gt <- anole_gt %>%
 # `cv`)
 expect_anole_fastmixture <- function(res, k, n_runs, freqs, cv = FALSE) {
   n_fits <- length(k) * n_runs
-  expect_s3_class(res, "gt_admix")
-  expect_identical(res$algorithm, "fastmixture")
-  expect_identical(res$id, anole_gt$id)
-  expect_identical(res$k, rep(as.integer(k), each = n_runs))
-  expect_length(res$Q, n_fits)
+  testthat::expect_s3_class(res, "gt_admix")
+  testthat::expect_identical(res$algorithm, "fastmixture")
+  testthat::expect_identical(res$id, anole_gt$id)
+  testthat::expect_identical(res$k, rep(as.integer(k), each = n_runs))
+  testthat::expect_length(res$Q, n_fits)
   for (i in seq_len(n_fits)) {
-    expect_s3_class(res$Q[[i]], "q_matrix")
-    expect_identical(dim(res$Q[[i]]), c(nrow(anole_gt), res$k[i]))
-    expect_equal(unname(rowSums(res$Q[[i]])), rep(1, nrow(anole_gt)),
+    testthat::expect_s3_class(res$Q[[i]], "q_matrix")
+    testthat::expect_identical(
+      dim(res$Q[[i]]), c(nrow(anole_gt), res$k[i])
+    )
+    testthat::expect_equal(
+      unname(rowSums(res$Q[[i]])), rep(1, nrow(anole_gt)),
       tolerance = 1e-6
     )
   }
   if (freqs) {
-    expect_length(res$P, n_fits)
+    testthat::expect_length(res$P, n_fits)
     for (i in seq_len(n_fits)) {
-      expect_identical(dim(res$P[[i]]), c(count_loci(anole_gt), res$k[i]))
-      expect_true(all(res$P[[i]] >= 0 & res$P[[i]] <= 1))
+      testthat::expect_identical(
+        dim(res$P[[i]]), c(count_loci(anole_gt), res$k[i])
+      )
+      testthat::expect_true(all(res$P[[i]] >= 0 & res$P[[i]] <= 1))
     }
   } else {
-    expect_false("P" %in% names(res))
+    testthat::expect_false("P" %in% names(res))
   }
   if (cv) {
-    expect_length(res$cv, n_fits)
-    expect_true(all(is.finite(res$cv) & res$cv > 0))
+    testthat::expect_length(res$cv, n_fits)
+    testthat::expect_true(all(is.finite(res$cv) & res$cv > 0))
   } else {
-    expect_false("cv" %in% names(res))
+    testthat::expect_false("cv" %in% names(res))
   }
 }
 
