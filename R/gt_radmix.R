@@ -53,6 +53,16 @@
 #'   `rtol`. All estimates are kept within \[1e-5, 1 - 1e-5\], as in ADMIXTURE
 #'   and OpenADMIXTURE.jl.
 #'
+#'   On x86-64 Linux, when the package is compiled with GCC 12 or later, the
+#'   main computations are also compiled for processors with the AVX2 and
+#'   FMA instructions (most processors made since 2015), and the faster
+#'   version is chosen when the package is loaded. Results are reproducible
+#'   on a given machine, but can differ in the last digits between machines
+#'   with and without these instructions. Compiling the package with
+#'   `-DRADMIX_NO_MULTIVERSION` (e.g. added to `CXXFLAGS` in
+#'   `~/.R/Makevars`) builds only the portable version, whose results are the
+#'   same on every x86-64 machine.
+#'
 #'   ## Starting values from the SVD
 #'
 #'   With `init = "svd"`, each run starts from the principal components of

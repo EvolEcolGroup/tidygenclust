@@ -158,6 +158,16 @@ log-likelihood.
 Iterations stop when the relative change in log-likelihood falls below
 \code{rtol}. All estimates are kept within [1e-5, 1 - 1e-5], as in ADMIXTURE
 and OpenADMIXTURE.jl.
+
+On x86-64 Linux, when the package is compiled with GCC 12 or later, the
+main computations are also compiled for processors with the AVX2 and
+FMA instructions (most processors made since 2015), and the faster
+version is chosen when the package is loaded. Results are reproducible
+on a given machine, but can differ in the last digits between machines
+with and without these instructions. Compiling the package with
+\code{-DRADMIX_NO_MULTIVERSION} (e.g. added to \code{CXXFLAGS} in
+\verb{~/.R/Makevars}) builds only the portable version, whose results are the
+same on every x86-64 machine.
 }
 
 \subsection{Starting values from the SVD}{
