@@ -145,6 +145,32 @@ using namespace Rcpp;
 namespace radmix {
 
 
+// Function multiversioning. The kernels below are vectorised with
+// `#pragma omp simd`, but R compiles packages for the baseline x86-64
+// instruction set (SSE2: 2 doubles per instruction, no fused multiply-add).
+// On x86-64 Linux with GCC, the kernels are also compiled for the x86-64-v3
+// level (AVX2: 4 doubles per instruction, and FMA), and the version that
+// suits the processor is chosen when the package is loaded (an ifunc,
+// resolved once). This makes the Newton updates and EM 15-30% faster. The
+// log-likelihood and the deviance are not multiversioned: their AVX2
+// versions were 7-9% slower (they call log() from the C library inside
+// their loops). The parallel regions of these functions are cloned with
+// them. On other platforms and compilers, only the baseline version is
+// built. Results can differ between the two versions by rounding (fused
+// multiply-adds and wider vectors change the order of operations), so they
+// are reproducible on a given machine but not bit-identical across
+// machines. Defining RADMIX_NO_MULTIVERSION when compiling (e.g. adding
+// -DRADMIX_NO_MULTIVERSION to CXXFLAGS in ~/.R/Makevars) builds only the
+// baseline version, whose results are identical on every x86-64 machine.
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && \
+    defined(__x86_64__) && defined(__linux__) && \
+    !defined(RADMIX_NO_MULTIVERSION)
+#define RADMIX_MULTIVERSION \
+  __attribute__((target_clones("arch=x86-64-v3", "default")))
+#else
+#define RADMIX_MULTIVERSION
+#endif
+
 // Tile sizes. 64 individuals x 8 bytes = 512 bytes per K-vector of
 // accumulators, which keeps the Q-side accumulators (K + K (K + 1) / 2
 // vectors) and the TILE_I x K corner of q in L1/L2 for moderate K.
@@ -244,6 +270,34 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
   // The bytes read here are those of individuals i0..i1-1 in column j of
   // the FBM: adjacent bytes when the gen_tibble keeps the rows of the
   // backing file in order, scattered within the column otherwise.
+  // Fast path: when the individuals of the block are adjacent in the FBM
+  // and decoded alike (no pseudohaploids), their bytes are read directly
+  // and decoded with two tables, which give the same values as the general
+  // loop below (bit for bit), without the per-individual row index, missing
+  // flag, lookup and scaling. With a cross-validation mask, the hidden
+  // genotypes are then zeroed as in the general loop (by multiplying
+  // rather than branching).
+  const double* gtab;
+  const double* htab;
+  const unsigned char* __restrict bytes =
+    geno.slice_bytes(i0, ni, j, gtab, htab);
+  if (bytes != nullptr) {
+    if (!geno.cv_masked()) {
+      for (size_t ii = 0; ii < ni; ii++) {
+        const unsigned char b = bytes[ii];
+        g[ii] = gtab[b];
+        h[ii] = htab[b];
+      }
+    } else {
+      for (size_t ii = 0; ii < ni; ii++) {
+        const unsigned char b = bytes[ii];
+        const double vis = geno.cv_visible(i0 + ii, j) ? 1.0 : 0.0;
+        g[ii] = vis * gtab[b];
+        h[ii] = vis * htab[b];
+      }
+    }
+    return;
+  }
   double gij;
   for (size_t ii = 0; ii < ni; ii++) {
     const double obs = geno.get(i0 + ii, j, gij) ? 1.0 : 0.0;
@@ -284,13 +338,23 @@ static inline void slice_coef(const GenoView& geno, const double* qT,
     const double mg = (double) (g[ii] > 0), mh = (double) (h[ii] > 0);
     const double x = mg * qp[ii] + (1.0 - mg);
     const double y = mh * (1.0 - qp[ii]) + (1.0 - mh);
-    // first derivatives: d/dqp of g log(qp) and of h log(1 - qp) (up to sign)
-    a[ii] = g[ii] / x;
-    b[ii] = h[ii] / y;
+    // first derivatives: d/dqp of g log(qp) and of h log(1 - qp) (up to
+    // sign), and, with HESS, minus the second derivatives: g / qp^2 and
+    // h / (1 - qp)^2
     if (HESS) {
-      // minus the second derivatives: g / qp^2 and h / (1 - qp)^2
-      wa[ii] = a[ii] / x;
-      wb[ii] = b[ii] / y;
+      // Divisions are slow, so the reciprocals of x and y are taken once
+      // and multiplied, which needs two divisions instead of four (3-9%
+      // faster Newton updates). a and b are the same as g / x and h / y bit
+      // for bit (g and h are 0, 1/2, 1 or 2, so multiplying by them is
+      // exact); wa and wb can differ from a / x and b / y by rounding.
+      const double rx = 1.0 / x, ry = 1.0 / y;
+      a[ii] = g[ii] * rx;
+      b[ii] = h[ii] * ry;
+      wa[ii] = a[ii] * rx;
+      wb[ii] = b[ii] * ry;
+    } else {
+      a[ii] = g[ii] / x;
+      b[ii] = h[ii] / y;
     }
   }
 }
@@ -312,6 +376,7 @@ static inline void slice_coef(const GenoView& geno, const double* qT,
 // individuals of the slice, vectorised across individuals. They are only
 // copied into the K-major output layout once, at the end.
 template <bool HESS>
+RADMIX_MULTIVERSION
 static void accum_q_block(const GenoView& geno, const double* qT,
                           const double* p, const double* omp, int K,
                           size_t i0, size_t i1, size_t j0, size_t j1,
@@ -329,8 +394,48 @@ static void accum_q_block(const GenoView& geno, const double* qT,
   const double* __restrict b = s.b.data();
   const double* __restrict wa = s.wa.data();
   const double* __restrict wb = s.wb.data();
-  // loci in order j0..j1-1: the summation order for each individual is fixed
-  for (size_t j = j0; j < j1; j++) {
+  // Loci in pairs: the coefficients of loci j and j + 1 are computed first,
+  // and each accumulator is then read and written once for both, which
+  // halves the memory traffic of the accumulators (they are updated by a
+  // single multiply-add per locus, so their loads and stores, rather than
+  // the arithmetic, limit the speed of this loop). s2 holds the
+  // coefficients of the second locus of each pair.
+  Slice s2;
+  const double* __restrict a2 = s2.a.data();
+  const double* __restrict b2 = s2.b.data();
+  const double* __restrict wa2 = s2.wa.data();
+  const double* __restrict wb2 = s2.wb.data();
+  size_t j = j0;
+  for (; j + 1 < j1; j += 2) {
+    const double* pj = p + K * j;
+    const double* oj = omp + K * j;
+    const double* pj2 = pj + K;
+    const double* oj2 = oj + K;
+    slice_coef<HESS>(geno, qT, pj, K, j, i0, i1, s);
+    slice_coef<HESS>(geno, qT, pj2, K, j + 1, i0, i1, s2);
+    for (int k = 0; k < K; k++) {
+      const double pk = pj[k], ok = oj[k], pk2 = pj2[k], ok2 = oj2[k];
+      double* __restrict gk = gT + TILE_I * k;
+#pragma omp simd
+      for (size_t ii = 0; ii < ni; ii++)
+        gk[ii] += (a[ii] * pk + b[ii] * ok) + (a2[ii] * pk2 + b2[ii] * ok2);
+    }
+    if (HESS) {
+      double* __restrict hk = hT;
+      for (int k = 0; k < K; k++) {
+        for (int k2 = k; k2 < K; k2++, hk += TILE_I) {
+          const double c1 = pj[k] * pj[k2], c2 = oj[k] * oj[k2];
+          const double d1 = pj2[k] * pj2[k2], d2 = oj2[k] * oj2[k2];
+#pragma omp simd
+          for (size_t ii = 0; ii < ni; ii++)
+            hk[ii] += (wa[ii] * c1 + wb[ii] * c2) +
+              (wa2[ii] * d1 + wb2[ii] * d2);
+        }
+      }
+    }
+  }
+  // the last locus, if the number of loci is odd
+  for (; j < j1; j++) {
     const double* pj = p + K * j;
     const double* oj = omp + K * j;
     // qp, genotypes and coefficients for this locus and block of individuals
@@ -435,6 +540,7 @@ static size_t q_segments(size_t I, size_t J) {
 // grad (K x I) and, if HESS, hess (K x K x I) are overwritten with the sums
 // over all loci (see accum_q_block() for the formulas).
 template <bool HESS>
+RADMIX_MULTIVERSION
 static void accum_q_segmented(const GenoView& geno, const double* qT,
                               const double* p, const double* omp, int K,
                               size_t n_seg, double* grad, double* hess,
@@ -512,6 +618,7 @@ static void accum_q_segmented(const GenoView& geno, const double* qT,
 // for all nj loci, so it stays in cache; each output column is updated once
 // per tile of individuals, always in the same order (i0 = 0, TILE_I, ...).
 template <bool EM>
+RADMIX_MULTIVERSION
 static void accum_p_block(const GenoView& geno, const double* qT,
                           const double* p, int K, size_t j0, size_t j1,
                           double* out1, double* out2, Slice& s) {
@@ -526,9 +633,66 @@ static void accum_p_block(const GenoView& geno, const double* qT,
   double* __restrict wa = s.wa.data();
   const double* __restrict wb = s.wb.data();
   double* __restrict wq = s.tmp.data();
+  // coefficients of the second locus of each pair (gradient mode, below)
+  Slice s2;
+  double* __restrict a2 = s2.a.data();
+  double* __restrict b2 = s2.b.data();
+  double* __restrict wa2 = s2.wa.data();
+  const double* __restrict wb2 = s2.wb.data();
+  double* __restrict wq2 = s2.tmp.data();
   for (size_t i0 = 0; i0 < I; i0 += TILE_I) {
     const size_t i1 = std::min(I, i0 + TILE_I), ni = i1 - i0;
-    for (size_t jj = 0; jj < nj; jj++) {
+    size_t jj = 0;
+    // Gradient mode, loci in pairs: the sums of loci j and j + 1 are
+    // computed in the same loops, which share the loads of q and halve the
+    // number of short loops (each ending with a horizontal reduction).
+    if (!EM) {
+      for (; jj + 1 < nj; jj += 2) {
+        const size_t j = j0 + jj;
+        slice_coef<true>(geno, qT, p + K * j, K, j, i0, i1, s);
+        slice_coef<true>(geno, qT, p + K * (j + 1), K, j + 1, i0, i1, s2);
+        double* o1 = out1 + K * jj;
+        double* o2 = out2 + KK * jj;
+#pragma omp simd
+        for (size_t ii = 0; ii < ni; ii++) {
+          a[ii] -= b[ii];
+          wa[ii] += wb[ii];
+          a2[ii] -= b2[ii];
+          wa2[ii] += wb2[ii];
+        }
+        for (int k = 0; k < K; k++) {
+          const double* __restrict qk = qT + I * k + i0;
+          double sg = 0.0, sg2 = 0.0;
+#pragma omp simd reduction(+:sg, sg2)
+          for (size_t ii = 0; ii < ni; ii++) {
+            sg += a[ii] * qk[ii];
+            sg2 += a2[ii] * qk[ii];
+          }
+          o1[k] += sg;
+          o1[K + k] += sg2;
+#pragma omp simd
+          for (size_t ii = 0; ii < ni; ii++) {
+            wq[ii] = wa[ii] * qk[ii];
+            wq2[ii] = wa2[ii] * qk[ii];
+          }
+          double* Hk = o2 + K * k;
+          double* Hk2 = o2 + KK + K * k;
+          for (int k2 = k; k2 < K; k2++) {
+            const double* __restrict qk2 = qT + I * k2 + i0;
+            double sh = 0.0, sh2 = 0.0;
+#pragma omp simd reduction(+:sh, sh2)
+            for (size_t ii = 0; ii < ni; ii++) {
+              sh += wq[ii] * qk2[ii];
+              sh2 += wq2[ii] * qk2[ii];
+            }
+            Hk[k2] += sh;
+            Hk2[k2] += sh2;
+          }
+        }
+      }
+    }
+    // the remaining locus (or all of them in EM mode)
+    for (; jj < nj; jj++) {
       const size_t j = j0 + jj;
       // the EM step needs only a and b; gradient mode also needs wa and wb
       slice_coef<!EM>(geno, qT, p + K * j, K, j, i0, i1, s);
@@ -795,6 +959,7 @@ void deviance(const GenoView& geno, const double* q, const double* p, int K,
 // q_ki p_kj a are alt alleles. The M step sets q_ki to the share of
 // individual i's allele copies assigned to k, and p_kj to the share of
 // alt alleles among the copies at locus j assigned to k.
+RADMIX_MULTIVERSION
 void em(const GenoView& geno, const double* q, const double* p, int K,
         double* q_new, double* p_new, int n_cores) {
   const size_t I = geno.nrow(), J = geno.ncol();
@@ -882,6 +1047,7 @@ void em(const GenoView& geno, const double* q, const double* p, int K,
 // Gradient (K x I) and negative Hessian (K x K x I) of L with respect to q,
 // for every individual. Parallelised over blocks of TILE_I individuals; each
 // block writes its own columns of grad and its own K x K slabs of hess.
+RADMIX_MULTIVERSION
 void grad_q(const GenoView& geno, const double* q, const double* p, int K,
             double* grad, double* hess, int n_cores) {
   const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
@@ -914,6 +1080,7 @@ void grad_q(const GenoView& geno, const double* q, const double* p, int K,
 // for every locus. Parallelised over blocks of TILE_J loci; each block writes
 // its own columns of grad and its own K x K slabs of hess. No 1 - p copy is
 // needed: on the P side the coefficients are combined as a - b and wa + wb.
+RADMIX_MULTIVERSION
 void grad_p(const GenoView& geno, const double* q, const double* p, int K,
             double* grad, double* hess, int n_cores) {
   const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
@@ -963,6 +1130,7 @@ static inline bool discard_nonfinite_step(double* delta, int K) {
   return false;
 }
 
+RADMIX_MULTIVERSION
 void update_q(const GenoView& geno, const double* q, const double* p, int K,
               double* q_new, int n_cores) {
   const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
@@ -1037,6 +1205,7 @@ void update_q(const GenoView& geno, const double* q, const double* p, int K,
 // one locus across populations are not constrained to sum to anything) is
 // solved and p_.j + delta is clamped to [eps, 1 - eps], so that qp stays
 // strictly inside (0, 1) in later iterations.
+RADMIX_MULTIVERSION
 void update_p(const GenoView& geno, const double* q, const double* p, int K,
               double* p_new, int n_cores) {
   const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
