@@ -1,0 +1,40 @@
+== kernels (median seconds; ratio = B / A)
+ data  k      kernel seconds.base seconds.f_o2native ratio
+  eur  4          em        0.271              0.205 0.756
+  eur  4      loglik        0.177              0.149 0.842
+  eur  4    update_p        0.288              0.196 0.681
+  eur  4 update_p_cv        0.366              0.305 0.833
+  eur  4    update_q        0.250              0.171 0.684
+  eur  4 update_q_cv        0.337              0.280 0.831
+ hgdp  5          em        0.085              0.066 0.776
+ hgdp  5      loglik        0.055              0.046 0.836
+ hgdp  5    update_p        0.104              0.073 0.702
+ hgdp  5 update_p_cv        0.131              0.102 0.779
+ hgdp  5    update_q        0.087              0.059 0.678
+ hgdp  5 update_q_cv        0.112              0.088 0.786
+ hgdp 10          em        0.123              0.087 0.707
+ hgdp 10      loglik        0.062              0.050 0.806
+ hgdp 10    update_p        0.249              0.168 0.675
+ hgdp 10 update_p_cv        0.274              0.194 0.708
+ hgdp 10    update_q        0.187              0.117 0.626
+ hgdp 10 update_q_cv        0.210              0.143 0.681
+
+== kernel outputs, largest absolute difference (0 = bit-identical)
+  eur 4 loglik           0
+  eur 4 em               3.33e-16
+  eur 4 update_q         9.44e-16
+  eur 4 update_p         1.72e-15
+  eur 4 update_q_cv      1.05e-15
+  eur 4 update_p_cv      2.33e-15
+  hgdp 5 loglik          0
+  hgdp 5 em              2.78e-16
+  hgdp 5 update_q        1.03e-15
+  hgdp 5 update_p        2.78e-15
+  hgdp 5 update_q_cv     1.14e-15
+  hgdp 5 update_p_cv     2.89e-15
+  hgdp 10 loglik         0
+  hgdp 10 em             3.33e-16
+  hgdp 10 update_q       1.39e-15
+  hgdp 10 update_p       6.61e-15
+  hgdp 10 update_q_cv    1.26e-15
+  hgdp 10 update_p_cv    6.66e-15

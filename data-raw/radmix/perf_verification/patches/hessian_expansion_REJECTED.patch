@@ -1,0 +1,210 @@
+diff --git a/src/radmix_kernels.cpp b/src/radmix_kernels.cpp
+index 7dcdcd8..10ee00b 100644
+--- a/src/radmix_kernels.cpp
++++ b/src/radmix_kernels.cpp
+@@ -151,6 +151,15 @@ namespace radmix {
+ // loglik_slice() relies on TILE_I == LOG_BATCH^2 (see below).
+ static const size_t TILE_I = 64;
+ static const size_t TILE_J = 64;
++// Tile of individuals on the P side (accum_p_block()), where each locus
++// needs K + K (K + 1) / 2 dot products over the individuals of a tile, each
++// ending with a horizontal reduction: longer tiles amortise them.
++#ifndef RADMIX_TILE_P
++#define RADMIX_TILE_P 64
++#endif
++static const size_t TILE_P = RADMIX_TILE_P;
++// capacity of the slice buffers (see Slice)
++static const size_t SLICE_CAP = TILE_P > TILE_I ? TILE_P : TILE_I;
+ 
+ // number of blocks of size `tile` needed to cover n
+ static inline size_t n_blocks(size_t n, size_t tile) {
+@@ -204,8 +213,8 @@ static std::vector<double> transpose(const double* q, int K, size_t I) {
+ // each slice, so none of this outlives the slice.
+ struct Slice {
+   std::vector<double> qp, g, h, a, b, wa, wb, tmp;
+-  Slice() : qp(TILE_I), g(TILE_I), h(TILE_I), a(TILE_I), b(TILE_I),
+-    wa(TILE_I), wb(TILE_I), tmp(TILE_I) {}
++  Slice() : qp(SLICE_CAP), g(SLICE_CAP), h(SLICE_CAP), a(SLICE_CAP),
++    b(SLICE_CAP), wa(SLICE_CAP), wb(SLICE_CAP), tmp(SLICE_CAP) {}
+ };
+ 
+ // qp and decoded genotypes for locus j and individuals [i0, i1). Missing
+@@ -300,8 +309,9 @@ static inline void slice_coef(const GenoView& geno, const double* qT,
+ //   grad_k = sum_j a p_kj + b (1 - p_kj)
+ //   hess_{k,k2} = sum_j wa p_kj p_k2j + wb (1 - p_kj)(1 - p_k2j)   (if HESS)
+ // grad is K x ni and hess K x K x ni (ni = i1 - i0); both are overwritten.
+-// gT and hT are scratch accumulators of size K * TILE_I and
+-// K (K + 1) / 2 * TILE_I. omp = 1 - p.
++// gT and hT are scratch accumulators of sizes q_grad_scratch(K) and
++// q_hess_scratch(K). omp = 1 - p (not used: the sums are expanded, see
++// below).
+ // (The (1 - p) form comes from the homogeneous likelihood explained at the
+ // top of the file; Julia: update_q_loop!() and, without the Hessian and
+ // before multiplying by q, em_q_loop!().)
+@@ -311,6 +321,15 @@ static inline void slice_coef(const GenoView& geno, const double* qT,
+ // per (k, k2) pair) so that each update is a unit-stride loop over the
+ // individuals of the slice, vectorised across individuals. They are only
+ // copied into the K-major output layout once, at the end.
++// Sizes of the scratch accumulators of accum_q_block() (gT and hT), for K
++// populations: K + 1 and K (K + 1) / 2 + K + 1 vectors of TILE_I values.
++static inline size_t q_grad_scratch(int K) {
++  return ((size_t) K + 1) * TILE_I;
++}
++static inline size_t q_hess_scratch(int K) {
++  return ((size_t) K * (K + 1) / 2 + K + 1) * TILE_I;
++}
++
+ template <bool HESS>
+ static void accum_q_block(const GenoView& geno, const double* qT,
+                           const double* p, const double* omp, int K,
+@@ -323,38 +342,71 @@ static void accum_q_block(const GenoView& geno, const double* qT,
+   // Accumulator vector k starts at gT + TILE_I * k (and pair idx at
+   // hT + TILE_I * idx) whatever ni is: a short last block simply leaves
+   // the tail of each vector unused.
+-  std::fill(gT, gT + K * TILE_I, 0.0);
+-  if (HESS) std::fill(hT, hT + n_pair * TILE_I, 0.0);
++  // Expanded sums (as in ADAMIXTURE, sqp.pyx::_grad_hess_q_block): with
++  // 1 - p_k in the formulas above,
++  //   grad_k = sum_j (a - b) p_kj + sum_j b,
++  //   hess_{k,k2} = sum_j (wa + wb) p_kj p_k2j - sum_j wb p_kj
++  //                 - sum_j wb p_k2j + sum_j wb,
++  // which needs one multiply-add per pair (k, k2) and K + 2 more per
++  // genotype, instead of two per pair and two per k. The terms are combined
++  // when the accumulators are scattered below. Accumulators: gT holds
++  // sum_j (a - b) p_kj for each k, then sum_j b; hT holds
++  // sum_j (wa + wb) p_kj p_k2j for each pair, then sum_j wb p_kj for each k,
++  // then sum_j wb (see q_grad_scratch() and q_hess_scratch()).
++  std::fill(gT, gT + q_grad_scratch(K), 0.0);
++  if (HESS) std::fill(hT, hT + q_hess_scratch(K), 0.0);
++  double* __restrict b_sum = gT + TILE_I * K;
++  // (hT is NULL without the Hessian)
++  double* __restrict wbp = HESS ? hT + TILE_I * n_pair : NULL;
++  double* __restrict wb_sum = HESS ? hT + TILE_I * (n_pair + K) : NULL;
+   const double* __restrict a = s.a.data();
+   const double* __restrict b = s.b.data();
+   const double* __restrict wa = s.wa.data();
+   const double* __restrict wb = s.wb.data();
++  // a - b and wa + wb, in the buffers of g and h (which are not needed
++  // once the coefficients are computed)
++  double* __restrict amb = s.g.data();
++  double* __restrict ts = s.h.data();
+   // loci in order j0..j1-1: the summation order for each individual is fixed
+   for (size_t j = j0; j < j1; j++) {
+     const double* pj = p + K * j;
+-    const double* oj = omp + K * j;
+     // qp, genotypes and coefficients for this locus and block of individuals
+     slice_coef<HESS>(geno, qT, pj, K, j, i0, i1, s);
+-    // gradient: gT[, k] += a * p_kj + b * (1 - p_kj), elementwise over ii
++#pragma omp simd
++    for (size_t ii = 0; ii < ni; ii++) {
++      amb[ii] = a[ii] - b[ii];
++      b_sum[ii] += b[ii];
++    }
++    // gradient: gT[, k] += (a - b) * p_kj, elementwise over ii
+     for (int k = 0; k < K; k++) {
+-      const double pk = pj[k], ok = oj[k];
++      const double pk = pj[k];
+       double* __restrict gk = gT + TILE_I * k;
+ #pragma omp simd
+-      for (size_t ii = 0; ii < ni; ii++) gk[ii] += a[ii] * pk + b[ii] * ok;
++      for (size_t ii = 0; ii < ni; ii++) gk[ii] += amb[ii] * pk;
+     }
+     if (HESS) {
++#pragma omp simd
++      for (size_t ii = 0; ii < ni; ii++) {
++        ts[ii] = wa[ii] + wb[ii];
++        wb_sum[ii] += wb[ii];
++      }
++      for (int k = 0; k < K; k++) {
++        const double pk = pj[k];
++        double* __restrict wk = wbp + TILE_I * k;
++#pragma omp simd
++        for (size_t ii = 0; ii < ni; ii++) wk[ii] += wb[ii] * pk;
++      }
+       // Hessian: only pairs k2 >= k, in the packed order
+       // (0,0), (0,1), ..., (0,K-1), (1,1), ..., (K-1,K-1);
+       // hk walks through the packed accumulators one TILE_I vector at a time.
+-      // The products p_kj p_k2j and (1 - p_kj)(1 - p_k2j) do not depend on
+-      // the individual, so they are hoisted out of the inner loop.
++      // The products p_kj p_k2j do not depend on the individual, so they are
++      // hoisted out of the inner loop.
+       double* __restrict hk = hT;
+       for (int k = 0; k < K; k++) {
+         for (int k2 = k; k2 < K; k2++, hk += TILE_I) {
+-          const double c1 = pj[k] * pj[k2], c2 = oj[k] * oj[k2];
++          const double c = pj[k] * pj[k2];
+ #pragma omp simd
+-          for (size_t ii = 0; ii < ni; ii++)
+-            hk[ii] += wa[ii] * c1 + wb[ii] * c2;
++          for (size_t ii = 0; ii < ni; ii++) hk[ii] += ts[ii] * c;
+         }
+       }
+     }
+@@ -363,15 +415,18 @@ static void accum_q_block(const GenoView& geno, const double* qT,
+   // K x K x ni, column-major, one column (or K x K matrix) per individual.
+   // Only the first ni entries of each accumulator vector are meaningful
+   // (the last block may be shorter than TILE_I).
++  // The expanded terms are combined here (see above).
+   for (size_t ii = 0; ii < ni; ii++) {
+-    for (int k = 0; k < K; k++) grad[k + K * ii] = gT[ii + TILE_I * k];
++    for (int k = 0; k < K; k++)
++      grad[k + K * ii] = gT[ii + TILE_I * k] + b_sum[ii];
+     if (HESS) {
+       double* H = hess + KK * ii;
+       // same packed order as in the accumulation loop above
+       size_t idx = 0;
+       for (int k = 0; k < K; k++)
+         for (int k2 = k; k2 < K; k2++, idx++)
+-          H[k2 + K * k] = hT[ii + TILE_I * idx];
++          H[k2 + K * k] = hT[ii + TILE_I * idx] + wb_sum[ii] -
++            wbp[ii + TILE_I * k] - wbp[ii + TILE_I * k2];
+       mirror_hess(H, K);
+     }
+   }
+@@ -454,7 +509,7 @@ static void accum_q_segmented(const GenoView& geno, const double* qT,
+ #pragma omp parallel num_threads(n_cores)
+ {
+   Slice s;
+-  std::vector<double> gT(K * TILE_I), hT(HESS ? K * (K + 1) / 2 * TILE_I : 0);
++  std::vector<double> gT(q_grad_scratch(K)), hT(HESS ? q_hess_scratch(K) : 0);
+   // tasks in any order (dynamic scheduling): each writes only its own
+   // (segment, block) part of the partial sums
+ #pragma omp for schedule(dynamic)
+@@ -526,8 +581,8 @@ static void accum_p_block(const GenoView& geno, const double* qT,
+   double* __restrict wa = s.wa.data();
+   const double* __restrict wb = s.wb.data();
+   double* __restrict wq = s.tmp.data();
+-  for (size_t i0 = 0; i0 < I; i0 += TILE_I) {
+-    const size_t i1 = std::min(I, i0 + TILE_I), ni = i1 - i0;
++  for (size_t i0 = 0; i0 < I; i0 += TILE_P) {
++    const size_t i1 = std::min(I, i0 + TILE_P), ni = i1 - i0;
+     for (size_t jj = 0; jj < nj; jj++) {
+       const size_t j = j0 + jj;
+       // the EM step needs only a and b; gradient mode also needs wa and wb
+@@ -814,7 +869,7 @@ void em(const GenoView& geno, const double* q, const double* p, int K,
+ #pragma omp parallel num_threads(n_cores)
+ {
+   Slice s;
+-  std::vector<double> gT(K * TILE_I);
++  std::vector<double> gT(q_grad_scratch(K));
+   // Q: q_new_ki = q_ki * sum_j (a p_kj + b (1 - p_kj)) / (n_i J_i), where
+   // J_i is the number of loci observed in individual i. The denominator equals
+   // the column sum of the numerator, so we normalise by that: this keeps q on
+@@ -899,7 +954,7 @@ void grad_q(const GenoView& geno, const double* q, const double* p, int K,
+ {
+   // thread-local slice buffers and transposed accumulators
+   Slice s;
+-  std::vector<double> gT(K * TILE_I), hT(K * (K + 1) / 2 * TILE_I);
++  std::vector<double> gT(q_grad_scratch(K)), hT(q_hess_scratch(K));
+ #pragma omp for schedule(dynamic)
+   for (ptrdiff_t bl = 0; bl < nb; bl++) {
+     const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
+@@ -1004,7 +1059,7 @@ void update_q(const GenoView& geno, const double* q, const double* p, int K,
+   // per-thread scratch: slice buffers, transposed accumulators, the gradient
+   // and Hessian of one block of individuals, the step, and the QP workspace
+   Slice s;
+-  std::vector<double> gT(K * TILE_I), hT(K * (K + 1) / 2 * TILE_I);
++  std::vector<double> gT(q_grad_scratch(K)), hT(q_hess_scratch(K));
+   std::vector<double> grad(K * TILE_I), hess(KK * TILE_I), delta(K);
+   QPWork work(K);
+ #pragma omp for schedule(dynamic)

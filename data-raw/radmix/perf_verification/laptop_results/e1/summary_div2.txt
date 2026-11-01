@@ -1,0 +1,58 @@
+== kernels (median seconds; ratio = B / A)
+ data  k      kernel seconds.base seconds.div2 ratio
+  eur  4          em        0.268        0.273 1.019
+  eur  4      loglik        0.178        0.179 1.006
+  eur  4    update_p        0.288        0.274 0.951
+  eur  4 update_p_cv        0.381        0.365 0.958
+  eur  4    update_q        0.249        0.227 0.912
+  eur  4 update_q_cv        0.341        0.316 0.927
+ hgdp  5          em        0.085        0.086 1.012
+ hgdp  5      loglik        0.054        0.055 1.019
+ hgdp  5    update_p        0.105        0.103 0.981
+ hgdp  5 update_p_cv        0.131        0.128 0.977
+ hgdp  5    update_q        0.087        0.081 0.931
+ hgdp  5 update_q_cv        0.112        0.106 0.946
+ hgdp 10          em        0.123        0.121 0.984
+ hgdp 10      loglik        0.062        0.062 1.000
+ hgdp 10    update_p        0.254        0.255 1.004
+ hgdp 10 update_p_cv        0.278        0.277 0.996
+ hgdp 10    update_q        0.189        0.180 0.952
+ hgdp 10 update_q_cv        0.212        0.202 0.953
+
+== kernel outputs, largest absolute difference (0 = bit-identical)
+  eur 4 loglik           0
+  eur 4 em               0
+  eur 4 update_q         4.72e-16
+  eur 4 update_p         1.05e-15
+  eur 4 update_q_cv      5e-16
+  eur 4 update_p_cv      9.44e-16
+  hgdp 5 loglik          0
+  hgdp 5 em              0
+  hgdp 5 update_q        6.66e-16
+  hgdp 5 update_p        1.44e-15
+  hgdp 5 update_q_cv     5e-16
+  hgdp 5 update_p_cv     1.11e-15
+  hgdp 10 loglik         0
+  hgdp 10 em             0
+  hgdp 10 update_q       6.52e-16
+  hgdp 10 update_p       3.05e-15
+  hgdp 10 update_q_cv    5.83e-16
+  hgdp 10 update_p_cv    2.33e-15
+
+== fits (median seconds; ratio = B / A)
+ data k n_cores crossval seconds.base iterations.base   loglik.base
+  eur 3       1    FALSE      20.0120              19 -15600875.269
+  eur 4       1    FALSE      30.5165              22 -15552193.219
+ hgdp 5       1    FALSE       6.5120              16  -3872985.235
+ hgdp 7       1    FALSE      12.8795              21  -3828446.684
+ seconds.div2 iterations.div2   loglik.div2        ratio
+      19.4265              19 -15600875.269 0.9707425545
+      29.1760              22 -15552193.219 0.9560729441
+       6.2030              16  -3872985.235 0.9525491400
+      12.7065              21  -3828446.684 0.9865678015
+
+== fit outputs fits_base_1.rds : largest differences in Q, P and loglik
+  eur 3    Q 1.13e-12, P 7.03e-13, loglik -1.86e-09
+  eur 4    Q 6.12e-13, P 1.54e-13, loglik -1.86e-09
+  hgdp 5   Q 2.16e-14, P 9.04e-13, loglik 0
+  hgdp 7   Q 9.48e-13, P 2.69e-12, loglik 2.33e-09

@@ -1,0 +1,94 @@
+== kernels, 1 core (median seconds of the baseline; ratios to it)
+ data  k      kernel seconds.base  comb comb_nomv
+  eur  4          em        0.274 0.741     0.788
+  eur  4      loglik        0.177 0.921     0.853
+  eur  4    update_p        0.279 0.584     0.688
+  eur  4 update_p_cv        0.374 0.647     0.759
+  eur  4    update_q        0.243 0.576     0.753
+  eur  4 update_q_cv        0.336 0.646     0.818
+ hgdp  5          em        0.085 0.800     0.835
+ hgdp  5      loglik        0.054 0.963     0.870
+ hgdp  5    update_p        0.104 0.615     0.721
+ hgdp  5 update_p_cv        0.128 0.672     0.805
+ hgdp  5    update_q        0.086 0.570     0.779
+ hgdp  5 update_q_cv        0.110 0.655     0.864
+ hgdp 10          em        0.121 0.843     0.893
+ hgdp 10      loglik        0.062 1.016     0.903
+ hgdp 10    update_p        0.248 0.645     0.738
+ hgdp 10 update_p_cv        0.272 0.665     0.768
+ hgdp 10    update_q        0.186 0.565     0.823
+ hgdp 10 update_q_cv        0.209 0.603     0.847
+
+== fits, seed 1 (median seconds of 2 runs; ratio to the baseline at the same cores and CV, rtol 1e-7)
+ data k n_cores crossval  rtol     label seconds iterations ratio_to_base_1e7
+  eur 3       1    FALSE 1e-08      base 24.3645         23             1.228
+  eur 3       1    FALSE 1e-08      comb 14.6065         23             0.736
+  eur 4       1    FALSE 1e-08      base 33.1380         24             1.084
+  eur 4       1    FALSE 1e-08      comb 20.4935         24             0.670
+ hgdp 5       1    FALSE 1e-08      base  7.3780         18             1.148
+ hgdp 5       1    FALSE 1e-08      comb  4.5200         18             0.703
+ hgdp 7       1    FALSE 1e-08      base 13.5815         22             1.053
+ hgdp 7       1    FALSE 1e-08      comb  8.3770         22             0.649
+  eur 3       1    FALSE 1e-07      base 19.8420         19             1.000
+  eur 3       1    FALSE 1e-07      comb 12.2110         19             0.615
+  eur 3       1    FALSE 1e-07 comb_nomv 13.9820         19             0.705
+  eur 4       1    FALSE 1e-07      base 30.5770         22             1.000
+  eur 4       1    FALSE 1e-07      comb 18.7320         22             0.613
+  eur 4       1    FALSE 1e-07 comb_nomv 22.4060         22             0.733
+ hgdp 5       1    FALSE 1e-07      base  6.4285         16             1.000
+ hgdp 5       1    FALSE 1e-07      comb  4.0185         16             0.625
+ hgdp 5       1    FALSE 1e-07 comb_nomv  4.8635         16             0.757
+ hgdp 7       1    FALSE 1e-07      base 12.9030         21             1.000
+ hgdp 7       1    FALSE 1e-07      comb  7.9075         21             0.613
+ hgdp 7       1    FALSE 1e-07 comb_nomv  9.7890         21             0.759
+  eur 3       4    FALSE 1e-07      base  7.3505         19             1.000
+  eur 3       4    FALSE 1e-07      comb  3.4785         19             0.473
+  eur 3       4    FALSE 1e-07 comb_nomv  4.3725         19             0.595
+  eur 4       4    FALSE 1e-07      base 13.2070         22             1.000
+  eur 4       4    FALSE 1e-07      comb  8.5405         22             0.647
+  eur 4       4    FALSE 1e-07 comb_nomv  9.5475         22             0.723
+ hgdp 5       4    FALSE 1e-07      base  2.3190         16             1.000
+ hgdp 5       4    FALSE 1e-07      comb  1.2030         16             0.519
+ hgdp 5       4    FALSE 1e-07 comb_nomv  1.4665         16             0.632
+ hgdp 7       4    FALSE 1e-07      base  5.2935         21             1.000
+ hgdp 7       4    FALSE 1e-07      comb  3.1270         21             0.591
+ hgdp 7       4    FALSE 1e-07 comb_nomv  4.1240         21             0.779
+ hgdp 5       1     TRUE 1e-07      base 31.1565         16             1.000
+ hgdp 5       1     TRUE 1e-07      comb 20.5365         16             0.659
+ hgdp 5       1     TRUE 1e-07 comb_nomv 25.2785         16             0.811
+ loglik_minus_base        cv
+            2.6200        NA
+            2.6200        NA
+            0.4740        NA
+            0.4740        NA
+            0.0708        NA
+            0.0708        NA
+            0.0172        NA
+            0.0172        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000        NA
+            0.0000 0.4443861
+            0.0000 0.4443861
+            0.0000 0.4443861

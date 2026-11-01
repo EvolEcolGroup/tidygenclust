@@ -1,0 +1,123 @@
+diff --git a/src/radmix_kernels.cpp b/src/radmix_kernels.cpp
+index 7dcdcd8..efe10f6 100644
+--- a/src/radmix_kernels.cpp
++++ b/src/radmix_kernels.cpp
+@@ -329,8 +329,48 @@ static void accum_q_block(const GenoView& geno, const double* qT,
+   const double* __restrict b = s.b.data();
+   const double* __restrict wa = s.wa.data();
+   const double* __restrict wb = s.wb.data();
+-  // loci in order j0..j1-1: the summation order for each individual is fixed
+-  for (size_t j = j0; j < j1; j++) {
++  // Loci in pairs: the coefficients of loci j and j + 1 are computed first,
++  // and each accumulator is then read and written once for both, which
++  // halves the memory traffic of the accumulators (they are updated by a
++  // single multiply-add per locus, so their loads and stores, rather than
++  // the arithmetic, limit the speed of this loop). s2 holds the
++  // coefficients of the second locus of each pair.
++  Slice s2;
++  const double* __restrict a2 = s2.a.data();
++  const double* __restrict b2 = s2.b.data();
++  const double* __restrict wa2 = s2.wa.data();
++  const double* __restrict wb2 = s2.wb.data();
++  size_t j = j0;
++  for (; j + 1 < j1; j += 2) {
++    const double* pj = p + K * j;
++    const double* oj = omp + K * j;
++    const double* pj2 = pj + K;
++    const double* oj2 = oj + K;
++    slice_coef<HESS>(geno, qT, pj, K, j, i0, i1, s);
++    slice_coef<HESS>(geno, qT, pj2, K, j + 1, i0, i1, s2);
++    for (int k = 0; k < K; k++) {
++      const double pk = pj[k], ok = oj[k], pk2 = pj2[k], ok2 = oj2[k];
++      double* __restrict gk = gT + TILE_I * k;
++#pragma omp simd
++      for (size_t ii = 0; ii < ni; ii++)
++        gk[ii] += (a[ii] * pk + b[ii] * ok) + (a2[ii] * pk2 + b2[ii] * ok2);
++    }
++    if (HESS) {
++      double* __restrict hk = hT;
++      for (int k = 0; k < K; k++) {
++        for (int k2 = k; k2 < K; k2++, hk += TILE_I) {
++          const double c1 = pj[k] * pj[k2], c2 = oj[k] * oj[k2];
++          const double d1 = pj2[k] * pj2[k2], d2 = oj2[k] * oj2[k2];
++#pragma omp simd
++          for (size_t ii = 0; ii < ni; ii++)
++            hk[ii] += (wa[ii] * c1 + wb[ii] * c2) +
++              (wa2[ii] * d1 + wb2[ii] * d2);
++        }
++      }
++    }
++  }
++  // the last locus, if the number of loci is odd
++  for (; j < j1; j++) {
+     const double* pj = p + K * j;
+     const double* oj = omp + K * j;
+     // qp, genotypes and coefficients for this locus and block of individuals
+@@ -526,9 +566,66 @@ static void accum_p_block(const GenoView& geno, const double* qT,
+   double* __restrict wa = s.wa.data();
+   const double* __restrict wb = s.wb.data();
+   double* __restrict wq = s.tmp.data();
++  // coefficients of the second locus of each pair (gradient mode, below)
++  Slice s2;
++  double* __restrict a2 = s2.a.data();
++  double* __restrict b2 = s2.b.data();
++  double* __restrict wa2 = s2.wa.data();
++  const double* __restrict wb2 = s2.wb.data();
++  double* __restrict wq2 = s2.tmp.data();
+   for (size_t i0 = 0; i0 < I; i0 += TILE_I) {
+     const size_t i1 = std::min(I, i0 + TILE_I), ni = i1 - i0;
+-    for (size_t jj = 0; jj < nj; jj++) {
++    size_t jj = 0;
++    // Gradient mode, loci in pairs: the sums of loci j and j + 1 are
++    // computed in the same loops, which share the loads of q and halve the
++    // number of short loops (each ending with a horizontal reduction).
++    if (!EM) {
++      for (; jj + 1 < nj; jj += 2) {
++        const size_t j = j0 + jj;
++        slice_coef<true>(geno, qT, p + K * j, K, j, i0, i1, s);
++        slice_coef<true>(geno, qT, p + K * (j + 1), K, j + 1, i0, i1, s2);
++        double* o1 = out1 + K * jj;
++        double* o2 = out2 + KK * jj;
++#pragma omp simd
++        for (size_t ii = 0; ii < ni; ii++) {
++          a[ii] -= b[ii];
++          wa[ii] += wb[ii];
++          a2[ii] -= b2[ii];
++          wa2[ii] += wb2[ii];
++        }
++        for (int k = 0; k < K; k++) {
++          const double* __restrict qk = qT + I * k + i0;
++          double sg = 0.0, sg2 = 0.0;
++#pragma omp simd reduction(+:sg, sg2)
++          for (size_t ii = 0; ii < ni; ii++) {
++            sg += a[ii] * qk[ii];
++            sg2 += a2[ii] * qk[ii];
++          }
++          o1[k] += sg;
++          o1[K + k] += sg2;
++#pragma omp simd
++          for (size_t ii = 0; ii < ni; ii++) {
++            wq[ii] = wa[ii] * qk[ii];
++            wq2[ii] = wa2[ii] * qk[ii];
++          }
++          double* Hk = o2 + K * k;
++          double* Hk2 = o2 + KK + K * k;
++          for (int k2 = k; k2 < K; k2++) {
++            const double* __restrict qk2 = qT + I * k2 + i0;
++            double sh = 0.0, sh2 = 0.0;
++#pragma omp simd reduction(+:sh, sh2)
++            for (size_t ii = 0; ii < ni; ii++) {
++              sh += wq[ii] * qk2[ii];
++              sh2 += wq2[ii] * qk2[ii];
++            }
++            Hk[k2] += sh;
++            Hk2[k2] += sh2;
++          }
++        }
++      }
++    }
++    // the remaining locus (or all of them in EM mode)
++    for (; jj < nj; jj++) {
+       const size_t j = j0 + jj;
+       // the EM step needs only a and b; gradient mode also needs wa and wb
+       slice_coef<!EM>(geno, qT, p + K * j, K, j, i0, i1, s);

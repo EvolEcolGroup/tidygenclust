@@ -1,0 +1,3 @@
+# outputs of the benchmarks (Q, P, kernel outputs): large, kept on the machine
+*.rds
+run.log

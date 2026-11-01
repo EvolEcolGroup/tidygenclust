@@ -1,0 +1,111 @@
+diff --git a/src/radmix_kernels.cpp b/src/radmix_kernels.cpp
+index 7dcdcd8..b1fe178 100644
+--- a/src/radmix_kernels.cpp
++++ b/src/radmix_kernels.cpp
+@@ -145,6 +145,26 @@ using namespace Rcpp;
+ namespace radmix {
+ 
+ 
++// Function multiversioning. The kernels below are vectorised with
++// `#pragma omp simd`, but R compiles packages for the baseline x86-64
++// instruction set (SSE2: 2 doubles per instruction, no fused multiply-add).
++// On x86-64 Linux with GCC, the kernels are also compiled for the x86-64-v3
++// level (AVX2: 4 doubles per instruction, and FMA), and the version that
++// suits the processor is chosen when the package is loaded (an ifunc,
++// resolved once). The parallel regions of these functions are cloned with
++// them. On other platforms and compilers, only the baseline version is
++// built. Results can differ between the two versions by rounding (fused
++// multiply-adds and wider vectors change the order of operations), so they
++// are reproducible on a given machine but not bit-identical across
++// machines.
++#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && \
++    defined(__x86_64__) && defined(__linux__)
++#define RADMIX_MULTIVERSION \
++  __attribute__((target_clones("arch=x86-64-v3", "default")))
++#else
++#define RADMIX_MULTIVERSION
++#endif
++
+ // Tile sizes. 64 individuals x 8 bytes = 512 bytes per K-vector of
+ // accumulators, which keeps the Q-side accumulators (K + K (K + 1) / 2
+ // vectors) and the TILE_I x K corner of q in L1/L2 for moderate K.
+@@ -312,6 +332,7 @@ static inline void slice_coef(const GenoView& geno, const double* qT,
+ // individuals of the slice, vectorised across individuals. They are only
+ // copied into the K-major output layout once, at the end.
+ template <bool HESS>
++RADMIX_MULTIVERSION
+ static void accum_q_block(const GenoView& geno, const double* qT,
+                           const double* p, const double* omp, int K,
+                           size_t i0, size_t i1, size_t j0, size_t j1,
+@@ -435,6 +456,7 @@ static size_t q_segments(size_t I, size_t J) {
+ // grad (K x I) and, if HESS, hess (K x K x I) are overwritten with the sums
+ // over all loci (see accum_q_block() for the formulas).
+ template <bool HESS>
++RADMIX_MULTIVERSION
+ static void accum_q_segmented(const GenoView& geno, const double* qT,
+                               const double* p, const double* omp, int K,
+                               size_t n_seg, double* grad, double* hess,
+@@ -512,6 +534,7 @@ static void accum_q_segmented(const GenoView& geno, const double* qT,
+ // for all nj loci, so it stays in cache; each output column is updated once
+ // per tile of individuals, always in the same order (i0 = 0, TILE_I, ...).
+ template <bool EM>
++RADMIX_MULTIVERSION
+ static void accum_p_block(const GenoView& geno, const double* qT,
+                           const double* p, int K, size_t j0, size_t j1,
+                           double* out1, double* out2, Slice& s) {
+@@ -677,6 +700,7 @@ static double loglik_slice(size_t ni, Slice& s) {
+ // of TILE_I. Each block writes its own partial sum, so no atomic or
+ // reduction clause is needed and the total is deterministic.
+ // (Julia uses an atomic add of per-task results, whose order can vary.)
++RADMIX_MULTIVERSION
+ double loglik(const GenoView& geno, const double* q, const double* p, int K,
+               int n_cores) {
+   const size_t I = geno.nrow(), J = geno.ncol();
+@@ -737,6 +761,7 @@ double loglik(const GenoView& geno, const double* q, const double* p, int K,
+ // Same structure as loglik(): blocks of loci in parallel, one partial
+ // sum per block added up serially, so the result does not depend on the
+ // number of threads.
++RADMIX_MULTIVERSION
+ void deviance(const GenoView& geno, const double* q, const double* p, int K,
+               int n_cores, double* dev, double* count) {
+   const size_t I = geno.nrow(), J = geno.ncol();
+@@ -795,6 +820,7 @@ void deviance(const GenoView& geno, const double* q, const double* p, int K,
+ // q_ki p_kj a are alt alleles. The M step sets q_ki to the share of
+ // individual i's allele copies assigned to k, and p_kj to the share of
+ // alt alleles among the copies at locus j assigned to k.
++RADMIX_MULTIVERSION
+ void em(const GenoView& geno, const double* q, const double* p, int K,
+         double* q_new, double* p_new, int n_cores) {
+   const size_t I = geno.nrow(), J = geno.ncol();
+@@ -882,6 +908,7 @@ void em(const GenoView& geno, const double* q, const double* p, int K,
+ // Gradient (K x I) and negative Hessian (K x K x I) of L with respect to q,
+ // for every individual. Parallelised over blocks of TILE_I individuals; each
+ // block writes its own columns of grad and its own K x K slabs of hess.
++RADMIX_MULTIVERSION
+ void grad_q(const GenoView& geno, const double* q, const double* p, int K,
+             double* grad, double* hess, int n_cores) {
+   const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
+@@ -914,6 +941,7 @@ void grad_q(const GenoView& geno, const double* q, const double* p, int K,
+ // for every locus. Parallelised over blocks of TILE_J loci; each block writes
+ // its own columns of grad and its own K x K slabs of hess. No 1 - p copy is
+ // needed: on the P side the coefficients are combined as a - b and wa + wb.
++RADMIX_MULTIVERSION
+ void grad_p(const GenoView& geno, const double* q, const double* p, int K,
+             double* grad, double* hess, int n_cores) {
+   const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
+@@ -963,6 +991,7 @@ static inline bool discard_nonfinite_step(double* delta, int K) {
+   return false;
+ }
+ 
++RADMIX_MULTIVERSION
+ void update_q(const GenoView& geno, const double* q, const double* p, int K,
+               double* q_new, int n_cores) {
+   const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
+@@ -1037,6 +1066,7 @@ void update_q(const GenoView& geno, const double* q, const double* p, int K,
+ // one locus across populations are not constrained to sum to anything) is
+ // solved and p_.j + delta is clamped to [eps, 1 - eps], so that qp stays
+ // strictly inside (0, 1) in later iterations.
++RADMIX_MULTIVERSION
+ void update_p(const GenoView& geno, const double* q, const double* p, int K,
+               double* p_new, int n_cores) {
+   const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
