@@ -3,7 +3,8 @@
 # admixture_benchmark.Rmd, as:
 #
 #   Rscript code/admixture_benchmark_radmix_cli.R <bed file> <K> <seed> \
-#     <cores> <cross-validation (TRUE or FALSE)> <folds> <run directory>
+#     <cores> <cross-validation (TRUE or FALSE)> <folds> <run directory> \
+#     <start ("random" or "svd")>
 #
 # Like ADMIXTURE and fastmixture, each run is a new process: it starts R,
 # loads tidygenclust, reads the bed file into a gen_tibble (with its backing
@@ -20,17 +21,26 @@ n_cores <- as.integer(args[4])
 crossval <- as.logical(args[5])
 n_folds <- as.integer(args[6])
 run_dir <- args[7]
+init <- args[8]
 library(tidygenclust)
-bigparallelr::set_blas_ncores(1)
+# BLAS is limited to the cores of the run: gt_radmix() uses it for the SVD
+# of init = "svd" (and otherwise only for small k x k systems)
+bigparallelr::set_blas_ncores(n_cores)
 hgdp <- tidypopgen::gen_tibble(
   bed_file,
   backingfile = file.path(run_dir, "hgdp_bench"),
   quiet = TRUE
 )
+# the SVD of init = "svd" needs complete genotypes: the missing ones are
+# imputed with the mean, and the fit itself ignores them
+if (init == "svd") {
+  hgdp <- tidypopgen::gt_impute_simple(hgdp, method = "mean0")
+}
 fit <- gt_radmix(
   hgdp,
   k = k,
   seed = seed,
+  init = init,
   crossval = crossval,
   n_folds = n_folds,
   n_cores = n_cores
