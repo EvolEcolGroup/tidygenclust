@@ -215,8 +215,9 @@ time_of <- function(tool, n_cores = min_cores, crossval = FALSE) {
 # the cross-validation error of a program, on the fewest cores
 cv_of <- function(tool) {
   formatC(
-    timings$cv_error[timings$tool == tool & timings$n_cores == min_cores &
-      timings$crossval],
+    timings$cv_error[
+      timings$tool == tool & timings$n_cores == min_cores & timings$crossval
+    ],
     format = "f", digits = 5
   )
 }
@@ -328,10 +329,12 @@ starts_summary <- starts %>%
   )
 # a sentence on a program, for the summary
 starts_text <- function(program) {
-  random <- starts_summary[starts_summary$program == program &
-    starts_summary$init == "random", ]
-  svd <- starts_summary[starts_summary$program == program &
-    starts_summary$init == "svd", ]
+  random <- starts_summary[
+    starts_summary$program == program & starts_summary$init == "random",
+  ]
+  svd <- starts_summary[
+    starts_summary$program == program & starts_summary$init == "svd",
+  ]
   paste0(
     format_seconds(svd$seconds_median), " s from an SVD and ",
     format_seconds(random$seconds_median), " s from random values (",
@@ -642,7 +645,7 @@ starts_plot <- starts %>%
       if_else(init == "svd", -0.15, 0.15)
   )
 starts_panel <- function(column, title, x_scale, show_y = FALSE) {
-  ggplot(starts_plot, aes(x = .data[[column]], y = row, colour = init)) +
+  ggplot(starts_plot, aes(x = .data[[column]], y = row, colour = .data$init)) +
     geom_point(size = 2.2, alpha = 0.7) +
     x_scale +
     scale_y_continuous(
@@ -663,9 +666,14 @@ starts_panel <- function(column, title, x_scale, show_y = FALSE) {
       axis.text.y = if (show_y) element_text() else element_blank()
     )
 }
-format_axis <- function(x) format(x, scientific = FALSE, drop0trailing = TRUE, trim = TRUE)
+format_axis <- function(x) {
+  format(x, scientific = FALSE, drop0trailing = TRUE, trim = TRUE)
+}
 patchwork::wrap_plots(
-  starts_panel("seconds", "Time (s)", scale_x_log10(labels = format_axis), show_y = TRUE),
+  starts_panel(
+    "seconds", "Time (s)", scale_x_log10(labels = format_axis),
+    show_y = TRUE
+  ),
   starts_panel("iterations", "Iterations", scale_x_log10(labels = format_axis)),
   starts_panel(
     "below_best", "Below the best log-likelihood",
@@ -811,7 +819,9 @@ starts_summary %>%
     at_best = paste(at_best, "of", runs),
     across(c(worst, spread, rmse_ref), format_diff)
   ) %>%
-  select(program, init, seconds, iterations, at_best, worst, spread, rmse_ref) %>%
+  select(
+    program, init, seconds, iterations, at_best, worst, spread, rmse_ref
+  ) %>%
   knitr::kable(
     col.names = c(
       "Program", "Start", "Time (s)", "Iterations", "At the best",

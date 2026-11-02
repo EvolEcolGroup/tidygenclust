@@ -67,7 +67,8 @@ LinkingTo:
     Rcpp,
     RcppArmadillo,
     rmio
-Suggests: 
+Suggests:
+    bigstatsr,
     data.table,
     igraph,
     knitr,
