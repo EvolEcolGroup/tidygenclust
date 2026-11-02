@@ -1,0 +1,127 @@
+From 0b812afefe4dceaf353b59f40d0da67b2867f2f6 Mon Sep 17 00:00:00 2001
+From: Andrea Manica <am315@cam.ac.uk>
+Date: Mon, 2 Nov 2026 16:09:11 +0000
+Subject: [PATCH] Run the ALS of the SVD start with one BLAS thread
+
+The products of the ALS (radmix_als_cpp()) are tall and skinny, so BLAS
+threads gain nothing on them, and they compete with the OpenMP threads of
+its bounded least squares. On the HGDP (1043 x 130,943, K = 10, n_cores =
+8, i9-13900), the start took 4.7 s with OpenBLAS's default of 24 threads
+and 2.4 s with one, with 61 s of system time against none.
+radmix_svd_start() now sets R's BLAS to one thread (RhpcBLASctl, already
+installed with tidypopgen through bigparallelr) and restores it on exit.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ DESCRIPTION                      |  1 +
+ R/radmix_svd.R                   | 15 +++++++++++++--
+ src/radmix_als.cpp               |  8 +++++---
+ tests/testthat/test_radmix_svd.R | 23 +++++++++++++++++++++++
+ 4 files changed, 42 insertions(+), 5 deletions(-)
+
+diff --git a/DESCRIPTION b/DESCRIPTION
+index 5008313..702662d 100644
+--- a/DESCRIPTION
++++ b/DESCRIPTION
+@@ -65,6 +65,7 @@ Imports:
+     patchwork (>= 1.2.0),
+     Rcpp,
+     reticulate,
++    RhpcBLASctl,
+     rlang,
+     stats,
+     tibble,
+diff --git a/R/radmix_svd.R b/R/radmix_svd.R
+index 99f919c..dd6b411 100644
+--- a/R/radmix_svd.R
++++ b/R/radmix_svd.R
+@@ -77,13 +77,14 @@ radmix_svd_factors <- function(x, rank, n_cores = 1) {
+ #' Fits `n_starts` ALS solutions (`radmix_als_cpp()`, src/radmix_als.cpp)
+ #' to the factors of the SVD with K + 5 components, each from random allele
+ #' frequencies drawn from R's random number generator, and returns the one
+-#' with the highest log-likelihood (one pass over the genotypes each).
++#' with the highest log-likelihood (one pass over the genotypes each). R's
++#' BLAS is set to one thread while the ALS runs, and restored afterwards.
+ #' @param data the output of `radmix_prepare()`
+ #' @param factors the output of `radmix_svd_factors()`, with at least K + 5
+ #'   components
+ #' @param k the number of ancestral populations
+ #' @param n_starts the number of ALS solutions
+-#' @param n_cores the number of cores
++#' @param n_cores the number of cores (OpenMP threads)
+ #' @param verbose boolean; should the log be printed as it comes?
+ #' @returns a list with elements `q` (individuals x K), `p` (loci x K) and
+ #'   `log` (lines to add to the log of the fit)
+@@ -110,6 +111,16 @@ radmix_svd_start <- function(data, factors, k, n_starts = 3, n_cores = 1,
+     "SVD start: best of ", n_starts, " ALS solutions, with ", rank,
+     " components"
+   ))
++  # the ALS with one BLAS thread: its products are tall and skinny, so BLAS
++  # threads (OpenBLAS uses all the cores by default) gain nothing and compete
++  # with the OpenMP threads of its bounded least squares (HGDP, 1043 x
++  # 130,943, K = 10, n_cores = 8: 4.7 s with 24 OpenBLAS threads, 2.4 s with
++  # one)
++  blas_threads <- RhpcBLASctl::blas_get_num_procs()
++  if (isTRUE(blas_threads > 1)) {
++    RhpcBLASctl::blas_set_num_threads(1)
++    on.exit(RhpcBLASctl::blas_set_num_threads(blas_threads), add = TRUE)
++  }
+   best <- NULL
+   for (s in seq_len(n_starts)) {
+     init_p <- matrix(stats::runif(data$n_loci * k), data$n_loci, k)
+diff --git a/src/radmix_als.cpp b/src/radmix_als.cpp
+index 1bcd09c..a6e1550 100644
+--- a/src/radmix_als.cpp
++++ b/src/radmix_als.cpp
+@@ -33,9 +33,11 @@
+ // As in the kernels, q is K x I and p is K x J, column-major, so the K
+ // values of an individual (or a locus), which are solved for together, are
+ // contiguous. The products with the factors are tall and skinny matrix
+-// products, computed with Armadillo, hence with R's BLAS (which may use its
+-// own threads, whatever n_cores); the small bounded least squares problems,
+-// one per individual or locus, are solved in parallel with OpenMP. Each
++// products, computed with Armadillo, hence with R's BLAS (which
++// radmix_svd_start() limits to one thread: BLAS threads gain nothing on
++// these products, and compete with the OpenMP threads); the small bounded
++// least squares problems, one per individual or locus, are solved in
++// parallel with OpenMP. Each
+ // column is solved on its own, so the results do not depend on the number
+ // of threads. Most of the time goes into these small problems (about 90%
+ // on EUR_subset), hence the direct solution in solve_rows().
+diff --git a/tests/testthat/test_radmix_svd.R b/tests/testthat/test_radmix_svd.R
+index 5a7ad96..fb06be9 100644
+--- a/tests/testthat/test_radmix_svd.R
++++ b/tests/testthat/test_radmix_svd.R
+@@ -63,6 +63,29 @@ test_that("the ALS matches the R reference, whatever the number of cores", {
+   )
+ })
+ 
++test_that("the ALS of the SVD start runs with one BLAS thread", {
++  # BLAS threads compete with the OpenMP threads of the ALS; the number of
++  # BLAS threads is restored afterwards
++  blas_threads <- RhpcBLASctl::blas_get_num_procs()
++  withr::defer(RhpcBLASctl::blas_set_num_threads(blas_threads))
++  RhpcBLASctl::blas_set_num_threads(2)
++  skip_if(
++    RhpcBLASctl::blas_get_num_procs() != 2,
++    "the BLAS does not let us set its number of threads"
++  )
++  als <- radmix_als_cpp
++  seen <- integer(0)
++  local_mocked_bindings(radmix_als_cpp = function(...) {
++    seen <<- c(seen, RhpcBLASctl::blas_get_num_procs())
++    als(...)
++  })
++  fac <- radmix_svd_factors(svd_gt, rank = 8)
++  set.seed(1)
++  radmix_svd_start(radmix_prepare(svd_gt), factors = fac, k = 3)
++  expect_equal(seen, rep(1, 3))
++  expect_equal(RhpcBLASctl::blas_get_num_procs(), 2)
++})
++
+ test_that("fits from the SVD are valid and reach the maximum", {
+   adm <- gt_radmix(svd_gt, k = 2:3, n_runs = 2, seed = 1:2, init = "svd")
+   expect_true(all(adm$converged))
+-- 
+2.43.0
+

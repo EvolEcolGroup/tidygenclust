@@ -341,10 +341,51 @@ repeats:
 - The ALS iterations are the same at every thread count (29+30+32 for
   K = 5, 39+35+34 for K = 10).
 - This confirms handover 2.5 on a many-core machine.
-- A candidate change before merging: one BLAS thread inside
-  `radmix_svd_start()`, and `n_cores` BLAS threads for the SVD.
+- Fixed on a local branch, with one BLAS thread inside
+  `radmix_svd_start()`: see "New: the BLAS-thread fix" below.
 
 Files: `F_svd/`, `F_svd_1e8/`, `F_svd_1core/`, `F_blas/`.
+
+## New: the BLAS-thread fix (branch `svd-start-blas-threads`, local)
+
+Added after the report, at the user's request.
+
+**The fix.** Commit 0b812af on `svd-start` (7baa46c); not pushed. A copy
+is in `../patches/svd_start_blas_threads.patch`.
+- `radmix_svd_start()` sets R's BLAS to one thread while the ALS runs and
+  restores it on exit (`RhpcBLASctl`).
+- RhpcBLASctl is a new entry in Imports but not a new install: tidypopgen
+  already needs it through bigparallelr.
+- The SVD itself is unchanged and keeps the BLAS's threads.
+
+**Test.** A new test checks that the ALS sees one BLAS thread and that the
+count is restored afterwards. It fails on `base` (the ALS sees 2 threads)
+and passes on the fix. It is skipped when the BLAS cannot change its
+thread count (the reference BLAS).
+- Full suite on the fix build: 3654 passed (base's 3652 plus the 2 new
+  checks), 0 failed, 1 file skipped (ADAMIXTURE).
+- The fix applies cleanly on top of `kernel-speedups` (017e176).
+
+**Timings** (`H_blasfix/`). Default OpenBLAS (24 threads), no CPU
+confinement, as a user would run it, HGDP, base against the fix,
+alternated, two runs each:
+
+| step | n_cores | base | fix | CPU time (user + system), base / fix |
+|---|---|---|---|---|
+| start, K = 5 | 8 | 1.04 / 1.57 s | 0.74 / 0.92 s | 25-35 / 3.4-3.6 s |
+| start, K = 10 | 8 | 5.11 / 5.36 s | 2.16 / 2.19 s | 117 / 10.4 s |
+| start, K = 5 | 1 | 3.11 / 3.39 s | 3.13 / 3.24 s | 45-50 / 3.1-3.2 s |
+| start, K = 10 | 1 | 10.04 / 10.76 s | 9.81 / 10.00 s | 187-196 / 9.8-10.0 s |
+| `gt_radmix(k = c(5, 10), init = "svd")` | 8 | 25.5 / 26.2 s | 21.4 / 22.3 s | |
+
+- With 8 cores the K = 10 start is 2.4x faster, and the whole call 15%
+  faster.
+- With 1 core the time barely changes, but the start no longer uses 15-19
+  cores' worth of CPU time.
+- Same ALS iterations, same fit iterations and log-likelihoods.
+- Q is identical at K = 5. At K = 10 it differs by 2.6e-13: the BLAS's
+  thread count changed its rounding. With the fix the start no longer
+  depends on the BLAS's thread setting.
 
 ## V7. ADAMIXTURE
 
@@ -464,7 +505,8 @@ Against:
 
 `svd-start`, against or open:
 - No gain at K = 3 for a single run.
-- BLAS threading of the start (V6) is a fix to consider before merging.
+- BLAS threading of the start (V6): fixed on the local branch
+  `svd-start-blas-threads` (see above), to merge with or into `svd-start`.
 - Tested here only on the HGDP family. The laptop's caveats still apply:
   SVD runs explore few modes, and on tiny data the SVD costs more than a
   fit.
