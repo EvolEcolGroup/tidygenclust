@@ -1,0 +1,6 @@
+reference: fits_base_1_1e-07.rds 
+  8 cores vs 1, hgdp 5         Q 0, P 0, loglik 0
+  8 cores vs 1, hgdp 10        Q 0, P 0, loglik 0
+reference: fits_comb_1_1e-07.rds 
+  8 cores vs 1, hgdp 5         Q 0, P 0, loglik 0
+  8 cores vs 1, hgdp 10        Q 0, P 0, loglik 0

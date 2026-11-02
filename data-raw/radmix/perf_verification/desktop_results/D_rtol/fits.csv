@@ -1,0 +1,7 @@
+"label","data","k","n_cores","crossval","rtol","seconds","iterations","loglik","cv"
+"base","eur",3,1,FALSE,6.42e-12,14.558,29,-15600872.5699281,NA
+"base","eur",4,1,FALSE,6.42e-12,18.677,31,-15552192.5743567,NA
+"base","hgdp_quick",5,1,FALSE,2.58e-11,3.778,19,-3872985.1643831,NA
+"comb","eur",3,1,FALSE,6.42e-12,8.527,29,-15600872.5699281,NA
+"comb","eur",4,1,FALSE,6.42e-12,10.554,31,-15552192.5743567,NA
+"comb","hgdp_quick",5,1,FALSE,2.58e-11,2.121,19,-3872985.1643831,NA

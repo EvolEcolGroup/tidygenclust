@@ -1,0 +1,24 @@
+reference: fits_base_1_1e-07.rds 
+  8 cores vs 1, hgdp_full 5    Q 0, P 0, loglik 0
+reference: fits_comb_1_1e-07.rds 
+  4 cores vs 1, hgdp_full 5    Q 0, P 0, loglik 0
+  8 cores vs 1, hgdp_full 5    Q 0, P 0, loglik 0
+E_fits/fits_base_2_1e-07.rds vs unbound 1 core, hgdp 5: Q 0, P 0, loglik 0
+E_fits/fits_base_2_1e-07.rds vs unbound 1 core, hgdp 10: Q 0, P 0, loglik 0
+E_fits/fits_base_6_1e-07.rds vs unbound 1 core, hgdp 5: Q 0, P 0, loglik 0
+E_fits/fits_base_6_1e-07.rds vs unbound 1 core, hgdp 10: Q 0, P 0, loglik 0
+E_fits_unbound/fits_base_8_1e-07.rds vs unbound 1 core, hgdp 5: Q 0, P 0, loglik 0
+E_fits_unbound/fits_base_8_1e-07.rds vs unbound 1 core, hgdp 10: Q 0, P 0, loglik 0
+E_fits/fits_comb_2_1e-07.rds vs unbound 1 core, hgdp 5: Q 0, P 0, loglik 0
+E_fits/fits_comb_2_1e-07.rds vs unbound 1 core, hgdp 10: Q 0, P 0, loglik 0
+E_fits/fits_comb_6_1e-07.rds vs unbound 1 core, hgdp 5: Q 0, P 0, loglik 0
+E_fits/fits_comb_6_1e-07.rds vs unbound 1 core, hgdp 10: Q 0, P 0, loglik 0
+E_fits_unbound/fits_comb_8_1e-07.rds vs unbound 1 core, hgdp 5: Q 0, P 0, loglik 0
+E_fits_unbound/fits_comb_8_1e-07.rds vs unbound 1 core, hgdp 10: Q 0, P 0, loglik 0
+  label      data  k loglik
+1  base      hgdp  5      1
+2  comb      hgdp  5      1
+3  base hgdp_full  5      1
+4  comb hgdp_full  5      1
+5  base      hgdp 10      1
+6  comb      hgdp 10      1

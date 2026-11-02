@@ -1,0 +1,8 @@
+comb hgdp K=5 update_p n=1: median 0.4970 s (min 0.4870, max 0.5060)
+comb hgdp K=5 update_p n=8: median 0.0650 s (min 0.0630, max 0.0670)
+comb hgdp K=5 update_q n=1: median 0.5040 s (min 0.5020, max 0.5090)
+comb hgdp K=5 update_q n=8: median 0.0700 s (min 0.0690, max 0.0770)
+comb hgdp K=5 em n=1: median 0.6330 s (min 0.6330, max 0.6370)
+comb hgdp K=5 em n=8: median 0.0870 s (min 0.0860, max 0.0940)
+comb hgdp K=5 loglik n=1: median 0.4725 s (min 0.4720, max 0.4760)
+comb hgdp K=5 loglik n=8: median 0.0590 s (min 0.0590, max 0.0610)

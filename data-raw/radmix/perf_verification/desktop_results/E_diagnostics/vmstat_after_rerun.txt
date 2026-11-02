@@ -1,0 +1,5 @@
+pgsteal_kswapd 124807435
+pgscan_kswapd 124900786
+compact_migrate_scanned 915446212
+compact_stall 750
+thp_fault_alloc 574

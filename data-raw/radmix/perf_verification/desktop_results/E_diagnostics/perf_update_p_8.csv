@@ -1,0 +1,5 @@
+# started on Mon Nov  2 11:40:54 2026
+
+307091064495,,cpu_core/cycles/,56088268852,96.00,5.284,GHz
+1040173209818,,cpu_core/instructions/,56088268852,96.00,17.897,G/sec
+58120.48,msec,task-clock,58120481730,100.00,3.860,CPUs utilized
