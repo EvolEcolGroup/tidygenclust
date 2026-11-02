@@ -1,0 +1,15 @@
+dataset hgdp n_cores 8 
+ k  rtol strategy runs svd_s start_s fit_s call_s iter at_best near_5 modes
+ 5 1e-08   random    3   0.0     0.0   8.2     NA   21       3      3     1
+ 5 1e-08      svd    3   1.6     1.2   2.6     NA    7       3      3     1
+ worst_gap max_dq_from_best
+    0.0995         0.000392
+    0.0377         0.000346
+
+ k  rtol strategy runs svd_s start_s fit_s call_s iter at_best near_5 modes
+ 7 1e-08   random    3   0.0     0.0  25.0     NA   44       1      3     2
+ 7 1e-08      svd    3   1.6     2.4   6.8     NA   13       3      3     1
+ worst_gap max_dq_from_best
+    0.3280         1.82e-03
+    0.0017         3.52e-05
+

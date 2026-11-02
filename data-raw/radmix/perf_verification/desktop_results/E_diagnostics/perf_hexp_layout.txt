@@ -1,0 +1,81 @@
+# perf stat of base and hexp (phase B lead): whole process (load eur + 100 passes of one kernel), CPU 2, cpu_core counters are the ones that matter (the cpu_atom lines are perf hybrid-PMU noise). update_p: same instructions (338.0e9), 8-10% fewer cycles in hexp, whose P side is semantically unchanged: code layout. update_q: hexp +13e9 instructions (its Q-side change), same time on eur K=4.
+## base eur K=4 update_p, 1 core, CPU 2, 100 passes
+base eur K=4 update_p n=1: median 0.1330 s (min 0.1320, max 0.1350)
+102324724850,cpu_atom/cycles/
+131932120383,cpu_core/cycles/
+94914899844,cpu_atom/instructions/
+337972399022,cpu_core/instructions/
+599730516,cpu_atom/branch-misses/
+178908790,cpu_core/branch-misses/
+2394748433,cpu_atom/L1-icache-load-misses/
+137206314,cpu_core/L1-icache-load-misses/
+## hexp eur K=4 update_p, 1 core, CPU 2, 100 passes
+hexp eur K=4 update_p n=1: median 0.1170 s (min 0.1150, max 0.1200)
+92261056928,cpu_atom/cycles/
+118910541250,cpu_core/cycles/
+97771287065,cpu_atom/instructions/
+338063773765,cpu_core/instructions/
+500127194,cpu_atom/branch-misses/
+167471074,cpu_core/branch-misses/
+2281742144,cpu_atom/L1-icache-load-misses/
+136694129,cpu_core/L1-icache-load-misses/
+## base eur K=4 update_p, 1 core, CPU 2, 100 passes
+base eur K=4 update_p n=1: median 0.1330 s (min 0.1320, max 0.1350)
+102406498341,cpu_atom/cycles/
+132132863355,cpu_core/cycles/
+113025774497,cpu_atom/instructions/
+337971133190,cpu_core/instructions/
+513094848,cpu_atom/branch-misses/
+179761125,cpu_core/branch-misses/
+2598199282,cpu_atom/L1-icache-load-misses/
+137325480,cpu_core/L1-icache-load-misses/
+## hexp eur K=4 update_p, 1 core, CPU 2, 100 passes
+hexp eur K=4 update_p n=1: median 0.1170 s (min 0.1150, max 0.1190)
+<not counted>,cpu_atom/cycles/
+121348617040,cpu_core/cycles/
+<not counted>,cpu_atom/instructions/
+337876760238,cpu_core/instructions/
+<not counted>,cpu_atom/branch-misses/
+163942286,cpu_core/branch-misses/
+<not counted>,cpu_atom/L1-icache-load-misses/
+136547148,cpu_core/L1-icache-load-misses/
+## base eur K=4 update_q, 1 core, CPU 2, 100 passes
+base eur K=4 update_q n=1: median 0.1170 s (min 0.1150, max 0.1190)
+88205226931,cpu_atom/cycles/
+113747194337,cpu_core/cycles/
+96851353555,cpu_atom/instructions/
+337239270002,cpu_core/instructions/
+502304492,cpu_atom/branch-misses/
+123853693,cpu_core/branch-misses/
+2185918378,cpu_atom/L1-icache-load-misses/
+135122321,cpu_core/L1-icache-load-misses/
+## hexp eur K=4 update_q, 1 core, CPU 2, 100 passes
+hexp eur K=4 update_q n=1: median 0.1170 s (min 0.1110, max 0.1240)
+92901484943,cpu_atom/cycles/
+119844965979,cpu_core/cycles/
+101288526330,cpu_atom/instructions/
+350586893063,cpu_core/instructions/
+544307564,cpu_atom/branch-misses/
+105879897,cpu_core/branch-misses/
+2431456771,cpu_atom/L1-icache-load-misses/
+136102218,cpu_core/L1-icache-load-misses/
+## base eur K=4 update_q, 1 core, CPU 2, 100 passes
+base eur K=4 update_q n=1: median 0.1180 s (min 0.1160, max 0.1250)
+<not counted>,cpu_atom/cycles/
+117214942041,cpu_core/cycles/
+<not counted>,cpu_atom/instructions/
+337315167599,cpu_core/instructions/
+<not counted>,cpu_atom/branch-misses/
+124719199,cpu_core/branch-misses/
+<not counted>,cpu_atom/L1-icache-load-misses/
+135292544,cpu_core/L1-icache-load-misses/
+## hexp eur K=4 update_q, 1 core, CPU 2, 100 passes
+hexp eur K=4 update_q n=1: median 0.1170 s (min 0.1110, max 0.1260)
+88861171081,cpu_atom/cycles/
+114667295992,cpu_core/cycles/
+98991417045,cpu_atom/instructions/
+350574361192,cpu_core/instructions/
+507965750,cpu_atom/branch-misses/
+108429800,cpu_core/branch-misses/
+2338997683,cpu_atom/L1-icache-load-misses/
+135104010,cpu_core/L1-icache-load-misses/
