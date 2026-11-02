@@ -43,14 +43,14 @@ dir.create(file.path(out_dir, "logs"), showWarnings = FALSE)
 k <- 5
 seed <- 1
 n_folds <- 5
-cores <- c(1, 2, 4)
+cores <- c(1, 2, 4, 8)
 
 ## ---- r-packages ----
 library(tidygenclust)
-# gt_radmix() runs in parallel with OpenMP (with n_cores threads), and
-# only uses BLAS for small (k x k) systems: BLAS is kept to a single thread,
-# so that a multithreaded BLAS does not use more cores than requested
-bigparallelr::set_blas_ncores(1)
+# gt_radmix() runs in parallel with OpenMP (with n_cores threads); from a
+# random start it only uses BLAS for small (k x k) systems. BLAS is limited
+# to the cores of each run (below), so that a multithreaded BLAS does not
+# use more cores than requested
 
 ## ---- r-runs ----
 # the Q matrices are written as ADMIXTURE and fastmixture write theirs (one
@@ -74,6 +74,7 @@ for (n_cores in cores) {
     unlink(run_dir, recursive = TRUE)
     dir.create(run_dir, recursive = TRUE)
     message("Running ", run)
+    bigparallelr::set_blas_ncores(n_cores)
     start <- proc.time()[["elapsed"]]
     hgdp <- tidypopgen::gen_tibble(
       bed_file,
@@ -95,6 +96,8 @@ for (n_cores in cores) {
     converged_line <- grep("^Converged in", fit$log[[1]], value = TRUE)[1]
     timings[[run]] <- data.frame(
       tool = "radmix",
+      init = "random",
+      seed = seed,
       n_cores = n_cores,
       crossval = crossval,
       seconds = seconds,

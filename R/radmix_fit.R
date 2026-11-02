@@ -34,7 +34,7 @@
 #' @noRd
 radmix_fit <- function(data, k, init_q = NULL, init_p = NULL,
                        fix_q = FALSE, fix_p = FALSE, max_iter = 1000,
-                       rtol = 1e-7, n_em_iter = 5, n_qn = 3, n_cores = 1,
+                       rtol = 1e-8, n_em_iter = 5, n_qn = 3, n_cores = 1,
                        verbose = FALSE) {
   # The whole fit runs in C++ (src/radmix_fit.cpp), which documents the
   # model and the algorithm step by step. Running the loop in C++ means that the

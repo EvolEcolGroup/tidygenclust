@@ -10,6 +10,14 @@
   modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023).
   Its results are checked
   against OpenADMIXTURE.jl and ADMIXTURE in the test suite.
+  It stops when the log-likelihood changes by less than a relative 1e-8
+  (`rtol`), a stricter threshold than OpenADMIXTURE.jl's 1e-7.
+  With `init = "svd"`, runs start from the SVD of the genotypes, as in
+  fastmixture and ADAMIXTURE, for a faster single fit of large datasets.
+  Its computations were sped up by cheaper decoding of the genotypes and
+  likelihood terms and by processing two loci at a time (about 1.3-1.4x),
+  and, on x86-64 Linux, by also compiling them for AVX2 and FMA (about 1.6x
+  in all).
 * `gt_clumppling()` is now a native R and C++ port, with modifications, of
   clumppling 2.0.10 (Liu, Kopelman & Rosenberg 2024, by Xiran Liu).
 * The conda environment is no longer needed by default, as the core

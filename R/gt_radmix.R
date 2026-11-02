@@ -39,7 +39,8 @@
 #'
 #'   As in OpenADMIXTURE.jl, each run consists of:
 #'   1. a random initialisation followed by a few EM (FRAPPE) iterations
-#'      (`n_em_iter`);
+#'      (`n_em_iter`), or, with `init = "svd"`, a start from the SVD of the
+#'      genotypes (see below);
 #'   2. block-wise Newton updates of Q (one individual at a time, on the
 #'      simplex) and P (one locus at a time, in the unit interval), each
 #'      solved exactly as a small quadratic program with K. Lange's
@@ -51,6 +52,53 @@
 #'   Iterations stop when the relative change in log-likelihood falls below
 #'   `rtol`. All estimates are kept within \[1e-5, 1 - 1e-5\], as in ADMIXTURE
 #'   and OpenADMIXTURE.jl.
+#'
+#'   On x86-64 Linux, when the package is compiled with GCC 12 or later, the
+#'   main computations are also compiled for processors with the AVX2 and
+#'   FMA instructions (most processors made since 2015), and the faster
+#'   version is chosen when the package is loaded. Results are reproducible
+#'   on a given machine, but can differ in the last digits between machines
+#'   with and without these instructions. Compiling the package with
+#'   `-DRADMIX_NO_MULTIVERSION` (e.g. added to `CXXFLAGS` in
+#'   `~/.R/Makevars`) builds only the portable version, whose results are the
+#'   same on every x86-64 machine.
+#'
+#'   ## Starting values from the SVD
+#'
+#'   With `init = "svd"`, each run starts from the principal components of
+#'   the genotypes rather than from random values, as in ADAMIXTURE
+#'   (Saurina-i-Ricos et al. 2026) and fastmixture (Santander et al. 2024):
+#'   1. a partial SVD of the genotypes, centred and scaled as by
+#'      [tidypopgen::gt_pca_partialSVD()], with `max(k) + 5` components, is
+#'      computed once and shared by all the runs (monomorphic loci, which
+#'      the default scaling of tidypopgen rejects, are left unscaled);
+#'   2. for each run, alternating least squares (ALS) find Q and P whose
+#'      product approximates the allele frequencies predicted by the first
+#'      `k + 5` components, starting from random allele frequencies. As in
+#'      ADAMIXTURE, the least squares are bounded, the loci are weighted by
+#'      the inverse of their binomial variance when solving for Q, and Q is
+#'      extrapolated (momentum) when solving for P. The ALS only uses the
+#'      SVD, not the genotypes, so it is fast;
+#'   3. the best of 3 such solutions, by log-likelihood, starts the fit,
+#'      without EM priming (`n_em_iter` is not used).
+#'
+#'   The SVD cannot use missing genotypes, so they must be imputed first
+#'   (e.g. with [tidypopgen::gt_impute_simple()]); the imputed genotypes are
+#'   only used for the SVD, and the fit ignores them (unless
+#'   `use_imputed = TRUE`). The SVD also needs more individuals and loci than
+#'   `max(k) + 5`.
+#'
+#'   Fits from the SVD need fewer iterations (often less than half as many as
+#'   from random starts in our tests), and usually reach a good fit (though,
+#'   as from any start, not always the best one). They are therefore useful
+#'   for a single good fit of a large dataset, where many random runs would
+#'   be costly, or as a first exploration before a more extensive search
+#'   with random starts. However, the starts of different runs vary little,
+#'   and favour some solutions over others: to explore the modes of the
+#'   likelihood with several runs (e.g. with [gt_clumppling()]), use random
+#'   starts (the default), and do not mix runs started in the two ways, as
+#'   the runs started from the SVD would over-represent the solutions that
+#'   they favour.
 #'
 #'   ## Cross-validation
 #'
@@ -103,6 +151,8 @@
 #'   computations of OpenADMIXTURE.jl to numerical precision (this is checked
 #'   by the test suite), except for the following:
 #'   - there is no GPU (CUDA) support;
+#'   - the start from the SVD (`init = "svd"`, see above) is not part of
+#'     OpenADMIXTURE;
 #'   - we implemented cross-validation, as in ADMIXTURE (see above), which
 #'     is not part of OpenADMIXTURE;
 #'   - sparse K-means selection of ancestry informative markers (SKFR) is not
@@ -144,6 +194,15 @@
 #'   high-dimensional optimization algorithms. Statistics and Computing,
 #'   21(2), 261-273.
 #'
+#'   Saurina-i-Ricos J, Mas Montserrat D, Ioannidis AG (2026) ADAMIXTURE:
+#'   adaptive first-order optimization for biobank-scale genetic clustering.
+#'   Bioinformatics, 42(Supplement_1). doi:
+#'   https://doi.org/10.1093/bioinformatics/btag236
+#'
+#'   Santander CG, Refoyo Martinez A, Meisner J (2024) Faster model-based
+#'   estimation of ancestry proportions. bioRxiv 2024.07.08.602454. doi:
+#'   https://doi.org/10.1101/2024.07.08.602454
+#'
 #' @param x a [`tidypopgen::gen_tibble`] (possibly grouped)
 #' @param k an integer vector giving the number(s) of ancestral populations
 #' @param n_runs the number of runs for each value of `k` (defaults to 1)
@@ -153,11 +212,21 @@
 #'   state is restored on exit.
 #' @param max_iter the maximum number of iterations (defaults to 1000)
 #' @param rtol the convergence threshold on the relative change in
-#'   log-likelihood between iterations (defaults to 1e-7)
+#'   log-likelihood between iterations (defaults to 1e-8). OpenADMIXTURE.jl
+#'   uses 1e-7, which takes 10-20% less time but can stop a few
+#'   log-likelihood units short of convergence, with ancestry proportions up
+#'   to about 0.05 away from the converged ones
 #' @param n_em_iter the number of EM iterations used to prime the estimates
-#'   (defaults to 5)
+#'   (defaults to 5); not used with `init = "svd"`
 #' @param n_qn the number of secant pairs used by the quasi-Newton
 #'   acceleration (defaults to 3)
+#' @param init how the starting values of each run are chosen: `"random"`
+#'   (the default), random values followed by `n_em_iter` EM iterations, as
+#'   in ADMIXTURE and OpenADMIXTURE; or `"svd"`, from a truncated SVD of the
+#'   genotypes, which needs fewer iterations but is not suited to exploring
+#'   the modes of the likelihood with several runs (see "Starting values
+#'   from the SVD" in the details). `"svd"` cannot be combined with `init_q`
+#'   or `init_p`.
 #' @param init_q optional matrix (individuals x k) of starting ancestry
 #'   proportions; only allowed with a single value of `k`
 #' @param init_p optional matrix (loci x k) of starting allele frequencies
@@ -208,7 +277,8 @@
 #' adm_cv <- gt_radmix(pop_a, k = 1:3, seed = 1, crossval = TRUE)
 #' adm_cv$cv
 gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
-                      rtol = 1e-7, n_em_iter = 5, n_qn = 3,
+                      rtol = 1e-8, n_em_iter = 5, n_qn = 3,
+                      init = c("random", "svd"),
                       init_q = NULL, init_p = NULL, fix_q = FALSE,
                       fix_p = FALSE, use_imputed = FALSE,
                       crossval = FALSE, n_folds = 5, n_cores = 1,
@@ -239,6 +309,7 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   for (flag in c("fix_q", "fix_p", "use_imputed", "crossval", "verbose")) {
     check_flag(get(flag), flag)
   }
+  init <- match.arg(init)
   rtol_ok <- is.numeric(rtol) && length(rtol) == 1 && is.finite(rtol) &&
     rtol > 0
   if (!rtol_ok) {
@@ -264,6 +335,11 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   # or per combination of k and run
   if (!is.null(seed) && length(seed) == n_runs) {
     seed <- rep(seed, length(k))
+  }
+  if (init == "svd" && (!is.null(init_q) || !is.null(init_p))) {
+    stop("'init = \"svd\"' cannot be combined with 'init_q' or 'init_p'",
+      call. = FALSE
+    )
   }
   if ((!is.null(init_q) || !is.null(init_p)) && length(k) > 1) {
     stop("'init_q' and 'init_p' can only be used with a single 'k'",
@@ -298,6 +374,16 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   # so a few individuals, or a single one, can be projected onto a panel)
   if (!fix_p && any(k >= data$n_indiv)) {
     stop("'k' should be smaller than the number of individuals",
+      call. = FALSE
+    )
+  }
+  # the SVD start uses K + 5 components, which needs more individuals and
+  # loci than that (it is meant for large datasets anyway)
+  svd_rank <- max(k) + 5
+  if (init == "svd" && min(data$n_indiv, data$n_loci) <= svd_rank) {
+    stop(
+      "init = \"svd\" needs more than max(k) + 5 = ", svd_rank,
+      " individuals and loci",
       call. = FALSE
     )
   }
@@ -344,6 +430,19 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   # rather than after them
   group <- gt_single_group(x)
 
+  # The SVD of the genotypes for the SVD starts (R/radmix_svd.R), with the
+  # components needed by the largest k, computed once and shared by all the
+  # runs (each k uses its first k + 5 components). It is computed after the
+  # RNG state is saved above, in case it draws random numbers.
+  if (init == "svd") {
+    if (verbose) {
+      message(
+        "Computing the SVD of the genotypes (", svd_rank, " components)"
+      )
+    }
+    svd_factors <- radmix_svd_factors(x, rank = svd_rank, n_cores = n_cores)
+  }
+
   # Run the fits, one per combination of k and run, filling in the elements
   # of the gt_admix object in the same order as gt_admixture() (by k, then by
   # run)
@@ -366,14 +465,27 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
       }
       # Each run draws its own random start inside the C++ code. When both
       # init_q and init_p are given, that start is overwritten and EM
-      # priming is skipped, so all the runs give the same result.
+      # priming is skipped, so all the runs give the same result. An SVD
+      # start gives both, from ALS solutions that each run draws from its
+      # own random allele frequencies.
+      run_q <- init_q
+      run_p <- init_p
+      if (init == "svd") {
+        start <- radmix_svd_start(data,
+          factors = svd_factors, k = this_k, n_cores = n_cores,
+          verbose = verbose
+        )
+        run_q <- start$q
+        run_p <- start$p
+      }
       fit <- radmix_fit(
         data,
-        k = this_k, init_q = init_q, init_p = init_p,
+        k = this_k, init_q = run_q, init_p = run_p,
         fix_q = fix_q, fix_p = fix_p, max_iter = max_iter, rtol = rtol,
         n_em_iter = n_em_iter, n_qn = n_qn, n_cores = n_cores,
         verbose = verbose
       )
+      if (init == "svd") fit$log <- c(start$log, fit$log)
       # P has one row per locus, in the order of show_loci(x), and gives the
       # frequency of the alternate allele in each ancestral population
       p_mat <- fit$p

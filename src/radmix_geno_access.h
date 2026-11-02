@@ -186,6 +186,32 @@ public:
     // fold() (hash % _n_folds) free of a division by zero in any mode
     _n_folds = (uint64_t) (n_folds > 0 ? n_folds : 1);
     _cv_seed = (uint64_t) cv_seed;
+    // Fast path for decoding a block of genotypes (see slice_bytes()). It
+    // needs the same decoding for every individual, i.e. a uniform number of
+    // trials and scale (always true without pseudohaploids). The tables then
+    // give g and h = n - g for each byte directly, with g = h = 0 for
+    // missing bytes, exactly the values that get() leads to (see
+    // slice_geno() in radmix_kernels.cpp); with a cross-validation mask, the
+    // caller also multiplies them by cv_visible().
+    bool uniform = true;
+    for (size_t i = 1; i < n; i++)
+      uniform = uniform && _n[i] == _n[0] && _scale[i] == _scale[0];
+    _fast = uniform && n > 0;
+    if (_fast) {
+      for (int b = 0; b < 256; b++) {
+        const double obs = _missing[b] ? 0.0 : 1.0;
+        const double g = _lut[b] * _scale[0];
+        _gtab[b] = obs * g;
+        _htab[b] = obs * (_n[0] - g);
+      }
+    }
+    // _contig[i]: the number of individuals from i onwards whose rows follow
+    // each other in the FBM (rows i, i + 1, ... are rows r, r + 1, ...),
+    // so that the bytes of a block of them are adjacent in each column
+    _contig.assign(n, 1);
+    for (size_t i = n; i-- > 1;) {
+      if (_rows[i] == _rows[i - 1] + 1) _contig[i - 1] = _contig[i] + 1;
+    }
   }
 
   // number of selected individuals (I) and loci (J)
@@ -194,6 +220,23 @@ public:
 
   // number of trials (allele copies) for individual i
   inline double n_trials(size_t i) const { return _n[i]; }
+
+  // The fast path for a block of genotypes: if individuals i0 to
+  // i0 + ni - 1 are adjacent in the FBM and the view decodes every
+  // individual alike (see the constructor), returns a pointer to the ni
+  // bytes of that block at locus j, and sets gtab and htab to the tables
+  // that decode them (g and h = n - g for each byte, 0 for missing ones;
+  // with a cross-validation mask, the genotypes for which cv_visible() is
+  // false must also be set to 0); otherwise returns nullptr, and the
+  // genotypes must be read with get().
+  inline const unsigned char* slice_bytes(size_t i0, size_t ni, size_t j,
+                                          const double*& gtab,
+                                          const double*& htab) const {
+    if (!_fast || _contig[i0] < ni) return nullptr;
+    gtab = _gtab;
+    htab = _htab;
+    return _pMat + _rows[i0] + _col_off[j];
+  }
 
   // Decode genotype (i, j). Returns whether it is observed (and visible,
   // with a cross-validation mask), and sets g to the (scaled) alt allele
@@ -216,6 +259,14 @@ public:
     }
     g = _lut[b] * _scale[i];
     return visible;
+  }
+
+  // whether the view has a cross-validation mask, and whether it shows
+  // genotype (i, j) (if it is observed): the test of get() without the
+  // decoding, for slice_bytes()
+  inline bool cv_masked() const { return _cv_mode != CV_NONE; }
+  inline bool cv_visible(size_t i, size_t j) const {
+    return (fold(i, j) == _cv_fold) != _cv_hide_fold;
   }
 
   // Fold (0 to n_folds - 1) of genotype (i, j), where i and j index the
@@ -274,6 +325,10 @@ private:
                                  // or the other genotypes (held-out view)
   uint64_t _n_folds;             // number of folds
   uint64_t _cv_seed;             // seed of the fold assignment
+  bool _fast;                    // whether slice_bytes() can be used
+  double _gtab[256];             // g of each byte for slice_bytes()
+  double _htab[256];             // h = n - g of each byte for slice_bytes()
+  std::vector<size_t> _contig;   // adjacent rows from each individual on
 };
 
 }  // namespace radmix

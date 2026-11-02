@@ -8,7 +8,9 @@
 #
 # It runs OpenADMIXTURE.jl on all the loci of the bed file (without its
 # selection of ancestry informative markers), with its default settings,
-# which are those of gt_radmix(). It writes the Q and P matrices to
+# which gt_radmix() follows, except that gt_radmix() stops at a relative
+# change in the log-likelihood of 1e-8 rather than 1e-7. It starts from
+# random values (it has no other start). It writes the Q and P matrices to
 # <output prefix>.Q and <output prefix>.P, as ADMIXTURE does, and prints its
 # progress, the log-likelihood and the time taken by the fit (including
 # reading the bed file and writing Q and P).

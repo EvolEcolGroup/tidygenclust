@@ -124,3 +124,63 @@ radmix_expect_ref_match <- function(inp, k, tolerance = 1e-10) {
     tolerance = tolerance
   )
 }
+
+# ALS on the factors of an SVD, as radmix_als_cpp() (src/radmix_als.cpp):
+# za is loci x R and ua individuals x R, w the weights of the loci in the Q
+# step, and init_p the starting allele frequencies (loci x K). Works in the
+# user layout, solving one row at a time, but returns q (K x I) and p
+# (K x J), as the C++ function.
+radmix_ref_als <- function(za, ua, w, init_p, max_iter = 1000, tol = 1e-4) {
+  clip <- function(a) pmin(pmax(a, 1e-5), 1 - 1e-5)
+  map_q <- function(q) {
+    q <- clip(q)
+    q / rowSums(q)
+  }
+  # each row x_i of x minimising 0.5 x_i' a x_i - b_i' x_i in [0, 1]: the
+  # unconstrained solution if it lies within the bounds (and a is well
+  # conditioned), otherwise by cyclic coordinate descent from its current
+  # value
+  box_cd <- function(a, b, x) {
+    direct <- rcond(a) > 1e-8
+    if (direct) x_direct <- b %*% solve(a)
+    for (i in seq_len(nrow(x))) {
+      if (direct && all(x_direct[i, ] >= 0 & x_direct[i, ] <= 1)) {
+        x[i, ] <- x_direct[i, ]
+        next
+      }
+      for (s in 1:20) {
+        change <- 0
+        for (k in seq_len(ncol(x))) {
+          new <- x[i, k] + (b[i, k] - sum(a[, k] * x[i, ])) / a[k, k]
+          new <- min(max(new, 0), 1)
+          change <- max(change, abs(new - x[i, k]))
+          x[i, k] <- new
+        }
+        if (change < 1e-7) break
+      }
+    }
+    x
+  }
+  q_step <- function(p, q) {
+    wp <- p * w
+    map_q(box_cd(crossprod(p, wp), ua %*% crossprod(za, wp), q))
+  }
+  p_step <- function(q, p) {
+    clip(box_cd(crossprod(q), za %*% crossprod(ua, q), p))
+  }
+  p <- clip(init_p)
+  k <- ncol(p)
+  q <- q_step(p, matrix(1 / k, nrow(ua), k))
+  q_prev <- q
+  for (iter in seq_len(max_iter)) {
+    q_use <- if (iter == 1) q else map_q(q + 0.8 * (q - q_prev))
+    p <- p_step(q_use, p)
+    q_new <- q_step(p, q)
+    done <- sqrt(mean((q_new - q)^2)) < tol
+    q_prev <- q
+    q <- q_new
+    if (done) break
+  }
+  # projected onto the feasible set of the fit, as radmix_als_cpp() does
+  list(q = radmix_project_q_cpp(t(q)), p = t(p), n_iter = iter)
+}

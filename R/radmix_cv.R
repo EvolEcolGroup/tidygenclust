@@ -22,7 +22,7 @@
 #' @keywords internal
 #' @noRd
 radmix_cv <- function(data, fit, k, n_folds, cv_seed, max_iter = 1000,
-                      rtol = 1e-7, n_qn = 3, n_cores = 1) {
+                      rtol = 1e-8, n_qn = 3, n_cores = 1) {
   # for each fold, the sum of the deviances of its genotypes and their
   # number (a fold can be empty with tiny data, giving a NaN fold error but
   # no harm to the pooled error)

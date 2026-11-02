@@ -1,6 +1,6 @@
 Package: tidygenclust
 Title: Clustering for Population Genetics in R
-Version: 0.1.5.9004
+Version: 0.1.5.9005
 Authors@R: c(
     person("Eirlys", "Tysall", role = c("aut")),
     person("Anahit", "Hovhannisyan", role = c("aut")),
@@ -54,6 +54,7 @@ Imports:
     patchwork (>= 1.2.0),
     Rcpp,
     reticulate,
+    RhpcBLASctl,
     rlang,
     stats,
     tibble,
@@ -66,7 +67,8 @@ LinkingTo:
     Rcpp,
     RcppArmadillo,
     rmio
-Suggests: 
+Suggests:
+    bigstatsr,
     data.table,
     igraph,
     knitr,

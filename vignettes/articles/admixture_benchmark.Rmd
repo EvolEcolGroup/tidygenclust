@@ -3,7 +3,7 @@ title: "Benchmarking gt_radmix() against ADMIXTURE, fastmixture and ADAMIXTURE"
 output:
   rmarkdown::html_vignette:
     toc: true
-    toc_depth: 2
+    toc_depth: 3
 params:
   results_dir: "data/admixture_benchmark_quick"
 vignette: >
@@ -34,9 +34,8 @@ results_dir <- params$results_dir
 ```
 
 > **Note:** the results shown in this article are, for now, those of a
-> small subset of the data (see [The data](#the-data)), run on a laptop
-> with 4 cores, to check the benchmark. They will be replaced by those of
-> the full benchmark.
+> small subset of the data (see [The data](#the-data)), to check the
+> benchmark. They will be replaced by those of the full benchmark.
 
 `gt_radmix()` estimates ancestry proportions with the method of ADMIXTURE
 (Alexander et al. 2009), directly from the backing file of a `gen_tibble`.
@@ -49,10 +48,20 @@ same model: ADMIXTURE itself, fastmixture (Santander et al. 2024), ADAMIXTURE
 (Saurina-i-Ricos et al. 2026), and OpenADMIXTURE.jl, the Julia
 implementation of OpenADMIXTURE (without its selection of ancestry
 informative markers). The comparison uses the Human
-Genome Diversity Project (HGDP). It checks that the programs find the same
-ancestry proportions, and measures how long each takes on different
-numbers of cores, with and without cross-validation (which OpenADMIXTURE.jl
-does not have).
+Genome Diversity Project (HGDP), and has two parts:
+
+- [Random starts](#random-starts): all the programs start from random
+  values (ADMIXTURE and OpenADMIXTURE.jl have no other start, and
+  fastmixture and ADAMIXTURE are run with their option to do so). It checks
+  that the programs find the same ancestry proportions, and measures how
+  long each takes on different numbers of cores, with and without
+  cross-validation (which OpenADMIXTURE.jl does not have).
+- [SVD and random starts](#svd-and-random-starts): `gt_radmix()`,
+  fastmixture and ADAMIXTURE can also start from a truncated singular value
+  decomposition (SVD) of the genotypes, which fastmixture and ADAMIXTURE do
+  by default (`gt_radmix()` does so with `init = "svd"`). Each of them is run
+  from both starts, with several seeds, to compare their times and the
+  log-likelihoods they reach.
 
 All the programs are timed from the command line, each run being a new
 process that starts the program, reads the data and saves the results.
@@ -97,6 +106,14 @@ program_labels <- c(
   fastmixture = "fastmixture",
   adamixture = "ADAMIXTURE",
   openadmixture = "OpenADMIXTURE.jl"
+)
+# one colour per program, in all the plots
+program_colours <- c(
+  radmix = "#2a78d6",
+  admixture = "#eb6834",
+  fastmixture = "#1baf7a",
+  adamixture = "#e87ba4",
+  openadmixture = "#eda100"
 )
 # one row per run, with its time, log-likelihood, cross-validation error
 # and number of iterations, and the name of the files of its Q matrix and
@@ -195,6 +212,15 @@ time_of <- function(tool, n_cores = min_cores, crossval = FALSE) {
       timings$crossval == crossval
   ]
 }
+# the cross-validation error of a program, on the fewest cores
+cv_of <- function(tool) {
+  formatC(
+    timings$cv_error[
+      timings$tool == tool & timings$n_cores == min_cores & timings$crossval
+    ],
+    format = "f", digits = 5
+  )
+}
 format_seconds <- function(x) {
   trimws(formatC(signif(x, 3), format = "fg", digits = 3, big.mark = ","))
 }
@@ -250,13 +276,82 @@ local_optima_text <- if (nrow(local_optima) == 0) {
 }
 ```
 
+```{r starts, include = FALSE}
+# the comparison of the starts: one row per run of the programs that can
+# start from an SVD of the genotypes as well as from random values (e.g.
+# radmix_cli_svd_s2 for gt_radmix() from an SVD with seed 2)
+start_labels <- c(random = "Random", svd = "SVD")
+starts <- read.csv(file.path(results_dir, "starts_cli.csv")) %>%
+  mutate(
+    run = paste0(tool, "_", init, "_s", seed),
+    program = factor(tool_program[tool], names(program_labels)),
+    init = factor(init, names(start_labels))
+  )
+starts_cores <- unique(starts$n_cores)
+n_seeds <- length(unique(starts$seed))
+q_starts <- lapply(
+  setNames(starts$run, starts$run),
+  function(run) align_q(read_q(run), q_ref)
+)
+# the highest log-likelihood of all the runs (of both parts of the
+# benchmark); a run more than 1 below it ended at another local optimum, or
+# stopped short of it
+best_loglik <- max(c(timings$loglik, starts$loglik), na.rm = TRUE)
+starts <- starts %>%
+  mutate(
+    loglik_diff = loglik - timings$loglik[timings$run == reference_run],
+    below_best = best_loglik - loglik,
+    at_best = below_best < 1,
+    rmse_ref = vapply(run, function(r) rmse(q_starts[[r]], q_ref), 0)
+  )
+# the largest difference in ancestry proportions between two runs (of the
+# same program from the same start)
+largest_spread <- function(runs) {
+  if (length(runs) < 2) {
+    return(0)
+  }
+  pairs <- utils::combn(runs, 2)
+  max(apply(pairs, 2, function(p) max_diff(q_starts[[p[1]]], q_starts[[p[2]]])))
+}
+starts_summary <- starts %>%
+  group_by(program, init) %>%
+  summarise(
+    runs = n(),
+    seconds_median = median(seconds),
+    seconds_min = min(seconds),
+    seconds_max = max(seconds),
+    iterations = median(iterations),
+    at_best = sum(at_best),
+    worst = max(below_best),
+    spread = largest_spread(run),
+    rmse_ref = median(rmse_ref),
+    .groups = "drop"
+  )
+# a sentence on a program, for the summary
+starts_text <- function(program) {
+  random <- starts_summary[
+    starts_summary$program == program & starts_summary$init == "random",
+  ]
+  svd <- starts_summary[
+    starts_summary$program == program & starts_summary$init == "svd",
+  ]
+  paste0(
+    format_seconds(svd$seconds_median), " s from an SVD and ",
+    format_seconds(random$seconds_median), " s from random values (",
+    svd$at_best, " and ", random$at_best, " of the ", n_seeds,
+    " runs reached the highest log-likelihood)"
+  )
+}
+```
+
 ## Summary
 
 The five programs estimated the ancestry proportions of `r n_indiv`
 individuals of the HGDP, typed at `r format(n_loci, big.mark = ",")` loci,
 for K = `r k` ancestral populations (see [The data](#the-data)):
 
-- From the command line, on `r min_cores` core, without cross-validation,
+- From random starts, from the command line, on `r min_cores` core, without
+  cross-validation,
   `gt_radmix()` took `r format_seconds(time_of("radmix_cli"))` s,
   ADMIXTURE `r format_seconds(time_of("admixture"))` s, fastmixture
   `r format_seconds(time_of("fastmixture"))` s, ADAMIXTURE
@@ -293,47 +388,63 @@ for K = `r k` ancestral populations (see [The data](#the-data)):
   `r runs_differ_by("fastmixture")`, ADAMIXTURE
   `r runs_differ_by("adamixture")`, and OpenADMIXTURE.jl (without
   cross-validation) `r runs_differ_by("openadmixture")`.
+- With `r n_seeds` seeds on `r starts_cores` cores (median times from the
+  command line), `gt_radmix()` took `r starts_text("radmix")`; fastmixture
+  `r starts_text("fastmixture")`; and ADAMIXTURE
+  `r starts_text("adamixture")`.
 
-## Do the programs find the same ancestry proportions?
+## Random starts
+
+### Do the programs find the same ancestry proportions?
 
 All the programs maximise the same likelihood, but each starts from its
 own random values and stops according to its own convergence criterion.
 Each run is compared with ADMIXTURE on `r min_cores` core without
-cross-validation, after matching its clusters to those of ADMIXTURE:
+cross-validation, after matching its clusters to those of ADMIXTURE
+(the [detailed results](#detailed-results) give the numbers of each run):
 
-```{r table_agreement, echo = FALSE}
+```{r plot_agreement, echo = FALSE, fig.width = 7, fig.height = 2.6}
+measure_labels <- c(
+  loglik_diff = "Log-likelihood minus ADMIXTURE's",
+  rmse_ref = "RMSE from ADMIXTURE's proportions"
+)
 agreement %>%
-  arrange(tool, n_cores, crossval) %>%
   mutate(
-    tool = tool_labels[as.character(tool)],
-    crossval = if_else(crossval, "yes", "no"),
-    loglik = formatC(loglik, format = "f", digits = 2, big.mark = ","),
-    across(c(loglik_diff, diff_own, rmse_ref, diff_ref), format_diff)
-  ) %>%
-  select(
-    tool, n_cores, crossval, loglik, loglik_diff, diff_own, rmse_ref, diff_ref
-  ) %>%
-  knitr::kable(
-    col.names = c(
-      "Program", "Cores", "CV", "Log-likelihood", "Difference",
-      "Largest difference (same program)", "RMSE (ADMIXTURE)",
-      "Largest difference (ADMIXTURE)"
-    ),
-    align = "lllrrrrr",
-    caption = paste0(
-      "Log-likelihood of each run (fastmixture and ADAMIXTURE report it with ",
-      "one decimal), ",
-      "and its difference from that of ADMIXTURE on ", min_cores, " core ",
-      "without cross-validation (CV; positive when higher). ",
-      "Largest absolute difference between the ancestry proportions of each ",
-      "run and those of the same program on ", min_cores, " core without ",
-      "CV, and root mean square error (RMSE) and largest absolute difference ",
-      "from those of ADMIXTURE on ", min_cores, " core without CV. The Q ",
-      "matrices are stored with 6 decimals, so differences smaller than ",
-      "1e-6 do not show."
+    program = factor(
+      tool_program[as.character(tool)],
+      rev(names(program_labels))
     )
-  )
+  ) %>%
+  select(program, loglik_diff, rmse_ref) %>%
+  pivot_longer(c(loglik_diff, rmse_ref), names_to = "measure") %>%
+  mutate(measure = factor(measure, names(measure_labels))) %>%
+  ggplot(aes(x = value, y = program, colour = program)) +
+  geom_vline(xintercept = 0, colour = "grey60", linetype = "dashed") +
+  geom_point(
+    size = 2.5, alpha = 0.7,
+    position = position_jitter(width = 0, height = 0.12, seed = 1)
+  ) +
+  facet_wrap(
+    ~measure,
+    scales = "free_x",
+    labeller = labeller(measure = measure_labels)
+  ) +
+  scale_x_continuous(
+    breaks = scales::breaks_extended(n = 3),
+    labels = function(x) {
+      format(x, scientific = FALSE, drop0trailing = TRUE, trim = TRUE)
+    }
+  ) +
+  scale_y_discrete(labels = program_labels) +
+  scale_colour_manual(values = program_colours, guide = "none") +
+  labs(x = NULL, y = NULL) +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank())
 ```
+
+Each point is a run (on each number of cores, with and without
+cross-validation, and, for `gt_radmix()` and OpenADMIXTURE.jl, from the
+command line and in a session).
 
 Each program was run once for each number of cores, from a single random
 start (with seed 1, but each program draws its own random values), so a
@@ -409,7 +520,7 @@ ggplot(q_long, aes(x = individual, y = proportion, fill = cluster)) +
   )
 ```
 
-## How long do they take?
+### How long do they take?
 
 The times of ADMIXTURE, fastmixture and ADAMIXTURE are those of runs from
 the command line: each run is a new process, which starts the program, reads
@@ -432,14 +543,7 @@ with the package loaded:
   which OpenADMIXTURE.jl has already been used.
 
 ```{r plot_timings, echo = FALSE, fig.width = 7, fig.height = 4.5}
-# one colour per program, and one type of line per way of running it
-program_colours <- c(
-  radmix = "#2a78d6",
-  admixture = "#eb6834",
-  fastmixture = "#1baf7a",
-  adamixture = "#e87ba4",
-  openadmixture = "#eda100"
-)
+# one type of line per way of running it
 setting_labels <- c(
   cli = "Command line",
   session = "Session (R or Julia)"
@@ -487,6 +591,158 @@ timings %>%
   )
 ```
 
+(The times and speed-ups of each run are in the
+[detailed results](#detailed-results).) Starting R and loading `tidygenclust` adds about
+`r format_seconds(startup_of("radmix"))` s to each run of `gt_radmix()`
+from the command line. Starting Julia, loading OpenADMIXTURE.jl and
+compiling its code adds about
+`r format_seconds(startup_of("openadmixture"))` s to each run of
+OpenADMIXTURE.jl (these are the median differences between the runs from
+the command line and in a session).
+
+### Cross-validation errors
+
+The cross-validation errors did not depend on the number of cores. On
+`r min_cores` core, they were `r cv_of("radmix_cli")` with `gt_radmix()`,
+`r cv_of("admixture")` with ADMIXTURE, `r cv_of("adamixture")` with
+ADAMIXTURE and `r cv_of("fastmixture")` with fastmixture (see the
+[detailed results](#detailed-results) for all the runs).
+
+OpenADMIXTURE.jl has no cross-validation: we implemented in `gt_radmix()`
+that of ADMIXTURE. ADMIXTURE and `gt_radmix()` compute the same
+cross-validation error (Alexander and Lange 2011): they hold out a fold of
+the genotypes, refit the model on the others, and average the deviance of
+the held-out genotypes.
+They draw the folds differently, so their errors are close but not
+identical. fastmixture averages the same deviance, but holds out a fold of
+the individuals rather than of the genotypes. The allele frequencies come
+from the other individuals, but the ancestry of the held-out individuals is
+estimated from their own genotypes, the same genotypes on which the error is
+then computed. Its errors can be compared between values of K, but not with
+those of the other programs. ADAMIXTURE also averages the deviance of
+held-out genotypes, but it refits the model on each fold with only 5
+iterations, starting from the estimates on all the genotypes, so its errors
+are close to those of ADMIXTURE and `gt_radmix()`, but not identical.
+
+## SVD and random starts
+
+`gt_radmix()`, fastmixture and ADAMIXTURE can start from a truncated SVD of
+the genotypes, followed by alternating least squares (ALS) on its factors,
+as well as from random values. fastmixture and ADAMIXTURE start from the
+SVD by default, `gt_radmix()` from random values (the SVD is an option,
+`init = "svd"`). Each of the three programs was run from both starts with
+seeds 1 to `r n_seeds`, on `r starts_cores` cores, without
+cross-validation, from the command line:
+
+```{r plot_starts, echo = FALSE, fig.width = 7, fig.height = 2.8}
+start_colours <- c(random = "#c1661c", svd = "#3b5ba5")
+start_programs <- c("radmix", "fastmixture", "adamixture")
+# one row per program, with the runs from the two starts just above and
+# below it
+starts_plot <- starts %>%
+  mutate(
+    row = match(as.character(program), rev(start_programs)) +
+      if_else(init == "svd", -0.15, 0.15)
+  )
+starts_panel <- function(column, title, x_scale, show_y = FALSE) {
+  ggplot(starts_plot, aes(x = .data[[column]], y = row, colour = .data$init)) +
+    geom_point(size = 2.2, alpha = 0.7) +
+    x_scale +
+    scale_y_continuous(
+      breaks = seq_along(start_programs),
+      labels = program_labels[rev(start_programs)],
+      limits = c(0.6, length(start_programs) + 0.4)
+    ) +
+    scale_colour_manual(
+      values = start_colours,
+      labels = c(random = "Random start", svd = "SVD start")
+    ) +
+    labs(title = title, x = NULL, y = NULL, colour = NULL) +
+    theme_minimal() +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major.y = element_blank(),
+      plot.title = element_text(size = 10),
+      axis.text.y = if (show_y) element_text() else element_blank()
+    )
+}
+format_axis <- function(x) {
+  format(x, scientific = FALSE, drop0trailing = TRUE, trim = TRUE)
+}
+patchwork::wrap_plots(
+  starts_panel(
+    "seconds", "Time (s)", scale_x_log10(labels = format_axis),
+    show_y = TRUE
+  ),
+  starts_panel("iterations", "Iterations", scale_x_log10(labels = format_axis)),
+  starts_panel(
+    "below_best", "Below the best log-likelihood",
+    scale_x_continuous(
+      trans = scales::pseudo_log_trans(sigma = 0.01, base = 10),
+      breaks = c(0, 0.1, 1, 10, 100, 1000, 1e4, 1e5, 1e6),
+      labels = format_axis,
+      expand = expansion(mult = 0.1)
+    )
+  ) +
+    geom_vline(xintercept = 1, colour = "grey60", linetype = "dashed"),
+  nrow = 1
+) +
+  patchwork::plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+Each point is a run. Time and iterations are on log scales; the
+iterations of a program count its own steps, so they can be compared
+between its two starts but not between programs. The right panel shows how
+far the log-likelihood of each run is below the highest of all the runs of
+the benchmark: the runs left of the dashed line (within 1 of it) reached
+the same optimum.
+
+The time of `gt_radmix()` from the command line includes starting R and
+loading `tidygenclust` (about `r format_seconds(startup_of("radmix"))` s),
+and, from an SVD, imputing the missing genotypes (needed for the SVD only;
+the fit ignores the imputed values).
+
+## Detailed results
+
+### Agreement between the programs (random starts)
+
+```{r table_agreement, echo = FALSE}
+agreement %>%
+  arrange(tool, n_cores, crossval) %>%
+  mutate(
+    tool = tool_labels[as.character(tool)],
+    crossval = if_else(crossval, "yes", "no"),
+    loglik = formatC(loglik, format = "f", digits = 2, big.mark = ","),
+    across(c(loglik_diff, diff_own, rmse_ref, diff_ref), format_diff)
+  ) %>%
+  select(
+    tool, n_cores, crossval, loglik, loglik_diff, diff_own, rmse_ref, diff_ref
+  ) %>%
+  knitr::kable(
+    col.names = c(
+      "Program", "Cores", "CV", "Log-likelihood", "Difference",
+      "Largest difference (same program)", "RMSE (ADMIXTURE)",
+      "Largest difference (ADMIXTURE)"
+    ),
+    align = "lllrrrrr",
+    caption = paste0(
+      "Log-likelihood of each run (fastmixture and ADAMIXTURE report it with ",
+      "one decimal), ",
+      "and its difference from that of ADMIXTURE on ", min_cores, " core ",
+      "without cross-validation (CV; positive when higher). ",
+      "Largest absolute difference between the ancestry proportions of each ",
+      "run and those of the same program on ", min_cores, " core without ",
+      "CV, and root mean square error (RMSE) and largest absolute difference ",
+      "from those of ADMIXTURE on ", min_cores, " core without CV. The Q ",
+      "matrices are stored with 6 decimals, so differences smaller than ",
+      "1e-6 do not show."
+    )
+  )
+```
+
+### Times (random starts)
+
 ```{r table_timings, echo = FALSE}
 timings %>%
   group_by(tool, crossval) %>%
@@ -523,15 +779,7 @@ timings %>%
   )
 ```
 
-Starting R and loading `tidygenclust` adds about
-`r format_seconds(startup_of("radmix"))` s to each run of `gt_radmix()`
-from the command line. Starting Julia, loading OpenADMIXTURE.jl and
-compiling its code adds about
-`r format_seconds(startup_of("openadmixture"))` s to each run of
-OpenADMIXTURE.jl (these are the median differences between the runs from
-the command line and in a session).
-
-## Cross-validation errors
+### Cross-validation errors (random starts)
 
 ```{r table_cv, echo = FALSE}
 timings %>%
@@ -551,26 +799,51 @@ timings %>%
         if_else(sort(unique(timings$n_cores)) == 1, "core", "cores")
       )
     ),
-    align = "lrrr",
+    align = paste0("l", strrep("r", length(unique(timings$n_cores)))),
     caption = "Cross-validation error of each program, on each number of cores."
   )
 ```
 
-OpenADMIXTURE.jl has no cross-validation: we implemented in `gt_radmix()`
-that of ADMIXTURE. ADMIXTURE and `gt_radmix()` compute the same
-cross-validation error (Alexander and Lange 2011): they hold out a fold of
-the genotypes, refit the model on the others, and average the deviance of
-the held-out genotypes.
-They draw the folds differently, so their errors are close but not
-identical. fastmixture averages the same deviance, but holds out a fold of
-the individuals rather than of the genotypes. The allele frequencies come
-from the other individuals, but the ancestry of the held-out individuals is
-estimated from their own genotypes, the same genotypes on which the error is
-then computed. Its errors can be compared between values of K, but not with
-those of the other programs. ADAMIXTURE also averages the deviance of
-held-out genotypes, but it refits the model on each fold with only 5
-iterations, starting from the estimates on all the genotypes, so its errors
-are close to those of ADMIXTURE and `gt_radmix()`, but not identical.
+### Random and SVD starts
+
+```{r table_starts, echo = FALSE}
+starts_summary %>%
+  arrange(program, init) %>%
+  mutate(
+    program = program_labels[as.character(program)],
+    init = start_labels[as.character(init)],
+    seconds = paste0(
+      format_seconds(seconds_median), " (", format_seconds(seconds_min),
+      "-", format_seconds(seconds_max), ")"
+    ),
+    at_best = paste(at_best, "of", runs),
+    across(c(worst, spread, rmse_ref), format_diff)
+  ) %>%
+  select(
+    program, init, seconds, iterations, at_best, worst, spread, rmse_ref
+  ) %>%
+  knitr::kable(
+    col.names = c(
+      "Program", "Start", "Time (s)", "Iterations", "At the best",
+      "Largest shortfall", "Largest difference between runs",
+      "RMSE (ADMIXTURE)"
+    ),
+    align = "llrrrrrr",
+    caption = paste0(
+      "Median time (s; range in brackets) and number of iterations of the ",
+      n_seeds, " runs of each program from each start; number of runs that ",
+      "reached the highest log-likelihood of all the runs of the benchmark ",
+      "(to within 1), and the largest shortfall from it; largest absolute ",
+      "difference between the ancestry proportions of two runs of the same ",
+      "program from the same start; and median root mean square error ",
+      "(RMSE) of the ancestry proportions from those of ADMIXTURE on ",
+      min_cores, " core without cross-validation. The numbers of iterations ",
+      "are not comparable between programs (see ",
+      "[Running the programs from the command line]",
+      "(#running-the-programs-from-the-command-line))."
+    )
+  )
+```
 
 # How the benchmark was run
 
@@ -621,7 +894,10 @@ Each program is run on `r cores_text` cores (with `-j` in ADMIXTURE,
 `n_cores` in `gt_radmix()` and the number of threads of Julia for
 OpenADMIXTURE.jl), with and without cross-validation (with `--cv` in
 ADMIXTURE, fastmixture and ADAMIXTURE, and `crossval` in `gt_radmix()`;
-OpenADMIXTURE.jl has none), with these functions:
+OpenADMIXTURE.jl has none), from random values or from an SVD of the
+genotypes (with `--random-init` in fastmixture, `--init em` or
+`--init als` in ADAMIXTURE, and `init` in `gt_radmix()`), with these
+functions:
 
 ```{bash cli-functions, eval = FALSE}
 ```
@@ -632,16 +908,30 @@ iterations of each run are saved:
 ```{bash cli-runs, eval = FALSE}
 ```
 
+The programs are first run from random values, on each number of cores,
+with and without cross-validation:
+
+```{bash cli-random, eval = FALSE}
+```
+
+and then `gt_radmix()`, fastmixture and ADAMIXTURE from both starts, with
+several seeds:
+
+```{bash cli-starts, eval = FALSE}
+```
+
 From the command line, `gt_radmix()` is run by this R script (with
-`Rscript`), which reads the same bed file into a `gen_tibble`, runs
-`gt_radmix()`, and saves the result to an RDS file:
+`Rscript`), which reads the same bed file into a `gen_tibble` (imputing the
+missing genotypes for the SVD), runs `gt_radmix()`, and saves the result to
+an RDS file:
 
 ```{r r-cli, eval = FALSE}
 ```
 
 and OpenADMIXTURE.jl by this Julia script (with `julia`), which runs it on
 all the loci, without its selection of ancestry informative markers, with
-its default settings, which are those of `gt_radmix()`:
+its default settings (which `gt_radmix()` follows, except for its
+convergence threshold, see below):
 
 ```{r julia-run, eval = FALSE, lang = "julia"}
 ```
@@ -649,13 +939,14 @@ its default settings, which are those of `gt_radmix()`:
 ## Running gt_radmix() in an R session
 
 `gt_radmix()` runs on a `gen_tibble`. Its parallel loops use OpenMP,
-with `n_cores` threads. It only calls BLAS for small systems of K
-equations, so BLAS is kept to a single thread:
+with `n_cores` threads. From random values, it only calls BLAS for small
+systems of K equations; BLAS is limited to the cores of each run:
 
 ```{r r-packages, eval = FALSE}
 ```
 
-It is run with the same settings as the other programs:
+It is run from random values, with the same settings as the other
+programs:
 
 ```{r r-settings, eval = FALSE}
 ```
@@ -672,14 +963,17 @@ iterations. fastmixture checks every 5 iterations, and stops when the
 log-likelihood, divided by the number of observed genotypes, has increased
 by less than 1e-9. ADAMIXTURE, with its default solver (BR-QN; it also
 offers the Adam-EM algorithm of its paper), stops when the log-likelihood
-changes by less than 0.1 between iterations. `gt_radmix()` and
-OpenADMIXTURE.jl stop when the relative change in the log-likelihood is less
-than 1e-7. The numbers of iterations are not comparable either. An
+changes by less than 0.1 between iterations. `gt_radmix()` stops when the
+relative change in the log-likelihood is less than 1e-8, and OpenADMIXTURE.jl
+when it is less than 1e-7. The numbers of iterations are not comparable either. An
 iteration of fastmixture is a pass of accelerated EM updates, first over
 mini-batches of the loci. An iteration of ADMIXTURE, ADAMIXTURE,
 `gt_radmix()` and OpenADMIXTURE.jl updates all the parameters with
-block-wise Newton steps (ADAMIXTURE first initialises them with a truncated
-SVD of the genotypes and alternating least squares, as fastmixture does).
+block-wise Newton steps. From random values, ADMIXTURE, ADAMIXTURE,
+`gt_radmix()` and OpenADMIXTURE.jl first refine them with a few EM steps.
+From an SVD, fastmixture, ADAMIXTURE and `gt_radmix()` start from the
+solution of alternating least squares on its factors (`gt_radmix()` keeps
+the best of three such solutions).
 
 ## From the results to the tables and plots
 
@@ -705,7 +999,9 @@ bash data-raw/radmix/setup_julia_env.sh
 
 Then run, from `vignettes/articles`, on an otherwise idle machine with at
 least `r max_cores` cores (the largest number of cores tested, set by
-`cores` in the scripts):
+`cores` in the scripts). On a processor with performance and efficiency
+cores, confine the runs to the performance cores (e.g. with `taskset -c 0-7`
+before `bash` and `Rscript` on Linux):
 
 ```sh
 cd vignettes/articles

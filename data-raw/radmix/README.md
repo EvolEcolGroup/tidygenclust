@@ -139,3 +139,18 @@ version control), and need `tidygenclust` to be installed (timings from
   more scenarios, the log-likelihood and AIC, and values of K above the
   true one), and shows that the diploids of the population of the
   pseudohaploids do appear admixed at K = 2.
+
+## Speed-ups
+
+`speedups/` holds the record of the work that sped up `gt_radmix()` (the
+SVD start, the faster kernels, and the default convergence threshold of
+1e-8): the plan, the experiments, and the report of their verification on
+a second machine (see `speedups/README.md`). The SVD start was explored
+with:
+
+- `explore_svd_start.R`: starts from a randomised SVD followed by
+  alternating least squares (ALS), as in fastmixture and ADAMIXTURE,
+  against the default random start;
+- `explore_svd_start_refined.R`: refined versions (a cheaper SVD, ALS with
+  bounds and weights as in ADAMIXTURE, the number of components and of ALS
+  solutions), which led to the choices of `init = "svd"`.

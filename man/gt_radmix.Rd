@@ -10,9 +10,10 @@ gt_radmix(
   n_runs = 1,
   seed = NULL,
   max_iter = 1000,
-  rtol = 1e-07,
+  rtol = 1e-08,
   n_em_iter = 5,
   n_qn = 3,
+  init = c("random", "svd"),
   init_q = NULL,
   init_p = NULL,
   fix_q = FALSE,
@@ -39,13 +40,24 @@ state is restored on exit.}
 \item{max_iter}{the maximum number of iterations (defaults to 1000)}
 
 \item{rtol}{the convergence threshold on the relative change in
-log-likelihood between iterations (defaults to 1e-7)}
+log-likelihood between iterations (defaults to 1e-8). OpenADMIXTURE.jl
+uses 1e-7, which takes 10-20\% less time but can stop a few
+log-likelihood units short of convergence, with ancestry proportions up
+to about 0.05 away from the converged ones}
 
 \item{n_em_iter}{the number of EM iterations used to prime the estimates
-(defaults to 5)}
+(defaults to 5); not used with \code{init = "svd"}}
 
 \item{n_qn}{the number of secant pairs used by the quasi-Newton
 acceleration (defaults to 3)}
+
+\item{init}{how the starting values of each run are chosen: \code{"random"}
+(the default), random values followed by \code{n_em_iter} EM iterations, as
+in ADMIXTURE and OpenADMIXTURE; or \code{"svd"}, from a truncated SVD of the
+genotypes, which needs fewer iterations but is not suited to exploring
+the modes of the likelihood with several runs (see "Starting values
+from the SVD" in the details). \code{"svd"} cannot be combined with \code{init_q}
+or \code{init_p}.}
 
 \item{init_q}{optional matrix (individuals x k) of starting ancestry
 proportions; only allowed with a single value of \code{k}}
@@ -135,7 +147,8 @@ new individuals given the allele frequencies of a reference panel (a
 As in OpenADMIXTURE.jl, each run consists of:
 \enumerate{
 \item a random initialisation followed by a few EM (FRAPPE) iterations
-(\code{n_em_iter});
+(\code{n_em_iter}), or, with \code{init = "svd"}, a start from the SVD of the
+genotypes (see below);
 \item block-wise Newton updates of Q (one individual at a time, on the
 simplex) and P (one locus at a time, in the unit interval), each
 solved exactly as a small quadratic program with K. Lange's
@@ -148,6 +161,56 @@ log-likelihood.
 Iterations stop when the relative change in log-likelihood falls below
 \code{rtol}. All estimates are kept within [1e-5, 1 - 1e-5], as in ADMIXTURE
 and OpenADMIXTURE.jl.
+
+On x86-64 Linux, when the package is compiled with GCC 12 or later, the
+main computations are also compiled for processors with the AVX2 and
+FMA instructions (most processors made since 2015), and the faster
+version is chosen when the package is loaded. Results are reproducible
+on a given machine, but can differ in the last digits between machines
+with and without these instructions. Compiling the package with
+\code{-DRADMIX_NO_MULTIVERSION} (e.g. added to \code{CXXFLAGS} in
+\verb{~/.R/Makevars}) builds only the portable version, whose results are the
+same on every x86-64 machine.
+}
+
+\subsection{Starting values from the SVD}{
+
+With \code{init = "svd"}, each run starts from the principal components of
+the genotypes rather than from random values, as in ADAMIXTURE
+(Saurina-i-Ricos et al. 2026) and fastmixture (Santander et al. 2024):
+\enumerate{
+\item a partial SVD of the genotypes, centred and scaled as by
+\code{\link[tidypopgen:gt_pca_partialSVD]{tidypopgen::gt_pca_partialSVD()}}, with \code{max(k) + 5} components, is
+computed once and shared by all the runs (monomorphic loci, which
+the default scaling of tidypopgen rejects, are left unscaled);
+\item for each run, alternating least squares (ALS) find Q and P whose
+product approximates the allele frequencies predicted by the first
+\code{k + 5} components, starting from random allele frequencies. As in
+ADAMIXTURE, the least squares are bounded, the loci are weighted by
+the inverse of their binomial variance when solving for Q, and Q is
+extrapolated (momentum) when solving for P. The ALS only uses the
+SVD, not the genotypes, so it is fast;
+\item the best of 3 such solutions, by log-likelihood, starts the fit,
+without EM priming (\code{n_em_iter} is not used).
+}
+
+The SVD cannot use missing genotypes, so they must be imputed first
+(e.g. with \code{\link[tidypopgen:gt_impute_simple]{tidypopgen::gt_impute_simple()}}); the imputed genotypes are
+only used for the SVD, and the fit ignores them (unless
+\code{use_imputed = TRUE}). The SVD also needs more individuals and loci than
+\code{max(k) + 5}.
+
+Fits from the SVD need fewer iterations (often less than half as many as
+from random starts in our tests), and usually reach a good fit (though,
+as from any start, not always the best one). They are therefore useful
+for a single good fit of a large dataset, where many random runs would
+be costly, or as a first exploration before a more extensive search
+with random starts. However, the starts of different runs vary little,
+and favour some solutions over others: to explore the modes of the
+likelihood with several runs (e.g. with \code{\link[=gt_clumppling]{gt_clumppling()}}), use random
+starts (the default), and do not mix runs started in the two ways, as
+the runs started from the SVD would over-represent the solutions that
+they favour.
 }
 
 \subsection{Cross-validation}{
@@ -208,6 +271,8 @@ computations of OpenADMIXTURE.jl to numerical precision (this is checked
 by the test suite), except for the following:
 \itemize{
 \item there is no GPU (CUDA) support;
+\item the start from the SVD (\code{init = "svd"}, see above) is not part of
+OpenADMIXTURE;
 \item we implemented cross-validation, as in ADMIXTURE (see above), which
 is not part of OpenADMIXTURE;
 \item sparse K-means selection of ancestry informative markers (SKFR) is not
@@ -265,4 +330,13 @@ individual ancestry estimation. BMC Bioinformatics, 12, 246.
 Zhou H, Alexander D, Lange K (2011) A quasi-Newton acceleration for
 high-dimensional optimization algorithms. Statistics and Computing,
 21(2), 261-273.
+
+Saurina-i-Ricos J, Mas Montserrat D, Ioannidis AG (2026) ADAMIXTURE:
+adaptive first-order optimization for biobank-scale genetic clustering.
+Bioinformatics, 42(Supplement_1). doi:
+https://doi.org/10.1093/bioinformatics/btag236
+
+Santander CG, Refoyo Martinez A, Meisner J (2024) Faster model-based
+estimation of ancestry proportions. bioRxiv 2024.07.08.602454. doi:
+https://doi.org/10.1101/2024.07.08.602454
 }
