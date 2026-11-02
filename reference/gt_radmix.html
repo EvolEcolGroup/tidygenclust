@@ -32,7 +32,7 @@ algorithm, as well as Alexander et al. (2009) for the method.'><meta property="o
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidygenclust</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.5.9004</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.5.9005</span>
       </span>
     </div>
 
@@ -105,9 +105,10 @@ algorithm, as well as Alexander et al. (2009) for the method.</p>
 <span>  n_runs <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  max_iter <span class="op">=</span> <span class="fl">1000</span>,</span>
-<span>  rtol <span class="op">=</span> <span class="fl">1e-07</span>,</span>
+<span>  rtol <span class="op">=</span> <span class="fl">1e-08</span>,</span>
 <span>  n_em_iter <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  n_qn <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>  init <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"random"</span>, <span class="st">"svd"</span><span class="op">)</span>,</span>
 <span>  init_q <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  init_p <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  fix_q <span class="op">=</span> <span class="cn">FALSE</span>,</span>
@@ -149,17 +150,30 @@ state is restored on exit.</p></dd>
 
 <dt id="arg-rtol">rtol<a class="anchor" aria-label="anchor" href="#arg-rtol"></a></dt>
 <dd><p>the convergence threshold on the relative change in
-log-likelihood between iterations (defaults to 1e-7)</p></dd>
+log-likelihood between iterations (defaults to 1e-8). OpenADMIXTURE.jl
+uses 1e-7, which takes 10-20% less time but can stop a few
+log-likelihood units short of convergence, with ancestry proportions up
+to about 0.05 away from the converged ones</p></dd>
 
 
 <dt id="arg-n-em-iter">n_em_iter<a class="anchor" aria-label="anchor" href="#arg-n-em-iter"></a></dt>
 <dd><p>the number of EM iterations used to prime the estimates
-(defaults to 5)</p></dd>
+(defaults to 5); not used with <code>init = "svd"</code></p></dd>
 
 
 <dt id="arg-n-qn">n_qn<a class="anchor" aria-label="anchor" href="#arg-n-qn"></a></dt>
 <dd><p>the number of secant pairs used by the quasi-Newton
 acceleration (defaults to 3)</p></dd>
+
+
+<dt id="arg-init">init<a class="anchor" aria-label="anchor" href="#arg-init"></a></dt>
+<dd><p>how the starting values of each run are chosen: <code>"random"</code>
+(the default), random values followed by <code>n_em_iter</code> EM iterations, as
+in ADMIXTURE and OpenADMIXTURE; or <code>"svd"</code>, from a truncated SVD of the
+genotypes, which needs fewer iterations but is not suited to exploring
+the modes of the likelihood with several runs (see "Starting values
+from the SVD" in the details). <code>"svd"</code> cannot be combined with <code>init_q</code>
+or <code>init_p</code>.</p></dd>
 
 
 <dt id="arg-init-q">init_q<a class="anchor" aria-label="anchor" href="#arg-init-q"></a></dt>
@@ -243,7 +257,8 @@ new individuals given the allele frequencies of a reference panel (a
 
 
 <p>As in OpenADMIXTURE.jl, each run consists of:</p><ol><li><p>a random initialisation followed by a few EM (FRAPPE) iterations
-(<code>n_em_iter</code>);</p></li>
+(<code>n_em_iter</code>), or, with <code>init = "svd"</code>, a start from the SVD of the
+genotypes (see below);</p></li>
 <li><p>block-wise Newton updates of Q (one individual at a time, on the
 simplex) and P (one locus at a time, in the unit interval), each
 solved exactly as a small quadratic program with K. Lange's
@@ -254,6 +269,52 @@ log-likelihood.</p></li>
 </ol><p>Iterations stop when the relative change in log-likelihood falls below
 <code>rtol</code>. All estimates are kept within [1e-5, 1 - 1e-5], as in ADMIXTURE
 and OpenADMIXTURE.jl.</p>
+<p>On x86-64 Linux, when the package is compiled with GCC 12 or later, the
+main computations are also compiled for processors with the AVX2 and
+FMA instructions (most processors made since 2015), and the faster
+version is chosen when the package is loaded. Results are reproducible
+on a given machine, but can differ in the last digits between machines
+with and without these instructions. Compiling the package with
+<code>-DRADMIX_NO_MULTIVERSION</code> (e.g. added to <code>CXXFLAGS</code> in
+<code>~/.R/Makevars</code>) builds only the portable version, whose results are the
+same on every x86-64 machine.</p>
+</div>
+
+<div class="section">
+<h3 id="starting-values-from-the-svd">Starting values from the SVD<a class="anchor" aria-label="anchor" href="#starting-values-from-the-svd"></a></h3>
+
+
+<p>With <code>init = "svd"</code>, each run starts from the principal components of
+the genotypes rather than from random values, as in ADAMIXTURE
+(Saurina-i-Ricos et al. 2026) and fastmixture (Santander et al. 2024):</p><ol><li><p>a partial SVD of the genotypes, centred and scaled as by
+<code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_pca_partialSVD.html" class="external-link">tidypopgen::gt_pca_partialSVD()</a></code>, with <code>max(k) + 5</code> components, is
+computed once and shared by all the runs (monomorphic loci, which
+the default scaling of tidypopgen rejects, are left unscaled);</p></li>
+<li><p>for each run, alternating least squares (ALS) find Q and P whose
+product approximates the allele frequencies predicted by the first
+<code>k + 5</code> components, starting from random allele frequencies. As in
+ADAMIXTURE, the least squares are bounded, the loci are weighted by
+the inverse of their binomial variance when solving for Q, and Q is
+extrapolated (momentum) when solving for P. The ALS only uses the
+SVD, not the genotypes, so it is fast;</p></li>
+<li><p>the best of 3 such solutions, by log-likelihood, starts the fit,
+without EM priming (<code>n_em_iter</code> is not used).</p></li>
+</ol><p>The SVD cannot use missing genotypes, so they must be imputed first
+(e.g. with <code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_impute_simple.html" class="external-link">tidypopgen::gt_impute_simple()</a></code>); the imputed genotypes are
+only used for the SVD, and the fit ignores them (unless
+<code>use_imputed = TRUE</code>). The SVD also needs more individuals and loci than
+<code>max(k) + 5</code>.</p>
+<p>Fits from the SVD need fewer iterations (often less than half as many as
+from random starts in our tests), and usually reach a good fit (though,
+as from any start, not always the best one). They are therefore useful
+for a single good fit of a large dataset, where many random runs would
+be costly, or as a first exploration before a more extensive search
+with random starts. However, the starts of different runs vary little,
+and favour some solutions over others: to explore the modes of the
+likelihood with several runs (e.g. with <code><a href="gt_clumppling.html">gt_clumppling()</a></code>), use random
+starts (the default), and do not mix runs started in the two ways, as
+the runs started from the SVD would over-represent the solutions that
+they favour.</p>
 </div>
 
 <div class="section">
@@ -310,6 +371,8 @@ reference panel can be used with <code>init_p</code> and <code>fix_p</code>).</p
 OpenADMIXTURE.jl. Starting from the same values, it reproduces the
 computations of OpenADMIXTURE.jl to numerical precision (this is checked
 by the test suite), except for the following:</p><ul><li><p>there is no GPU (CUDA) support;</p></li>
+<li><p>the start from the SVD (<code>init = "svd"</code>, see above) is not part of
+OpenADMIXTURE;</p></li>
 <li><p>we implemented cross-validation, as in ADMIXTURE (see above), which
 is not part of OpenADMIXTURE;</p></li>
 <li><p>sparse K-means selection of ancestry informative markers (SKFR) is not
@@ -351,6 +414,13 @@ individual ancestry estimation. BMC Bioinformatics, 12, 246.</p>
 <p>Zhou H, Alexander D, Lange K (2011) A quasi-Newton acceleration for
 high-dimensional optimization algorithms. Statistics and Computing,
 21(2), 261-273.</p>
+<p>Saurina-i-Ricos J, Mas Montserrat D, Ioannidis AG (2026) ADAMIXTURE:
+adaptive first-order optimization for biobank-scale genetic clustering.
+Bioinformatics, 42(Supplement_1). doi:
+https://doi.org/10.1093/bioinformatics/btag236</p>
+<p>Santander CG, Refoyo Martinez A, Meisner J (2024) Faster model-based
+estimation of ancestry proportions. bioRxiv 2024.07.08.602454. doi:
+https://doi.org/10.1101/2024.07.08.602454</p>
     </div>
 
     <div id="ref-examples">

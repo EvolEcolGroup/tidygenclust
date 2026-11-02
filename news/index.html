@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidygenclust</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.5.9004</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.5.9005</span>
       </span>
     </div>
 
@@ -66,7 +66,7 @@
     <div class="section level2">
 <h2 class="page-header" data-toc-text="development version" id="tidygenclust-development-version">tidygenclust (development version)<a class="anchor" aria-label="anchor" href="#tidygenclust-development-version"></a></h2>
 <ul><li>New <code><a href="../reference/gt_adamixture.html">gt_adamixture()</a></code>: ancestry estimation with the python package ADAMIXTURE (Saurina-i-Ricos, Mas Montserrat &amp; Ioannidis 2026), run with <code>reticulate</code> like <code><a href="../reference/gt_fastmixture.html">gt_fastmixture()</a></code>, on a <code>gen_tibble</code> (including subsets) or on PLINK files. ADAMIXTURE (version 1.8.9, from PyPI, without PyTorch) is installed by default by <code><a href="../reference/tgc_tools_install.html">tgc_tools_install()</a></code>, or added to an existing environment with the new <code><a href="../reference/tgc_adamixture_install.html">tgc_adamixture_install()</a></code>, and its version is reported by <code><a href="../reference/tgc_tools_version.html">tgc_tools_version()</a></code>.</li>
-<li>New <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>: ancestry estimation with the ADMIXTURE method, using a modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023). Its results are checked against OpenADMIXTURE.jl and ADMIXTURE in the test suite.</li>
+<li>New <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>: ancestry estimation with the ADMIXTURE method, using a modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023). Its results are checked against OpenADMIXTURE.jl and ADMIXTURE in the test suite. It stops when the log-likelihood changes by less than a relative 1e-8 (<code>rtol</code>), a stricter threshold than OpenADMIXTURE.jl’s 1e-7. With <code>init = "svd"</code>, runs start from the SVD of the genotypes, as in fastmixture and ADAMIXTURE, for a faster single fit of large datasets. Its computations were sped up by cheaper decoding of the genotypes and likelihood terms and by processing two loci at a time (about 1.3-1.4x), and, on x86-64 Linux, by also compiling them for AVX2 and FMA (about 1.6x in all).</li>
 <li>
 <code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code> is now a native R and C++ port, with modifications, of clumppling 2.0.10 (Liu, Kopelman &amp; Rosenberg 2024, by Xiran Liu).</li>
 <li>The conda environment is no longer needed by default, as the core functionality is native. <code><a href="../reference/tgc_tools_install.html">tgc_tools_install()</a></code> gains a <code>tools</code> argument to choose which optional tools to install (<code>fastmixture</code> and ADMIXTURE), and <code><a href="../reference/tgc_fastmixture_install.html">tgc_fastmixture_install()</a></code> and <code><a href="../reference/tgc_admixture_install.html">tgc_admixture_install()</a></code> add a tool to an existing environment.</li>
