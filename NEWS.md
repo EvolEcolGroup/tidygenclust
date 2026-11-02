@@ -13,7 +13,7 @@
   It stops when the log-likelihood changes by less than a relative 1e-8
   (`rtol`), a stricter threshold than OpenADMIXTURE.jl's 1e-7.
   With `init = "svd"`, runs start from the SVD of the genotypes, as in
-  ADAMIXTURE, for a faster single fit of large datasets.
+  fastmixture and ADAMIXTURE, for a faster single fit of large datasets.
   Its computations were sped up by cheaper decoding of the genotypes and
   likelihood terms and by processing two loci at a time (about 1.3-1.4x),
   and, on x86-64 Linux, by also compiling them for AVX2 and FMA (about 1.6x
