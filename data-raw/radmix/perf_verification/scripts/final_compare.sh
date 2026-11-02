@@ -10,7 +10,10 @@
 # "base comb comb_nomv"; the first is the reference), NCORES (core counts of
 # the multi-core fits, default "4 16"), ROUNDS (fit rounds, default 2),
 # KERNEL_CASES and FIT_CASES (dataset:K cases; defaults: those of the
-# laptop; FIT_CASES also applies to the CV fits).
+# laptop; FIT_CASES also applies to the CV fits), PIN (a CPU to pin the
+# 1-core runs to with taskset, e.g. PIN=2) and PIN_MULTI (CPUs to confine
+# the multi-core runs to, e.g. PIN_MULTI=0-7 for the P-cores of a hybrid
+# processor); by default nothing is pinned.
 set -uo pipefail
 REPO=$(git rev-parse --show-toplevel)
 SCRIPTS=$REPO/data-raw/radmix/perf_verification/scripts
@@ -21,15 +24,19 @@ B=${LABELS:-base comb comb_nomv}
 read -r REF COMB _ <<< "$B"
 NCORES=${NCORES:-4 16}
 ROUNDS=${ROUNDS:-2}
+RUN1=""; [ -n "${PIN:-}" ] && RUN1="taskset -c $PIN"
+RUNN=""; [ -n "${PIN_MULTI:-}" ] && RUNN="taskset -c $PIN_MULTI"
 mkdir -p "$OUT"
 cd "$REPO"
 run() {
-  Rscript "$SCRIPTS/bench_fits.R" "$WORK/libs/$1" "$1" "$OUT" "$2" "$3" "$4" "${FIT_CASES:-}" \
+  local pre=$RUN1
+  [ "$2" -gt 1 ] && pre=$RUNN
+  $pre Rscript "$SCRIPTS/bench_fits.R" "$WORK/libs/$1" "$1" "$OUT" "$2" "$3" "$4" "${FIT_CASES:-}" \
     >> "$OUT/run.log" 2>&1 || echo "fits $* failed (see $OUT/run.log)"
   sleep "$PAUSE"
 }
 for r in 1 2 3; do for v in $B; do
-  Rscript "$SCRIPTS/bench_kernels.R" "$WORK/libs/$v" "$v" "$OUT" 1 "${KERNEL_CASES:-}" \
+  $RUN1 Rscript "$SCRIPTS/bench_kernels.R" "$WORK/libs/$v" "$v" "$OUT" 1 "${KERNEL_CASES:-}" \
     >> "$OUT/run.log" 2>&1 || echo "kernels $v failed (see $OUT/run.log)"
   sleep "$PAUSE"
 done; done

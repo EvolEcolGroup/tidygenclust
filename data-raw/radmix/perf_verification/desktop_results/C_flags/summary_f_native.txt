@@ -1,0 +1,58 @@
+== kernels, 1 core (median seconds; ratio = B / A)
+       data  k      kernel seconds.base seconds.f_native ratio
+        eur  4          em        0.124            0.094 0.758
+        eur  4      loglik        0.079            0.054 0.684
+        eur  4    update_p        0.134            0.088 0.657
+        eur  4 update_p_cv        0.204            0.148 0.725
+        eur  4    update_q        0.120            0.085 0.708
+        eur  4 update_q_cv        0.190            0.153 0.805
+ hgdp_quick  5          em        0.035            0.027 0.771
+ hgdp_quick  5      loglik        0.022            0.016 0.727
+ hgdp_quick  5    update_p        0.046            0.030 0.652
+ hgdp_quick  5 update_p_cv        0.063            0.046 0.730
+ hgdp_quick  5    update_q        0.039            0.025 0.641
+ hgdp_quick  5 update_q_cv        0.057            0.044 0.772
+ hgdp_quick 10          em        0.056            0.037 0.661
+ hgdp_quick 10      loglik        0.027            0.017 0.630
+ hgdp_quick 10    update_p        0.118            0.071 0.602
+ hgdp_quick 10 update_p_cv        0.137            0.089 0.650
+ hgdp_quick 10    update_q        0.098            0.057 0.582
+ hgdp_quick 10 update_q_cv        0.114            0.075 0.658
+
+== kernel outputs, largest absolute difference (0 = bit-identical)
+  eur 4 loglik               0
+  eur 4 em                   3.33e-16
+  eur 4 update_q             9.44e-16
+  eur 4 update_p             2.22e-15
+  eur 4 update_q_cv          1.05e-15
+  eur 4 update_p_cv          2e-15
+  hgdp_quick 5 loglik        0
+  hgdp_quick 5 em            2.78e-16
+  hgdp_quick 5 update_q      1.03e-15
+  hgdp_quick 5 update_p      2.72e-15
+  hgdp_quick 5 update_q_cv   1.14e-15
+  hgdp_quick 5 update_p_cv   2.61e-15
+  hgdp_quick 10 loglik       0
+  hgdp_quick 10 em           3.33e-16
+  hgdp_quick 10 update_q     1.39e-15
+  hgdp_quick 10 update_p     5.66e-15
+  hgdp_quick 10 update_q_cv  1.26e-15
+  hgdp_quick 10 update_p_cv  6.99e-15
+
+== fits (median seconds; ratio = B / A)
+       data k n_cores crossval  rtol seconds.base iterations.base   loglik.base
+        eur 3       1    FALSE 1e-07      10.0455              19 -15600875.269
+        eur 4       1    FALSE 1e-07      13.8530              22 -15552193.219
+ hgdp_quick 5       1    FALSE 1e-07       3.2895              16  -3872985.235
+ hgdp_quick 7       1    FALSE 1e-07       6.3915              21  -3828446.684
+ seconds.f_native iterations.f_native loglik.f_native        ratio
+           7.2995                  19   -15600875.269 0.7266437708
+           9.4970                  22   -15552193.219 0.6855554753
+           2.1570                  16    -3872985.235 0.6557227542
+           3.7535                  21    -3828446.684 0.5872643354
+
+== fit outputs fits_base_1_1e-07.rds : largest differences in Q, P and loglik
+  eur 3          Q 3.63e-13, P 1.98e-13, loglik 1.86e-09
+  eur 4          Q 5.78e-13, P 3.51e-13, loglik 0
+  hgdp_quick 5   Q 2.47e-14, P 6.77e-13, loglik -4.66e-10
+  hgdp_quick 7   Q 5.21e-12, P 1.5e-11, loglik -1.86e-09
