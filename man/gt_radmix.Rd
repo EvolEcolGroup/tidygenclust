@@ -10,7 +10,7 @@ gt_radmix(
   n_runs = 1,
   seed = NULL,
   max_iter = 1000,
-  rtol = 1e-07,
+  rtol = 1e-08,
   n_em_iter = 5,
   n_qn = 3,
   init = c("random", "svd"),
@@ -40,7 +40,10 @@ state is restored on exit.}
 \item{max_iter}{the maximum number of iterations (defaults to 1000)}
 
 \item{rtol}{the convergence threshold on the relative change in
-log-likelihood between iterations (defaults to 1e-7)}
+log-likelihood between iterations (defaults to 1e-8). OpenADMIXTURE.jl
+uses 1e-7, which takes 10-20\% less time but can stop a few
+log-likelihood units short of convergence, with ancestry proportions up
+to about 0.05 away from the converged ones}
 
 \item{n_em_iter}{the number of EM iterations used to prime the estimates
 (defaults to 5); not used with \code{init = "svd"}}

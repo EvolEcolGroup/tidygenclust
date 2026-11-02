@@ -10,6 +10,8 @@
   modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023).
   Its results are checked
   against OpenADMIXTURE.jl and ADMIXTURE in the test suite.
+  It stops when the log-likelihood changes by less than a relative 1e-8
+  (`rtol`), a stricter threshold than OpenADMIXTURE.jl's 1e-7.
   With `init = "svd"`, runs start from the SVD of the genotypes, as in
   ADAMIXTURE, for a faster single fit of large datasets.
   Its computations were sped up by cheaper decoding of the genotypes and

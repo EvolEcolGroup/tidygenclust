@@ -307,7 +307,8 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     ll_history.push_back(ll_new);
 
     // Convergence: the relative change in log-likelihood over an iteration
-    // falls below rtol (1e-7 by default, as in OpenADMIXTURE.jl)
+    // falls below rtol (1e-8 by default in gt_radmix(); OpenADMIXTURE.jl
+    // uses 1e-7)
     const double reldiff = std::fabs((ll_new - ll_prev) / ll_prev);
     log.add("Iteration " + std::to_string(iter) + ": loglikelihood = " +
             fmt(ll_new, 12) + ", reldiff = " + fmt(reldiff, 4) +

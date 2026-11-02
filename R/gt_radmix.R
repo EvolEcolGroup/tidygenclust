@@ -212,7 +212,10 @@
 #'   state is restored on exit.
 #' @param max_iter the maximum number of iterations (defaults to 1000)
 #' @param rtol the convergence threshold on the relative change in
-#'   log-likelihood between iterations (defaults to 1e-7)
+#'   log-likelihood between iterations (defaults to 1e-8). OpenADMIXTURE.jl
+#'   uses 1e-7, which takes 10-20% less time but can stop a few
+#'   log-likelihood units short of convergence, with ancestry proportions up
+#'   to about 0.05 away from the converged ones
 #' @param n_em_iter the number of EM iterations used to prime the estimates
 #'   (defaults to 5); not used with `init = "svd"`
 #' @param n_qn the number of secant pairs used by the quasi-Newton
@@ -274,7 +277,7 @@
 #' adm_cv <- gt_radmix(pop_a, k = 1:3, seed = 1, crossval = TRUE)
 #' adm_cv$cv
 gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
-                      rtol = 1e-7, n_em_iter = 5, n_qn = 3,
+                      rtol = 1e-8, n_em_iter = 5, n_qn = 3,
                       init = c("random", "svd"),
                       init_q = NULL, init_p = NULL, fix_q = FALSE,
                       fix_p = FALSE, use_imputed = FALSE,

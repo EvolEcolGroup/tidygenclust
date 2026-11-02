@@ -672,9 +672,9 @@ iterations. fastmixture checks every 5 iterations, and stops when the
 log-likelihood, divided by the number of observed genotypes, has increased
 by less than 1e-9. ADAMIXTURE, with its default solver (BR-QN; it also
 offers the Adam-EM algorithm of its paper), stops when the log-likelihood
-changes by less than 0.1 between iterations. `gt_radmix()` and
-OpenADMIXTURE.jl stop when the relative change in the log-likelihood is less
-than 1e-7. The numbers of iterations are not comparable either. An
+changes by less than 0.1 between iterations. `gt_radmix()` stops when the
+relative change in the log-likelihood is less than 1e-8, and OpenADMIXTURE.jl
+when it is less than 1e-7. The numbers of iterations are not comparable either. An
 iteration of fastmixture is a pass of accelerated EM updates, first over
 mini-batches of the loci. An iteration of ADMIXTURE, ADAMIXTURE,
 `gt_radmix()` and OpenADMIXTURE.jl updates all the parameters with
