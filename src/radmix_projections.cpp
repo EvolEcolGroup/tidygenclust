@@ -1,19 +1,16 @@
-// Port of OpenADMIXTURE.jl src/projections.jl (project_q!, project_p!).
+// Projections onto the feasible sets of q and p (see radmix_projections.h).
 #include "radmix_projections.h"
 #include <algorithm>
 #include <cmath>
 #include <functional>
 #include <vector>
 
-// internal code of gt_radmix() (see the note on the namespace in
-// radmix_geno_access.h)
 namespace radmix {
 
 
 // Projection onto {sum(q) == 1, q >= eps}: shift by eps, project onto the
 // simplex of mass tau = 1 - K * eps with the sort-and-threshold algorithm,
-// then shift back. Julia sorts an index permutation with its own quicksort;
-// only the sorted values matter, so we sort a copy of the values instead.
+// then shift back.
 //
 // Why this works. Substituting x = q - eps turns the target set into
 // {sum(x) == tau, x >= 0}. The closest point of that set to a vector b is
@@ -46,17 +43,14 @@ void project_q(double* q, int K, double eps) {
     heap_buf.resize(K);
     b = heap_buf.data();
   }
-  // Deviation from OpenADMIXTURE.jl: guard against non-finite input.
-  // Julia's project_q! assumes finite values. Here a NaN would reach
-  // std::sort with std::greater, which requires a strict weak ordering that
-  // NaN breaks; that is undefined behaviour and, in practice, can make the
-  // sort read outside the buffer. An infinite value would sort fine but turn
-  // the threshold, and hence every entry, into NaN. Neither should happen
-  // (the kernels discard non-finite Newton steps and qn_step() discards
-  // non-finite quasi-Newton coefficients before projecting), so this is a last
-  // line of defence: rather than propagate garbage, the column is reset to
-  // the centre of the simplex (1 / K each), a valid point from which the
-  // following iterations can recover.
+  // Non-finite input: a NaN would reach std::sort, whose comparison needs a
+  // strict weak ordering that NaN breaks (undefined behaviour, which can
+  // read outside the buffer), and an infinite value would turn the
+  // threshold, hence every entry, into NaN. Neither should happen (the
+  // kernels discard non-finite Newton steps, and qn_step() rejects
+  // non-finite coefficients), so this is a last line of defence: the column
+  // is reset to the centre of the simplex (1 / K each), a valid point from
+  // which the next iterations can recover.
   for (int k = 0; k < K; k++) {
     if (!std::isfinite(q[k])) {
       for (int k2 = 0; k2 < K; k2++) q[k2] = 1.0 / K;
@@ -102,7 +96,7 @@ void project_q(double* q, int K, double eps) {
 // [eps, 1 - eps]. K here is just the number of entries, so callers may pass
 // a whole matrix at once.
 //
-// Deviation from OpenADMIXTURE.jl: NaN entries are set to 0.5. Clamping
+// NaN entries are set to 0.5. Clamping
 // already maps -Inf to eps and +Inf to 1 - eps, but std::max and std::min
 // let NaN through unchanged (every comparison with NaN is false), and a NaN
 // frequency would make the log-likelihood NaN for the whole locus. As in

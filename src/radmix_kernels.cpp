@@ -1,167 +1,104 @@
-// Port of the CPU kernels of OpenADMIXTURE.jl (src/loops.jl and the inner
-// algorithms in src/algorithms_inner.jl). See radmix_kernels.h for
-// conventions.
+// The passes over the genotypes of gt_radmix(): the log-likelihood, the
+// deviance of held-out genotypes, the EM step, and the gradients, Hessians
+// and Newton updates of the two blocks of parameters. See radmix_kernels.h
+// for the model, the notation and the layout of q and p, and
+// dev/admixture_implementation.md for the algorithm as a whole.
 //
-// The model
-// ---------
-// For individual i and locus j, let g_ij be the observed count of the alt
-// allele and n_i the number of allele copies (2 for diploids, 1 for
-// pseudohaploids). ADMIXTURE assumes
-//   g_ij ~ Binomial(n_i, qp_ij),   qp_ij = sum_k q_ki p_kj,
-// where q_ki is the fraction of the genome of individual i that comes from
-// ancestral population k (each column of q lies on the simplex) and p_kj is
-// the alt allele frequency of locus j in population k (each entry in [0, 1]).
-// Up to a constant, the log-likelihood is
-//   L = sum_{i,j observed} g_ij log(qp_ij) + (n_i - g_ij) log(1 - qp_ij).
-// Missing genotypes simply do not contribute.
+// Per-genotype quantities
+// -----------------------
+// For individual i and locus j, write g = g_ij (copies of the alternate
+// allele), h = n_i - g (copies of the reference allele, n_i = 2 for diploids,
+// 1 for pseudohaploids), and qp = qp_ij = sum_k q_ki p_kj. A missing (or
+// hidden) genotype has g = h = 0, so it drops out of every sum below without
+// a test. The genotype contributes l(qp) = g log(qp) + h log(1 - qp) to the
+// log-likelihood, and every pass is built from the following coefficients:
+//   a  = g / qp,  b = h / (1 - qp)            (EM step)
+//   d1 = l'(qp)  = a - b                      (gradients)
+//   d2 = -l''(qp) = g / qp^2 + h / (1 - qp)^2 (Hessians; d2 >= 0)
 //
-// Throughout this file we write, for one (i, j) pair,
-//   g = g_ij, h = n_i - g_ij, qp = qp_ij,
-//   a = g / qp,          b = h / (1 - qp),
-//   wa = g / qp^2,       wb = h / (1 - qp)^2.
-// a and b are the derivatives of g log(x) and h log(y) at x = qp and
-// y = 1 - qp; wa and wb are minus the corresponding second derivatives.
-// Every quantity below is a sum of these coefficients weighted by q or p.
+// Gradients and Hessians, by the chain rule
+// -----------------------------------------
+// qp_ij is linear in q_.i (with coefficients p_.j) and in p_.j (with
+// coefficients q_.i), so
+//   dL / dq_ki  = sum_j d1 p_kj,   -d2L / dq_ki dq_k2i = sum_j d2 p_kj p_k2j
+//   dL / dp_kj  = sum_i d1 q_ki,   -d2L / dp_kj dp_k2j = sum_i d2 q_ki q_k2i
+// The two blocks have the same structure: Q-side sums run over the loci of
+// one individual, weighted by the columns of p; P-side sums over the
+// individuals of one locus, weighted by the columns of q. The negative
+// Hessians are sums of d2 v v' with d2 >= 0, hence positive semi-definite
+// (L is concave in each column). Given p, L is a sum of one term per
+// individual, and given q one term per locus, so each column of q or p has
+// its own K x K Hessian, and is updated on its own.
 //
-// What each kernel computes (and its Julia counterpart)
-// ----------------------------------------------------
-// - loglik: L itself (loglikelihood() / loglikelihood_loop()).
-// - em: one FRAPPE EM step (em_q!() / em_q_loop!() and
-//   em_p!() / em_p_loop!()):
-//     q_new_ki = q_ki sum_j [a p_kj + b (1 - p_kj)] / (n_i J_i)
-//     p_new_kj = A / (A + B), A = p_kj sum_i a q_ki,
-//                             B = (1 - p_kj) sum_i b q_ki.
-// - grad_q: per individual, gradient and negative Hessian of L with
-//   respect to q_.i (update_q_loop!()):
-//     grad_k      = sum_j a p_kj + b (1 - p_kj)
-//     hess_{k,k2} = sum_j wa p_kj p_k2j + wb (1 - p_kj)(1 - p_k2j)
-// - grad_p: per locus, gradient and negative Hessian of L with respect
-//   to p_.j (update_p_loop!()):
-//     grad_k      = sum_i (a - b) q_ki
-//     hess_{k,k2} = sum_i (wa + wb) q_ki q_k2i
-// - update_q / update_p: the Newton step of update_q!() /
-//   update_p!(): the gradient and Hessian above feed a small quadratic
-//   program per column (radmix_qp_sweep.h), whose solution is added to q
-//   or p and projected back onto the feasible set
-//   (radmix_projections.h).
+// Layout of the work
+// ------------------
+// The genotypes are stored individuals x loci, column-major, so the
+// genotypes of consecutive individuals at one locus are adjacent bytes. The
+// unit of work is a slice: one locus and up to TILE_I consecutive
+// individuals. For each slice, qp, the decoded genotypes and the
+// coefficients are computed into small thread-local buffers (Slice), with
+// loops over the individuals of the slice that have no branches and
+// vectorise. The sums are then accumulated:
+// - Q side (one sum per individual): a block of TILE_I individuals is
+//   streamed over the loci, with one accumulator vector of length TILE_I
+//   per gradient entry and per entry of the Hessians, each updated by a
+//   unit-stride loop over the individuals of the slice;
+// - P side (one sum per locus): for a block of TILE_J loci, each sum is a
+//   dot product over the individuals of the slice, and the TILE_I x K corner
+//   of q stays in cache while the loci of the block are processed.
+// Loci are processed two at a time: the coefficients of both loci are
+// computed first, and the accumulators are then read and written once for
+// both, which halves their memory traffic (the accumulation is limited by
+// loads and stores rather than arithmetic). A range with an odd number of
+// loci is padded with a locus whose coefficients are zero.
+// Only the K (K + 1) / 2 entries of each symmetric Hessian with k2 >= k are
+// accumulated; the others are filled in at the end (mirror_hess()).
 //
-// Derivation of the Q-side formulas
-// ---------------------------------
-// The plain derivative of L with respect to q_ki is
-//   sum_j g p_kj / qp - h p_kj / (1 - qp) = sum_j (a - b) p_kj.
-// Julia instead uses the identity 1 - qp = sum_k q_k (1 - p_k), valid on the
-// simplex, to write the likelihood in the homogeneous form
-//   g log(sum_k q_k p_k) + h log(sum_k q_k (1 - p_k)),
-// whose derivative is a p_k + b (1 - p_k). The two gradients differ by
-// sum_j b, which is the same for every k. The Newton step is constrained to
-// sum_k delta_k = 0 (it must stay on the simplex), and on that subspace a
-// constant shift of the gradient adds nothing to grad' delta, so the step is
-// unaffected. Likewise, for such delta, delta' (1 - p) = -delta' p, so the
-// two forms of the Hessian agree on the subspace too. We follow Julia so
-// that results match.
+// Parallelism and determinism
+// ---------------------------
+// Q-side work is parallelised over blocks of individuals and P-side work
+// over blocks of loci, so each thread writes its own output columns: there
+// are no races and no reductions across threads. With few individuals the
+// Q side also splits the loci into segments (q_segments()), whose partial
+// sums are added up in a fixed order. The scalar sums (log-likelihood,
+// deviance) keep one partial sum per block of loci, added up in block order.
+// Block and segment boundaries depend only on the dimensions of the data,
+// never on the number of threads, and each block is processed start to
+// finish by one thread, so the results are bit-identical for any n_cores.
+// (`omp simd reduction` regroups a sum, but in a way fixed at compile time.)
 //
-// Data layout
-// -----------
-// q is K x I and p is K x J, column-major, so the K values for one
-// individual (or one locus) are contiguous. The FBM is individuals x loci,
-// column-major, so the genotypes of consecutive individuals at one locus are
-// adjacent bytes: loops that run over individuals innermost read memory
-// sequentially. GenoView (radmix_geno_access.h) turns each raw byte into
-// a dosage (or "missing") and handles subsets and reorderings of rows and
-// columns.
-//
-// Parallel design
-// ---------------
-// Work is organised in tiles of TILE_I individuals x TILE_J loci. Q-side work
-// (sums over loci for each individual) is parallelised over blocks of TILE_I
-// individuals, P-side work (sums over individuals for each locus) over blocks
-// of TILE_J loci. Each thread owns the output columns of its blocks, so there
-// are no races and no cross-thread reductions, and every column is summed in
-// the same order whatever the number of threads. With few individuals there
-// are too few Q-side blocks to keep the threads busy, so the loci are also
-// split into segments, whose partial sums are added up in a fixed order
-// (two-dimensional blocking, see accum_q_segmented()).
-//
-// The innermost unit of work is a slice of one locus x up to TILE_I
-// individuals (individuals are contiguous in the column-major FBM). For each
-// slice, qp is computed once into a thread-local buffer with unit-stride loops
-// over a transposed copy of q, the genotypes are decoded, and the likelihood
-// coefficients a = g / qp, b = (n - g) / (1 - qp) (and wa = a / qp,
-// wb = b / (1 - qp) for Hessians) are computed without branches, so that all
-// these loops can be vectorised. The accumulation loops then run over the
-// slice:
-// - Q side: accumulators are stored as K (and K (K + 1) / 2 for the upper
-//   triangle of the Hessian) vectors of length TILE_I, updated with
-//   unit-stride vectorisable loops for every locus;
-// - P side: each accumulator gets a (SIMD) dot product over the slice; the
-//   TILE_I x K corner of q stays in L1 while the TILE_J loci are processed.
-//
-// Determinism: block boundaries depend only on I, J and the tile sizes, never
-// on the number of threads, and each block is processed start to finish by a
-// single thread in a fixed order. The only scalar reduction (the
-// log-likelihood) is stored as one partial sum per block and the partial sums
-// are added up serially. `#pragma omp simd reduction` may reassociate a sum,
-// but in a way fixed at compile time (by the vector width), so the result is
-// still bit-identical for any n_cores. schedule(dynamic) only changes which
-// thread handles a block, not how the block is computed.
-//
-// Thread safety: everything that the parallel regions read (GenoView, q, p,
-// the transposed copy of q) is immutable, everything they write is either
-// thread-local scratch (Slice, gT/hT, QPWork) or a disjoint set of output
-// columns. No R API (allocation, Rcpp::stop, R_CheckUserInterrupt, ...) is
-// called inside a parallel region: R is not thread safe and an R error would
-// longjmp out of the OpenMP region. All validation happens beforehand, in
-// the Rcpp wrappers at the bottom of this file.
-// (and in the GenoView constructor, which every wrapper, and the fitting
-// loop in radmix_fit.cpp, runs before calling a kernel)
-//
-// Deviations from OpenADMIXTURE.jl
-// --------------------------------
-// The kernels follow the Julia code, except for the following, each
-// documented where it is implemented:
-// - the binomial number of trials is n_i (2 or 1, for pseudohaploids)
-//   rather than the constant 2;
-// - the EM update of q is normalised by the number of observed loci of
-//   each individual rather than by J, which keeps q on the simplex with
-//   missing data (em());
-// - a Newton step that is not finite is discarded, keeping the current
-//   column for that sweep (discard_nonfinite_step());
-// - and, in the solver and projections called by the update kernels, mu is
-//   floored at 0, vanishing pivots are never swept (radmix_qp_sweep.cpp)
-//   and non-finite values are tolerated (radmix_projections.cpp).
+// Thread safety: inside the parallel regions, the threads only read
+// immutable data (the genotypes, q, p and the transposed copy of q) and
+// write thread-local buffers or their own output columns. They never call
+// R: R is not thread safe, and an R error would jump out of the parallel
+// region. All the checks happen before, in the R wrappers
+// (radmix_exports.cpp, radmix_fit.cpp) and the GenoView constructor.
 
-#include <Rcpp.h>
 #include <algorithm>
 #include <cmath>
 #include <vector>
 #include "radmix_geno_access.h"
 #include "radmix_kernels.h"
-#include "radmix_qp_sweep.h"
 #include "radmix_projections.h"
-using namespace Rcpp;
+#include "radmix_qp_sweep.h"
 
-// internal code of gt_radmix() (see the note on the namespace in
-// radmix_geno_access.h)
 namespace radmix {
 
-
-// Function multiversioning. The kernels below are vectorised with
-// `#pragma omp simd`, but R compiles packages for the baseline x86-64
-// instruction set (SSE2: 2 doubles per instruction, no fused multiply-add).
-// On x86-64 Linux with GCC, the kernels are also compiled for the x86-64-v3
-// level (AVX2: 4 doubles per instruction, and FMA), and the version that
-// suits the processor is chosen when the package is loaded (an ifunc,
-// resolved once). This makes the Newton updates and EM 15-30% faster. The
-// log-likelihood and the deviance are not multiversioned: their AVX2
-// versions were 7-9% slower (they call log() from the C library inside
-// their loops). The parallel regions of these functions are cloned with
-// them. On other platforms and compilers, only the baseline version is
-// built. Results can differ between the two versions by rounding (fused
-// multiply-adds and wider vectors change the order of operations), so they
-// are reproducible on a given machine but not bit-identical across
-// machines. Defining RADMIX_NO_MULTIVERSION when compiling (e.g. adding
-// -DRADMIX_NO_MULTIVERSION to CXXFLAGS in ~/.R/Makevars) builds only the
-// baseline version, whose results are identical on every x86-64 machine.
+// Function multiversioning. R compiles packages for the baseline x86-64
+// instruction set (SSE2: 2 doubles per instruction, no fused multiply-add),
+// which leaves most of the speed of the `omp simd` loops unused. On x86-64
+// Linux with GCC >= 12, the two accumulation functions, which hold the hot
+// loops, are also compiled for the x86-64-v3 level (AVX2: 4 doubles per
+// instruction, and FMA), and the version that suits the processor is chosen
+// once, when the package is loaded (an ifunc). This makes the Newton updates
+// and EM steps 15-30% faster. The log-likelihood and the deviance are left
+// alone: their AVX2 versions were slower (they call log() from the C
+// library inside their loops). The two versions can differ by rounding (FMA
+// and wider vectors change the order of operations), so results are
+// reproducible on a given machine but not bit-identical across machines;
+// defining RADMIX_NO_MULTIVERSION when compiling (e.g. in ~/.R/Makevars)
+// builds only the baseline version, whose results are the same on every
+// x86-64 machine.
 #if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && \
     defined(__x86_64__) && defined(__linux__) && \
     !defined(RADMIX_NO_MULTIVERSION)
@@ -171,46 +108,30 @@ namespace radmix {
 #define RADMIX_MULTIVERSION
 #endif
 
-// Tile sizes. 64 individuals x 8 bytes = 512 bytes per K-vector of
-// accumulators, which keeps the Q-side accumulators (K + K (K + 1) / 2
-// vectors) and the TILE_I x K corner of q in L1/L2 for moderate K.
-// loglik_slice() relies on TILE_I == LOG_BATCH^2 (see below).
+// Tile sizes. A vector of TILE_I accumulators takes 512 bytes, so the
+// Q-side accumulators (K + K (K + 1) / 2 vectors) and the TILE_I x K corner
+// of q stay in the L1 or L2 cache for moderate K. loglik_slice() needs
+// TILE_I == LOG_BATCH^2, and the padding of odd ranges of loci on the P side
+// needs TILE_J to be even (see accum_p_block()).
 static const size_t TILE_I = 64;
 static const size_t TILE_J = 64;
+static_assert(TILE_J % 2 == 0, "TILE_J must be even");
 
-// number of blocks of size `tile` needed to cover n
+// the number of blocks of size `tile` needed to cover n
 static inline size_t n_blocks(size_t n, size_t tile) {
   return (n + tile - 1) / tile;
 }
 
-// copy the upper triangle (k2 >= k, stored in column k) to the lower one
-// The accumulators only compute the K (K + 1) / 2 entries with k2 >= k (the
-// Hessians are symmetric, so the rest is redundant work). These are stored at
-// H[k2 + K * k], i.e. row k2 >= column k; this loop fills in the symmetric
-// entries H[k + K * k2]. (In row/column terms the computed half is the lower
-// triangle of the column-major matrix; "upper" above refers to the index
-// pairs (k, k2) with k2 >= k. Either way the result is the full matrix.)
+// Fill in a symmetric K x K matrix (column-major) whose entries H[k2 + K k]
+// with k2 >= k (the lower triangle) have been computed.
 static inline void mirror_hess(double* H, int K) {
   for (int k = 0; k < K; k++)
     for (int k2 = k + 1; k2 < K; k2++) H[k + K * k2] = H[k2 + K * k];
 }
 
-// 1 - p for every entry of p (length n). Computed once per kernel call and
-// shared read-only by all threads, so that the Q-side inner loops do not
-// recompute it for every individual block.
-static std::vector<double> one_minus(const double* p, size_t n) {
-  std::vector<double> omp(n);
-  for (size_t x = 0; x < n; x++) omp[x] = 1.0 - p[x];
-  return omp;
-}
-
-// q is K x I; returns its transpose (I x K, column-major)
-// In qT, the values of q_k. for consecutive individuals are contiguous
-// (qT + I * k + i0 is q_k,i0, q_k,i0+1, ...). The slice loops run over
-// individuals innermost, so this gives them unit stride (and hence SIMD
-// loads) instead of a stride of K. The copy also means the kernels never
-// read R memory from inside a parallel region except through q and p, which
-// are read only.
+// The transpose of q (K x I): an I x K column-major matrix, in which the
+// values q_k. of consecutive individuals are contiguous, so that the loops
+// over the individuals of a slice read q with unit stride (and SIMD loads).
 static std::vector<double> transpose(const double* q, int K, size_t I) {
   std::vector<double> qT((size_t) K * I);
   for (size_t i = 0; i < I; i++)
@@ -218,39 +139,42 @@ static std::vector<double> transpose(const double* q, int K, size_t I) {
   return qT;
 }
 
-// Thread-local buffers for one slice (one locus x up to TILE_I individuals)
-// qp: sum_k q_ki p_kj; g: alt allele count; h: n_i - g; a, b, wa, wb: the
-// likelihood coefficients defined at the top of the file; tmp: scratch.
-// Each thread constructs one Slice at the start of a parallel region and
-// reuses it for every slice it processes, so there is no allocation in the
-// inner loops and no sharing between threads. Some functions reuse a and b
-// as scratch (loglik_slice() stores z and c in them).
-// accum_p_block() also overwrites a and wa with a - b and wa + wb, and
-// uses tmp for the products (wa + wb) q_k. Every buffer is recomputed for
-// each slice, so none of this outlives the slice.
+// Thread-local buffers for one slice (one locus x up to TILE_I individuals):
+// qp, the decoded genotypes g and h, and the coefficients defined at the top
+// of the file, a and b (EM) or d1 and d2 (Newton). loglik_slice() uses a and
+// b as scratch, and accum_p_block() uses tmp. Each thread allocates its
+// slices once, at the start of a parallel region, and reuses them for every
+// slice it processes; every buffer is recomputed for each slice.
 struct Slice {
-  std::vector<double> qp, g, h, a, b, wa, wb, tmp;
+  std::vector<double> qp, g, h, a, b, d1, d2, tmp;
   Slice() : qp(TILE_I), g(TILE_I), h(TILE_I), a(TILE_I), b(TILE_I),
-    wa(TILE_I), wb(TILE_I), tmp(TILE_I) {}
+    d1(TILE_I), d2(TILE_I), tmp(TILE_I) {}
+  // zero coefficients for the first ni individuals: the padding locus of a
+  // range with an odd number of loci, which adds nothing to any sum
+  void zero_coef(size_t ni) {
+    std::fill(a.begin(), a.begin() + ni, 0.0);
+    std::fill(b.begin(), b.begin() + ni, 0.0);
+    std::fill(d1.begin(), d1.begin() + ni, 0.0);
+    std::fill(d2.begin(), d2.begin() + ni, 0.0);
+  }
 };
 
-// qp and decoded genotypes for locus j and individuals [i0, i1). Missing
-// genotypes get g = h = 0 (h = n - g), so they drop out of every sum.
-// Inputs: qT (I x K, transposed q), pj (the K frequencies of locus j).
-// Outputs: s.qp[ii], s.g[ii], s.h[ii] for ii = i - i0 in [0, i1 - i0).
-// This plays the role of qp_block!() in loops.jl, but for a single locus.
+// qp and the decoded genotypes of the slice of locus j and individuals
+// [i0, i1): s.qp, s.g and s.h for ii = i - i0 in [0, i1 - i0). qT is the
+// transposed q, pj the K frequencies of locus j. A missing (or hidden)
+// genotype gets g = h = 0.
 static inline void slice_geno(const GenoView& geno, const double* qT,
                               const double* pj, int K, size_t j, size_t i0,
                               size_t i1, Slice& s) {
   const size_t I = geno.nrow(), ni = i1 - i0;
-  // __restrict promises the compiler that these buffers do not alias, which
-  // it needs in order to vectorise the loops below
+  // (__restrict tells the compiler that these buffers do not overlap, which
+  // it needs to vectorise the loops below)
   double* __restrict qp = s.qp.data();
   double* __restrict g = s.g.data();
   double* __restrict h = s.h.data();
-  // qp = sum_k qT[, k] * p_kj, accumulated one population at a time: each
-  // pass is an axpy over contiguous memory, which vectorises cleanly
-  // (looping over k innermost would be a short reduction with stride I)
+  // qp = sum_k qT[, k] p_kj, one population at a time: each pass is an axpy
+  // over contiguous memory, which vectorises (a loop over k innermost would
+  // be a short reduction with stride I)
   std::fill(qp, qp + ni, 0.0);
   for (int k = 0; k < K; k++) {
     const double pk = pj[k];
@@ -258,25 +182,15 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
 #pragma omp simd
     for (size_t ii = 0; ii < ni; ii++) qp[ii] += qk[ii] * pk;
   }
-  // Decode the genotypes. This loop has a table lookup, so it does not
-  // vectorise; it is kept separate so that everything else can. Setting
-  // both g and h to 0 for a missing (or hidden) genotype means it
-  // contributes 0 to every coefficient (a, b, wa, wb) and to the
-  // log-likelihood, with no further tests downstream. They are multiplied by
-  // 1 or 0 rather than set in a branch, which would be mispredicted when
-  // missing or hidden genotypes are scattered at random (as the folds of
-  // cross-validation are); the values are the same (gij and n - gij are
-  // finite and non-negative, so 0 times them is +0).
-  // The bytes read here are those of individuals i0..i1-1 in column j of
-  // the FBM: adjacent bytes when the gen_tibble keeps the rows of the
-  // backing file in order, scattered within the column otherwise.
-  // Fast path: when the individuals of the block are adjacent in the FBM
-  // and decoded alike (no pseudohaploids), their bytes are read directly
-  // and decoded with two tables, which give the same values as the general
-  // loop below (bit for bit), without the per-individual row index, missing
-  // flag, lookup and scaling. With a cross-validation mask, the hidden
-  // genotypes are then zeroed as in the general loop (by multiplying
-  // rather than branching).
+  // Decoding the genotypes needs table lookups, which do not vectorise, so
+  // it has loops of its own. Missing and hidden genotypes are zeroed by
+  // multiplying by 0 rather than by a branch, which would be mispredicted
+  // when they are scattered at random (as the folds of cross-validation
+  // are).
+  // Fast path: when the individuals of the slice are adjacent rows of the
+  // backing file and are decoded alike (no pseudohaploids), their bytes are
+  // read directly and decoded with two tables giving g and h (both 0 for a
+  // missing genotype). This gives the same values as the general loop below.
   const double* gtab;
   const double* htab;
   const unsigned char* __restrict bytes =
@@ -298,6 +212,7 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
     }
     return;
   }
+  // general path: any order of the rows, pseudohaploids, masks
   double gij;
   for (size_t ii = 0; ii < ni; ii++) {
     const double obs = geno.get(i0 + ii, j, gij) ? 1.0 : 0.0;
@@ -306,14 +221,15 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
   }
 }
 
-// Likelihood coefficients for the slice. A term whose coefficient (g or
-// n - g) is zero is set to 0 (dividing by 1 instead of qp or 1 - qp), so that
-// qp of exactly 0 or 1 does not produce NaN.
-// HESS selects whether the second-order weights wa and wb are also needed
-// (Hessians) or only a and b (EM step, gradient-only uses). Being a template
-// parameter, the test disappears at compile time.
-// Outputs: s.a, s.b and, if HESS, s.wa, s.wb (plus everything slice_geno sets).
-template <bool HESS>
+// qp, genotypes and coefficients of a slice (see slice_geno()): a and b if
+// NEWTON is false (EM step), d1 and d2 if it is true (gradients and
+// Hessians). A term whose genotype count is 0 contributes 0, even when qp is
+// exactly 0 or 1: the count is divided by 1 instead of qp (or 1 - qp), so
+// that 0 / 0 never gives NaN. A count above 0 with qp of exactly 0 (or 1)
+// does give an infinite coefficient: that genotype is impossible under the
+// current estimates (the Newton update then discards the step of that
+// column, see newton_column()).
+template <bool NEWTON>
 static inline void slice_coef(const GenoView& geno, const double* qT,
                               const double* pj, int K, size_t j, size_t i0,
                               size_t i1, Slice& s) {
@@ -324,34 +240,22 @@ static inline void slice_coef(const GenoView& geno, const double* qT,
   const double* __restrict h = s.h.data();
   double* __restrict a = s.a.data();
   double* __restrict b = s.b.data();
-  double* __restrict wa = s.wa.data();
-  double* __restrict wb = s.wb.data();
+  double* __restrict d1 = s.d1.data();
+  double* __restrict d2 = s.d2.data();
 #pragma omp simd
   for (size_t ii = 0; ii < ni; ii++) {
     // x = (g > 0) ? qp : 1 and y = (h > 0) ? 1 - qp : 1, written with
-    // arithmetic masks so that the loop has no control flow
-    // Why the guard matters: a homozygous reference genotype (g = 0) at a
-    // locus where qp = 0 would otherwise give 0 / 0 = NaN, although its
-    // contribution g / qp is genuinely 0 (likewise h = 0 with qp = 1, and
-    // missing genotypes, where g = h = 0). If g > 0 and qp = 0 the
-    // likelihood really is -Inf and a becomes Inf, as it should.
+    // arithmetic masks so that the loop has no branches
     const double mg = (double) (g[ii] > 0), mh = (double) (h[ii] > 0);
     const double x = mg * qp[ii] + (1.0 - mg);
     const double y = mh * (1.0 - qp[ii]) + (1.0 - mh);
-    // first derivatives: d/dqp of g log(qp) and of h log(1 - qp) (up to
-    // sign), and, with HESS, minus the second derivatives: g / qp^2 and
-    // h / (1 - qp)^2
-    if (HESS) {
-      // Divisions are slow, so the reciprocals of x and y are taken once
-      // and multiplied, which needs two divisions instead of four (3-9%
-      // faster Newton updates). a and b are the same as g / x and h / y bit
-      // for bit (g and h are 0, 1/2, 1 or 2, so multiplying by them is
-      // exact); wa and wb can differ from a / x and b / y by rounding.
+    if (NEWTON) {
+      // two divisions instead of four: g / x = g * (1 / x), and
+      // g / x^2 = (g / x) * (1 / x)
       const double rx = 1.0 / x, ry = 1.0 / y;
-      a[ii] = g[ii] * rx;
-      b[ii] = h[ii] * ry;
-      wa[ii] = a[ii] * rx;
-      wb[ii] = b[ii] * ry;
+      const double ax = g[ii] * rx, by = h[ii] * ry;
+      d1[ii] = ax - by;
+      d2[ii] = ax * rx + by * ry;
     } else {
       a[ii] = g[ii] / x;
       b[ii] = h[ii] / y;
@@ -359,120 +263,95 @@ static inline void slice_coef(const GenoView& geno, const double* qT,
   }
 }
 
-// Q side: for individuals [i0, i1), sum over loci [j0, j1) (all loci, unless
-// the work is split into segments of loci, see accum_q_segmented())
-//   grad_k = sum_j a p_kj + b (1 - p_kj)
-//   hess_{k,k2} = sum_j wa p_kj p_k2j + wb (1 - p_kj)(1 - p_k2j)   (if HESS)
-// grad is K x ni and hess K x K x ni (ni = i1 - i0); both are overwritten.
-// gT and hT are scratch accumulators of size K * TILE_I and
-// K (K + 1) / 2 * TILE_I. omp = 1 - p.
-// (The (1 - p) form comes from the homogeneous likelihood explained at the
-// top of the file; Julia: update_q_loop!() and, without the Hessian and
-// before multiplying by q, em_q_loop!().)
+// Q side: the sums over loci [j0, j1) of each individual of the block
+// [i0, i1) (all the loci, unless the work is split into segments, see
+// q_side()):
+// - NEWTON: grad_k = sum_j d1 p_kj (grad, K x ni) and
+//   hess_kk2 = sum_j d2 p_kj p_k2j (hess, K x K x ni), the gradient and the
+//   negative Hessian of the log-likelihood with respect to q_.i;
+// - EM: grad_k = sum_j a p_kj + b (1 - p_kj) (grad, K x ni; hess unused),
+//   the expected number of allele copies of individual i from population
+//   k, divided by q_ki (see em()).
+// Outputs are overwritten. s holds two slices; gT (K x TILE_I) and hT
+// (K (K + 1) / 2 x TILE_I) are scratch for the accumulators.
 //
-// The block of individuals is fixed and we stream over all J loci. The
-// accumulators are kept "transposed" (one vector of length TILE_I per k, or
-// per (k, k2) pair) so that each update is a unit-stride loop over the
-// individuals of the slice, vectorised across individuals. They are only
-// copied into the K-major output layout once, at the end.
-template <bool HESS>
+// The accumulators are kept "transposed": one vector of length TILE_I per
+// gradient entry k, and one per Hessian entry (k, k2) with k2 >= k, so that
+// each update is a unit-stride loop over the individuals of the slice,
+// vectorised across individuals. Vector k (or pair idx, in the order (0,0),
+// (0,1), ..., (0,K-1), (1,1), ..., (K-1,K-1)) starts at gT + TILE_I k (or
+// hT + TILE_I idx), whatever ni is; a short last block simply leaves the
+// tail of each vector unused. They are copied into the output layout once,
+// at the end.
+template <bool NEWTON>
 RADMIX_MULTIVERSION
 static void accum_q_block(const GenoView& geno, const double* qT,
-                          const double* p, const double* omp, int K,
-                          size_t i0, size_t i1, size_t j0, size_t j1,
-                          double* grad, double* hess, Slice& s, double* gT,
-                          double* hT) {
+                          const double* p, int K, size_t i0, size_t i1,
+                          size_t j0, size_t j1, double* grad, double* hess,
+                          Slice* s, double* gT, double* hT) {
   const size_t ni = i1 - i0, KK = (size_t) K * K;
-  // number of distinct entries of a symmetric K x K matrix
   const size_t n_pair = (size_t) K * (K + 1) / 2;
-  // Accumulator vector k starts at gT + TILE_I * k (and pair idx at
-  // hT + TILE_I * idx) whatever ni is: a short last block simply leaves
-  // the tail of each vector unused.
   std::fill(gT, gT + K * TILE_I, 0.0);
-  if (HESS) std::fill(hT, hT + n_pair * TILE_I, 0.0);
-  const double* __restrict a = s.a.data();
-  const double* __restrict b = s.b.data();
-  const double* __restrict wa = s.wa.data();
-  const double* __restrict wb = s.wb.data();
-  // Loci in pairs: the coefficients of loci j and j + 1 are computed first,
-  // and each accumulator is then read and written once for both, which
-  // halves the memory traffic of the accumulators (they are updated by a
-  // single multiply-add per locus, so their loads and stores, rather than
-  // the arithmetic, limit the speed of this loop). s2 holds the
-  // coefficients of the second locus of each pair.
-  Slice s2;
-  const double* __restrict a2 = s2.a.data();
-  const double* __restrict b2 = s2.b.data();
-  const double* __restrict wa2 = s2.wa.data();
-  const double* __restrict wb2 = s2.wb.data();
-  size_t j = j0;
-  for (; j + 1 < j1; j += 2) {
+  if (NEWTON) std::fill(hT, hT + n_pair * TILE_I, 0.0);
+  // the coefficients of the two loci of each step (s[0] for locus j, s[1]
+  // for locus j + 1)
+  const double* __restrict a1 = s[0].a.data();
+  const double* __restrict b1 = s[0].b.data();
+  const double* __restrict a2 = s[1].a.data();
+  const double* __restrict b2 = s[1].b.data();
+  const double* __restrict d11 = s[0].d1.data();
+  const double* __restrict d21 = s[0].d2.data();
+  const double* __restrict d12 = s[1].d1.data();
+  const double* __restrict d22 = s[1].d2.data();
+  for (size_t j = j0; j < j1; j += 2) {
+    // the frequencies of the two loci; the padding locus of an odd range
+    // (j + 1 == j1) has zero coefficients, so any frequencies will do
+    const bool two = j + 1 < j1;
     const double* pj = p + K * j;
-    const double* oj = omp + K * j;
-    const double* pj2 = pj + K;
-    const double* oj2 = oj + K;
-    slice_coef<HESS>(geno, qT, pj, K, j, i0, i1, s);
-    slice_coef<HESS>(geno, qT, pj2, K, j + 1, i0, i1, s2);
-    for (int k = 0; k < K; k++) {
-      const double pk = pj[k], ok = oj[k], pk2 = pj2[k], ok2 = oj2[k];
-      double* __restrict gk = gT + TILE_I * k;
+    const double* pj2 = two ? pj + K : pj;
+    slice_coef<NEWTON>(geno, qT, pj, K, j, i0, i1, s[0]);
+    if (two) slice_coef<NEWTON>(geno, qT, pj2, K, j + 1, i0, i1, s[1]);
+    else s[1].zero_coef(ni);
+    if (NEWTON) {
+      // gradient: gT[, k] += d1 p_kj, for both loci
+      for (int k = 0; k < K; k++) {
+        const double pk = pj[k], pk2 = pj2[k];
+        double* __restrict gk = gT + TILE_I * k;
 #pragma omp simd
-      for (size_t ii = 0; ii < ni; ii++)
-        gk[ii] += (a[ii] * pk + b[ii] * ok) + (a2[ii] * pk2 + b2[ii] * ok2);
-    }
-    if (HESS) {
+        for (size_t ii = 0; ii < ni; ii++)
+          gk[ii] += d11[ii] * pk + d12[ii] * pk2;
+      }
+      // Hessian: hT[, (k, k2)] += d2 p_kj p_k2j for k2 >= k; the products
+      // of the frequencies do not depend on the individual, so they are
+      // formed outside the loop over individuals
       double* __restrict hk = hT;
       for (int k = 0; k < K; k++) {
         for (int k2 = k; k2 < K; k2++, hk += TILE_I) {
-          const double c1 = pj[k] * pj[k2], c2 = oj[k] * oj[k2];
-          const double d1 = pj2[k] * pj2[k2], d2 = oj2[k] * oj2[k2];
+          const double c1 = pj[k] * pj[k2], c2 = pj2[k] * pj2[k2];
 #pragma omp simd
           for (size_t ii = 0; ii < ni; ii++)
-            hk[ii] += (wa[ii] * c1 + wb[ii] * c2) +
-              (wa2[ii] * d1 + wb2[ii] * d2);
+            hk[ii] += d21[ii] * c1 + d22[ii] * c2;
         }
       }
-    }
-  }
-  // the last locus, if the number of loci is odd
-  for (; j < j1; j++) {
-    const double* pj = p + K * j;
-    const double* oj = omp + K * j;
-    // qp, genotypes and coefficients for this locus and block of individuals
-    slice_coef<HESS>(geno, qT, pj, K, j, i0, i1, s);
-    // gradient: gT[, k] += a * p_kj + b * (1 - p_kj), elementwise over ii
-    for (int k = 0; k < K; k++) {
-      const double pk = pj[k], ok = oj[k];
-      double* __restrict gk = gT + TILE_I * k;
-#pragma omp simd
-      for (size_t ii = 0; ii < ni; ii++) gk[ii] += a[ii] * pk + b[ii] * ok;
-    }
-    if (HESS) {
-      // Hessian: only pairs k2 >= k, in the packed order
-      // (0,0), (0,1), ..., (0,K-1), (1,1), ..., (K-1,K-1);
-      // hk walks through the packed accumulators one TILE_I vector at a time.
-      // The products p_kj p_k2j and (1 - p_kj)(1 - p_k2j) do not depend on
-      // the individual, so they are hoisted out of the inner loop.
-      double* __restrict hk = hT;
+    } else {
+      // EM: gT[, k] += a p_kj + b (1 - p_kj), for both loci
       for (int k = 0; k < K; k++) {
-        for (int k2 = k; k2 < K; k2++, hk += TILE_I) {
-          const double c1 = pj[k] * pj[k2], c2 = oj[k] * oj[k2];
+        const double pk = pj[k], ok = 1.0 - pj[k];
+        const double pk2 = pj2[k], ok2 = 1.0 - pj2[k];
+        double* __restrict gk = gT + TILE_I * k;
 #pragma omp simd
-          for (size_t ii = 0; ii < ni; ii++)
-            hk[ii] += wa[ii] * c1 + wb[ii] * c2;
-        }
+        for (size_t ii = 0; ii < ni; ii++)
+          gk[ii] += (a1[ii] * pk + b1[ii] * ok) +
+            (a2[ii] * pk2 + b2[ii] * ok2);
       }
     }
   }
-  // Scatter the accumulators into the output layout: grad K x ni and hess
-  // K x K x ni, column-major, one column (or K x K matrix) per individual.
-  // Only the first ni entries of each accumulator vector are meaningful
-  // (the last block may be shorter than TILE_I).
+  // copy the accumulators into the output layout: grad K x ni and hess
+  // K x K x ni, one column (or K x K matrix) per individual
   for (size_t ii = 0; ii < ni; ii++) {
     for (int k = 0; k < K; k++) grad[k + K * ii] = gT[ii + TILE_I * k];
-    if (HESS) {
+    if (NEWTON) {
       double* H = hess + KK * ii;
-      // same packed order as in the accumulation loop above
       size_t idx = 0;
       for (int k = 0; k < K; k++)
         for (int k2 = k; k2 < K; k2++, idx++)
@@ -482,88 +361,68 @@ static void accum_q_block(const GenoView& geno, const double* qT,
   }
 }
 
-// ---------------------------------------------------------------------------
-// Two-dimensional blocking of the Q side
+// Two-dimensional blocking of the Q side. Q-side sums are split into blocks
+// of TILE_I individuals, each owned by one thread; but with few individuals
+// there are few blocks (379 individuals give 6, 50 individuals a single
+// one), which cannot keep many threads busy. Population genetic data often
+// have tens to hundreds of individuals and many loci, so when there are
+// fewer than MIN_Q_TASKS blocks the loci are also split into segments, and
+// each (block, segment) pair is a separate task (see q_side()).
 //
-// Q-side sums run over loci for each individual, and are naturally split into
-// blocks of TILE_I individuals, each owned by one thread. But with few
-// individuals there are few blocks: 379 individuals give 6 blocks, so 4
-// threads are poorly balanced, and 50 individuals give a single block, so the
-// Q side would run on one thread however many are available. Population
-// genetic datasets often have tens to hundreds of individuals and many loci,
-// so this matters.
-//
-// When there are fewer than MIN_Q_TASKS blocks of individuals, we therefore
-// also split the loci into segments, and process each (block of individuals,
-// segment of loci) pair as a separate task. Each task accumulates partial
-// sums into its own buffer (no races), and the partial sums of the segments
-// are then added up in segment order. The number of segments depends only
-// on I and J, never on the number of threads, so results are identical for
-// any n_cores (they differ from a single pass over the loci only by
-// rounding, as the sums are grouped differently).
-//
-// Memory: the partial sums take n_seg * I * (K + K^2) doubles (the Hessians
-// are stored in full, K x K, ready to be added up). Segments are only used
-// when there are fewer than MIN_Q_TASKS blocks, i.e. I <= 1984, and n_seg is
-// ceil(MIN_Q_TASKS / n_blocks), so n_seg * I stays below
-// 2 * MIN_Q_TASKS * TILE_I = 4096 (the worst case is I = 1984: 31 blocks,
-// 2 segments): under 4 MB for K = 10. Larger datasets keep the single-pass
-// path (with block-local buffers only), unchanged.
-//
-// This is an implementation detail with no counterpart in OpenADMIXTURE.jl,
-// which splits the Q side over individuals only.
+// Memory: the partial sums of the segments take n_seg I (K + K^2) doubles.
+// Segments are only used with fewer than MIN_Q_TASKS blocks, i.e.
+// I < MIN_Q_TASKS TILE_I = 2048, and n_seg = ceil(MIN_Q_TASKS / n_blocks), so
+// n_seg I stays below 2 MIN_Q_TASKS TILE_I = 4096: under 4 MB for K = 10.
 
-// target number of Q-side tasks; enough to balance up to a few dozen threads
+// the target number of Q-side tasks, enough to balance a few dozen threads
 static const size_t MIN_Q_TASKS = 32;
-// minimum number of loci per segment, so that each task has enough work to
-// amortise its overheads
+// the minimum number of loci of a segment, so that each task has enough
+// work to amortise its overheads
 static const size_t MIN_SEG_LOCI = 256;
 
-// Number of segments of loci for the Q side (1 = no segmentation). Depends
+// The number of segments of loci of the Q side (1 = no segments). It depends
 // only on the dimensions of the data, so that results do not depend on the
 // number of threads.
 size_t q_segments(size_t I, size_t J) {
-  // number of blocks of individuals; with enough of them, the single-pass
-  // path already has enough independent tasks
   const size_t nbi = n_blocks(I, TILE_I);
-  // (no individuals: nothing to split, and no division by zero below)
+  // enough blocks already (or no individuals: nothing to split)
   if (nbi == 0 || nbi >= MIN_Q_TASKS) return 1;
-  // otherwise, enough segments to have about MIN_Q_TASKS tasks in total
-  // (rounded up: e.g. 6 blocks need 6 segments, giving 36 tasks)
+  // enough segments for about MIN_Q_TASKS tasks (e.g. 6 blocks need 6
+  // segments, giving 36 tasks), but none shorter than MIN_SEG_LOCI loci
   size_t n_seg = (MIN_Q_TASKS + nbi - 1) / nbi;
-  // do not make segments shorter than MIN_SEG_LOCI loci
   n_seg = std::min(n_seg, std::max((size_t) 1, J / MIN_SEG_LOCI));
   return n_seg;
 }
 
-// The Q-side driver: sums over loci for every individual, then
-// finish(i0, i1, grad, hess) for each block of individuals [i0, i1), with the
-// complete sums of the block (grad K x ni and, if HESS, hess K x K x ni, as
-// written by accum_q_block()). finish() runs inside the parallel region, on
-// the thread that owns the block, so it can write the output columns of its
-// individuals without synchronisation.
+// The Q-side driver: the sums of accum_q_block() over all the loci for
+// every individual, then finish(i0, i1, grad, hess) for each block of
+// individuals [i0, i1), with the complete sums of the block (grad K x ni
+// and, if NEWTON, hess K x K x ni). finish() runs inside the parallel
+// region, on the thread that owns the block, so it can write the output
+// columns of its individuals without synchronisation.
 //
-// With enough blocks of individuals (n_seg = 1), each block is accumulated
-// over all the loci by one thread, into thread-local buffers. With few
-// blocks, the loci are split into n_seg segments as well: each (segment,
-// block) pair is a task that writes its partial sums into its own slot of
-// grad_part and hess_part, and the partial sums of each block are then added
-// up in segment order before finish() (see q_segments()).
-template <bool HESS, class Finish>
+// With one segment, each block is accumulated over all the loci by one
+// thread, into thread-local buffers. With several, each (segment, block)
+// task writes its partial sums into its own slot of grad_part and
+// hess_part, and the partial sums of each individual are then added up in
+// segment order before finish().
+template <bool NEWTON, class Finish>
 static void q_side(const GenoView& geno, const double* qT, const double* p,
-                   const double* omp, int K, int n_cores, Finish finish) {
+                   int K, int n_cores, Finish finish) {
   const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
   const size_t n_pair = (size_t) K * (K + 1) / 2;
   const size_t nbi = n_blocks(I, TILE_I), n_seg = q_segments(I, J);
   // the partial sums of individual i in segment seg start at
-  // K * (seg * I + i) (and KK * (seg * I + i) for the Hessians)
+  // K (seg I + i) (and KK (seg I + i) for the Hessians)
   std::vector<double> grad_part(n_seg > 1 ? n_seg * K * I : 0);
-  std::vector<double> hess_part(n_seg > 1 && HESS ? n_seg * KK * I : 0);
+  std::vector<double> hess_part(n_seg > 1 && NEWTON ? n_seg * KK * I : 0);
 #pragma omp parallel num_threads(n_cores)
 {
-  Slice s;
-  std::vector<double> gT(K * TILE_I), hT(HESS ? n_pair * TILE_I : 0);
-  std::vector<double> grad(K * TILE_I), hess(HESS ? KK * TILE_I : 0);
+  // thread-local buffers: two slices, the accumulators, and the sums of one
+  // block of individuals
+  Slice s[2];
+  std::vector<double> gT(K * TILE_I), hT(NEWTON ? n_pair * TILE_I : 0);
+  std::vector<double> grad(K * TILE_I), hess(NEWTON ? KK * TILE_I : 0);
   if (n_seg > 1) {
     // tasks t = seg * nbi + bl: blocks vary fastest, so threads that start
     // together read the same columns of the backing file
@@ -572,23 +431,25 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
     for (ptrdiff_t t = 0; t < n_tasks; t++) {
       const size_t seg = t / nbi, bl = t % nbi;
       const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
+      // n_seg contiguous, nearly equal ranges of loci
       const size_t j0 = J * seg / n_seg, j1 = J * (seg + 1) / n_seg;
-      accum_q_block<HESS>(geno, qT, p, omp, K, i0, i1, j0, j1,
-                          &grad_part[K * (seg * I + i0)],
-                          HESS ? &hess_part[KK * (seg * I + i0)] : NULL, s,
-                          gT.data(), HESS ? hT.data() : NULL);
+      accum_q_block<NEWTON>(geno, qT, p, K, i0, i1, j0, j1,
+                            &grad_part[K * (seg * I + i0)],
+                            NEWTON ? &hess_part[KK * (seg * I + i0)] : NULL,
+                            s, gT.data(), NEWTON ? hT.data() : NULL);
     }
-    // (the implicit barrier of the loop above guarantees that all the
-    // partial sums are written before they are added up below)
+    // (the implicit barrier at the end of the loop above guarantees that
+    // all the partial sums are written before they are added up below)
   }
 #pragma omp for schedule(dynamic)
   for (ptrdiff_t bl = 0; bl < (ptrdiff_t) nbi; bl++) {
     const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
     if (n_seg == 1) {
-      accum_q_block<HESS>(geno, qT, p, omp, K, i0, i1, 0, J, grad.data(),
-                          HESS ? hess.data() : NULL, s, gT.data(),
-                          HESS ? hT.data() : NULL);
+      accum_q_block<NEWTON>(geno, qT, p, K, i0, i1, 0, J, grad.data(),
+                            NEWTON ? hess.data() : NULL, s, gT.data(),
+                            NEWTON ? hT.data() : NULL);
     } else {
+      // add up the partial sums of the segments, always in segment order
       for (size_t i = i0; i < i1; i++) {
         double* g = &grad[K * (i - i0)];
         for (int k = 0; k < K; k++) {
@@ -597,7 +458,7 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
             sum += grad_part[K * (seg * I + i) + k];
           g[k] = sum;
         }
-        if (!HESS) continue;
+        if (!NEWTON) continue;
         double* H = &hess[KK * (i - i0)];
         for (size_t kk = 0; kk < KK; kk++) {
           double sum = 0.0;
@@ -612,237 +473,187 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
 }
 }
 
-// P side: for loci [j0, j1), sum over all individuals. Two modes:
-// - EM = false: out1 = grad (K x nj), grad_k = sum_i (a - b) q_ki;
-//               out2 = hess (K x K x nj),
-//               hess_{k,k2} = sum_i (wa + wb) q_ki q_k2i
-// - EM = true:  out1 = sum_i a q_ki and out2 = sum_i b q_ki (both K x nj)
-// Outputs are overwritten.
-// (Julia: update_p_loop!() and em_p_loop!(). The gradient is the plain
-// derivative of L with respect to p_kj: d qp / d p_kj = q_ki, so
-// d/dp_kj [g log(qp) + h log(1 - qp)] = (a - b) q_ki, and minus the second
-// derivative is (wa + wb) q_ki q_k2i.)
+// P side: the sums over all the individuals of each locus of the block
+// [j0, j1):
+// - NEWTON: out1 = grad (K x nj), grad_k = sum_i d1 q_ki, and out2 = hess
+//   (K x K x nj), hess_kk2 = sum_i d2 q_ki q_k2i, the gradient and the
+//   negative Hessian of the log-likelihood with respect to p_.j;
+// - EM: out1 = sum_i a q_ki and out2 = sum_i b q_ki (both K x nj), which
+//   em() turns into expected allele counts.
+// Outputs are overwritten. They must have room for TILE_J loci: the padding
+// locus of a block with an odd number of loci writes zeros into the slot
+// after its last locus (such a block is the last one, so it has fewer than
+// TILE_J loci). s holds two slices.
 //
-// Loop order: individuals in tiles of TILE_I (outer), then the nj loci of
-// the block (inner). The TILE_I x K corner of qT used by one tile is reused
-// for all nj loci, so it stays in cache; each output column is updated once
-// per tile of individuals, always in the same order (i0 = 0, TILE_I, ...).
-template <bool EM>
+// Loop order: tiles of TILE_I individuals (outer), then the loci of the
+// block, two at a time (inner). The TILE_I x K corner of qT used by a tile is
+// reused for all the loci of the block, so it stays in cache, and each sum
+// is a dot product over the individuals of the tile; for each locus, the
+// tiles are always added in the same order (i0 = 0, TILE_I, ...).
+template <bool NEWTON>
 RADMIX_MULTIVERSION
 static void accum_p_block(const GenoView& geno, const double* qT,
                           const double* p, int K, size_t j0, size_t j1,
-                          double* out1, double* out2, Slice& s) {
+                          double* out1, double* out2, Slice* s) {
   const size_t I = geno.nrow(), nj = j1 - j0, KK = (size_t) K * K;
-  // out2 holds K values per locus in EM mode, a K x K matrix otherwise
-  std::fill(out1, out1 + K * nj, 0.0);
-  std::fill(out2, out2 + (EM ? K : KK) * nj, 0.0);
-  // a and wa are not const: in gradient mode they are overwritten in place
-  // with a - b and wa + wb (see below)
-  double* __restrict a = s.a.data();
-  double* __restrict b = s.b.data();
-  double* __restrict wa = s.wa.data();
-  const double* __restrict wb = s.wb.data();
-  double* __restrict wq = s.tmp.data();
-  // coefficients of the second locus of each pair (gradient mode, below)
-  Slice s2;
-  double* __restrict a2 = s2.a.data();
-  double* __restrict b2 = s2.b.data();
-  double* __restrict wa2 = s2.wa.data();
-  const double* __restrict wb2 = s2.wb.data();
-  double* __restrict wq2 = s2.tmp.data();
+  // out2 holds a K x K matrix per locus with NEWTON, K values otherwise
+  const size_t n2 = NEWTON ? KK : K;
+  // the number of output slots used, including that of a padding locus
+  const size_t n_slots = nj + nj % 2;
+  std::fill(out1, out1 + K * n_slots, 0.0);
+  std::fill(out2, out2 + n2 * n_slots, 0.0);
+  const double* __restrict a1 = s[0].a.data();
+  const double* __restrict b1 = s[0].b.data();
+  const double* __restrict a2 = s[1].a.data();
+  const double* __restrict b2 = s[1].b.data();
+  const double* __restrict d11 = s[0].d1.data();
+  const double* __restrict d21 = s[0].d2.data();
+  const double* __restrict d12 = s[1].d1.data();
+  const double* __restrict d22 = s[1].d2.data();
+  // scratch for the products d2 q_ki of the two loci
+  double* __restrict wq1 = s[0].tmp.data();
+  double* __restrict wq2 = s[1].tmp.data();
   for (size_t i0 = 0; i0 < I; i0 += TILE_I) {
     const size_t i1 = std::min(I, i0 + TILE_I), ni = i1 - i0;
-    size_t jj = 0;
-    // Gradient mode, loci in pairs: the sums of loci j and j + 1 are
-    // computed in the same loops, which share the loads of q and halve the
-    // number of short loops (each ending with a horizontal reduction).
-    if (!EM) {
-      for (; jj + 1 < nj; jj += 2) {
-        const size_t j = j0 + jj;
-        slice_coef<true>(geno, qT, p + K * j, K, j, i0, i1, s);
-        slice_coef<true>(geno, qT, p + K * (j + 1), K, j + 1, i0, i1, s2);
-        double* o1 = out1 + K * jj;
-        double* o2 = out2 + KK * jj;
-#pragma omp simd
-        for (size_t ii = 0; ii < ni; ii++) {
-          a[ii] -= b[ii];
-          wa[ii] += wb[ii];
-          a2[ii] -= b2[ii];
-          wa2[ii] += wb2[ii];
-        }
-        for (int k = 0; k < K; k++) {
-          const double* __restrict qk = qT + I * k + i0;
-          double sg = 0.0, sg2 = 0.0;
-#pragma omp simd reduction(+:sg, sg2)
+    for (size_t jj = 0; jj < nj; jj += 2) {
+      const size_t j = j0 + jj;
+      slice_coef<NEWTON>(geno, qT, p + K * j, K, j, i0, i1, s[0]);
+      if (jj + 1 < nj)
+        slice_coef<NEWTON>(geno, qT, p + K * (j + 1), K, j + 1, i0, i1, s[1]);
+      else
+        s[1].zero_coef(ni);
+      // the output columns of the two loci (those of the second follow
+      // those of the first)
+      double* o1 = out1 + K * jj;
+      double* o2 = out2 + n2 * jj;
+      for (int k = 0; k < K; k++) {
+        const double* __restrict qk = qT + I * k + i0;
+        if (NEWTON) {
+          // gradient: sum_i d1 q_ki
+          double sg1 = 0.0, sg2 = 0.0;
+#pragma omp simd reduction(+:sg1, sg2)
           for (size_t ii = 0; ii < ni; ii++) {
-            sg += a[ii] * qk[ii];
-            sg2 += a2[ii] * qk[ii];
+            sg1 += d11[ii] * qk[ii];
+            sg2 += d12[ii] * qk[ii];
           }
-          o1[k] += sg;
+          o1[k] += sg1;
           o1[K + k] += sg2;
+          // Hessian column k, rows k2 >= k: sum_i (d2 q_ki) q_k2i; the
+          // product in brackets depends only on k, so it is formed once,
+          // and each entry is then a single dot product
 #pragma omp simd
           for (size_t ii = 0; ii < ni; ii++) {
-            wq[ii] = wa[ii] * qk[ii];
-            wq2[ii] = wa2[ii] * qk[ii];
+            wq1[ii] = d21[ii] * qk[ii];
+            wq2[ii] = d22[ii] * qk[ii];
           }
-          double* Hk = o2 + K * k;
-          double* Hk2 = o2 + KK + K * k;
+          double* H1 = o2 + K * k;
+          double* H2 = o2 + KK + K * k;
           for (int k2 = k; k2 < K; k2++) {
             const double* __restrict qk2 = qT + I * k2 + i0;
-            double sh = 0.0, sh2 = 0.0;
-#pragma omp simd reduction(+:sh, sh2)
+            double sh1 = 0.0, sh2 = 0.0;
+#pragma omp simd reduction(+:sh1, sh2)
             for (size_t ii = 0; ii < ni; ii++) {
-              sh += wq[ii] * qk2[ii];
+              sh1 += wq1[ii] * qk2[ii];
               sh2 += wq2[ii] * qk2[ii];
             }
-            Hk[k2] += sh;
-            Hk2[k2] += sh2;
+            H1[k2] += sh1;
+            H2[k2] += sh2;
           }
-        }
-      }
-    }
-    // the remaining locus (or all of them in EM mode)
-    for (; jj < nj; jj++) {
-      const size_t j = j0 + jj;
-      // the EM step needs only a and b; gradient mode also needs wa and wb
-      slice_coef<!EM>(geno, qT, p + K * j, K, j, i0, i1, s);
-      // output column of this locus (K values, or a K x K matrix)
-      double* o1 = out1 + K * jj;
-      double* o2 = out2 + (EM ? K : KK) * jj;
-      if (EM) {
-        // two dot products over the slice per population: sum_i a q_ki and
-        // sum_i b q_ki (the factors p_kj and 1 - p_kj are applied in em)
-        for (int k = 0; k < K; k++) {
-          const double* __restrict qk = qT + I * k + i0;
-          double sa = 0.0, sb = 0.0;
-#pragma omp simd reduction(+:sa, sb)
+        } else {
+          // EM: sum_i a q_ki and sum_i b q_ki
+          double sa1 = 0.0, sb1 = 0.0, sa2 = 0.0, sb2 = 0.0;
+#pragma omp simd reduction(+:sa1, sb1, sa2, sb2)
           for (size_t ii = 0; ii < ni; ii++) {
-            sa += a[ii] * qk[ii];
-            sb += b[ii] * qk[ii];
+            sa1 += a1[ii] * qk[ii];
+            sb1 += b1[ii] * qk[ii];
+            sa2 += a2[ii] * qk[ii];
+            sb2 += b2[ii] * qk[ii];
           }
-          o1[k] += sa;
-          o2[k] += sb;
-        }
-      } else {
-        // a <- a - b and wa <- wa + wb
-        // On the P side the coefficients enter only through these
-        // combinations, so combining them first halves the work below.
-#pragma omp simd
-        for (size_t ii = 0; ii < ni; ii++) {
-          a[ii] -= b[ii];
-          wa[ii] += wb[ii];
-        }
-        for (int k = 0; k < K; k++) {
-          const double* __restrict qk = qT + I * k + i0;
-          // gradient: sum_i (a - b) q_ki
-          double sg = 0.0;
-#pragma omp simd reduction(+:sg)
-          for (size_t ii = 0; ii < ni; ii++) sg += a[ii] * qk[ii];
-          o1[k] += sg;
-          // Hessian column k, rows k2 >= k: sum_i [(wa + wb) q_ki] q_k2i.
-          // The bracket depends only on k, so it is formed once in wq and
-          // each entry is then a single dot product.
-          // Hk[k2] is H[k2 + K * k], i.e. the half with row k2 >= column k,
-          // the same half as on the Q side (see mirror_hess()).
-#pragma omp simd
-          for (size_t ii = 0; ii < ni; ii++) wq[ii] = wa[ii] * qk[ii];
-          double* Hk = o2 + K * k;
-          for (int k2 = k; k2 < K; k2++) {
-            const double* __restrict qk2 = qT + I * k2 + i0;
-            double sh = 0.0;
-#pragma omp simd reduction(+:sh)
-            for (size_t ii = 0; ii < ni; ii++) sh += wq[ii] * qk2[ii];
-            Hk[k2] += sh;
-          }
+          o1[k] += sa1;
+          o2[k] += sb1;
+          o1[K + k] += sa2;
+          o2[K + k] += sb2;
         }
       }
     }
   }
-  // fill in the other half of each symmetric Hessian once all tiles of
-  // individuals have been accumulated
-  if (!EM)
+  // fill in the other half of each Hessian, once all the tiles of
+  // individuals have been added
+  if (NEWTON)
     for (size_t jj = 0; jj < nj; jj++) mirror_hess(out2 + KK * jj, K);
 }
 
-// The P-side driver: sums over individuals for every locus, parallelised over
-// blocks of TILE_J loci, then finish(j0, j1, out1, out2) for each block of
-// loci [j0, j1), with the sums of the block as written by accum_p_block().
-// As in q_side(), finish() runs on the thread that owns the block.
-template <bool EM, class Finish>
+// The P-side driver: the sums of accum_p_block() for every locus,
+// parallelised over blocks of TILE_J loci, then finish(j0, j1, out1, out2)
+// for each block of loci [j0, j1), with the sums of the block. As in
+// q_side(), finish() runs on the thread that owns the block.
+template <bool NEWTON, class Finish>
 static void p_side(const GenoView& geno, const double* qT, const double* p,
                    int K, int n_cores, Finish finish) {
   const size_t J = geno.ncol(), KK = (size_t) K * K;
   const ptrdiff_t nb = (ptrdiff_t) n_blocks(J, TILE_J);
 #pragma omp parallel num_threads(n_cores)
 {
-  Slice s;
-  std::vector<double> out1(K * TILE_J), out2((EM ? K : KK) * TILE_J);
+  Slice s[2];
+  std::vector<double> out1(K * TILE_J), out2((NEWTON ? KK : K) * TILE_J);
 #pragma omp for schedule(dynamic)
   for (ptrdiff_t bl = 0; bl < nb; bl++) {
     const size_t j0 = bl * TILE_J, j1 = std::min(J, j0 + TILE_J);
-    accum_p_block<EM>(geno, qT, p, K, j0, j1, out1.data(), out2.data(), s);
+    accum_p_block<NEWTON>(geno, qT, p, K, j0, j1, out1.data(), out2.data(),
+                          s);
     finish(j0, j1, out1.data(), out2.data());
   }
 }
 }
 
-// x^e for e in {0, 1, 2} (Lagrange interpolation in e), without control flow;
-// gives 1 for e = 0 even if x = 0
-// The three terms are the Lagrange basis polynomials in e for the nodes
-// 0, 1, 2, multiplied by x^0, x^1 and x^2. For other values of e the result
-// is meaningless, but loglik_slice() never uses it in that case.
+// x^e for e in {0, 1, 2}, without branches: the Lagrange interpolation
+// polynomial in e through (0, 1), (1, x) and (2, x^2). It gives 1 for e = 0
+// even if x = 0; for other values of e the result is meaningless, but
+// loglik_slice() never uses it then.
 static inline double pow012(double x, double e) {
   return 0.5 * (e - 1.0) * (e - 2.0) + x * e * (2.0 - e) +
     0.5 * x * x * e * (e - 1.0);
 }
 
-// Products of up to LOG_BATCH factors of at least LOG_MIN_Z cannot underflow
-// (LOG_BATCH^2 must equal TILE_I)
-// (8 factors >= 1e-30 give a product >= 1e-240, well above the smallest
-// normal double, about 2.2e-308. Each factor is also <= 1, so there is no
-// overflow either.)
+// The log-likelihood of a slice takes LOG_BATCH logarithms instead of one or
+// two per genotype: it multiplies the likelihoods of LOG_BATCH genotypes
+// before taking a logarithm. Each factor is at least LOG_MIN_Z (smaller ones
+// are handled separately) and at most 1, so a product of 8 is at least
+// 1e-240, far from underflow (the smallest normal double is about
+// 2.2e-308). The slice of TILE_I individuals is split into LOG_BATCH
+// products of LOG_BATCH factors each.
 static const int LOG_BATCH = 8;
 static const double LOG_MIN_Z = 1e-30;
-// loglik_slice() splits a slice of up to TILE_I individuals into LOG_BATCH
-// interleaved products of LOG_BATCH factors each, so it silently assumes
-// LOG_BATCH * LOG_BATCH == TILE_I. Check this at compile time, so that
-// changing one constant without the other fails to build instead of giving
-// wrong log-likelihoods. (Implementation detail with no Julia counterpart.)
 static_assert(LOG_BATCH * LOG_BATCH == TILE_I,
               "loglik_slice() requires LOG_BATCH^2 == TILE_I");
 
-// Log-likelihood of one slice (after slice_geno). Each observed genotype
-// contributes g log(x) + h log(y), with x = (g > 0) ? qp : 1 and
-// y = (h > 0) ? 1 - qp : 1 (h = n - g). For hard calls g and h are 0, 1 or 2,
-// so the contribution is log(z) with z = qp^g (1 - qp)^h; the z of LOG_BATCH
-// genotypes are multiplied together before taking a single log, which makes
-// this several times cheaper than one or two logs per genotype. Any other
-// genotype (or one with a z so small that the product could underflow) is
-// added with the direct formula.
-// Missing genotypes have g = h = 0, hence z = 1 and log(z) = 0.
-// The result is the sum over the ni individuals of the slice; s.a and s.b
-// are used as scratch for z and c.
+// The log-likelihood of the ni genotypes of a slice (after slice_geno()),
+// sum_ii g log(qp) + h log(1 - qp) (a term with a zero count is 0). For a
+// hard call, g and h are 0, 1 or 2, and the contribution is log(z) with
+// z = qp^g (1 - qp)^h, which needs no logarithm to compute; the z are
+// multiplied in batches before taking logarithms (see LOG_BATCH). Other
+// genotypes (dosages, from imputed or rescaled genotypes) and the rare z
+// below LOG_MIN_Z use the direct formula. A missing genotype has
+// g = h = 0, hence z = 1. Uses s.a and s.b as scratch for z and for a flag.
 static double loglik_slice(size_t ni, Slice& s) {
   const double* __restrict qp = s.qp.data();
   const double* __restrict g = s.g.data();
   const double* __restrict h = s.h.data();
   double* __restrict z = s.a.data();
   double* __restrict c = s.b.data();
-  // Pass 1 (vectorised): z = qp^g (1 - qp)^h, assuming integer g, h <= 2,
-  // and a flag c that is non-zero when that assumption fails (dosages,
-  // e.g. from imputed or scaled genotypes)
+  // Pass 1 (vectorised): z = qp^g (1 - qp)^h, assuming that g and h are 0,
+  // 1 or 2, and a flag c that is 0 if and only if they are
 #pragma omp simd
   for (size_t ii = 0; ii < ni; ii++) {
     z[ii] = pow012(qp[ii], g[ii]) * pow012(1.0 - qp[ii], h[ii]);
-    // c == 0 iff g and h are both 0, 1 or 2
     c[ii] = std::fabs(g[ii] * (g[ii] - 1.0) * (g[ii] - 2.0)) +
       std::fabs(h[ii] * (h[ii] - 1.0) * (h[ii] - 2.0));
   }
-  // the exceptions are rare, so this branch is almost always predicted
-  // Pass 2 (scalar): genotypes that cannot go into the batched product are
-  // added with explicit logs, and their z is replaced by the neutral 1. This
-  // includes z = 0 (qp of exactly 0 with g > 0, or 1 with h > 0), which
-  // correctly gives -Inf. The | (not ||) avoids a second branch.
+  // Pass 2 (scalar, rarely taken): the genotypes that cannot go into the
+  // products get explicit logarithms, and a neutral z = 1. This includes
+  // z = 0 (an impossible genotype, qp of exactly 0 with g > 0, or 1 with
+  // h > 0), which correctly gives -Inf. (| rather than || avoids a second
+  // branch.)
   double ll = 0.0;
   for (size_t ii = 0; ii < ni; ii++) {
     if ((z[ii] < LOG_MIN_Z) | (c[ii] != 0)) {
@@ -851,28 +662,25 @@ static double loglik_slice(size_t ni, Slice& s) {
       if (h[ii] > 0) ll += h[ii] * std::log(1.0 - qp[ii]);
     }
   }
-  // LOG_BATCH interleaved products of LOG_BATCH factors each (the slice is
-  // padded with ones), so that the products vectorise too
-  // Product b collects z[b], z[b + 8], z[b + 16], ..., so the inner loop
-  // over b multiplies 8 independent accumulators by 8 contiguous values.
-  // Padding a short last slice with ones (log 1 = 0) keeps the loop bounds
-  // fixed; z points into s.a, which has TILE_I entries.
+  // Pass 3: LOG_BATCH interleaved products (product b collects z[b],
+  // z[b + 8], z[b + 16], ...), so that the inner loop multiplies 8
+  // independent accumulators by 8 contiguous values and vectorises. A short
+  // slice is padded with ones (log(1) = 0) to keep the loop bounds fixed.
   std::fill(z + ni, z + TILE_I, 1.0);
   double prod[LOG_BATCH];
   for (int b = 0; b < LOG_BATCH; b++) prod[b] = 1.0;
   for (int m = 0; m < LOG_BATCH; m++)
 #pragma omp simd
     for (int b = 0; b < LOG_BATCH; b++) prod[b] *= z[LOG_BATCH * m + b];
-  // 8 logs instead of up to 2 * TILE_I
   for (int b = 0; b < LOG_BATCH; b++) ll += std::log(prod[b]);
   return ll;
 }
 
 // Sums over all the genotypes, for loglik() and deviance(): NS running sums,
 // to which slice_sum(ni, s, acc) adds the contribution of each slice (after
-// slice_geno()). Parallelised over blocks of TILE_J loci; each block keeps
-// its own sums, which are added up in block order at the end, so the totals
-// do not depend on the number of threads.
+// slice_geno(), which fills s.qp, s.g and s.h). Parallelised over blocks of
+// TILE_J loci; each block keeps its own sums, which are added up in block
+// order at the end, so the totals do not depend on the number of threads.
 template <int NS, class SliceSum>
 static void sum_slices(const GenoView& geno, const double* q, const double* p,
                        int K, int n_cores, double* total,
@@ -884,6 +692,8 @@ static void sum_slices(const GenoView& geno, const double* q, const double* p,
 #pragma omp parallel num_threads(n_cores)
 {
   Slice s;
+  // (dynamic scheduling balances the load if some threads are slower, e.g.
+  // while the backing file is being paged in)
 #pragma omp for schedule(dynamic)
   for (ptrdiff_t bl = 0; bl < nb; bl++) {
     const size_t j1 = std::min(J, (bl + 1) * TILE_J);
@@ -914,27 +724,19 @@ double loglik(const GenoView& geno, const double* q, const double* p, int K,
   return ll;
 }
 
-// Binomial deviance of the genotypes visible in the view, for the
-// cross-validation error of ADMIXTURE (Alexander & Lange 2011).
-//
-// For a held-out genotype g of an individual with n allele copies, the model
-// fitted without it predicts mu = n qp (the expected number of alt alleles),
-// and the prediction error is measured by the binomial deviance
+// The binomial deviance of the visible genotypes, the prediction error of
+// cross-validation (Alexander and Lange 2011). A held-out genotype g of an
+// individual with n allele copies is predicted by mu = n qp, the expected
+// number of alternate alleles under the estimates fitted without it, and
+// the error is
 //   d(g, mu) = g log(g / mu) + (n - g) log((n - g) / (n - mu))
-//            = g log(g / (n qp)) + h log(h / (n (1 - qp))),   h = n - g,
-// with the convention 0 log 0 = 0. This is the formula given in the ADMIXTURE
-// paper and manual for diploids (n = 2), where it is (half) the squared
-// deviance residual of the binomial model; using n_i instead of 2 extends it
-// to pseudohaploids in the natural way (a deviation from ADMIXTURE, which
-// only handles diploids). d is 0 when the prediction is perfect and grows as
-// mu moves away from g.
-//
-// Called with a held-out view (CV_HELD_OUT in radmix_geno_access.h),
-// only the genotypes of the scored fold are visible; all the others look
-// missing and contribute nothing. Writes the total deviance to *dev and the
-// number of visible genotypes to *count, so that the cross-validation error can
-// be pooled over folds as sum(dev) / sum(count), i.e. averaged over all
-// held-out genotypes, as ADMIXTURE does.
+//            = g log(g / (n qp)) + h log(h / (n (1 - qp))),
+// with 0 log 0 = 0: 0 for a perfect prediction, growing as mu moves away
+// from g. (ADMIXTURE gives this formula for diploids, n = 2.) With a
+// held-out view (radmix_geno_access.h), only the genotypes of the scored
+// fold are visible. *dev receives the sum of the deviances and *count the
+// number of visible genotypes, so that the error can be averaged over all
+// the held-out genotypes of all the folds.
 void deviance(const GenoView& geno, const double* q, const double* p, int K,
               int n_cores, double* dev, double* count) {
   double total[2];
@@ -942,12 +744,11 @@ void deviance(const GenoView& geno, const double* q, const double* p, int K,
                 [](size_t ni, Slice& s, double* acc) {
     for (size_t ii = 0; ii < ni; ii++) {
       const double g = s.g[ii], h = s.h[ii], qp = s.qp[ii];
-      // a visible genotype always has g + h = n_i > 0
+      // a visible genotype has g + h = n_i > 0, a hidden or missing one 0
       if (g + h <= 0) continue;
-      // n_i, recovered as g + h (the slice does not store n_trials)
       const double n = g + h;
-      // skip zero coefficients (0 log 0 = 0); the estimates are kept in
-      // [1e-5, 1 - 1e-5], so qp is never exactly 0 or 1 here
+      // (the estimates are kept within [1e-5, 1 - 1e-5], so qp is never
+      // exactly 0 or 1 here)
       if (g > 0) acc[0] += g * std::log(g / (n * qp));
       if (h > 0) acc[0] += h * std::log(h / (n * (1.0 - qp)));
       acc[1] += 1.0;
@@ -957,70 +758,66 @@ void deviance(const GenoView& geno, const double* q, const double* p, int K,
   *count = total[1];
 }
 
-// Two passes from the same (q, p): a Q-side pass over blocks of individuals
-// and a P-side pass over blocks of loci. This reads the genotypes twice but
-// keeps both passes free of reductions.
+// One EM step (the algorithm of FRAPPE, Tang et al. 2005), updating both
+// blocks from the same (q, p).
 //
-// Derivation (FRAPPE EM). Each allele copy of individual i at locus j comes
-// from a latent population k. Given an alt allele, the posterior probability
-// that it came from k is q_ki p_kj / qp; given a reference allele it is
-// q_ki (1 - p_kj) / (1 - qp). The E step therefore assigns
+// Each allele copy of individual i at locus j comes from one of the K
+// ancestral populations. Given an alternate allele, the probability that it
+// came from population k is q_ki p_kj / qp; given a reference allele, it is
+// q_ki (1 - p_kj) / (1 - qp). The E step therefore assigns to population k
 //   g q_ki p_kj / qp + h q_ki (1 - p_kj) / (1 - qp)
 //     = q_ki [a p_kj + b (1 - p_kj)]
-// expected allele copies to population k, of which g q_ki p_kj / qp =
-// q_ki p_kj a are alt alleles. The M step sets q_ki to the share of
-// individual i's allele copies assigned to k, and p_kj to the share of
-// alt alleles among the copies at locus j assigned to k.
+// expected allele copies, of which q_ki p_kj a are alternate alleles. The M
+// step sets q_ki to the share of the allele copies of individual i assigned
+// to k, and p_kj to the share of alternate alleles among the copies at locus
+// j assigned to k. Summed over k, the copies assigned at one locus are
+// a qp + b (1 - qp) = g + h = n_i, so q_ki is normalised by n_i J_i, where
+// J_i is the number of loci observed in individual i; normalising by the sum
+// over k gives the same result, and keeps q on the simplex exactly.
+//
+// The Q block takes a pass over blocks of individuals, the P block a pass
+// over blocks of loci.
 void em(const GenoView& geno, const double* q, const double* p, int K,
         double* q_new, double* p_new, int n_cores) {
-  std::vector<double> omp = one_minus(p, (size_t) K * geno.ncol());
   std::vector<double> qT = transpose(q, K, geno.nrow());
-  // Q: q_new_ki = q_ki * sum_j (a p_kj + b (1 - p_kj)) / (n_i J_i), where
-  // J_i is the number of loci observed in individual i. The denominator equals
-  // the column sum of the numerator, so we normalise by that: this keeps q on
-  // the simplex with missing data (Julia divides by n_i J, which does not).
-  // (Summing the numerator over k gives, for each observed locus,
-  // a qp + b (1 - qp) = g + h = n_i, hence n_i J_i in total. Julia's em_q!()
-  // divides by 2J for every individual, which equals the column sum only
-  // when nothing is missing and everyone is diploid.)
-  q_side<false>(geno, qT.data(), p, omp.data(), K, n_cores,
-                [&](size_t i0, size_t i1, const double* grad, const double*) {
+  // Q: q_new_ki proportional to q_ki sum_j [a p_kj + b (1 - p_kj)]
+  q_side<false>(geno, qT.data(), p, K, n_cores,
+                [&](size_t i0, size_t i1, const double* sums,
+                    const double*) {
     for (size_t i = i0; i < i1; i++) {
-      const double* g = grad + K * (i - i0);
+      const double* si = sums + K * (i - i0);
       const double* qi = q + K * i;
       double* qn = q_new + K * i;
-      // multiply by q_ki (taken out of the sum over j) and normalise
       double denom = 0.0;
       for (int k = 0; k < K; k++) {
-        qn[k] = g[k] * qi[k];
+        qn[k] = si[k] * qi[k];
         denom += qn[k];
       }
-      // denom is 0 only if the individual has no observed genotype (or q is
-      // degenerate): then there is no information and q is left unchanged
+      // denom is 0 only for an individual without any observed genotype:
+      // there is no information, so q is left unchanged
       if (denom > 0)
         for (int k = 0; k < K; k++) qn[k] /= denom;
       else
         for (int k = 0; k < K; k++) qn[k] = qi[k];
     }
   });
-  // P: p_new = A / (A + B), A = p sum_i a q, B = (1 - p) sum_i b q
-  // (A and B are the expected numbers of alt and reference allele copies at
-  // locus j assigned to population k. Note that the P pass uses the old q,
-  // not q_new, matching Julia's "base" mode.)
-  p_side<true>(geno, qT.data(), p, K, n_cores,
-               [&](size_t j0, size_t j1, const double* sa, const double* sb) {
+  // P: p_new = A / (A + B), where A = p sum_i a q and B = (1 - p) sum_i b q
+  // are the expected numbers of alternate and reference allele copies at
+  // locus j from population k
+  p_side<false>(geno, qT.data(), p, K, n_cores,
+                [&](size_t j0, size_t j1, const double* sa,
+                    const double* sb) {
     for (size_t j = j0; j < j1; j++) {
       for (int k = 0; k < K; k++) {
-        // x indexes the full K x J matrices, y the block-local K x nj buffers
+        // x indexes the K x J matrices, y the K x nj sums of the block
         const size_t x = k + K * j, y = k + K * (j - j0);
-        const double A = p[x] * sa[y], B = omp[x] * sb[y];
-        // A + B = 0 means no observed allele copies are assigned to k at
-        // this locus (e.g. all genotypes missing): keep the old frequency
-        // Unlike the Newton updates, the result is not projected, so a
-        // locus where every observed genotype is homozygous reference gets
-        // p_new = 0 exactly (A = 0), and one fixed for the alt allele
-        // p_new = 1. The kernels that follow cope with this through the
-        // guards on qp of exactly 0 or 1 (slice_coef(), loglik_slice()).
+        const double A = p[x] * sa[y], B = (1.0 - p[x]) * sb[y];
+        // A + B = 0 means that no allele copy is assigned to k at this locus
+        // (e.g. all its genotypes are missing): the frequency is kept. The
+        // result is not projected, so a locus where all the observed
+        // alleles are reference alleles gets p = 0 exactly (and one where
+        // they are all alternate alleles p = 1); the other passes handle qp
+        // of exactly 0 or 1 (slice_coef(), loglik_slice()).
         p_new[x] = (A + B > 0) ? A / (A + B) : p[x];
       }
     }
@@ -1030,9 +827,8 @@ void em(const GenoView& geno, const double* q, const double* p, int K,
 void grad_q(const GenoView& geno, const double* q, const double* p, int K,
             double* grad, double* hess, int n_cores) {
   const size_t KK = (size_t) K * K;
-  std::vector<double> omp = one_minus(p, (size_t) K * geno.ncol());
   std::vector<double> qT = transpose(q, K, geno.nrow());
-  q_side<true>(geno, qT.data(), p, omp.data(), K, n_cores,
+  q_side<true>(geno, qT.data(), p, K, n_cores,
                [&](size_t i0, size_t i1, const double* g, const double* H) {
     std::copy(g, g + K * (i1 - i0), grad + K * i0);
     std::copy(H, H + KK * (i1 - i0), hess + KK * i0);
@@ -1043,31 +839,31 @@ void grad_p(const GenoView& geno, const double* q, const double* p, int K,
             double* grad, double* hess, int n_cores) {
   const size_t KK = (size_t) K * K;
   std::vector<double> qT = transpose(q, K, geno.nrow());
-  p_side<false>(geno, qT.data(), p, K, n_cores,
-                [&](size_t j0, size_t j1, const double* g, const double* H) {
+  p_side<true>(geno, qT.data(), p, K, n_cores,
+               [&](size_t j0, size_t j1, const double* g, const double* H) {
     std::copy(g, g + K * (j1 - j0), grad + K * j0);
     std::copy(H, H + KK * (j1 - j0), hess + KK * j0);
   });
 }
 
-// For individual i the QP (radmix_qp_sweep.h) finds the step delta that
-// maximises the local quadratic model grad' delta - 0.5 delta' H delta, where H
-// is the negative Hessian, subject to 0 <= q_.i + delta <= 1 and
-// sum_k delta_k = 1 - sum_k q_ki (simplex = true). q_.i + delta is then
-// projected onto {sum = 1, q >= eps} to guard against round-off and to keep
-// every q_ki strictly positive, so that qp never becomes exactly 0 in later
-// iterations. As in Julia, if the QP fails, delta is whatever the solver
-// reached and the projection still returns a feasible column.
-// Deviation from OpenADMIXTURE.jl: discard a non-finite Newton step.
-// Julia adds the QP step to the current column whatever its value. If the
-// gradient or Hessian of a column contains Inf/NaN (e.g. a genotype that is
-// impossible under the current estimates, with qp of exactly 0 or 1), or
-// the QP solver hits a vanishing pivot, delta can contain Inf/NaN, which
-// would then spread to the whole column and, through later iterations, to
-// the log-likelihood. We instead keep the current value of that column for
-// this sweep (delta = 0): the other columns are still updated, and the
-// column gets another chance at the next sweep, when its neighbours have
-// moved.
+// The constrained Newton update of one column x (K values) of q (simplex =
+// true) or p (simplex = false), from the gradient grad and the negative
+// Hessian H of the log-likelihood with respect to that column: x_new is the
+// projection of x + delta onto the feasible set, where the step delta
+// maximises the quadratic approximation grad' delta - delta' H delta / 2
+// subject to 0 <= x + delta <= 1 (and sum_k delta_k = 1 - sum_k x_k for q),
+// solved exactly by qp_solve_column() (radmix_qp_sweep.cpp). The projection
+// (radmix_projections.cpp) removes rounding errors and keeps every value
+// at least 1e-5 away from 0 and 1, so that qp stays strictly inside (0, 1).
+//
+// A step that is not finite is discarded (the column keeps its value for
+// this update). This happens when the gradient or the Hessian is not finite,
+// i.e. when a genotype is impossible under the current estimates (qp of
+// exactly 0 or 1, which EM can produce at monomorphic loci): the Inf or NaN
+// would otherwise spread to the whole column, and through the next updates
+// to the log-likelihood. The column gets another chance at the next update,
+// once the other block has moved. (The return value of the solver is not
+// used: delta is the best step it found in any case.)
 static inline void newton_column(const double* H, const double* grad,
                                  const double* x, int K, bool simplex,
                                  double* x_new, QPWork& work) {
@@ -1084,12 +880,15 @@ static inline void newton_column(const double* H, const double* grad,
   else project_p(x_new, K);
 }
 
+// Each block of individuals solves the Newton steps of its columns as soon
+// as their sums are complete, so the gradients and Hessians are used while
+// they are in cache, and those of all the individuals are never stored
+// (except with segments, which are only used with few individuals).
 void update_q(const GenoView& geno, const double* q, const double* p, int K,
               double* q_new, int n_cores) {
   const size_t KK = (size_t) K * K;
-  std::vector<double> omp = one_minus(p, (size_t) K * geno.ncol());
   std::vector<double> qT = transpose(q, K, geno.nrow());
-  q_side<true>(geno, qT.data(), p, omp.data(), K, n_cores,
+  q_side<true>(geno, qT.data(), p, K, n_cores,
                [&](size_t i0, size_t i1, const double* g, const double* H) {
     QPWork work(K);
     for (size_t i = i0; i < i1; i++)
@@ -1098,12 +897,14 @@ void update_q(const GenoView& geno, const double* q, const double* p, int K,
   });
 }
 
+// The same for the loci, block by block: the Hessians of all the loci
+// (K times the size of p) are never stored.
 void update_p(const GenoView& geno, const double* q, const double* p, int K,
               double* p_new, int n_cores) {
   const size_t KK = (size_t) K * K;
   std::vector<double> qT = transpose(q, K, geno.nrow());
-  p_side<false>(geno, qT.data(), p, K, n_cores,
-                [&](size_t j0, size_t j1, const double* g, const double* H) {
+  p_side<true>(geno, qT.data(), p, K, n_cores,
+               [&](size_t j0, size_t j1, const double* g, const double* H) {
     QPWork work(K);
     for (size_t j = j0; j < j1; j++)
       newton_column(H + KK * (j - j0), g + K * (j - j0), p + K * j, K, false,

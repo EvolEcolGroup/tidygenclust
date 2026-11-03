@@ -42,15 +42,6 @@ radmix_ref_loglik <- function(g, n, q, p) {
     sum(ifelse(tt$h0 > 0, tt$h0 * log(1 - tt$qp), 0))
 }
 
-# the same, with 1 - qp written as sum_k q_k (1 - p_k): identical on the
-# simplex, and the form whose derivatives OpenADMIXTURE.jl uses for the Q block
-radmix_ref_loglik_homog <- function(g, n, q, p) {
-  tt <- radmix_ref_terms(g, n, q, p)
-  qomp <- t(q) %*% (1 - p)
-  sum(ifelse(tt$g0 > 0, tt$g0 * log(tt$qp), 0)) +
-    sum(ifelse(tt$h0 > 0, tt$h0 * log(qomp), 0))
-}
-
 radmix_ref_em <- function(g, n, q, p) {
   tt <- radmix_ref_terms(g, n, q, p)
   # sum_j a p_kj + b (1 - p_kj), K x I
@@ -67,19 +58,19 @@ radmix_ref_em <- function(g, n, q, p) {
   list(q = q_new, p = p_new)
 }
 
-# gradient (K x I) of the log-likelihood in its homogeneous form (see above)
-# with respect to each column of q, and the negative Hessian of each column
-# (K x K x I), as returned by the kernels
+# gradient (K x I) of the log-likelihood with respect to each column of q,
+# and the negative Hessian of each column (K x K x I), as returned by the
+# kernels: with d1 = g / qp - (n - g) / (1 - qp) and
+# d2 = g / qp^2 + (n - g) / (1 - qp)^2, grad_ki = sum_j d1_ij p_kj and
+# hess_kk2i = sum_j d2_ij p_kj p_k2j
 radmix_ref_grad_q <- function(g, n, q, p) {
   tt <- radmix_ref_terms(g, n, q, p)
   k <- nrow(q)
-  grad <- p %*% t(tt$a) + (1 - p) %*% t(tt$b)
-  wa <- tt$a / tt$qp
-  wb <- tt$b / (1 - tt$qp)
+  grad <- p %*% t(tt$a - tt$b)
+  w <- tt$a / tt$qp + tt$b / (1 - tt$qp)
   hess <- array(0, c(k, k, ncol(q)))
   for (i in seq_len(ncol(q))) {
-    hess[, , i] <- p %*% (wa[i, ] * t(p)) +
-      (1 - p) %*% (wb[i, ] * t(1 - p))
+    hess[, , i] <- p %*% (w[i, ] * t(p))
   }
   list(grad = grad, hess = hess)
 }

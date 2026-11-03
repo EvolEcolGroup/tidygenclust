@@ -62,25 +62,21 @@
 // hash mod v, so folds are of roughly (not exactly) equal size, as in
 // ADMIXTURE's description ("roughly equally sized"); genotypes that are
 // already missing are never assigned to a fold, because get() rejects them
-// first. Deviation from ADMIXTURE: ADMIXTURE draws a random partition with
-// its own random number generator (its source code is not available), so
-// our folds, and hence CV errors, cannot be identical to ADMIXTURE's, only
-// statistically equivalent.
+// first. ADMIXTURE draws its random partition with its own random number
+// generator (its source code is not available), so these folds, and hence
+// the CV errors, cannot be identical to ADMIXTURE's, only statistically
+// equivalent.
 
 #include <bigstatsr/BMAcc.h>
 #include <cmath>
 #include <cstdint>
 #include <vector>
 
-// All the internal C++ code of gt_radmix() (a modified version of the
-// algorithm of OpenADMIXTURE, Ko et al. 2023, largely ported from
-// OpenADMIXTURE.jl, under the MIT licence: see inst/COPYRIGHTS) lives in the
-// namespace radmix, so that its generic names (GenoView, project_q,
-// QPWork, ...) cannot clash with other compiled code in tidygenclust. Only
-// the functions exported to R (all prefixed radmix_) are global, as
-// Rcpp requires.
+// All the internal C++ code of gt_radmix() lives in the namespace radmix,
+// so that its generic names (GenoView, project_q, QPWork, ...) cannot clash
+// with other compiled code in tidygenclust. Only the functions exported to R
+// (all prefixed radmix_) are global, as Rcpp requires.
 namespace radmix {
-
 
 // cross-validation modes (see above)
 enum CvMode { CV_NONE = 0, CV_TRAIN = 1, CV_HELD_OUT = 2 };

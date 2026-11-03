@@ -154,7 +154,6 @@ static void q_step(const arma::mat& pt, const arma::mat& za,
 // from (and overwriting) pt; then clipped.
 static void p_step(const arma::mat& qt, const arma::mat& za,
                    const arma::mat& ua, arma::mat& pt, int n_cores) {
-  const int K = pt.n_rows;
   const arma::mat A = qt * qt.t();
   // b_j for all the loci, K x J
   const arma::mat bt = (qt * ua) * za.t();
