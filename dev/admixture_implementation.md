@@ -519,22 +519,17 @@ The test suite checks:
 `vignettes/articles/admixture_benchmark.Rmd` compares `gt_radmix()` with
 ADMIXTURE, fastmixture, ADAMIXTURE and OpenADMIXTURE.jl on the HGDP data,
 on 1 to 8 cores, with and without cross-validation and with random and SVD
-starts. `data-raw/radmix/speedups/` records the work that sped up the code
-(the profile, the experiments and their verification on a second machine).
+starts. `dev/radmix_performance.md` records the changes that made the code
+faster, with their measurements, the profile and the multi-core scaling,
+the ideas that were tried and rejected, and the leads for further speed.
 
 ## Possible further improvements
 
-- Fold the log-likelihood of the quasi-Newton point into the next P update,
-  which reads the same genotypes (4 passes instead of 5 per accepted
-  iteration).
-- Damped retries of a rejected quasi-Newton step, and a mini-batch warm-up
-  between EM and the main loop (both from admixer), for hard data and large
-  K.
-- A decoded in-memory copy of the genotypes (1 byte or 2 bits per genotype),
-  with the cross-validation mask applied once per fold, which would make
-  passes with a fold hidden as cheap as plain ones.
+For speed, see "Leads not pursued yet" in `dev/radmix_performance.md`. For
+memory:
+
 - Store the secant pairs in single precision (saving 3 of the 9 copies of
-  the parameters), and tune the tile sizes and the OpenMP schedule.
+  the parameters).
 - For very large data, fit on a subset of loci and then estimate P for the
   others, one locus at a time, to bound memory.
 

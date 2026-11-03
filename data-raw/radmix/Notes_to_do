@@ -1,9 +1,8 @@
 Open items for gt_radmix() (the ADMIXTURE method and algorithm in tidygenclust)
 
 **Performance**
-- **Multi-core scaling:** investigated. The main software limit was the Q side, parallelised over blocks of 64 individuals only, so small samples ran it on one thread; fixed with two-dimensional blocking. The remaining gap on the development laptop is hardware: its 15 W CPU slows down by about 60% after 10-20 s with 4 busy cores (sustained 4-core speed-up about 2.5x).
-- **Memory footprint:** reduced from about 34 to 9 copies of K x (I + J) doubles (dominated by P) by running the whole fitting loop in C++ with reused buffers (src/radmix_fit.cpp), with the quasi-Newton point written over x0 and no temporary 1 - P in the kernels. What remains: the three sets of estimates of an iteration (x0, x1, x2), the quasi-Newton secant pairs (6 copies; could be stored in single precision, saving 3) and the memory-mapped genotypes. Fitting on a subset of loci and then estimating P for the rest in chunks would bound memory further.
-- **Tuning from the original plan:** tile size and OpenMP schedule were left as the agent set them, and the optional in-memory copy of the subset was never built.
+- What was done, what was rejected and the leads left (multi-core scaling, tile sizes and OpenMP schedule, an in-memory copy of the genotypes, the CV refit policy) are recorded in dev/radmix_performance.md.
+- **Memory footprint:** 9 copies of K x (I + J) doubles (dominated by P): the three sets of estimates of an iteration (x0, x1, x2), the quasi-Newton secant pairs (6 copies; could be stored in single precision, saving 3) and the memory-mapped genotypes. Fitting on a subset of loci and then estimating P for the rest in chunks would bound memory further.
 
 **Missing features**
 - **Bootstrap / standard errors:** available in ADMIXTURE, not implemented.

@@ -152,11 +152,11 @@ version control), and need `tidygenclust` to be installed (timings from
 
 ## Speed-ups
 
-`speedups/` holds the record of the work that sped up `gt_radmix()` (the
-SVD start, the faster kernels, and the default convergence threshold of
-1e-8): the plan, the experiments, and the report of their verification on
-a second machine (see `speedups/README.md`). The SVD start was explored
-with:
+`dev/radmix_performance.md` records the work that sped up `gt_radmix()`
+(the faster passes for cross-validation, the SVD start, the faster
+kernels, and the default convergence threshold of 1e-8), with what was
+tried and rejected and where the full reports are archived. The SVD start
+was explored with:
 
 - `explore_svd_start.R`: starts from a randomised SVD followed by
   alternating least squares (ALS), as in fastmixture and ADAMIXTURE,
