@@ -3,7 +3,9 @@
 What made `gt_radmix()` faster, what was tried and rejected, and what is
 left to try, with the measurements behind each decision. The design of the
 code is described in `dev/admixture_implementation.md`; this file is its
-history.
+history. The full reports, scripts and results of the work summarised here
+are archived under the git tag `archive/radmix-perf-verify`; "Full
+records", at the end, explains how to read them.
 
 Machines: a laptop (Intel i7-10510U, 4 cores, 15 W, AVX2; it throttles by
 about 60% after 10-20 s with 4 busy cores) and a desktop (Intel i9-13900,
@@ -227,11 +229,42 @@ Listed so that they are not retried without new evidence.
 
 ## Full records
 
-The plan, the logs of the experiments and the report of the verification
-on the desktop (with its scaling plot) were in `data-raw/radmix/speedups/`
-until 2026-11-03; read them with, for example,
-`git show 3c3fe1b:data-raw/radmix/speedups/verification_desktop.md` (also
-`speedup_plan.md`, `kernel_experiments_laptop.md` and `handover.md`). The
-scripts, patches and CSV results they refer to are in
-`data-raw/radmix/perf_verification/` on the branch `radmix-perf-verify`
-(commit f423896, also on GitHub).
+The full reports of this work, with the scripts, patches and results
+behind them, are not in the working tree: they are archived under the git
+tag `archive/radmix-perf-verify` (commit f423896), pushed to GitHub. The
+tag keeps them reachable after the branches of that work
+(`radmix-perf-verify`, `kernel-speedups`, `svd-start`, `radmix-speedups`)
+are deleted; it also keeps the commit the patches apply to (7baa46c, the
+SVD start before the kernel changes). Everything is under
+`data-raw/radmix/perf_verification/` in the tagged commit:
+
+| path | content |
+|---|---|
+| `notes/speedup_plan.md` | the plan: the comparison with ADAMIXTURE and admixer, the `perf` profile, the experiments ranked, the exploration of the SVD start, the BLAS measurements |
+| `notes/kernel_experiments_laptop.md` | the log of the four kernel experiments on the laptop |
+| `HANDOVER.md` | the summary of the laptop work, the decisions left open, and the protocol of the verification |
+| `desktop_results/REPORT.md` | the report of the verification on the desktop, laptop and desktop figures side by side, and the evidence for the decisions |
+| `desktop_results/E_scaling/scaling.png` | the plot of the multi-core scaling |
+| `patches/` | one patch per experiment (on 7baa46c), including the rejected `hessian_expansion_REJECTED.patch`, and the BLAS-thread fix |
+| `scripts/` | the builds of the variants, the benchmarks, the summaries |
+| `laptop_results/`, `desktop_results/*/` | the CSV results and summaries of each phase (the `.rds` outputs were never committed) |
+
+To read them in a clone of the repository:
+
+```bash
+# fetch the tag, if `git tag -l 'archive/*'` does not list it (a fresh
+# clone has it; an older clone does not fetch it once the branch is gone)
+git fetch origin tag archive/radmix-perf-verify
+# list the files, or read one
+git ls-tree -r --name-only archive/radmix-perf-verify -- data-raw/radmix/perf_verification
+git show archive/radmix-perf-verify:data-raw/radmix/perf_verification/desktop_results/REPORT.md
+# or check out the whole archive next to the repository, to run the scripts
+git worktree add ../radmix-perf-archive archive/radmix-perf-verify
+```
+
+On GitHub:
+<https://github.com/EvolEcolGroup/tidygenclust/tree/archive/radmix-perf-verify/data-raw/radmix/perf_verification>.
+
+Copies of the four reports were also kept in `data-raw/radmix/speedups/`
+on `dev` (commit 3c3fe1b, #32) until 2026-11-03, when this file replaced
+them.

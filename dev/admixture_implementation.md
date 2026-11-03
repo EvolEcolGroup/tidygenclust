@@ -521,7 +521,10 @@ ADMIXTURE, fastmixture, ADAMIXTURE and OpenADMIXTURE.jl on the HGDP data,
 on 1 to 8 cores, with and without cross-validation and with random and SVD
 starts. `dev/radmix_performance.md` records the changes that made the code
 faster, with their measurements, the profile and the multi-core scaling,
-the ideas that were tried and rejected, and the leads for further speed.
+the ideas that were tried and rejected, and the leads for further speed;
+its last section explains how to read the full reports, scripts and
+results of that work, archived under the git tag
+`archive/radmix-perf-verify`.
 
 ## Possible further improvements
 
