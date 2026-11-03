@@ -243,7 +243,7 @@ test_that("update_q followed by update_p increases the log-likelihood", {
   # with missing data, the EM step (like OpenADMIXTURE.jl's) leaves the columns
   # of q summing to less than 1, and the Q block quadratic model is only
   # valid on the simplex
-  q <- radmix_project_q_cpp(q)
+  q <- radmix_project_cpp(q, TRUE)
   ll0 <- radmix_loglik_cpp(inp$geno, q, p, 2)
   q <- radmix_update_q_cpp(inp$geno, q, p, 2)
   ll1 <- radmix_loglik_cpp(inp$geno, q, p, 2)
@@ -305,7 +305,7 @@ test_that("kernels are correct when the loci are split into segments", {
     )
     q_ref[, i] <- st$q[, i] + step$delta
   }
-  q_ref <- radmix_project_q_cpp(q_ref)
+  q_ref <- radmix_project_cpp(q_ref, TRUE)
   expect_equal(
     radmix_update_q_cpp(inp$geno, st$q, st$p, 1), q_ref,
     tolerance = 1e-8
@@ -325,7 +325,7 @@ test_that("empty inputs give errors rather than crashes", {
   # these used to divide by zero (killing R) or read out of bounds
   expect_identical(radmix_q_segments_cpp(0, 1000), 1L)
   expect_error(
-    radmix_project_q_cpp(matrix(0, 0, 3)),
+    radmix_project_cpp(matrix(0, 0, 3), TRUE),
     "at least one row"
   )
   gt <- radmix_test_gt(sim$genotypes)

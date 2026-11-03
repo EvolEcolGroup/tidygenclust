@@ -182,5 +182,5 @@ radmix_ref_als <- function(za, ua, w, init_p, max_iter = 1000, tol = 1e-4) {
     if (done) break
   }
   # projected onto the feasible set of the fit, as radmix_als_cpp() does
-  list(q = radmix_project_q_cpp(t(q)), p = t(p), n_iter = iter)
+  list(q = radmix_project_cpp(t(q), TRUE), p = t(p), n_iter = iter)
 }

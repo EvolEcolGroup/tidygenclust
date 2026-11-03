@@ -1,52 +1,44 @@
 #ifndef RADMIX_QUASI_NEWTON_H
 #define RADMIX_QUASI_NEWTON_H
 
-// Quasi-Newton acceleration of Zhou, Alexander and Lange (2011); see
-// radmix_quasi_newton.cpp for the method. These are plain C++ functions
-// on raw pointers, called by the fitting loop (radmix_fit.cpp);
-// radmix_quasi_newton.cpp also exports thin Rcpp wrappers around them
-// for the tests.
+// Quasi-Newton acceleration of the block updates (Zhou, Alexander and Lange
+// 2011); see radmix_quasi_newton.cpp.
 //
-// Parameters are conceptually stacked as x = (q, p): the K x I values of q
-// followed by the K x J values of p, both column-major. They are always
-// passed as the two separate blocks, never stacked in memory.
+// The parameters x = (q, p) are never stacked into one vector: every
+// function takes the q block (nq = K I values) and the p block (np = K J
+// values) separately, and positions 0 to nq - 1 of a secant vector refer to
+// the q block, positions nq to nq + np - 1 to the p block.
 
 #include <cstddef>
 #include <vector>
 
-// internal code of gt_radmix() (see the note on the namespace in
-// radmix_geno_access.h)
 namespace radmix {
 
-
-// The last n_qn secant pairs, as the columns of U and V (n_par x n_qn each,
-// column-major, n_par = K (I + J)). Together they take 2 n_qn copies of the
-// parameters (6 with the default n_qn = 3), more than the four sets of
-// estimates kept by the fitting loop.
-struct QNState {
+// The last n_qn secant pairs, as the columns of U and V (n_par x n_qn,
+// column-major, n_par = nq + np). Column col holds the pair of one iteration
+// of the fitting loop: u = x1 - x0 and v = x2 - x1.
+struct SecantPairs {
   size_t n_par, n_qn;
   std::vector<double> U, V;
-  QNState(size_t n_par, size_t n_qn)
+  SecantPairs(size_t n_par, size_t n_qn)
     : n_par(n_par), n_qn(n_qn), U(n_par * n_qn, 0.0), V(n_par * n_qn, 0.0) {}
+  // store the pair of the estimates x0 = (q, p), x1 = (q1, p1) and
+  // x2 = (q2, p2) in column col
+  void store(size_t col, const double* q, const double* p, const double* q1,
+             const double* p1, const double* q2, const double* p2,
+             size_t nq, size_t np);
 };
 
-// Store u = x1 - x0 and v = x2 - x1 in column col (0-based) of U and V, with
-// x0 = (q, p), x1 = (q1, p1), x2 = (q2, p2); nq = K I and np = K J are the
-// sizes of the q and p blocks.
-void qn_push(QNState& st, size_t col, const double* q, const double* p,
-             const double* q1, const double* p1, const double* q2,
-             const double* p2, size_t nq, size_t np);
-
-// The quasi-Newton step from x1 = (q1, p1), using the first n_used pairs,
-// written to q_out (K x n_indiv) and p_out (K x n_loci) and projected onto
-// the feasible set. Returns false (leaving the outputs undefined) if the
-// n_used x n_used system is singular to machine precision (or the system
-// or its solution is not finite). The outputs are written only after the
-// last read of q and p.
-bool qn_step(const QNState& st, size_t n_used, const double* q,
-             const double* p, const double* q1, const double* p1, int K,
-             size_t n_indiv, size_t n_loci, double* q_out, double* p_out,
-             int n_cores);
+// The quasi-Newton point x1 - V (U'(U - V))^-1 U'(x0 - x1), from the first m
+// columns of U and V (n_par x m or larger, column-major), projected onto the
+// feasible set, written into (q_out, p_out). x0 = (q, p) and x1 = (q1, p1);
+// q_out and p_out may be q and p (x0 is only read before the output is
+// written). Returns false, without writing anything, if the m x m system is
+// singular to machine precision or not finite.
+bool qn_step(const double* U, const double* V, size_t n_par, size_t m,
+             const double* q, const double* p, const double* q1,
+             const double* p1, int K, size_t n_indiv, size_t n_loci,
+             double* q_out, double* p_out, int n_cores);
 
 }  // namespace radmix
 

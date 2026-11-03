@@ -55,7 +55,7 @@ namespace radmix {
 // The scratch vectors are sized for the simplex (Q) tableau, which has
 // K + 2 rows; the P tableau (K + 1 rows) fits inside the same buffers.
 QPWork::QPWork(int K) : K(K), tab((K + 2) * (K + 2)), diag(K + 2),
-  swept(K + 2), V(K * K), tmp(K + 2) {
+  swept(K + 2), V(K * K), tmp(K + 2), delta(K) {
   const double s = 1.0 / std::sqrt((double) K);
   // u = e1 - ones / sqrt(K)
   std::vector<double> u(K, -s);

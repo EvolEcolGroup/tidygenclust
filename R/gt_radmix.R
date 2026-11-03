@@ -578,7 +578,7 @@ radmix_check_init <- function(init, n_rows, k, arg, simplex) {
     # the projection works on the columns of a K x I matrix (the layout of
     # the C++ code), hence the transposes; rows that are already feasible
     # are left unchanged
-    init <- t(radmix_project_q_cpp(t(init)))
+    init <- t(radmix_project_cpp(t(init), TRUE))
   } else {
     init <- pmin(pmax(init, eps), 1 - eps)
   }

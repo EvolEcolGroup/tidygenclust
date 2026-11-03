@@ -88,6 +88,10 @@ void update_p(const GenoView& geno, const double* q, const double* p, int K,
 void deviance(const GenoView& geno, const double* q, const double* p, int K,
               int n_cores, double* dev, double* count);
 
+// number of segments of loci of the Q-side passes (1 = none), which depends
+// only on the dimensions of the data (see radmix_kernels.cpp)
+size_t q_segments(size_t I, size_t J);
+
 }  // namespace radmix
 
 #endif

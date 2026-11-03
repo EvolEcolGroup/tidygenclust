@@ -522,7 +522,7 @@ static const size_t MIN_SEG_LOCI = 256;
 // Number of segments of loci for the Q side (1 = no segmentation). Depends
 // only on the dimensions of the data, so that results do not depend on the
 // number of threads.
-static size_t q_segments(size_t I, size_t J) {
+size_t q_segments(size_t I, size_t J) {
   // number of blocks of individuals; with enough of them, the single-pass
   // path already has enough independent tasks
   const size_t nbi = n_blocks(I, TILE_I);
@@ -536,68 +536,78 @@ static size_t q_segments(size_t I, size_t J) {
   return n_seg;
 }
 
-// Q-side sums for all individuals, split into (block, segment) tasks:
-// grad (K x I) and, if HESS, hess (K x K x I) are overwritten with the sums
-// over all loci (see accum_q_block() for the formulas).
-template <bool HESS>
-RADMIX_MULTIVERSION
-static void accum_q_segmented(const GenoView& geno, const double* qT,
-                              const double* p, const double* omp, int K,
-                              size_t n_seg, double* grad, double* hess,
-                              int n_cores) {
+// The Q-side driver: sums over loci for every individual, then
+// finish(i0, i1, grad, hess) for each block of individuals [i0, i1), with the
+// complete sums of the block (grad K x ni and, if HESS, hess K x K x ni, as
+// written by accum_q_block()). finish() runs inside the parallel region, on
+// the thread that owns the block, so it can write the output columns of its
+// individuals without synchronisation.
+//
+// With enough blocks of individuals (n_seg = 1), each block is accumulated
+// over all the loci by one thread, into thread-local buffers. With few
+// blocks, the loci are split into n_seg segments as well: each (segment,
+// block) pair is a task that writes its partial sums into its own slot of
+// grad_part and hess_part, and the partial sums of each block are then added
+// up in segment order before finish() (see q_segments()).
+template <bool HESS, class Finish>
+static void q_side(const GenoView& geno, const double* qT, const double* p,
+                   const double* omp, int K, int n_cores, Finish finish) {
   const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
-  // tasks are the (segment, block of individuals) pairs, numbered
-  // t = seg * nbi + bl
-  // (blocks vary fastest, so threads that start at the same time work on
-  // the same segment, i.e. on the same columns of the backing file)
-  const size_t nbi = n_blocks(I, TILE_I);
-  const ptrdiff_t n_tasks = (ptrdiff_t) (nbi * n_seg);
-  // partial sums of each segment: K x I (and K x K x I) per segment, stored
-  // one segment after the other (segment seg starts at seg * K * I), so the
-  // partial sums of individual i in segment seg are at K * (seg * I + i)
-  std::vector<double> grad_part(n_seg * K * I);
-  std::vector<double> hess_part(HESS ? n_seg * KK * I : 0);
+  const size_t n_pair = (size_t) K * (K + 1) / 2;
+  const size_t nbi = n_blocks(I, TILE_I), n_seg = q_segments(I, J);
+  // the partial sums of individual i in segment seg start at
+  // K * (seg * I + i) (and KK * (seg * I + i) for the Hessians)
+  std::vector<double> grad_part(n_seg > 1 ? n_seg * K * I : 0);
+  std::vector<double> hess_part(n_seg > 1 && HESS ? n_seg * KK * I : 0);
 #pragma omp parallel num_threads(n_cores)
 {
   Slice s;
-  std::vector<double> gT(K * TILE_I), hT(HESS ? K * (K + 1) / 2 * TILE_I : 0);
-  // tasks in any order (dynamic scheduling): each writes only its own
-  // (segment, block) part of the partial sums
+  std::vector<double> gT(K * TILE_I), hT(HESS ? n_pair * TILE_I : 0);
+  std::vector<double> grad(K * TILE_I), hess(HESS ? KK * TILE_I : 0);
+  if (n_seg > 1) {
+    // tasks t = seg * nbi + bl: blocks vary fastest, so threads that start
+    // together read the same columns of the backing file
+    const ptrdiff_t n_tasks = (ptrdiff_t) (nbi * n_seg);
 #pragma omp for schedule(dynamic)
-  for (ptrdiff_t t = 0; t < n_tasks; t++) {
-    // which segment of loci and which block of individuals this task is
-    const size_t seg = t / nbi, bl = t % nbi;
-    const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
-    // segment boundaries: n_seg contiguous, nearly equal ranges of loci
-    const size_t j0 = J * seg / n_seg, j1 = J * (seg + 1) / n_seg;
-    // the same accumulation as the single-pass path, restricted to loci
-    // [j0, j1), writing the partial sums of individuals [i0, i1) for this
-    // segment
-    accum_q_block<HESS>(geno, qT, p, omp, K, i0, i1, j0, j1,
-                        &grad_part[K * (seg * I + i0)],
-                        HESS ? &hess_part[KK * (seg * I + i0)] : NULL, s,
-                        gT.data(), HESS ? hT.data() : NULL);
-  }
-  // add up the segments, always in segment order (deterministic); each
-  // thread handles whole individuals
-  // (the implicit barrier at the end of the task loop above guarantees that
-  // every partial sum has been written before any thread reads it here)
-#pragma omp for schedule(static)
-  for (ptrdiff_t i = 0; i < (ptrdiff_t) I; i++) {
-    for (int k = 0; k < K; k++) {
-      double sum = 0.0;
-      for (size_t seg = 0; seg < n_seg; seg++)
-        sum += grad_part[K * (seg * I + i) + k];
-      grad[K * i + k] = sum;
+    for (ptrdiff_t t = 0; t < n_tasks; t++) {
+      const size_t seg = t / nbi, bl = t % nbi;
+      const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
+      const size_t j0 = J * seg / n_seg, j1 = J * (seg + 1) / n_seg;
+      accum_q_block<HESS>(geno, qT, p, omp, K, i0, i1, j0, j1,
+                          &grad_part[K * (seg * I + i0)],
+                          HESS ? &hess_part[KK * (seg * I + i0)] : NULL, s,
+                          gT.data(), HESS ? hT.data() : NULL);
     }
-    if (HESS) {
-      for (size_t kk = 0; kk < KK; kk++) {
-        double sum = 0.0;
-        for (size_t seg = 0; seg < n_seg; seg++)
-          sum += hess_part[KK * (seg * I + i) + kk];
-        hess[KK * i + kk] = sum;
+    // (the implicit barrier of the loop above guarantees that all the
+    // partial sums are written before they are added up below)
+  }
+#pragma omp for schedule(dynamic)
+  for (ptrdiff_t bl = 0; bl < (ptrdiff_t) nbi; bl++) {
+    const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
+    if (n_seg == 1) {
+      accum_q_block<HESS>(geno, qT, p, omp, K, i0, i1, 0, J, grad.data(),
+                          HESS ? hess.data() : NULL, s, gT.data(),
+                          HESS ? hT.data() : NULL);
+    } else {
+      for (size_t i = i0; i < i1; i++) {
+        double* g = &grad[K * (i - i0)];
+        for (int k = 0; k < K; k++) {
+          double sum = 0.0;
+          for (size_t seg = 0; seg < n_seg; seg++)
+            sum += grad_part[K * (seg * I + i) + k];
+          g[k] = sum;
+        }
+        if (!HESS) continue;
+        double* H = &hess[KK * (i - i0)];
+        for (size_t kk = 0; kk < KK; kk++) {
+          double sum = 0.0;
+          for (size_t seg = 0; seg < n_seg; seg++)
+            sum += hess_part[KK * (seg * I + i) + kk];
+          H[kk] = sum;
+        }
       }
     }
+    finish(i0, i1, grad.data(), hess.data());
   }
 }
 }
@@ -754,6 +764,28 @@ static void accum_p_block(const GenoView& geno, const double* qT,
     for (size_t jj = 0; jj < nj; jj++) mirror_hess(out2 + KK * jj, K);
 }
 
+// The P-side driver: sums over individuals for every locus, parallelised over
+// blocks of TILE_J loci, then finish(j0, j1, out1, out2) for each block of
+// loci [j0, j1), with the sums of the block as written by accum_p_block().
+// As in q_side(), finish() runs on the thread that owns the block.
+template <bool EM, class Finish>
+static void p_side(const GenoView& geno, const double* qT, const double* p,
+                   int K, int n_cores, Finish finish) {
+  const size_t J = geno.ncol(), KK = (size_t) K * K;
+  const ptrdiff_t nb = (ptrdiff_t) n_blocks(J, TILE_J);
+#pragma omp parallel num_threads(n_cores)
+{
+  Slice s;
+  std::vector<double> out1(K * TILE_J), out2((EM ? K : KK) * TILE_J);
+#pragma omp for schedule(dynamic)
+  for (ptrdiff_t bl = 0; bl < nb; bl++) {
+    const size_t j0 = bl * TILE_J, j1 = std::min(J, j0 + TILE_J);
+    accum_p_block<EM>(geno, qT, p, K, j0, j1, out1.data(), out2.data(), s);
+    finish(j0, j1, out1.data(), out2.data());
+  }
+}
+}
+
 // x^e for e in {0, 1, 2} (Lagrange interpolation in e), without control flow;
 // gives 1 for e = 0 even if x = 0
 // The three terms are the Lagrange basis polynomials in e for the nodes
@@ -836,43 +868,49 @@ static double loglik_slice(size_t ni, Slice& s) {
   return ll;
 }
 
-// Log-likelihood L(q, p). Parallelised over blocks of TILE_J loci; within a
-// block, loci are visited in order and, for each locus, individuals in tiles
-// of TILE_I. Each block writes its own partial sum, so no atomic or
-// reduction clause is needed and the total is deterministic.
-// (Julia uses an atomic add of per-task results, whose order can vary.)
-double loglik(const GenoView& geno, const double* q, const double* p, int K,
-              int n_cores) {
+// Sums over all the genotypes, for loglik() and deviance(): NS running sums,
+// to which slice_sum(ni, s, acc) adds the contribution of each slice (after
+// slice_geno()). Parallelised over blocks of TILE_J loci; each block keeps
+// its own sums, which are added up in block order at the end, so the totals
+// do not depend on the number of threads.
+template <int NS, class SliceSum>
+static void sum_slices(const GenoView& geno, const double* q, const double* p,
+                       int K, int n_cores, double* total,
+                       SliceSum slice_sum) {
   const size_t I = geno.nrow(), J = geno.ncol();
   std::vector<double> qT = transpose(q, K, I);
-  // signed loop counter, as required by older OpenMP versions
-  const ptrdiff_t nb = n_blocks(J, TILE_J);
-  // one partial sum per block, added up in order: deterministic
-  std::vector<double> partial(nb, 0.0);
+  const ptrdiff_t nb = (ptrdiff_t) n_blocks(J, TILE_J);
+  std::vector<double> partial(nb * NS, 0.0);
 #pragma omp parallel num_threads(n_cores)
 {
-  // thread-local slice buffers, allocated once per thread
   Slice s;
-  // dynamic scheduling balances the load if some threads are slower
-  // (e.g. because the backing file is still being paged in)
 #pragma omp for schedule(dynamic)
   for (ptrdiff_t bl = 0; bl < nb; bl++) {
     const size_t j1 = std::min(J, (bl + 1) * TILE_J);
-    double ll = 0.0;
+    double acc[NS] = {};
     for (size_t j = bl * TILE_J; j < j1; j++) {
       for (size_t i0 = 0; i0 < I; i0 += TILE_I) {
         const size_t i1 = std::min(I, i0 + TILE_I);
-        // qp and genotypes only: the log-likelihood needs no coefficients
         slice_geno(geno, qT.data(), p + K * j, K, j, i0, i1, s);
-        ll += loglik_slice(i1 - i0, s);
+        slice_sum(i1 - i0, s, acc);
       }
     }
-    partial[bl] = ll;
+    for (int c = 0; c < NS; c++) partial[NS * bl + c] = acc[c];
   }
 }
-  // serial sum in block order, independent of the thread count
-  double ll = 0.0;
-  for (ptrdiff_t bl = 0; bl < nb; bl++) ll += partial[bl];
+  for (int c = 0; c < NS; c++) {
+    total[c] = 0.0;
+    for (ptrdiff_t bl = 0; bl < nb; bl++) total[c] += partial[NS * bl + c];
+  }
+}
+
+double loglik(const GenoView& geno, const double* q, const double* p, int K,
+              int n_cores) {
+  double ll;
+  sum_slices<1>(geno, q, p, K, n_cores, &ll,
+                [](size_t ni, Slice& s, double* acc) {
+                  acc[0] += loglik_slice(ni, s);
+                });
   return ll;
 }
 
@@ -897,52 +935,26 @@ double loglik(const GenoView& geno, const double* q, const double* p, int K,
 // number of visible genotypes to *count, so that the cross-validation error can
 // be pooled over folds as sum(dev) / sum(count), i.e. averaged over all
 // held-out genotypes, as ADMIXTURE does.
-//
-// Same structure as loglik(): blocks of loci in parallel, one partial
-// sum per block added up serially, so the result does not depend on the
-// number of threads.
 void deviance(const GenoView& geno, const double* q, const double* p, int K,
               int n_cores, double* dev, double* count) {
-  const size_t I = geno.nrow(), J = geno.ncol();
-  std::vector<double> qT = transpose(q, K, I);
-  const ptrdiff_t nb = n_blocks(J, TILE_J);
-  std::vector<double> partial_dev(nb, 0.0), partial_n(nb, 0.0);
-#pragma omp parallel num_threads(n_cores)
-{
-  Slice s;
-#pragma omp for schedule(dynamic)
-  for (ptrdiff_t bl = 0; bl < nb; bl++) {
-    const size_t j1 = std::min(J, (bl + 1) * TILE_J);
-    double d = 0.0, n_obs = 0.0;
-    for (size_t j = bl * TILE_J; j < j1; j++) {
-      for (size_t i0 = 0; i0 < I; i0 += TILE_I) {
-        const size_t i1 = std::min(I, i0 + TILE_I);
-        // qp and genotypes; hidden and missing genotypes have g = h = 0
-        slice_geno(geno, qT.data(), p + K * j, K, j, i0, i1, s);
-        for (size_t ii = 0; ii < i1 - i0; ii++) {
-          const double g = s.g[ii], h = s.h[ii], qp = s.qp[ii];
-          // a visible genotype always has g + h = n_i > 0
-          if (g + h <= 0) continue;
-          // n_i, recovered as g + h (the slice does not store n_trials)
-          const double n = g + h;
-          // skip zero coefficients (0 log 0 = 0); the estimates are kept in
-          // [1e-5, 1 - 1e-5], so qp is never exactly 0 or 1 here
-          if (g > 0) d += g * std::log(g / (n * qp));
-          if (h > 0) d += h * std::log(h / (n * (1.0 - qp)));
-          n_obs += 1.0;
-        }
-      }
+  double total[2];
+  sum_slices<2>(geno, q, p, K, n_cores, total,
+                [](size_t ni, Slice& s, double* acc) {
+    for (size_t ii = 0; ii < ni; ii++) {
+      const double g = s.g[ii], h = s.h[ii], qp = s.qp[ii];
+      // a visible genotype always has g + h = n_i > 0
+      if (g + h <= 0) continue;
+      // n_i, recovered as g + h (the slice does not store n_trials)
+      const double n = g + h;
+      // skip zero coefficients (0 log 0 = 0); the estimates are kept in
+      // [1e-5, 1 - 1e-5], so qp is never exactly 0 or 1 here
+      if (g > 0) acc[0] += g * std::log(g / (n * qp));
+      if (h > 0) acc[0] += h * std::log(h / (n * (1.0 - qp)));
+      acc[1] += 1.0;
     }
-    partial_dev[bl] = d;
-    partial_n[bl] = n_obs;
-  }
-}
-  *dev = 0.0;
-  *count = 0.0;
-  for (ptrdiff_t bl = 0; bl < nb; bl++) {
-    *dev += partial_dev[bl];
-    *count += partial_n[bl];
-  }
+  });
+  *dev = total[0];
+  *count = total[1];
 }
 
 // Two passes from the same (q, p): a Q-side pass over blocks of individuals
@@ -959,27 +971,10 @@ void deviance(const GenoView& geno, const double* q, const double* p, int K,
 // q_ki p_kj a are alt alleles. The M step sets q_ki to the share of
 // individual i's allele copies assigned to k, and p_kj to the share of
 // alt alleles among the copies at locus j assigned to k.
-RADMIX_MULTIVERSION
 void em(const GenoView& geno, const double* q, const double* p, int K,
         double* q_new, double* p_new, int n_cores) {
-  const size_t I = geno.nrow(), J = geno.ncol();
-  // shared, read-only inputs prepared before the parallel region
-  std::vector<double> omp = one_minus(p, K * J);
-  std::vector<double> qT = transpose(q, K, I);
-  const ptrdiff_t nbi = n_blocks(I, TILE_I), nbj = n_blocks(J, TILE_J);
-  // a single parallel region containing two worksharing loops, so the
-  // threads (and their Slice buffers) are created only once
-  // Q pass with few individuals: compute the sums over loci with the
-  // two-dimensional blocking (accum_q_segmented()) before the parallel
-  // region below; the normalisation is then done inside it
-  const size_t n_seg = q_segments(I, J);
-  if (n_seg > 1)
-    accum_q_segmented<false>(geno, qT.data(), p, omp.data(), K, n_seg, q_new,
-                             NULL, n_cores);
-#pragma omp parallel num_threads(n_cores)
-{
-  Slice s;
-  std::vector<double> gT(K * TILE_I);
+  std::vector<double> omp = one_minus(p, (size_t) K * geno.ncol());
+  std::vector<double> qT = transpose(q, K, geno.nrow());
   // Q: q_new_ki = q_ki * sum_j (a p_kj + b (1 - p_kj)) / (n_i J_i), where
   // J_i is the number of loci observed in individual i. The denominator equals
   // the column sum of the numerator, so we normalise by that: this keeps q on
@@ -988,43 +983,32 @@ void em(const GenoView& geno, const double* q, const double* p, int K,
   // a qp + b (1 - qp) = g + h = n_i, hence n_i J_i in total. Julia's em_q!()
   // divides by 2J for every individual, which equals the column sum only
   // when nothing is missing and everyone is diploid.)
-#pragma omp for schedule(dynamic)
-  for (ptrdiff_t bl = 0; bl < nbi; bl++) {
-    const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
-    // the sums over j are written straight into q_new (columns i0..i1-1),
-    // which this thread owns; no Hessian is needed (with segments, they have
-    // already been computed above)
-    if (n_seg == 1)
-      accum_q_block<false>(geno, qT.data(), p, omp.data(), K, i0, i1, 0, J,
-                           q_new + K * i0, NULL, s, gT.data(), NULL);
+  q_side<false>(geno, qT.data(), p, omp.data(), K, n_cores,
+                [&](size_t i0, size_t i1, const double* grad, const double*) {
     for (size_t i = i0; i < i1; i++) {
+      const double* g = grad + K * (i - i0);
+      const double* qi = q + K * i;
+      double* qn = q_new + K * i;
       // multiply by q_ki (taken out of the sum over j) and normalise
       double denom = 0.0;
       for (int k = 0; k < K; k++) {
-        q_new[k + K * i] *= q[k + K * i];
-        denom += q_new[k + K * i];
+        qn[k] = g[k] * qi[k];
+        denom += qn[k];
       }
       // denom is 0 only if the individual has no observed genotype (or q is
       // degenerate): then there is no information and q is left unchanged
       if (denom > 0)
-        for (int k = 0; k < K; k++) q_new[k + K * i] /= denom;
+        for (int k = 0; k < K; k++) qn[k] /= denom;
       else
-        for (int k = 0; k < K; k++) q_new[k + K * i] = q[k + K * i];
+        for (int k = 0; k < K; k++) qn[k] = qi[k];
     }
-  }
-  // (the implicit barrier at the end of the omp for above separates the two
-  // passes; they write different outputs, so it is not strictly needed)
+  });
   // P: p_new = A / (A + B), A = p sum_i a q, B = (1 - p) sum_i b q
   // (A and B are the expected numbers of alt and reference allele copies at
   // locus j assigned to population k. Note that the P pass uses the old q,
   // not q_new, matching Julia's "base" mode.)
-  std::vector<double> sa(K * TILE_J), sb(K * TILE_J);
-#pragma omp for schedule(dynamic)
-  for (ptrdiff_t bl = 0; bl < nbj; bl++) {
-    const size_t j0 = bl * TILE_J, j1 = std::min(J, j0 + TILE_J);
-    // sa = sum_i a q_ki and sb = sum_i b q_ki for the loci of the block
-    accum_p_block<true>(geno, qT.data(), p, K, j0, j1, sa.data(), sb.data(),
-                        s);
+  p_side<true>(geno, qT.data(), p, K, n_cores,
+               [&](size_t j0, size_t j1, const double* sa, const double* sb) {
     for (size_t j = j0; j < j1; j++) {
       for (int k = 0; k < K; k++) {
         // x indexes the full K x J matrices, y the block-local K x nj buffers
@@ -1040,68 +1024,32 @@ void em(const GenoView& geno, const double* q, const double* p, int K,
         p_new[x] = (A + B > 0) ? A / (A + B) : p[x];
       }
     }
-  }
-}
+  });
 }
 
-// Gradient (K x I) and negative Hessian (K x K x I) of L with respect to q,
-// for every individual. Parallelised over blocks of TILE_I individuals; each
-// block writes its own columns of grad and its own K x K slabs of hess.
-RADMIX_MULTIVERSION
 void grad_q(const GenoView& geno, const double* q, const double* p, int K,
             double* grad, double* hess, int n_cores) {
-  const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
-  std::vector<double> omp = one_minus(p, K * J);
-  std::vector<double> qT = transpose(q, K, I);
-  const ptrdiff_t nb = n_blocks(I, TILE_I);
-  // with few individuals, split the loci into segments as well
-  const size_t n_seg = q_segments(I, J);
-  if (n_seg > 1) {
-    accum_q_segmented<true>(geno, qT.data(), p, omp.data(), K, n_seg, grad,
-                            hess, n_cores);
-    return;
-  }
-#pragma omp parallel num_threads(n_cores)
-{
-  // thread-local slice buffers and transposed accumulators
-  Slice s;
-  std::vector<double> gT(K * TILE_I), hT(K * (K + 1) / 2 * TILE_I);
-#pragma omp for schedule(dynamic)
-  for (ptrdiff_t bl = 0; bl < nb; bl++) {
-    const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
-    accum_q_block<true>(geno, qT.data(), p, omp.data(), K, i0, i1, 0, J,
-                        grad + K * i0, hess + KK * i0, s, gT.data(),
-                        hT.data());
-  }
-}
+  const size_t KK = (size_t) K * K;
+  std::vector<double> omp = one_minus(p, (size_t) K * geno.ncol());
+  std::vector<double> qT = transpose(q, K, geno.nrow());
+  q_side<true>(geno, qT.data(), p, omp.data(), K, n_cores,
+               [&](size_t i0, size_t i1, const double* g, const double* H) {
+    std::copy(g, g + K * (i1 - i0), grad + K * i0);
+    std::copy(H, H + KK * (i1 - i0), hess + KK * i0);
+  });
 }
 
-// Gradient (K x J) and negative Hessian (K x K x J) of L with respect to p,
-// for every locus. Parallelised over blocks of TILE_J loci; each block writes
-// its own columns of grad and its own K x K slabs of hess. No 1 - p copy is
-// needed: on the P side the coefficients are combined as a - b and wa + wb.
-RADMIX_MULTIVERSION
 void grad_p(const GenoView& geno, const double* q, const double* p, int K,
             double* grad, double* hess, int n_cores) {
-  const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
-  std::vector<double> qT = transpose(q, K, I);
-  const ptrdiff_t nb = n_blocks(J, TILE_J);
-#pragma omp parallel num_threads(n_cores)
-{
-  Slice s;
-#pragma omp for schedule(dynamic)
-  for (ptrdiff_t bl = 0; bl < nb; bl++) {
-    const size_t j0 = bl * TILE_J, j1 = std::min(J, j0 + TILE_J);
-    accum_p_block<false>(geno, qT.data(), p, K, j0, j1, grad + K * j0,
-                         hess + KK * j0, s);
-  }
-}
+  const size_t KK = (size_t) K * K;
+  std::vector<double> qT = transpose(q, K, geno.nrow());
+  p_side<false>(geno, qT.data(), p, K, n_cores,
+                [&](size_t j0, size_t j1, const double* g, const double* H) {
+    std::copy(g, g + K * (j1 - j0), grad + K * j0);
+    std::copy(H, H + KK * (j1 - j0), hess + KK * j0);
+  });
 }
 
-// For each block, the gradient and Hessian are accumulated into thread-local
-// buffers and the per-column QPs are solved straight away, so the full
-// K x K x I Hessian is never stored.
-//
 // For individual i the QP (radmix_qp_sweep.h) finds the step delta that
 // maximises the local quadratic model grad' delta - 0.5 delta' H delta, where H
 // is the negative Hessian, subject to 0 <= q_.i + delta <= 1 and
@@ -1119,257 +1067,48 @@ void grad_p(const GenoView& geno, const double* q, const double* p, int K,
 // the log-likelihood. We instead keep the current value of that column for
 // this sweep (delta = 0): the other columns are still updated, and the
 // column gets another chance at the next sweep, when its neighbours have
-// moved. Returns true if the step was discarded.
-static inline bool discard_nonfinite_step(double* delta, int K) {
+// moved.
+static inline void newton_column(const double* H, const double* grad,
+                                 const double* x, int K, bool simplex,
+                                 double* x_new, QPWork& work) {
+  double* delta = work.delta.data();
+  qp_solve_column(H, grad, x, K, simplex, delta, work);
   for (int k = 0; k < K; k++) {
     if (!std::isfinite(delta[k])) {
       std::fill(delta, delta + K, 0.0);
-      return true;
+      break;
     }
   }
-  return false;
+  for (int k = 0; k < K; k++) x_new[k] = x[k] + delta[k];
+  if (simplex) project_q(x_new, K);
+  else project_p(x_new, K);
 }
 
-RADMIX_MULTIVERSION
 void update_q(const GenoView& geno, const double* q, const double* p, int K,
               double* q_new, int n_cores) {
-  const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
-  std::vector<double> omp = one_minus(p, K * J);
-  std::vector<double> qT = transpose(q, K, I);
-  const ptrdiff_t nb = n_blocks(I, TILE_I);
-  // With few individuals, use the two-dimensional blocking: compute the
-  // gradient and Hessian of every individual first (they are small, as I is
-  // small), then solve the QPs in parallel over individuals
-  const size_t n_seg = q_segments(I, J);
-  if (n_seg > 1) {
-    std::vector<double> grad(K * I), hess(KK * I);
-    accum_q_segmented<true>(geno, qT.data(), p, omp.data(), K, n_seg,
-                            grad.data(), hess.data(), n_cores);
-#pragma omp parallel num_threads(n_cores)
-{
-    // per-thread scratch: the step and the QP workspace
-    std::vector<double> delta(K);
+  const size_t KK = (size_t) K * K;
+  std::vector<double> omp = one_minus(p, (size_t) K * geno.ncol());
+  std::vector<double> qT = transpose(q, K, geno.nrow());
+  q_side<true>(geno, qT.data(), p, omp.data(), K, n_cores,
+               [&](size_t i0, size_t i1, const double* g, const double* H) {
     QPWork work(K);
-    // one small QP per individual; dynamic scheduling in chunks of 16
-    // individuals balances QPs that need different numbers of iterations
-#pragma omp for schedule(dynamic, 16)
-    for (ptrdiff_t i = 0; i < (ptrdiff_t) I; i++) {
-      const double* qi = q + K * i;
-      // the same steps as in the single-pass path below: constrained Newton
-      // step, discard it if not finite, add it and project onto the simplex
-      qp_solve_column(&hess[KK * i], &grad[K * i], qi, K, true, delta.data(),
-                      work);
-      discard_nonfinite_step(delta.data(), K);
-      double* qn = q_new + K * i;
-      for (int k = 0; k < K; k++) qn[k] = qi[k] + delta[k];
-      project_q(qn, K);
-    }
-}
-    return;
-  }
-#pragma omp parallel num_threads(n_cores)
-{
-  // per-thread scratch: slice buffers, transposed accumulators, the gradient
-  // and Hessian of one block of individuals, the step, and the QP workspace
-  Slice s;
-  std::vector<double> gT(K * TILE_I), hT(K * (K + 1) / 2 * TILE_I);
-  std::vector<double> grad(K * TILE_I), hess(KK * TILE_I), delta(K);
-  QPWork work(K);
-#pragma omp for schedule(dynamic)
-  for (ptrdiff_t bl = 0; bl < nb; bl++) {
-    const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
-    // gradient and negative Hessian for individuals [i0, i1)
-    accum_q_block<true>(geno, qT.data(), p, omp.data(), K, i0, i1, 0, J,
-                        grad.data(), hess.data(), s, gT.data(), hT.data());
-    for (size_t i = i0; i < i1; i++) {
-      const size_t ii = i - i0;
-      const double* qi = q + K * i;
-      // constrained Newton step for individual i (the return value, the
-      // number of iterations or 0 on failure, is not used, as in Julia)
-      qp_solve_column(&hess[KK * ii], &grad[K * ii], qi, K, true,
-                      delta.data(), work);
-      // keep the current q_.i if the step is not finite (a deviation from
-      // Julia, see discard_nonfinite_step())
-      discard_nonfinite_step(delta.data(), K);
-      double* qn = q_new + K * i;
-      for (int k = 0; k < K; k++) qn[k] = qi[k] + delta[k];
-      project_q(qn, K);
-    }
-  }
-}
+    for (size_t i = i0; i < i1; i++)
+      newton_column(H + KK * (i - i0), g + K * (i - i0), q + K * i, K, true,
+                    q_new + K * i, work);
+  });
 }
 
-// Same as update_q, for the loci: for each block of TILE_J loci the
-// gradient and Hessian are accumulated, then for each locus the QP with box
-// constraints 0 <= p_.j + delta <= 1 (simplex = false: the frequencies of
-// one locus across populations are not constrained to sum to anything) is
-// solved and p_.j + delta is clamped to [eps, 1 - eps], so that qp stays
-// strictly inside (0, 1) in later iterations.
-RADMIX_MULTIVERSION
 void update_p(const GenoView& geno, const double* q, const double* p, int K,
               double* p_new, int n_cores) {
-  const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
-  std::vector<double> qT = transpose(q, K, I);
-  const ptrdiff_t nb = n_blocks(J, TILE_J);
-#pragma omp parallel num_threads(n_cores)
-{
-  Slice s;
-  std::vector<double> grad(K * TILE_J), hess(KK * TILE_J), delta(K);
-  QPWork work(K);
-#pragma omp for schedule(dynamic)
-  for (ptrdiff_t bl = 0; bl < nb; bl++) {
-    const size_t j0 = bl * TILE_J, j1 = std::min(J, j0 + TILE_J);
-    // gradient and negative Hessian for loci [j0, j1)
-    accum_p_block<false>(geno, qT.data(), p, K, j0, j1, grad.data(),
-                         hess.data(), s);
-    for (size_t j = j0; j < j1; j++) {
-      const size_t jj = j - j0;
-      const double* pj = p + K * j;
-      qp_solve_column(&hess[KK * jj], &grad[K * jj], pj, K, false,
-                      delta.data(), work);
-      // keep the current p_.j if the step is not finite (a deviation from
-      // Julia, see discard_nonfinite_step())
-      discard_nonfinite_step(delta.data(), K);
-      double* pn = p_new + K * j;
-      for (int k = 0; k < K; k++) pn[k] = pj[k] + delta[k];
-      project_p(pn, K);
-    }
-  }
-}
+  const size_t KK = (size_t) K * K;
+  std::vector<double> qT = transpose(q, K, geno.nrow());
+  p_side<false>(geno, qT.data(), p, K, n_cores,
+                [&](size_t j0, size_t j1, const double* g, const double* H) {
+    QPWork work(K);
+    for (size_t j = j0; j < j1; j++)
+      newton_column(H + KK * (j - j0), g + K * (j - j0), p + K * j, K, false,
+                    p_new + K * j, work);
+  });
 }
 
 }  // namespace radmix
-
-using namespace radmix;
-
-// ---------------------------------------------------------------------------
-// R interface
-//
-// The wrappers below are the only code in this file that touches R. Each
-// one builds the GenoView from the dataset prepared in R (`data`, see
-// radmix_prepare() and radmix_geno_access.h), checks every
-// dimension with Rcpp::stop() (safe here, on the main thread, before any
-// parallel region starts), allocates the R outputs, and only then calls the
-// kernel, which writes into the output memory directly. q and p are passed as
-// NumericMatrix: Rcpp wraps a double matrix without copying it (an integer
-// matrix is coerced to a new double one), and the kernels only read them.
-// Inside, each kernel makes its own C++ copies (the transposed q and 1 - p)
-// before the parallel region, so the threads only ever read plain C++ memory
-// or the read-only q and p.
-
-// check q (K x I) and p (K x J) against the genotypes; returns K
-// The kernels trust their inputs completely (raw pointer arithmetic), so
-// every size must be checked here, before entering C++ code that cannot
-// report errors.
-static int check_dims(const GenoView& geno, const NumericMatrix& q,
-                      const NumericMatrix& p, int n_cores) {
-  const int K = q.nrow();
-  if (K < 1) stop("'q' must have at least one row.");
-  if (p.nrow() != K) stop("'q' and 'p' must have the same number of rows (K).");
-  if ((size_t) q.ncol() != geno.nrow())
-    stop("'q' must have one column per individual (%d), not %d.",
-         (int) geno.nrow(), q.ncol());
-  if ((size_t) p.ncol() != geno.ncol())
-    stop("'p' must have one column per locus (%d), not %d.",
-         (int) geno.ncol(), p.ncol());
-  if (geno.nrow() == 0 || geno.ncol() == 0)
-    stop("There must be at least one individual and one locus.");
-  if (n_cores < 1) stop("'n_cores' must be at least 1.");
-  return K;
-}
-
-// Log-likelihood (a scalar).
-// [[Rcpp::export]]
-double radmix_loglik_cpp(List data, NumericMatrix q, NumericMatrix p,
-                         int n_cores) {
-  const GenoView geno(data);
-  const int K = check_dims(geno, q, p, n_cores);
-  return loglik(geno, q.begin(), p.begin(), K, n_cores);
-}
-
-// Number of segments of loci used by the Q-side kernels for a dataset with
-// I individuals and J loci (1 = no segmentation; see q_segments()). Only
-// used in tests, to check that both code paths are exercised.
-// [[Rcpp::export]]
-int radmix_q_segments_cpp(double I, double J) {
-  return (int) q_segments((size_t) I, (size_t) J);
-}
-
-// Binomial deviance of the visible genotypes, for cross-validation; returns
-// c(deviance, count) (see deviance()).
-// [[Rcpp::export]]
-NumericVector radmix_deviance_cpp(List data, NumericMatrix q,
-                                  NumericMatrix p, int n_cores) {
-  const GenoView geno(data);
-  const int K = check_dims(geno, q, p, n_cores);
-  double dev, count;
-  deviance(geno, q.begin(), p.begin(), K, n_cores, &dev, &count);
-  return NumericVector::create(dev, count);
-}
-
-// One EM step; returns list(q = K x I, p = K x J).
-// [[Rcpp::export]]
-List radmix_em_cpp(List data, NumericMatrix q, NumericMatrix p,
-                   int n_cores) {
-  const GenoView geno(data);
-  const int K = check_dims(geno, q, p, n_cores);
-  // outputs allocated in R memory up front (never inside the parallel region)
-  NumericMatrix q_new(K, q.ncol()), p_new(K, p.ncol());
-  em(geno, q.begin(), p.begin(), K, q_new.begin(), p_new.begin(),
-          n_cores);
-  return List::create(_["q"] = q_new, _["p"] = p_new);
-}
-
-// Q-block derivatives; returns list(grad = K x I, hess = K x K x I array).
-// [[Rcpp::export]]
-List radmix_grad_q_cpp(List data, NumericMatrix q, NumericMatrix p,
-                       int n_cores) {
-  const GenoView geno(data);
-  const int K = check_dims(geno, q, p, n_cores);
-  const int I = q.ncol();
-  NumericMatrix grad(K, I);
-  // a numeric vector with a dim attribute is an R array; the size is
-  // computed in size_t to avoid int overflow for large K * K * I
-  NumericVector hess((size_t) K * K * I);
-  hess.attr("dim") = IntegerVector::create(K, K, I);
-  grad_q(geno, q.begin(), p.begin(), K, grad.begin(), hess.begin(),
-              n_cores);
-  return List::create(_["grad"] = grad, _["hess"] = hess);
-}
-
-// P-block derivatives; returns list(grad = K x J, hess = K x K x J array).
-// [[Rcpp::export]]
-List radmix_grad_p_cpp(List data, NumericMatrix q, NumericMatrix p,
-                       int n_cores) {
-  const GenoView geno(data);
-  const int K = check_dims(geno, q, p, n_cores);
-  const int J = p.ncol();
-  NumericMatrix grad(K, J);
-  NumericVector hess((size_t) K * K * J);
-  hess.attr("dim") = IntegerVector::create(K, K, J);
-  grad_p(geno, q.begin(), p.begin(), K, grad.begin(), hess.begin(),
-              n_cores);
-  return List::create(_["grad"] = grad, _["hess"] = hess);
-}
-
-// Newton (QP) update of q; returns the new K x I matrix.
-// [[Rcpp::export]]
-NumericMatrix radmix_update_q_cpp(List data, NumericMatrix q,
-                                  NumericMatrix p, int n_cores) {
-  const GenoView geno(data);
-  const int K = check_dims(geno, q, p, n_cores);
-  NumericMatrix q_new(K, q.ncol());
-  update_q(geno, q.begin(), p.begin(), K, q_new.begin(), n_cores);
-  return q_new;
-}
-
-// Newton (QP) update of p; returns the new K x J matrix.
-// [[Rcpp::export]]
-NumericMatrix radmix_update_p_cpp(List data, NumericMatrix q,
-                                  NumericMatrix p, int n_cores) {
-  const GenoView geno(data);
-  const int K = check_dims(geno, q, p, n_cores);
-  NumericMatrix p_new(K, p.ncol());
-  update_p(geno, q.begin(), p.begin(), K, p_new.begin(), n_cores);
-  return p_new;
-}

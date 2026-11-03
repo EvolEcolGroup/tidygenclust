@@ -64,6 +64,7 @@ struct QPWork {
   // Scratch vector: the saved pivot column during a sweep (length n, hence
   // K + 2 entries) and H * V[:, 1] while computing mu (length K).
   std::vector<double> tmp;     // scratch, K + 2 entries
+  std::vector<double> delta;   // the step of the column being updated, K
   // number of passes of the active-set loop in the last call (only used by
   // the tests, through radmix_qp_solve_cpp())
   int passes = 0;
