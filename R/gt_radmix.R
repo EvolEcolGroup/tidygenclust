@@ -3,24 +3,23 @@
 #' This function estimates individual ancestry proportions (Q) and the allele
 #' frequencies of the ancestral populations (P) with the method of ADMIXTURE
 #' (Alexander et al. 2009), i.e. by maximum likelihood under the ADMIXTURE
-#' model. It uses a modified version of the algorithm of OpenADMIXTURE (Ko et
-#' al. 2023): EM priming, block-wise Newton updates solved as constrained
-#' quadratic programs, and quasi-Newton acceleration. Much of its C++ code is
-#' ported from the Julia implementation of OpenADMIXTURE,
-#' [OpenADMIXTURE.jl](https://github.com/OpenMendel/OpenADMIXTURE.jl), by Ko
-#' et al. The function has a different name because it differs from
-#' OpenADMIXTURE: it does not include the selection of ancestry informative
-#' markers (sparse K-means) that is a central part of OpenADMIXTURE; we
-#' implemented the cross-validation of ADMIXTURE, to choose K, which is not
-#' part of OpenADMIXTURE; it supports pseudohaploid data; and it changes some
-#' details of the computations (see "Differences from OpenADMIXTURE.jl"
-#' below). If you use this function, please cite Ko et al. (2023) for the
-#' algorithm, as well as Alexander et al. (2009) for the method.
+#' model. It uses the optimisation strategy of ADMIXTURE: a few EM
+#' iterations to prime a random start, then block-wise Newton updates of Q
+#' and P, each solved as a constrained quadratic program, accelerated by the
+#' quasi-Newton scheme of Zhou, Alexander and Lange (2011). It also offers
+#' the cross-validation of ADMIXTURE to choose K (Alexander and Lange 2011),
+#' a start from a truncated singular value decomposition (SVD) of the
+#' genotypes, and support for pseudohaploid data. If you use this function,
+#' please cite Alexander et al. (2009) for the method, and, if you use
+#' cross-validation, Alexander and Lange (2011).
 #'
 #' Genotypes are read directly from the backing file of the `gen_tibble`
 #' (respecting any filtering of individuals and selection of loci), so no
-#' intermediate PLINK file is written. Computation is multithreaded with
-#' OpenMP.
+#' intermediate PLINK file is written. Computation is in C++, multithreaded
+#' with OpenMP. The C++ code started as a port of the Julia package
+#' [OpenADMIXTURE.jl](https://github.com/OpenMendel/OpenADMIXTURE.jl), and
+#' has since been extensively rewritten (see the file `COPYRIGHTS` of the
+#' package, `system.file("COPYRIGHTS", package = "tidygenclust")`).
 #'
 #' @details Missing genotypes are ignored in the likelihood. Pseudohaploid
 #'   individuals (see [tidypopgen::gt_pseudohaploid()]) contribute a single
@@ -37,31 +36,38 @@
 #'
 #'   ## Algorithm
 #'
-#'   As in OpenADMIXTURE.jl, each run consists of:
-#'   1. a random initialisation followed by a few EM (FRAPPE) iterations
-#'      (`n_em_iter`), or, with `init = "svd"`, a start from the SVD of the
-#'      genotypes (see below);
-#'   2. block-wise Newton updates of Q (one individual at a time, on the
-#'      simplex) and P (one locus at a time, in the unit interval), each
-#'      solved exactly as a small quadratic program with K. Lange's
-#'      sweep-operator active-set method;
-#'   3. quasi-Newton acceleration (Zhou, Alexander and Lange 2011) using the
-#'      last `n_qn` secant pairs, accepted only when it improves the
-#'      log-likelihood.
+#'   As in ADMIXTURE (Alexander et al. 2009; Alexander and Lange 2011), each
+#'   run consists of:
+#'   1. a random initialisation followed by a few EM iterations
+#'      (`n_em_iter`; the EM algorithm of FRAPPE, Tang et al. 2005), or,
+#'      with `init = "svd"`, a start from the SVD of the genotypes (see
+#'      below);
+#'   2. block-wise Newton updates (block relaxation): all of Q given P (one
+#'      individual at a time, on the simplex), then all of P given the new
+#'      Q (one locus at a time, in the unit interval). Each Newton step is
+#'      solved exactly as a small quadratic program, by an active-set method
+#'      based on the sweep operator (Lange 2010);
+#'   3. quasi-Newton acceleration (Zhou, Alexander and Lange 2011): each
+#'      iteration applies two rounds of block updates, and the changes that
+#'      they made in the last `n_qn` iterations (secant pairs) give a
+#'      quasi-Newton step, which is accepted only when it improves the
+#'      log-likelihood of the previous iteration (otherwise the iteration
+#'      ends with the plain block updates).
 #'
 #'   Iterations stop when the relative change in log-likelihood falls below
-#'   `rtol`. All estimates are kept within \[1e-5, 1 - 1e-5\], as in ADMIXTURE
-#'   and OpenADMIXTURE.jl.
+#'   `rtol`. All estimates are kept within \[1e-5, 1 - 1e-5\], as in
+#'   ADMIXTURE. The log of each run (element `log` of the result) reports the
+#'   log-likelihood at each iteration, together with that of the
+#'   quasi-Newton point ("QN") and that of the plain block updates
+#'   ("basic"). The latter is only computed when the quasi-Newton point is
+#'   rejected (otherwise it is reported as "not computed"), which saves a
+#'   pass over the genotypes in most iterations.
 #'
-#'   On x86-64 Linux, when the package is compiled with GCC 12 or later, the
-#'   main computations are also compiled for processors with the AVX2 and
-#'   FMA instructions (most processors made since 2015), and the faster
-#'   version is chosen when the package is loaded. Results are reproducible
-#'   on a given machine, but can differ in the last digits between machines
-#'   with and without these instructions. Compiling the package with
-#'   `-DRADMIX_NO_MULTIVERSION` (e.g. added to `CXXFLAGS` in
-#'   `~/.R/Makevars`) builds only the portable version, whose results are the
-#'   same on every x86-64 machine.
+#'   A few numerical safeguards handle degenerate cases, without changing
+#'   the results when the computations are well behaved: for example, a
+#'   Newton step that is not finite (because a genotype is impossible under
+#'   the current estimates) is discarded, and the individual or locus keeps
+#'   its current value for that iteration.
 #'
 #'   ## Starting values from the SVD
 #'
@@ -127,65 +133,47 @@
 #'   `n_folds` additional fits for each run (each usually converging in a few
 #'   iterations).
 #'
+#'   ## Reproducibility
+#'
+#'   The random starting values (and the folds of cross-validation) are
+#'   drawn from R's random number generator, so runs are reproducible with
+#'   `seed` (or [set.seed()]). The work is divided between threads in a way
+#'   that depends only on the dimensions of the data, so the results are
+#'   identical for any `n_cores`.
+#'
+#'   On x86-64 Linux, when the package is compiled with GCC 12 or later, the
+#'   main computations are also compiled for processors with the AVX2 and
+#'   FMA instructions (most processors made since 2015), and the faster
+#'   version is chosen when the package is loaded. Results are reproducible
+#'   on a given machine, but can differ in the last digits between machines
+#'   with and without these instructions. Compiling the package with
+#'   `-DRADMIX_NO_MULTIVERSION` (e.g. added to `CXXFLAGS` in
+#'   `~/.R/Makevars`) builds only the portable version, whose results are the
+#'   same on every x86-64 machine.
+#'
 #'   ## Comparison with ADMIXTURE
 #'
-#'   The model and the log-likelihood are those of ADMIXTURE (Alexander et al.
-#'   2009), and the optimisation is closely related (block updates with
-#'   constrained Newton steps and quasi-Newton acceleration), so both programs
-#'   reach the same maximum likelihood estimates, up to local optima and the
-#'   convergence tolerance. The test suite checks this on the `EUR_subset`
-#'   data used in the OpenADMIXTURE.jl tests. Note that:
+#'   The model, the log-likelihood and the optimisation strategy are those of
+#'   ADMIXTURE (Alexander et al. 2009; Alexander and Lange 2011), so both
+#'   programs reach the same maximum likelihood estimates, up to local optima
+#'   and the convergence criterion (ADMIXTURE stops when the log-likelihood
+#'   increases by less than 1e-4 between iterations). The test suite checks
+#'   this on the `EUR_subset` data of SnpArrays.jl. Note that:
 #'   - ADMIXTURE reports the frequency of the second allele in the PLINK bim
 #'     file, which for a `gen_tibble` is the reference allele, so its P
 #'     matrices are 1 - P of those returned here;
 #'   - cross-validation follows ADMIXTURE (see above), and the test suite
 #'     checks that the errors agree with those of ADMIXTURE on `EUR_subset`;
+#'   - ADMIXTURE treats the autosomal genotypes of every individual as
+#'     diploid, whereas `gt_radmix()` counts a single allele per locus for
+#'     pseudohaploid individuals (see above);
 #'   - bootstrap standard errors and supervised analyses with individuals of
 #'     known ancestry, available in ADMIXTURE, are not implemented (a fixed
 #'     reference panel can be used with `init_p` and `fix_p`).
 #'
-#'   ## Differences from OpenADMIXTURE.jl
-#'
-#'   `gt_radmix()` uses a modified version of the algorithm of
-#'   OpenADMIXTURE.jl. Starting from the same values, it reproduces the
-#'   computations of OpenADMIXTURE.jl to numerical precision (this is checked
-#'   by the test suite), except for the following:
-#'   - there is no GPU (CUDA) support;
-#'   - the start from the SVD (`init = "svd"`, see above) is not part of
-#'     OpenADMIXTURE;
-#'   - we implemented cross-validation, as in ADMIXTURE (see above), which
-#'     is not part of OpenADMIXTURE;
-#'   - sparse K-means selection of ancestry informative markers (SKFR) is not
-#'     implemented; loci can be selected beforehand with
-#'     [tidypopgen::select_loci()];
-#'   - pseudohaploid individuals are supported (they contribute one allele
-#'     per locus, whereas OpenADMIXTURE.jl assumes every individual is
-#'     diploid);
-#'   - with missing data, the EM update of Q is normalised by the number of
-#'     loci observed in each individual (OpenADMIXTURE.jl divides by the
-#'     total number of loci, so that Q is pushed off the simplex);
-#'   - the log-likelihood is only computed when the algorithm needs it: not
-#'     after each EM step (unless `verbose = TRUE`), and, in the main
-#'     iterations, the log-likelihood after two plain updates only when the
-#'     quasi-Newton step is rejected (OpenADMIXTURE.jl computes both every
-#'     time). This saves about one pass over the genotypes in seven, without
-#'     changing the estimates; the log then reports "basic = not computed";
-#'   - a few numerical safeguards that the Julia code lacks: the conditioning
-#'     penalty of the quadratic program for Q is never negative, the
-#'     active-set solver never pivots on a vanishing element, Newton steps
-#'     that are not finite are discarded (the individual or locus keeps its
-#'     current value for that iteration), and the projections onto the
-#'     feasible set tolerate non-finite values. None of these changes the
-#'     results when the computations are well behaved; each is documented in
-#'     the C++ source.
-#'
-#' @references Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH,
-#'   Sobel EM, Zhou H, Lange KL (2023) Unsupervised discovery of ancestry
-#'   informative markers and genetic admixture proportions in biobank-scale
-#'   datasets. The American Journal of Human Genetics, 110(2), 314-325.
-#'
-#'   Alexander DH, Novembre J, Lange K (2009) Fast model-based estimation of
-#'   ancestry in unrelated individuals. Genome Research, 19(9), 1655-1664.
+#' @references Alexander DH, Novembre J, Lange K (2009) Fast model-based
+#'   estimation of ancestry in unrelated individuals. Genome Research, 19(9),
+#'   1655-1664.
 #'
 #'   Alexander DH, Lange K (2011) Enhancements to the ADMIXTURE algorithm for
 #'   individual ancestry estimation. BMC Bioinformatics, 12, 246.
@@ -194,14 +182,21 @@
 #'   high-dimensional optimization algorithms. Statistics and Computing,
 #'   21(2), 261-273.
 #'
+#'   Tang H, Peng J, Wang P, Risch NJ (2005) Estimation of individual
+#'   admixture: analytical and study design considerations. Genetic
+#'   Epidemiology, 28(4), 289-301.
+#'
+#'   Lange K (2010) Numerical Analysis for Statisticians, 2nd edition.
+#'   Springer, New York.
+#'
 #'   Saurina-i-Ricos J, Mas Montserrat D, Ioannidis AG (2026) ADAMIXTURE:
 #'   adaptive first-order optimization for biobank-scale genetic clustering.
 #'   Bioinformatics, 42(Supplement_1). doi:
 #'   https://doi.org/10.1093/bioinformatics/btag236
 #'
 #'   Santander CG, Refoyo Martinez A, Meisner J (2024) Faster model-based
-#'   estimation of ancestry proportions. bioRxiv 2024.07.08.602454. doi:
-#'   https://doi.org/10.1101/2024.07.08.602454
+#'   estimation of ancestry proportions. Peer Community Journal, 4, e115.
+#'   doi: https://doi.org/10.24072/pcjournal.503
 #'
 #' @param x a [`tidypopgen::gen_tibble`] (possibly grouped)
 #' @param k an integer vector giving the number(s) of ancestral populations
@@ -212,17 +207,17 @@
 #'   state is restored on exit.
 #' @param max_iter the maximum number of iterations (defaults to 1000)
 #' @param rtol the convergence threshold on the relative change in
-#'   log-likelihood between iterations (defaults to 1e-8). OpenADMIXTURE.jl
-#'   uses 1e-7, which takes 10-20% less time but can stop a few
-#'   log-likelihood units short of convergence, with ancestry proportions up
-#'   to about 0.05 away from the converged ones
+#'   log-likelihood between iterations (defaults to 1e-8). A threshold of
+#'   1e-7 takes 10-20% less time, but can stop a few log-likelihood units
+#'   short of convergence, with ancestry proportions up to about 0.05 away
+#'   from the converged ones
 #' @param n_em_iter the number of EM iterations used to prime the estimates
-#'   (defaults to 5); not used with `init = "svd"`
+#'   (defaults to 5, as in ADMIXTURE); not used with `init = "svd"`
 #' @param n_qn the number of secant pairs used by the quasi-Newton
-#'   acceleration (defaults to 3)
+#'   acceleration (defaults to 3, as in ADMIXTURE)
 #' @param init how the starting values of each run are chosen: `"random"`
 #'   (the default), random values followed by `n_em_iter` EM iterations, as
-#'   in ADMIXTURE and OpenADMIXTURE; or `"svd"`, from a truncated SVD of the
+#'   in ADMIXTURE; or `"svd"`, from a truncated SVD of the
 #'   genotypes, which needs fewer iterations but is not suited to exploring
 #'   the modes of the likelihood with several runs (see "Starting values
 #'   from the SVD" in the details). `"svd"` cannot be combined with `init_q`
@@ -245,7 +240,8 @@
 #'   (defaults to `FALSE`)? See the details.
 #' @param n_folds the number of folds used for cross-validation (defaults to
 #'   5, as in ADMIXTURE)
-#' @param n_cores the number of cores to use (defaults to 1)
+#' @param n_cores the number of cores to use (defaults to 1); the results
+#'   do not depend on it
 #' @param verbose boolean; should progress be printed (defaults to `FALSE`)?
 #'   With `verbose = TRUE`, the log-likelihood is also computed (and logged)
 #'   every 5 EM steps during the initial EM iterations; otherwise only their

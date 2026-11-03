@@ -15,10 +15,12 @@ genetics with a focus on genetic clustering.
 
 Its core functionality is provided by native R and C++ code:
 
-- `gt_radmix()` to estimate ancestry proportions with the ADMIXTURE
-  method. It is a heavily optimized implementation of the algorithm 
-  of OpenADMIXTURE (Ko et al. 2023), ported to C++ from
-  [OpenADMIXTURE.jl](https://github.com/OpenMendel/OpenADMIXTURE.jl);
+- `gt_radmix()` to estimate ancestry proportions with the method of
+  ADMIXTURE (Alexander et al. 2009). It is a heavily optimized,
+  multithreaded C++ implementation of the algorithm of ADMIXTURE (block
+  relaxation with quasi-Newton acceleration), which works directly on a
+  `gen_tibble`, supports pseudohaploid data, and includes the
+  cross-validation of ADMIXTURE to choose K (Alexander & Lange 2011);
 - `gt_clumppling()` to align multiple clustering runs within and across K
   with the method of clumppling (Liu, Kopelman & Rosenberg 2024), ported to
   R and C++, with modifications, from the python package
@@ -71,10 +73,8 @@ pseudohaploids correctly).
 Alexander DH, Novembre J, Lange K (2009) Fast model-based estimation of
 ancestry in unrelated individuals. Genome Research, 19(9), 1655-1664.
 
-Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH, Sobel EM, Zhou H,
-Lange KL (2023) Unsupervised discovery of ancestry informative markers and
-genetic admixture proportions in biobank-scale datasets. The American
-Journal of Human Genetics, 110(2), 314-325.
+Alexander DH, Lange K (2011) Enhancements to the ADMIXTURE algorithm for
+individual ancestry estimation. BMC Bioinformatics, 12, 246.
 
 Liu X, Kopelman NM, Rosenberg NA (2024) Clumppling: cluster matching and
 permutation program with integer linear programming. Bioinformatics, 40(1),
