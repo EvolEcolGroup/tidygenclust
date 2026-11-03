@@ -7,7 +7,6 @@
 
 namespace radmix {
 
-
 // Projection onto {sum(q) == 1, q >= eps}: shift by eps, project onto the
 // simplex of mass tau = 1 - K * eps with the sort-and-threshold algorithm,
 // then shift back.
@@ -32,6 +31,9 @@ namespace radmix {
 // Result: (0.9 - 0.2, 0.5 - 0.2, 0) = (0.7, 0.3, 0), summing to 1.
 //
 // Cost is O(K log K) for the sort; K is small, so this is negligible.
+// tau must be positive (K eps < 1), which holds for any realistic K with
+// eps = 1e-5. A column already in the set is returned unchanged, up to
+// rounding.
 void project_q(double* q, int K, double eps) {
   // The sorted copy lives on the stack for the usual small K, avoiding a
   // heap allocation per individual; very large K falls back to the heap.
@@ -66,8 +68,8 @@ void project_q(double* q, int K, double eps) {
   }
   // decreasing order, as the threshold scan expects
   std::sort(b, b + K, std::greater<double>());
-  // find the threshold: the first i at which the running mean exceeds the
-  // next largest value; otherwise use all K entries
+  // find the threshold: the first m at which t_m is at least the next
+  // largest value; otherwise use all K entries
   //
   // In the notation above, after adding b[i] the loop has m = i + 1 kept
   // entries, tsum = b_(1) + ... + b_(m) and tmax = t_m; it stops as soon as
@@ -96,12 +98,12 @@ void project_q(double* q, int K, double eps) {
 // [eps, 1 - eps]. K here is just the number of entries, so callers may pass
 // a whole matrix at once.
 //
-// NaN entries are set to 0.5. Clamping
-// already maps -Inf to eps and +Inf to 1 - eps, but std::max and std::min
-// let NaN through unchanged (every comparison with NaN is false), and a NaN
-// frequency would make the log-likelihood NaN for the whole locus. As in
-// project_q, this should never trigger, and 0.5 (the centre of the box) is
-// simply a valid value to restart from.
+// NaN entries are set to 0.5. Clamping already maps -Inf to eps and +Inf to
+// 1 - eps, but std::max and std::min let NaN through unchanged (every
+// comparison with NaN is false), and a NaN frequency would make the
+// log-likelihood NaN for the whole locus. As in project_q, this should
+// never trigger, and 0.5 (the centre of the box) is simply a valid value to
+// restart from.
 void project_p(double* p, int K, double eps) {
   for (int k = 0; k < K; k++) {
     if (std::isnan(p[k])) {

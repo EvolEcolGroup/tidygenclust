@@ -11,7 +11,8 @@
 // genotypes, computed in R (radmix_svd_factors() in R/radmix_svd.R), gives a
 // low-rank approximation Pi ~ Za Ua', where Za (loci x R) and Ua
 // (individuals x R) are the scaled singular vectors, plus a last column
-// holding the allele frequencies (in Za) and ones (in Ua). ALS looks for P
+// holding the allele frequencies (in Za) and ones (in Ua), as assembled by
+// radmix_svd_start(); R is the number of components plus one. ALS looks for P
 // and Q such that P Q' ~ Za Ua', solving alternately for Q given P and for
 // P given Q. Each step only involves products with the factors, never the
 // genotypes, so an iteration costs O((I + J) K R), against O(I J K) for a
@@ -37,10 +38,10 @@
 // radmix_svd_start() limits to one thread: BLAS threads gain nothing on
 // these products, and compete with the OpenMP threads); the small bounded
 // least squares problems, one per individual or locus, are solved in
-// parallel with OpenMP. Each
-// column is solved on its own, so the results do not depend on the number
-// of threads. Most of the time goes into these small problems (about 90%
-// on EUR_subset), hence the direct solution in solve_rows().
+// parallel with OpenMP. Each column is solved on its own, so the results do
+// not depend on the number of threads. Most of the time goes into these
+// small problems (about 90% on EUR_subset), hence the direct solution in
+// solve_rows().
 
 #include <RcppArmadillo.h>
 #include <algorithm>
@@ -61,7 +62,8 @@ static const double CD_TOL = 1e-7;
 // momentum)
 static const double ALS_MOMENTUM = 0.8;
 
-// the bounds of the estimates, as in the rest of gt_radmix()
+// v clamped to [RADMIX_EPS, 1 - RADMIX_EPS] = [1e-5, 1 - 1e-5], the bounds
+// of the estimates in the rest of gt_radmix()
 static inline double als_clip(double v) {
   return std::min(std::max(v, RADMIX_EPS), 1.0 - RADMIX_EPS);
 }
@@ -70,7 +72,9 @@ static inline double als_clip(double v) {
 // column-major) symmetric and positive semi-definite, by cyclic coordinate
 // descent starting from the value in x: each coordinate in turn is set to
 // its exact minimiser given the others, clamped to [0, 1]. A coordinate
-// with A_kk = 0 (a flat direction) keeps its value.
+// with A_kk = 0 (a flat direction) keeps its value. The objective never
+// increases, and the sweeps stop when no coordinate moves by CD_TOL or more,
+// or after CD_MAX_SWEEPS sweeps. b and x have K values; x is overwritten.
 static void box_cd(const double* A, const double* b, double* x, int K) {
   for (int s = 0; s < CD_MAX_SWEEPS; s++) {
     double change = 0.0;
@@ -78,7 +82,9 @@ static void box_cd(const double* A, const double* b, double* x, int K) {
       // column k of A, which is also row k
       const double* a = A + (size_t) K * k;
       if (!(a[k] > 0.0)) continue;
-      // the gradient of the objective along x_k is (A x)_k - b_k
+      // the gradient of the objective along x_k is (A x)_k - b_k, so
+      // r = b_k - (A x)_k is minus the gradient, and the exact minimiser
+      // along x_k is x_k + r / A_kk
       double r = b[k];
       for (int l = 0; l < K; l++) r -= a[l] * x[l];
       const double xk = std::min(std::max(x[k] + r / a[k], 0.0), 1.0);
@@ -91,14 +97,17 @@ static void box_cd(const double* A, const double* b, double* x, int K) {
 
 // Solve the bounded least squares problems of all the columns of xt (K x n),
 // minimising 0.5 x' A x - b' x in [0, 1]^K for each column x of xt and the
-// matching column b of bt. All the problems share A, so their unconstrained
-// solutions A^-1 b are obtained at once, with a single matrix product; a
-// solution within [0, 1]^K is also the solution of the bounded problem (the
-// objective is convex), and is used as such (this saves about half of the
-// time of the ALS on EUR_subset, where 80% of the loci have interior
-// solutions near convergence). The other columns are solved by coordinate
-// descent, from their current value. If A is ill-conditioned, its inverse
-// would be inaccurate, so all the columns use coordinate descent.
+// matching column b of bt (K x n); A is K x K. Each column of xt is a row of
+// Q (individuals x K) or P (loci x K) in the user layout, hence the name.
+// All the problems share A, so their unconstrained solutions A^-1 b are
+// obtained at once, with a single matrix product; a solution within
+// [0, 1]^K is also the solution of the bounded problem (the objective is
+// convex), and is used as such (this saves about half of the time of the
+// ALS on EUR_subset, where 80% of the loci have interior solutions near
+// convergence). The other columns are solved by coordinate descent, from
+// their current value. If A is ill-conditioned (reciprocal condition number
+// at most 1e-8), its inverse would be inaccurate, so all the columns use
+// coordinate descent (as they do if the inversion fails).
 static void solve_rows(const arma::mat& A, const arma::mat& bt,
                        arma::mat& xt, int n_cores) {
   const int K = xt.n_rows;
@@ -109,6 +118,7 @@ static void solve_rows(const arma::mat& A, const arma::mat& bt,
 #pragma omp parallel for num_threads(n_cores) schedule(static)
   for (arma::uword i = 0; i < xt.n_cols; i++) {
     double* x = xt.colptr(i);
+    // use the unconstrained solution if it lies within [0, 1]^K
     bool inside = direct;
     if (direct) {
       const double* xd = x_direct.colptr(i);
@@ -120,8 +130,10 @@ static void solve_rows(const arma::mat& A, const arma::mat& bt,
   }
 }
 
-// Clip the K proportions of one individual and normalise them to sum to one
-// (ADAMIXTURE's map_Q)
+// Clip the K proportions of one individual to [1e-5, 1 - 1e-5] and
+// normalise them to sum to one (ADAMIXTURE's map_Q). This is not the
+// Euclidean projection of project_q(), and can leave entries slightly below
+// 1e-5 (see the end of radmix_als_cpp()).
 static void map_q_col(double* q, int K) {
   double sum = 0.0;
   for (int k = 0; k < K; k++) {
@@ -134,7 +146,9 @@ static void map_q_col(double* q, int K) {
 // Q step: for each individual i, the q_i in [0, 1]^K that minimises
 //   sum_j w_j (pi_ji - sum_k p_jk q_ik)^2,
 // i.e. 0.5 q' A q - b_i' q with A = P' W P and b_i = P' W Za ua_i, starting
-// from (and overwriting) qt; then mapped onto the simplex.
+// from (and overwriting) qt; then mapped onto the simplex (map_q_col()).
+// pt is P' (K x J), za and ua the factors (J x R and I x R), w the weights
+// of the loci (W = diag(w)), and qt is Q' (K x I).
 static void q_step(const arma::mat& pt, const arma::mat& za,
                    const arma::mat& ua, const arma::vec& w, arma::mat& qt,
                    int n_cores) {
@@ -151,7 +165,8 @@ static void q_step(const arma::mat& pt, const arma::mat& za,
 // P step: for each locus j, the p_j in [0, 1]^K that minimises
 //   sum_i (pi_ji - sum_k p_jk q_ik)^2,
 // i.e. 0.5 p' A p - b_j' p with A = Q' Q and b_j = Q' Ua za_j, starting
-// from (and overwriting) pt; then clipped.
+// from (and overwriting) pt; then clipped to [1e-5, 1 - 1e-5]. qt is Q'
+// (K x I), za and ua the factors (J x R and I x R), and pt is P' (K x J).
 static void p_step(const arma::mat& qt, const arma::mat& za,
                    const arma::mat& ua, arma::mat& pt, int n_cores) {
   const arma::mat A = qt * qt.t();
@@ -173,8 +188,11 @@ using namespace radmix;
 //   clipped to [1e-5, 1 - 1e-5]; Q starts from its Q step, from 1 / K.
 // max_iter, tol: maximum number of iterations, and threshold on the root
 //   mean square change in Q between iterations.
+// n_cores: number of OpenMP threads for the small bounded problems (the
+//   results do not depend on it).
 // Returns list(q = K x I, p = K x J, n_iter, converged), in the layout of
-// the kernels (e.g. radmix_loglik_cpp()).
+// the kernels (e.g. radmix_loglik_cpp()), with Q projected onto the
+// feasible set of the fit and P within [1e-5, 1 - 1e-5].
 // [[Rcpp::export]]
 List radmix_als_cpp(NumericMatrix za, NumericMatrix ua, NumericVector w,
                     NumericMatrix init_p, int max_iter, double tol,

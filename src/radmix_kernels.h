@@ -31,24 +31,29 @@
 //
 // Common arguments:
 //   geno     the genotypes (I individuals x J loci), see radmix_geno_access.h
-//   q, p     the current estimates, read only
+//   q, p     the current estimates (K x I and K x J), read only
 //   K        the number of ancestral populations
 //   n_cores  the number of OpenMP threads (results are identical for any)
 // Outputs are allocated by the caller, with the sizes given below, and are
-// overwritten; they must not overlap q or p. None of these functions calls
-// R, and their results do not depend on the number of threads.
+// overwritten; they must not overlap q or p. Nothing is checked here: the
+// callers (the R wrappers in radmix_exports.cpp and the fitting loop in
+// radmix_fit.cpp) check the dimensions, and require I, J >= 1. None of these
+// functions calls R, and their results do not depend on the number of
+// threads.
 
 #include <cstddef>
 #include "radmix_geno_access.h"
 
 namespace radmix {
 
-// The log-likelihood L(q, p).
+// The log-likelihood L(q, p) (-Inf if a genotype is impossible under q and
+// p, i.e. qp of exactly 0 with g > 0, or of exactly 1 with g < n_i).
 double loglik(const GenoView& geno, const double* q, const double* p, int K,
               int n_cores);
 
 // One EM step, updating both blocks from the same (q, p): q_new (K x I) and
-// p_new (K x J).
+// p_new (K x J). The result is not projected: each column of q_new is on
+// the simplex, but p_new can be exactly 0 or 1 (see em()).
 void em(const GenoView& geno, const double* q, const double* p, int K,
         double* q_new, double* p_new, int n_cores);
 
@@ -80,7 +85,8 @@ void deviance(const GenoView& geno, const double* q, const double* p, int K,
               int n_cores, double* dev, double* count);
 
 // The number of segments of loci into which the Q-side passes split their
-// work (1 = none). It depends only on the dimensions of the data.
+// work for I individuals and J loci (1 = none). It depends only on the
+// dimensions of the data, never on the number of threads.
 size_t q_segments(size_t I, size_t J);
 
 }  // namespace radmix

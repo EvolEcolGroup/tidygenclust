@@ -46,8 +46,8 @@ test_that("project_p clamps to [eps, 1 - eps]", {
   expect_identical(p[1, 1], -1)
 })
 
-# The following guards are deviations from OpenADMIXTURE.jl, which assumes
-# finite values throughout (see src/radmix_projections.cpp)
+# Guards against non-finite values, which should never reach the projections
+# (see src/radmix_projections.cpp)
 test_that("project_q resets non-finite columns to the centre of the simplex", {
   q <- matrix(c(
     NaN, 0.5, 0.5,

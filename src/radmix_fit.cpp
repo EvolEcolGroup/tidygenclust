@@ -7,7 +7,10 @@
 // The whole loop runs in C++, with every estimate in a buffer allocated once
 // at the start of the fit: accepting an estimate swaps buffers, so a fit
 // holds a fixed number of copies of the parameters, 3 + 2 n_qn (x0, x1, x2
-// and the secant pairs), whatever the number of iterations.
+// and the secant pairs), whatever the number of iterations (plus the
+// matrices returned to R, built at the end). Between passes over the
+// genotypes, on the main thread, the loop reports progress (FitLog) and
+// checks for user interrupts; nothing inside the passes calls R.
 
 #include <Rcpp.h>
 #include <algorithm>
@@ -23,7 +26,9 @@ using namespace Rcpp;
 
 namespace radmix {
 
-// a number as R's format(x, digits = digits) prints it, for the log
+// x with `digits` significant digits (printf's %g, which drops trailing
+// zeros, close to what R's format(x, digits = digits) prints), and NaN, Inf
+// and -Inf spelt as in R, for the log
 static std::string fmt(double x, int digits) {
   if (std::isnan(x)) return "NaN";
   if (std::isinf(x)) return x > 0 ? "Inf" : "-Inf";
@@ -36,8 +41,13 @@ static std::string fmt(double x, int digits) {
 // verbose (so that suppressMessages() silences them). Only called from the
 // main thread, outside parallel regions, where calling R is safe.
 struct FitLog {
+  // whether to print the lines as they come
   bool verbose;
+  // all the lines so far, returned to R as the `log` of the fit
   std::vector<std::string> lines;
+  // append a line, and print it if verbose (message() is looked up in the
+  // base environment, so that a function of the same name elsewhere cannot
+  // be called instead)
   void add(const std::string& line) {
     lines.push_back(line);
     if (verbose) {
@@ -64,8 +74,12 @@ using namespace radmix;
 // n_em_iter: number of EM steps that prime a random start (skipped when both
 //   init_q and init_p are given).
 // n_qn: number of secant pairs used by the quasi-Newton step.
+// n_cores: number of OpenMP threads of the passes over the genotypes (the
+//   results do not depend on it).
+// verbose: print the lines of the log as they come.
 // Returns list(q = I x K, p = J x K, loglik, loglik_history, n_iter,
-// converged, log).
+// converged, log), with the estimates in the user layout; loglik_history
+// holds the log-likelihood of the start and of the end of each iteration.
 // [[Rcpp::export]]
 List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
                     Nullable<NumericMatrix> init_p, bool fix_q,
@@ -168,7 +182,7 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     // pairs, kept in a circular buffer (fewer in the first iterations; their
     // order does not matter). The point overwrites x0, which is no longer
     // needed: if the step fails (a singular system), x0 is left untouched,
-    // its log-likelihood stays at -Inf, and x2 is used instead.
+    // ll_qn stays at -Inf, and x2 is used instead.
     pairs.store((iter - 1) % n_qn, q.data(), p.data(), q1.data(), p1.data(),
                 q2.data(), p2.data(), nq, np);
     const size_t n_used = std::min((size_t) iter, (size_t) n_qn);
@@ -177,7 +191,7 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
                 p.data(), q1.data(), p1.data(), k, I, J, q.data(), p.data(),
                 n_cores)) {
       // A fixed block has u = v = 0, so the point keeps its value, but its
-      // projection could move q by rounding errors: restore it exactly.
+      // projection could move it by rounding errors: restore it exactly.
       if (fix_q) q = q1;
       if (fix_p) p = p1;
       ll_qn = loglik(geno, q.data(), p.data(), k, n_cores);

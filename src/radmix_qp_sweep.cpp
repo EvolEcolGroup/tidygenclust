@@ -31,8 +31,9 @@
 
 namespace radmix {
 
-// (the scratch vectors are sized for the tableau of a column of q, with
-// K + 2 rows; that of a column of p, with K + 1 rows, fits in them)
+// The scratch vectors are sized for the tableau of a column of q, with
+// K + 2 rows; that of a column of p, with K + 1 rows, fits in them. delta
+// has K entries, one per parameter.
 QPWork::QPWork(int K) : K(K), tab((K + 2) * (K + 2)), diag(K + 2),
   swept(K + 2), tmp(K + 2), delta(K) {}
 
@@ -52,7 +53,9 @@ QPWork::QPWork(int K) : K(K), tab((K + 2) * (K + 2)), diag(K + 2),
 //   [[-A^-1, A^-1 B], [B' A^-1, D - B' A^-1 B]]:
 // the A block is inverted (with a minus sign), B is solved against A, and D
 // becomes the Schur complement. The solver uses this to get the Newton step
-// of any subset of free variables. tmp (n values) is scratch.
+// of any subset of free variables. a is column-major with leading dimension
+// n and is updated in place, at O(n^2) cost; tmp (n values) is scratch. The
+// caller guarantees a non-zero pivot a_kk.
 static void sweep(double* a, int n, int k, double* tmp, bool inverse) {
   const double p = 1.0 / a[k + k * n];
   // save column k, then zero row and column k, so that the rank-one update
@@ -68,6 +71,7 @@ static void sweep(double* a, int n, int k, double* tmp, bool inverse) {
   //   i = j = k : 0 - 1 / a_kk                  (negated reciprocal)
   // With tmp[k] = +1 (inverse sweep) the middle case becomes -a_ik / a_kk.
   tmp[k] = inverse ? 1.0 : -1.0;
+  // the rank-one update, column by column (unit stride in the inner loop)
   for (int i = 0; i < n; i++) {
     const double pv = p * tmp[i];
     double* col = a + i * n;
@@ -75,7 +79,9 @@ static void sweep(double* a, int n, int k, double* tmp, bool inverse) {
   }
 }
 
-// Build the tableau of one problem; returns its dimension n.
+// Build the tableau of one problem in work.tab (column-major, leading
+// dimension n), from H (K x K), grad and par (K values); returns its
+// dimension n.
 //
 // For a column of p (box constraints only), n = K + 1:
 //
@@ -189,7 +195,8 @@ int qp_solve_column(const double* H, const double* grad, const double* par,
   double* d = work.diag.data();
   double* tmp = work.tmp.data();
   char* swept = work.swept.data();
-  // delta accumulates the steps taken
+  // delta accumulates the steps taken (0 if the initial sweeps fail), and
+  // passes counts the passes of the active-set loop (0 if it never starts)
   for (int i = 0; i < K; i++) delta[i] = 0;
   work.passes = 0;
   // Sweep the parameters, then the constraint; give up (delta = 0) if the

@@ -1,9 +1,11 @@
 // R interface of the building blocks of gt_radmix(): the passes over the
 // genotypes, the QP solver, the projections, the quasi-Newton step and the
-// decoding of the genotypes. The fit itself only calls radmix_fit_cpp()
-// (radmix_fit.cpp), radmix_als_cpp() (radmix_als.cpp) and, from R,
-// radmix_loglik_cpp(), radmix_deviance_cpp() and radmix_project_cpp(); the
-// other functions exist so that each building block can be tested on its own.
+// decoding of the genotypes. Besides radmix_fit_cpp() (radmix_fit.cpp) and
+// radmix_als_cpp() (radmix_als.cpp), the R code of gt_radmix() only calls
+// three functions of this file: radmix_loglik_cpp() (to rank the SVD
+// starts), radmix_deviance_cpp() (cross-validation) and
+// radmix_project_cpp() (starting values of Q). The others exist so that
+// each building block can be tested on its own.
 //
 // The C++ functions trust their inputs (raw pointer arithmetic, no R calls
 // inside parallel regions), so every wrapper checks the dimensions of its
@@ -22,7 +24,9 @@
 using namespace Rcpp;
 using namespace radmix;
 
-// check q (K x I) and p (K x J) against the genotypes; returns K
+// Check q (K x I) and p (K x J) against the genotypes (I individuals and J
+// loci, both at least 1), and n_cores >= 1, with an R error otherwise;
+// returns K. Called on the main thread, before any kernel.
 static int check_dims(const GenoView& geno, const NumericMatrix& q,
                       const NumericMatrix& p, int n_cores) {
   const int K = q.nrow();
@@ -40,7 +44,9 @@ static int check_dims(const GenoView& geno, const NumericMatrix& q,
   return K;
 }
 
-// Log-likelihood (a scalar).
+// Log-likelihood (a scalar) of q (K x I) and p (K x J) for the genotypes of
+// data (the output of radmix_prepare(), with an optional cross-validation
+// mask); the same arguments are used by the other passes below.
 // [[Rcpp::export]]
 double radmix_loglik_cpp(List data, NumericMatrix q, NumericMatrix p,
                          int n_cores) {
@@ -49,8 +55,8 @@ double radmix_loglik_cpp(List data, NumericMatrix q, NumericMatrix p,
   return loglik(geno, q.begin(), p.begin(), K, n_cores);
 }
 
-// Binomial deviance of the visible genotypes, for cross-validation; returns
-// c(deviance, number of genotypes).
+// Binomial deviance of the visible genotypes, for cross-validation (data
+// then carries a held-out mask); returns c(deviance, number of genotypes).
 // [[Rcpp::export]]
 NumericVector radmix_deviance_cpp(List data, NumericMatrix q,
                                   NumericMatrix p, int n_cores) {
@@ -127,7 +133,8 @@ NumericMatrix radmix_update_p_cpp(List data, NumericMatrix q,
 }
 
 // Number of segments of loci of the Q-side passes for I individuals and J
-// loci (1 = none), so that the tests can exercise both code paths.
+// loci (1 = none), so that the tests can exercise both code paths. (I and J
+// are R numbers, converted to size_t, so they must be non-negative.)
 // [[Rcpp::export]]
 int radmix_q_segments_cpp(double I, double J) {
   return (int) q_segments((size_t) I, (size_t) J);
@@ -136,8 +143,10 @@ int radmix_q_segments_cpp(double I, double J) {
 // Solve the QP of one column (see radmix_qp_sweep.h): H is the K x K
 // negative Hessian, grad and par the gradient and the current value of the
 // column, simplex TRUE for a column of q. Returns list(delta = the step,
-// iter = the number of iterations of the active-set loop, 0 on failure or
-// at a vertex of the simplex, passes = the number of passes of the loop).
+// iter = the return value of qp_solve_column(): the number of iterations of
+// the active-set loop, or 0 on failure, on cycling at a vertex of the
+// simplex or at the iteration limit, passes = the number of passes of the
+// loop, also when it stopped early).
 // [[Rcpp::export]]
 List radmix_qp_solve_cpp(const NumericMatrix& H, const NumericVector& grad,
                          const NumericVector& par, bool simplex) {
@@ -154,7 +163,9 @@ List radmix_qp_solve_cpp(const NumericMatrix& H, const NumericVector& grad,
 
 // Project each column of x onto the feasible set: the simplex (sum = 1, all
 // values at least 1e-5) if simplex is TRUE, as for q, or the box
-// [1e-5, 1 - 1e-5] otherwise, as for p. Returns a new matrix.
+// [1e-5, 1 - 1e-5] otherwise, as for p. Returns a new matrix (x is not
+// modified). Used by radmix_check_init() for the starting values of Q, and
+// by the tests.
 // [[Rcpp::export]]
 NumericMatrix radmix_project_cpp(const NumericMatrix& x, bool simplex) {
   if (x.nrow() < 1) stop("'x' must have at least one row.");
@@ -171,7 +182,8 @@ NumericMatrix radmix_project_cpp(const NumericMatrix& x, bool simplex) {
 // The quasi-Newton point from the secant pairs in the columns of u and v
 // (each n_par x m, the q block first, then the p block), the current
 // estimate (q, p) and the estimate after one sweep (q1, p1), all in the
-// internal layout. Returns list(q, p), or NULL if the step fails.
+// internal layout (K x I and K x J). Returns list(q, p), the projected
+// point in the same layout, or NULL if the step fails (see qn_step()).
 // [[Rcpp::export]]
 SEXP radmix_qn_step_cpp(const NumericMatrix& u, const NumericMatrix& v,
                         const NumericMatrix& q, const NumericMatrix& p,
@@ -197,7 +209,8 @@ SEXP radmix_qn_step_cpp(const NumericMatrix& u, const NumericMatrix& v,
 
 // The genotypes of the view as a dense matrix (individuals x loci, NA for
 // missing or hidden), so that the tests can check the decoding and the
-// cross-validation masks. The fit never builds this matrix.
+// cross-validation masks (through radmix_decode() in R). The fit never
+// builds this matrix.
 // [[Rcpp::export]]
 NumericMatrix radmix_decode_cpp(const List& data) {
   const GenoView geno(data);

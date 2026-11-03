@@ -3,8 +3,8 @@
 # EUR_subset data, and matching clusters between two Q matrices. When the data
 # cannot be downloaded, the test is skipped.
 
-# Path to the EUR_subset bed file used in the OpenADMIXTURE.jl tests (379
-# individuals, 54,051 SNPs), downloaded from the SnpArrays.jl repository the
+# Path to the EUR_subset bed file of SnpArrays.jl (379 individuals, 54,051
+# SNPs), downloaded from the SnpArrays.jl repository the
 # first time it is needed. Files are cached in RADMIX_TEST_DATA if set,
 # or in the user cache directory of the package. Returns NULL if the files
 # cannot be downloaded.

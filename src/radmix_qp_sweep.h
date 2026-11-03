@@ -17,7 +17,9 @@
 // ancestry proportions (simplex) or allele frequencies (box).
 //
 // Called by newton_column() (radmix_kernels.cpp) for every column of q and
-// p, inside parallel regions: nothing here calls R.
+// p, inside parallel regions: nothing here calls R, and all the state lives
+// in the caller's QPWork. (radmix_qp_solve_cpp(), in radmix_exports.cpp,
+// calls it from R for the tests.)
 
 #include <vector>
 
@@ -43,16 +45,21 @@ struct QPWork {
   // the step of the column being updated (K entries), used by
   // newton_column()
   std::vector<double> delta;
-  // the number of passes of the active-set loop in the last call (used by
-  // the tests)
+  // the number of passes of the active-set loop in the last call, 0 if the
+  // initial sweeps failed (used by the tests; unlike the return value of
+  // qp_solve_column(), it is also set when the loop stops early)
   int passes = 0;
+  // allocate the scratch for problems with K parameters
   explicit QPWork(int K);
 };
 
-// Solve the problem described above: delta (K values) receives the step.
+// Solve the problem described above: H (K x K), grad and par (K values) are
+// read only, delta (K values) receives the step, and work must have been
+// built for at least K parameters.
 // Returns the number of iterations of the active-set loop, or 0 if the
-// initial sweeps fail (H not numerically positive definite: delta = 0), if
-// the active set cycles at a vertex of the simplex (delta is then the
+// initial sweeps fail (the tableau not numerically positive definite, i.e.
+// H for p, or H + mu 11' for q, see radmix_qp_sweep.cpp: delta = 0), if the
+// active set cycles at a vertex of the simplex (delta is then the
 // solution), or if the loop does not settle within 1000 iterations (delta is
 // then as far as it got, usually the solution). The kernels therefore use
 // delta whatever the return value.
