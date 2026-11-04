@@ -2,7 +2,7 @@
 
 `gt_radmix()` estimates ancestry proportions with the method and the
 algorithm of ADMIXTURE, including its cross-validation (see
-`dev/admixture_implementation.md`). This directory holds the scripts used
+`dev_notes/admixture_implementation.md`). This directory holds the scripts used
 to validate `gt_radmix()` against two independent implementations of the
 same model, ADMIXTURE and OpenADMIXTURE.jl (from which the C++ code of
 `gt_radmix()` started, before it was extensively rewritten), and to create
@@ -152,13 +152,13 @@ version control), and need `tidygenclust` to be installed (timings from
 
 ## Speed-ups
 
-`dev/radmix_performance.md` records the work that sped up `gt_radmix()`
+`dev_notes/radmix_performance.md` records the work that sped up `gt_radmix()`
 (the faster passes for cross-validation, the SVD start, the faster
 kernels, and the default convergence threshold of 1e-8), with what was
 tried and rejected. The full reports of that work, with its scripts,
 patches and results, are archived under the git tag
 `archive/radmix-perf-verify`; see "Full records" at the end of
-`dev/radmix_performance.md` for what is there and how to read it (for
+`dev_notes/radmix_performance.md` for what is there and how to read it (for
 example, `git show
 archive/radmix-perf-verify:data-raw/radmix/perf_verification/desktop_results/REPORT.md`).
 The SVD start was explored with:

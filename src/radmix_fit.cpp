@@ -1,7 +1,7 @@
 // The fitting loop of gt_radmix() for one value of K: a starting point, a
 // few EM steps to prime it, then block updates accelerated by quasi-Newton
 // steps until the log-likelihood stops improving. See
-// dev/admixture_implementation.md for the algorithm, and radmix_kernels.h
+// dev_notes/admixture_implementation.md for the algorithm, and radmix_kernels.h
 // for the model and the layout of q (K x I) and p (K x J).
 //
 // The whole loop runs in C++, with every estimate in a buffer allocated once

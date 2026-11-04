@@ -519,7 +519,7 @@ The test suite checks:
 `vignettes/articles/admixture_benchmark.Rmd` compares `gt_radmix()` with
 ADMIXTURE, fastmixture, ADAMIXTURE and OpenADMIXTURE.jl on the HGDP data,
 on 1 to 8 cores, with and without cross-validation and with random and SVD
-starts. `dev/radmix_performance.md` records the changes that made the code
+starts. `dev_notes/radmix_performance.md` records the changes that made the code
 faster, with their measurements, the profile and the multi-core scaling,
 the ideas that were tried and rejected, and the leads for further speed;
 its last section explains how to read the full reports, scripts and
@@ -528,7 +528,7 @@ results of that work, archived under the git tag
 
 ## Possible further improvements
 
-For speed, see "Leads not pursued yet" in `dev/radmix_performance.md`. For
+For speed, see "Leads not pursued yet" in `dev_notes/radmix_performance.md`. For
 memory:
 
 - Store the secant pairs in single precision (saving 3 of the 9 copies of

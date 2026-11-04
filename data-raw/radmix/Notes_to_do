@@ -1,7 +1,7 @@
 Open items for gt_radmix() (the ADMIXTURE method and algorithm in tidygenclust)
 
 **Performance**
-- What was done, what was rejected and the leads left (multi-core scaling, tile sizes and OpenMP schedule, an in-memory copy of the genotypes, the CV refit policy) are recorded in dev/radmix_performance.md.
+- What was done, what was rejected and the leads left (multi-core scaling, tile sizes and OpenMP schedule, an in-memory copy of the genotypes, the CV refit policy) are recorded in dev_notes/radmix_performance.md.
 - **Memory footprint:** 9 copies of K x (I + J) doubles (dominated by P): the three sets of estimates of an iteration (x0, x1, x2), the quasi-Newton secant pairs (6 copies; could be stored in single precision, saving 3) and the memory-mapped genotypes. Fitting on a subset of loci and then estimating P for the rest in chunks would bound memory further.
 
 **Missing features**

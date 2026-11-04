@@ -5,7 +5,7 @@
 #' random start (or user supplied starting values), a few EM iterations to
 #' prime the estimates, and then block-wise constrained Newton updates of Q
 #' and P accelerated by the quasi-Newton scheme of Zhou, Alexander and Lange
-#' (2011). See dev/admixture_implementation.md for the details.
+#' (2011). See dev_notes/admixture_implementation.md for the details.
 #'
 #' Each iteration of the main loop computes two rounds of block updates
 #' (Q, then P with the new Q), giving three successive estimates x0, x1 and
@@ -38,7 +38,7 @@ radmix_fit <- function(data, k, init_q = NULL, init_p = NULL,
                        rtol = 1e-8, n_em_iter = 5, n_qn = 3, n_cores = 1,
                        verbose = FALSE) {
   # The whole fit runs in C++ (src/radmix_fit.cpp; the algorithm is
-  # described in dev/admixture_implementation.md). Running the loop in C++
+  # described in dev_notes/admixture_implementation.md). Running the loop in C++
   # means that the estimates live in buffers allocated once and reused at
   # every iteration: when the loop was written in R, each pass over the
   # genotypes returned new R matrices, and the discarded ones (each a copy of

@@ -7,5 +7,5 @@
 codecov.yml
 ^\.positai$
 ^\.claude$
-^dev$
+^dev_notes$
 ^vignettes/articles$

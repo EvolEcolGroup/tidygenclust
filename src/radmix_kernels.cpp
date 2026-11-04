@@ -2,7 +2,7 @@
 // deviance of held-out genotypes, the EM step, and the gradients, Hessians
 // and Newton updates of the two blocks of parameters. See radmix_kernels.h
 // for the model, the notation and the layout of q and p, and
-// dev/admixture_implementation.md for the algorithm as a whole.
+// dev_notes/admixture_implementation.md for the algorithm as a whole.
 //
 // Per-genotype quantities
 // -----------------------

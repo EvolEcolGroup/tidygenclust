@@ -2,7 +2,7 @@
 
 What made `gt_radmix()` faster, what was tried and rejected, and what is
 left to try, with the measurements behind each decision. The design of the
-code is described in `dev/admixture_implementation.md`; this file is its
+code is described in `dev_notes/admixture_implementation.md`; this file is its
 history. The full reports, scripts and results of the work summarised here
 are archived under the git tag `archive/radmix-perf-verify`; "Full
 records", at the end, explains how to read them.
@@ -17,7 +17,7 @@ Times are as measured then; the code has only become faster since.
 ## The changes, in order
 
 Before October 2026, while the code was being ported and restructured
-(see "Origins of the code" in `dev/admixture_implementation.md`): the
+(see "Origins of the code" in `dev_notes/admixture_implementation.md`): the
 Q side was split into segments of loci when there are few blocks of
 individuals, so that small samples use all the threads; and the fitting
 loop moved to C++ with reused buffers, bringing memory down from about 34
