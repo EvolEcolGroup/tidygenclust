@@ -27,36 +27,18 @@ knitr::read_chunk("code/pseudohaploid_runs.R")
 results_dir <- params$results_dir
 ```
 
-In low-coverage data, such as most ancient genomes, diploid genotypes
-cannot be called reliably. A common approach is to draw a single read at
-random at each site, and to record the allele that it carries: the
-individual is then "pseudohaploid", with one allele per locus.
-`tidypopgen` stores such an allele as a homozygous genotype (0 or 2), and
-`tidypopgen::gt_pseudohaploid()` marks the individuals with no heterozygous
-genotypes as pseudohaploids (with a ploidy of 1). `gt_radmix()`, which
-estimates ancestry proportions with the method of ADMIXTURE (Alexander et
-al. 2009), using a modified version of the algorithm of OpenADMIXTURE (Ko
-et al. 2023) to which we added the cross-validation of ADMIXTURE, then
-counts a single copy of the allele for each of their genotypes.
+Diploid genotypes cannot be called reliably from low-coverage data, which includes most ancient genomes. A common workaround is to sample a single allele at random at each site, so that the individual is treated as “pseudohaploid”. `tidypopgen` encodes each pseudohaploid call as a homozygous genotype (0 or 2), and `tidypopgen::gt_pseudohaploid()` marks the individuals with no heterozygous genotypes as pseudohaploids (with a ploidy of 1). `gt_radmix()`estimates ancestry proportions with the ADMIXTURE method (Alexander et al. 2009), using a modified version of the OpenADMIXTURE algorithm (Ko et al. 2023), to which we added ADMIXTURE’s cross-validation procedure. For pseudohaploid individuals, it counts a single copy of the allele at each genotype.
 
-If the pseudohaploids are not declared, each of their genotypes counts as
-two copies of the same allele, as if every read had been seen twice. This
-is also what happens with programs that assume diploid genotypes, such as
-OpenADMIXTURE.jl, and ADMIXTURE for the autosomes. This article uses
-simulated data to show the consequences:
+If the pseudohaploid individuals are not declared as such, each genotype is treated as a true diploid call. This happens in programs such as OpenADMIXTURE.jl, and ADMIXTURE, which assume assume diploid genotypes for autosomes. Using simulated data, we show below the consequences of this approach. In summary, we show that:
 
-- the log-likelihood counts every pseudohaploid twice. Any choice of K
-  based on the log-likelihood (such as the Akaike information criterion,
-  AIC) keeps adding clusters, whereas cross-validation usually picks the
-  correct K;
-- when the population structure is weak, cross-validation can pick too
+- the log-likelihood of every pseudohaploid is doubled. Likelihood-based criteria for choosing K (such as the Akaike information criterion,
+  AIC) tend to favour an increasing number of clusters, whereas cross-validation generally identifies the correct K;
+- when the population structure is weak, cross-validation can support too
   few clusters;
-- even at the correct K, the diploids of the population of the
-  pseudohaploids appear admixed;
-- when K is too large, the extra clusters split the pseudohaploids into
-  groups that do not exist.
+- even at the correct K, diploid individuals from the population containing pseudohaploid individuals appear artificially admixed.
+- when K is too large, the additional clusters artificially divide the pseudohaploid individuals into groups that do not reflect genuine population structure.
 
-All of these disappear once the pseudohaploids are declared with
+All of these artefacts disappear once the pseudohaploids are declared with
 `gt_pseudohaploid()`.
 
 The first sections analyse a single simulated dataset, with code that runs
@@ -66,6 +48,8 @@ with a script described in
 
 # Simulating the data
 
+First, we load the packages required for the simulations and subsequent analyses.
+
 ```{r packages, message = FALSE}
 library(tidygenclust)
 library(tidypopgen)
@@ -73,28 +57,21 @@ library(dplyr)
 library(ggplot2)
 ```
 
-The simulations follow the model of ADMIXTURE, with unadmixed individuals
+The simulations follow the ADMIXTURE model, with unadmixed individuals
 from a few populations:
 
-1. The frequency of the alternate allele of each of `n_loci` independent
-   loci is drawn from a uniform distribution between 0.05 and 0.95, in a
-   common ancestral population.
+1. For each of `n_loci` independent loci, the
+   frequency of the alternate allele is drawn from a uniform distribution
+   between 0.05 and 0.95 in a common ancestral population.
 2. Each population drifts from the ancestral population: the frequency of
    each locus is drawn from the Balding-Nichols model (Balding & Nichols
    1995), a beta distribution with the ancestral frequency `p` as its mean
-   and a variance of `fst * p * (1 - p)`. The larger `fst`, the more the
+   and a variance of `fst * p * (1 - p)`. The larger `fst` is, the more the
    populations differ.
-3. A diploid individual carries two copies of each locus, each of them
-   drawn independently with the frequency of its population: its genotype
-   is binomial, with 2 trials.
-4. A pseudohaploid individual carries a single copy, drawn in the same way.
-   This is what the random choice of a read gives: at a heterozygous site,
-   each allele is drawn with probability 1/2, so overall the allele is the
-   alternate one with the frequency of the population. Its genotype is
-   stored as 0 or 2.
+3. Each diploid individual carries two independently sampled alleles at each locus, with the probability of sampling the alternate allele given by its population-specific frequency. The resulting genotype therefore follows a binomial distribution with two trials.
+4. Each pseudohaploid individual carries a single sampled allele at each locus, drawn according to the population-specific allele frequency. This mimics the random selection of a single allele at each site: At a heterozygous site, either allele is equally likely to be selected. Consequently, across individuals, the probability of observing the alternate allele is equal to its population frequency. The genotype is stored as 0 or 2. 
 
-There are no missing genotypes, no linkage between loci, and no admixture,
-so the true number of clusters is the number of populations. The function
+The simulated data contain no missing genotypes, no linkage between loci and no admixture, so the true number of clusters equals the number of populations. The function
 `simulate_pseudohaploids()` implements these steps. The populations and
 their numbers of diploid and pseudohaploid individuals are given as named
 vectors. It returns a `gen_tibble` in which the pseudohaploids are coded
@@ -104,13 +81,12 @@ allele frequencies of the populations in its attribute "frequencies"):
 ```{r simulate-function}
 ```
 
-The function is in `vignettes/articles/code/pseudohaploid_simulation.R`
+The function is defined in `vignettes/articles/code/pseudohaploid_simulation.R`
 (in the source code of the package), and can be loaded with `source()` to
 simulate other designs.
 
-As a first example, we simulate two populations, A and B, with an F_ST of
-0.1 from their ancestor, typed at 5,000 loci: 20 diploids from each
-population, and 40 pseudohaploids from population A.
+As a first example, we simulate two populations, A and B, that have each diverged from their common ancestor with an F_ST of
+0.1. The dataset comprises 5,000 loci, 20 diploid individuals from each of populations A and B, and an additional 40 pseudohaploid individuals from population A.
 
 ```{r simulate-example}
 gt <- simulate_pseudohaploids(
@@ -130,7 +106,7 @@ heterozygosity <- rowMeans(show_genotypes(gt) == 1)
 tapply(heterozygosity, gt$type, mean)
 ```
 
-and `gt_pseudohaploid()` finds them:
+The function `gt_pseudohaploid()` identifies them:
 
 ```{r declare}
 gt_declared <- gt_pseudohaploid(gt)
@@ -148,10 +124,7 @@ fit_declared <- gt_radmix(gt_declared, k = 2, seed = 1)
 c(undeclared = fit_undeclared$loglik, declared = fit_declared$loglik)
 ```
 
-The two log-likelihoods are very different. In the model of ADMIXTURE, the
-genotype `g` of an individual at a locus is the number of copies of the
-alternate allele among its `n` copies (2 for a diploid, 1 for a
-pseudohaploid), and is binomial, with a probability
+The two log-likelihoods are very different. In the ADMIXTURE model, the genotype g at a given locus is the number of alternate-allele copies carried by an individual, out of n total allele copies (n = 2 for diploids and n = 1 for pseudohaploids). This number follows a binomial distribution with the probability
 `qp = sum_k q_k p_k` (where `q_k` is the proportion of the ancestry of
 the individual from cluster `k`, and `p_k` the frequency of the allele in
 that cluster). Its contribution to the log-likelihood is
