@@ -6,12 +6,13 @@ gt_clumppling()).
 OpenADMIXTURE.jl
 ----------------
 
-gt_radmix() uses a modified version of the algorithm of OpenADMIXTURE (Ko et
-al. 2023), and much of its C++ code (src/radmix_*.cpp and src/radmix_*.h) is
-ported from the Julia package OpenADMIXTURE.jl
+The C++ code of gt_radmix() (src/radmix_*.cpp and src/radmix_*.h) started
+as a port of the Julia package OpenADMIXTURE.jl
 (https://github.com/OpenMendel/OpenADMIXTURE.jl, commit
-401ac5c4056f0f6f2a7ea6ffc3af69c2b1e56fdc), which is distributed under the
-MIT licence:
+401ac5c4056f0f6f2a7ea6ffc3af69c2b1e56fdc), and has since been extensively
+rewritten; the solver of the quadratic programs (src/radmix_qp_sweep.cpp)
+still follows K. Lange's sweep-operator code in OpenADMIXTURE.jl.
+OpenADMIXTURE.jl is distributed under the MIT licence:
 
 MIT License
 

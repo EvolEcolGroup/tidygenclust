@@ -6,18 +6,26 @@
   is installed by default by `tgc_tools_install()`, or added to an existing
   environment with the new `tgc_adamixture_install()`, and its version is
   reported by `tgc_tools_version()`.
-* New `gt_radmix()`: ancestry estimation with the ADMIXTURE method, using a
-  modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023).
-  Its results are checked
-  against OpenADMIXTURE.jl and ADMIXTURE in the test suite.
+* New `gt_radmix()`: ancestry estimation with the ADMIXTURE method
+  (Alexander, Novembre & Lange 2009) and the algorithm of ADMIXTURE (EM
+  priming, block relaxation with constrained Newton steps, and the
+  quasi-Newton acceleration of Zhou, Alexander & Lange 2011), in
+  multithreaded C++ that reads the `gen_tibble` directly, with the
+  cross-validation of ADMIXTURE (Alexander & Lange 2011) and support for
+  pseudohaploids. Its results are checked against ADMIXTURE and
+  OpenADMIXTURE.jl in the test suite.
   It stops when the log-likelihood changes by less than a relative 1e-8
-  (`rtol`), a stricter threshold than OpenADMIXTURE.jl's 1e-7.
+  (`rtol`).
   With `init = "svd"`, runs start from the SVD of the genotypes, as in
   fastmixture and ADAMIXTURE, for a faster single fit of large datasets.
   Its computations were sped up by cheaper decoding of the genotypes and
   likelihood terms and by processing two loci at a time (about 1.3-1.4x),
   and, on x86-64 Linux, by also compiling them for AVX2 and FMA (about 1.6x
-  in all).
+  in all). A later reorganisation of the computations made fits slightly
+  faster (a few percent), with the same numbers of iterations and estimates
+  that differ from those of earlier development versions only by rounding.
+  `?gt_radmix` describes the algorithm, the reproducibility of the results,
+  and how they compare with those of ADMIXTURE.
 * `gt_clumppling()` is now a native R and C++ port, with modifications, of
   clumppling 2.0.10 (Liu, Kopelman & Rosenberg 2024, by Xiran Liu).
 * The conda environment is no longer needed by default, as the core

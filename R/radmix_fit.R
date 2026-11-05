@@ -1,17 +1,18 @@
 #' Fit the ADMIXTURE model with gt_radmix() for a single value of K
 #'
-#' This is the engine behind `gt_radmix()`. It follows
-#' `admixture_qn!()` in OpenADMIXTURE.jl: a random start (or user supplied
-#' starting values), a few EM iterations to prime the estimates, and then
-#' block-wise constrained Newton updates of Q and P accelerated by the
-#' quasi-Newton scheme of Zhou, Alexander and Lange (2011).
+#' This is the engine behind `gt_radmix()`. It follows the optimisation
+#' strategy of ADMIXTURE (Alexander et al. 2009; Alexander and Lange 2011): a
+#' random start (or user supplied starting values), a few EM iterations to
+#' prime the estimates, and then block-wise constrained Newton updates of Q
+#' and P accelerated by the quasi-Newton scheme of Zhou, Alexander and Lange
+#' (2011). See dev_notes/admixture_implementation.md for the details.
 #'
 #' Each iteration of the main loop computes two rounds of block updates
 #' (Q, then P with the new Q), giving three successive estimates x0, x1 and
 #' x2. The secant pairs (x1 - x0, x2 - x1) of the last `n_qn` iterations
 #' define a quasi-Newton step from x1, which is projected back onto the
-#' feasible set and accepted only if it improves on the previous
-#' log-likelihood; otherwise x2 is used.
+#' feasible set and accepted only if it improves on the log-likelihood of
+#' x0; otherwise x2 is used.
 #'
 #' @param data the output of `radmix_prepare()` (possibly with a
 #'   cross-validation mask, see `radmix_set_cv()`)
@@ -36,13 +37,13 @@ radmix_fit <- function(data, k, init_q = NULL, init_p = NULL,
                        fix_q = FALSE, fix_p = FALSE, max_iter = 1000,
                        rtol = 1e-8, n_em_iter = 5, n_qn = 3, n_cores = 1,
                        verbose = FALSE) {
-  # The whole fit runs in C++ (src/radmix_fit.cpp), which documents the
-  # model and the algorithm step by step. Running the loop in C++ means that the
-  # estimates live in buffers allocated once and reused at every iteration:
-  # when the loop was written in R, each pass over the genotypes returned new
-  # R matrices, and the discarded ones (each a copy of P, with many loci)
-  # accumulated until R's garbage collector ran, more than doubling the peak
-  # memory of a fit.
+  # The whole fit runs in C++ (src/radmix_fit.cpp; the algorithm is
+  # described in dev_notes/admixture_implementation.md). Running the loop in C++
+  # means that the estimates live in buffers allocated once and reused at
+  # every iteration: when the loop was written in R, each pass over the
+  # genotypes returned new R matrices, and the discarded ones (each a copy of
+  # P, with many loci) accumulated until R's garbage collector ran, more than
+  # doubling the peak memory of a fit.
   #
   # The random start is drawn from R's random number generator inside
   # radmix_fit_cpp(), so set.seed() makes fits reproducible

@@ -1,13 +1,14 @@
 # data-raw/radmix
 
-`gt_radmix()` estimates ancestry proportions with the method of ADMIXTURE,
-using a modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023),
-much of it ported from OpenADMIXTURE.jl, to which we added the
-cross-validation of ADMIXTURE (see `data-raw/admixture_implementation.md`). This directory holds the scripts
-used to validate `gt_radmix()` against the original implementations
-(OpenADMIXTURE.jl and ADMIXTURE), and to create the reference results
-(fixtures) used by the test suite. Run every script from the root of the
-package. None of this is needed to use the package or to run its tests.
+`gt_radmix()` estimates ancestry proportions with the method and the
+algorithm of ADMIXTURE, including its cross-validation (see
+`dev_notes/admixture_implementation.md`). This directory holds the scripts used
+to validate `gt_radmix()` against two independent implementations of the
+same model, ADMIXTURE and OpenADMIXTURE.jl (from which the C++ code of
+`gt_radmix()` started, before it was extensively rewritten), and to create
+the reference results (fixtures) used by the test suite. Run every script
+from the root of the package. None of this is needed to use the package or
+to run its tests.
 
 ## Test fixtures
 
@@ -19,7 +20,8 @@ changes (e.g. different data, values of K or seeds).
 
 ### OpenADMIXTURE.jl: `fixtures/openadmixture_julia_reference.rds`
 
-Used by `tests/testthat/test_radmix_vs_julia.R`. On a small simulated dataset (150
+Used by `tests/testthat/test_radmix_vs_julia.R`, an external check of the
+computations of `gt_radmix()`. On a small simulated dataset (150
 individuals, 300 loci, K = 4, 3% missing genotypes), and starting from fixed
 values of Q and P, it holds the results of OpenADMIXTURE.jl for: the
 log-likelihood, one EM step, one round of Newton updates of Q and P, and the
@@ -27,6 +29,13 @@ full quasi-Newton algorithm (with the log-likelihood at each iteration). The
 simulated genotypes and the starting values are stored too, so the test does
 not depend on R's random number generator. It also records the versions of
 Julia and OpenADMIXTURE.jl that were used.
+
+The two implementations compute some steps differently, so the test allows
+for the differences: the EM step of Q is normalised differently when
+genotypes are missing (OpenADMIXTURE.jl divides by the total number of
+loci, so its Q leaves the simplex), and the derivatives of the Q block are
+computed in a different but equivalent form, so the Newton updates and the
+path of the full algorithm agree up to rounding.
 
 To regenerate it:
 
@@ -38,7 +47,8 @@ To regenerate it:
    bash data-raw/radmix/setup_julia_env.sh
    ```
 
-   OpenADMIXTURE.jl is pinned to the commit used for the port. Julia is
+   OpenADMIXTURE.jl is pinned to the commit from which the C++ code of
+   `gt_radmix()` was first ported. Julia is
    pinned to 1.12.7: conda-forge's Julia 1.10.4 crashes when downloading
    packages on recent Linux kernels, and conda-forge has no 1.11 builds.
    The benchmark of the article `vignettes/articles/admixture_benchmark.Rmd`
@@ -142,11 +152,16 @@ version control), and need `tidygenclust` to be installed (timings from
 
 ## Speed-ups
 
-`speedups/` holds the record of the work that sped up `gt_radmix()` (the
-SVD start, the faster kernels, and the default convergence threshold of
-1e-8): the plan, the experiments, and the report of their verification on
-a second machine (see `speedups/README.md`). The SVD start was explored
-with:
+`dev_notes/radmix_performance.md` records the work that sped up `gt_radmix()`
+(the faster passes for cross-validation, the SVD start, the faster
+kernels, and the default convergence threshold of 1e-8), with what was
+tried and rejected. The full reports of that work, with its scripts,
+patches and results, are archived under the git tag
+`archive/radmix-perf-verify`; see "Full records" at the end of
+`dev_notes/radmix_performance.md` for what is there and how to read it (for
+example, `git show
+archive/radmix-perf-verify:data-raw/radmix/perf_verification/desktop_results/REPORT.md`).
+The SVD start was explored with:
 
 - `explore_svd_start.R`: starts from a randomised SVD followed by
   alternating least squares (ALS), as in fastmixture and ADAMIXTURE,

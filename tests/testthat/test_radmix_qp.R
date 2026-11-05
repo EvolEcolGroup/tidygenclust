@@ -44,8 +44,8 @@ test_that("QP matches quadprog with and without the sum constraint", {
       info <- paste("simplex =", simplex, "rep =", rep)
       expect_equal(res$delta, ref, tolerance = 1e-6, info = info)
       est <- prob$par + res$delta
-      # as in Julia, a vertex of the simplex (one entry at 1) is reached but
-      # the active set then cycles until the iteration limit, returning 0
+      # a vertex of the simplex (one entry at 1) is reached, but the active
+      # set then cycles, which is detected and reported as 0
       vertex <- simplex && max(est) > 1 - 1e-8
       if (!vertex) expect_gt(res$iter, 0)
       expect_true(all(est >= -1e-10 & est <= 1 + 1e-10), info = info)

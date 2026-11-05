@@ -36,8 +36,9 @@
 
 namespace {
 
+// An alignment of the columns of Q to those of P
 struct clumppling_alignment {
-  double obj;
+  double obj; // the objective: sum of the distances of the matched columns
   std::vector<int> idx; // 0-based column of P for each column of Q
 };
 
@@ -52,7 +53,8 @@ struct clumppling_alignment {
 // (unmatched edge to a column, matched edge back to that column's row) until
 // it reaches a free column; the matching is then flipped along that path,
 // which increases its size by one while keeping it optimal for the rows
-// added so far.
+// added so far. The costs should be finite: non-finite costs can leave no
+// column reachable, which raises an R error.
 std::vector<int> clumppling_lsap(const std::vector<double>& a, int n) {
   const double inf = std::numeric_limits<double>::infinity();
   // 1-based potentials and matchings, with index 0 as a sentinel
@@ -126,7 +128,8 @@ std::vector<int> clumppling_lsap(const std::vector<double>& a, int n) {
 
 // Squared Euclidean distance between column q of Q and column p of P,
 // divided by the number of rows (as cdist(Q.T, P.T, 'sqeuclidean') / N).
-// Matrices are column-major (as in R). Returns a k_q x k_p row-major matrix.
+// P is n x kp and Q is n x kq, both column-major (as in R). Returns a
+// k_q x k_p row-major matrix: entry (q, p) is at index q * k_p + p.
 std::vector<double> clumppling_sqdist(const double* P, int n, int kp,
                                       const double* Q, int kq) {
   std::vector<double> d(static_cast<size_t>(kq) * kp);
@@ -145,8 +148,9 @@ std::vector<double> clumppling_sqdist(const double* P, int n, int kp,
   return d;
 }
 
-// Optimal alignment given the k_q x k_p distance matrix `d` (see the
-// reduction described at the top of the file).
+// Optimal alignment given the k_q x k_p distance matrix `d` (row-major, as
+// returned by clumppling_sqdist(), with k_q >= k_p >= 1; see the reduction
+// described at the top of the file).
 clumppling_alignment clumppling_align_from_dist(const std::vector<double>& d,
                                                 int kp, int kq) {
   // the k_q x k_q assignment problem: columns 0, ..., k_p - 1 are those of
@@ -180,6 +184,9 @@ clumppling_alignment clumppling_align_from_dist(const std::vector<double>& d,
   return res;
 }
 
+// Optimal alignment of the columns of Q (n x kq) to those of P (n x kp),
+// both column-major, with kq >= kp >= 1: the solution of align_ILP() in
+// clumppling
 clumppling_alignment clumppling_align_ilp(const double* P, int n, int kp,
                                           const double* Q, int kq) {
   return clumppling_align_from_dist(clumppling_sqdist(P, n, kp, Q, kq), kp, kq);
@@ -188,7 +195,10 @@ clumppling_alignment clumppling_align_ilp(const double* P, int n, int kp,
 // As align_ILP_diff1() in clumppling: when Q has exactly one more cluster
 // than P, try merging every pair of columns of Q (in the order given by
 // itertools.combinations), align the merged matrix to P, and keep the first
-// merge with the lowest objective.
+// merge with the lowest objective. The merged column is the sum of the two
+// columns. P is n x kp and Q is n x kq with kq == kp + 1, both column-major;
+// the alignment returned maps both merged columns of Q to the same column
+// of P.
 clumppling_alignment clumppling_align_ilp_diff1(const double* P, int n, int kp,
                                                 const double* Q, int kq) {
   // distances between the original columns, computed once and reused for
@@ -245,6 +255,9 @@ clumppling_alignment clumppling_align_ilp_diff1(const double* P, int n, int kp,
   return best;
 }
 
+// Check the arguments of the alignment of Q to P (same number of rows, at
+// least one column in P and no fewer columns in Q), with an R error
+// otherwise
 void clumppling_check_pair(const Rcpp::NumericMatrix& P,
                            const Rcpp::NumericMatrix& Q) {
   if (P.nrow() != Q.nrow()) {
@@ -260,7 +273,7 @@ void clumppling_check_pair(const Rcpp::NumericMatrix& P,
   }
 }
 
-// the alignment as an R list, with 1-based column indices
+// the alignment as an R list, list(obj, idx), with 1-based column indices
 Rcpp::List clumppling_alignment_to_r(const clumppling_alignment& res) {
   Rcpp::IntegerVector idx(res.idx.size());
   for (size_t q = 0; q < res.idx.size(); ++q) idx[q] = res.idx[q] + 1;
@@ -270,8 +283,9 @@ Rcpp::List clumppling_alignment_to_r(const clumppling_alignment& res) {
 
 } // namespace
 
-// Solve a square linear assignment problem (minimisation); returns the
-// 1-based column assigned to each row. Used for testing.
+// Solve a square linear assignment problem (minimisation) for the n x n
+// matrix `cost`; returns the 1-based column assigned to each row. Used for
+// testing.
 // [[Rcpp::export]]
 Rcpp::IntegerVector clumppling_lsap_cpp(Rcpp::NumericMatrix cost) {
   const int n = cost.nrow();
@@ -286,9 +300,10 @@ Rcpp::IntegerVector clumppling_lsap_cpp(Rcpp::NumericMatrix cost) {
   return res;
 }
 
-// Align the columns of Q to those of P (align_ILP() in clumppling). Returns
-// the optimal objective and, for each column of Q, the 1-based column of P it
-// maps to.
+// Align the columns of Q to those of P (align_ILP() in clumppling); P and Q
+// have one row per individual, and Q has at least as many columns as P.
+// Returns list(obj = the optimal objective, idx = for each column of Q, the
+// 1-based column of P it maps to).
 // [[Rcpp::export]]
 Rcpp::List clumppling_align_ilp_cpp(Rcpp::NumericMatrix P,
                                     Rcpp::NumericMatrix Q) {
@@ -298,7 +313,8 @@ Rcpp::List clumppling_align_ilp_cpp(Rcpp::NumericMatrix P,
 }
 
 // Align Q to P when Q has exactly one more column than P, merging two of its
-// columns (align_ILP_diff1() in clumppling).
+// columns (align_ILP_diff1() in clumppling). Returns list(obj, idx), as
+// clumppling_align_ilp_cpp(); the two merged columns share an index.
 // [[Rcpp::export]]
 Rcpp::List clumppling_align_ilp_diff1_cpp(Rcpp::NumericMatrix P,
                                           Rcpp::NumericMatrix Q) {
@@ -311,10 +327,12 @@ Rcpp::List clumppling_align_ilp_diff1_cpp(Rcpp::NumericMatrix P,
 }
 
 // Align all pairs of replicates with the same K (align_within_k() in
-// clumppling). For each pair i < j, Q_j is aligned to Q_i, and the cost is
-// ||Q_i - aligned Q_j||_F^2 / (2N). Returns the symmetric cost matrix and a
-// K x R x R array where [, i, j] maps the columns of Q_j onto those of Q_i
-// (1-based), with the reverse alignment for i > j and the identity for i = j.
+// clumppling). q_list holds the R replicates, each an N x K membership
+// matrix. For each pair i < j, Q_j is aligned to Q_i, and the cost is
+// ||Q_i - aligned Q_j||_F^2 / (2N). Returns list(cost = the symmetric
+// R x R cost matrix, with zeros on the diagonal, pattern = a K x R x R
+// array where [, i, j] maps the columns of Q_j onto those of Q_i (1-based),
+// with the reverse alignment for i > j and the identity for i = j).
 // [[Rcpp::export]]
 Rcpp::List clumppling_align_within_k_cpp(Rcpp::List q_list) {
   const int r = q_list.size();

@@ -25,17 +25,19 @@
 // get(i, j) returns the genotype of the i-th individual and the j-th locus
 // of the gen_tibble, whatever their position in the FBM.
 //
-// Bytes are decoded with our own 256-entry lookup table (NaN = missing), so the
-// result never depends on the code256 currently attached to the R object.
-// Each individual has a number of trials n_i (2 for diploids, 1 for
-// pseudohaploids) and a scale s_i applied to the decoded dosage (1 for
-// diploids, 0.5 for pseudohaploids, which tidypopgen stores as 0/2).
+// Bytes are decoded with a 256-entry lookup table built by radmix_prepare()
+// (NaN = missing), so the result never depends on the code256 currently
+// attached to the R object. Each individual has a number of trials n_i (2
+// for diploids, 1 for pseudohaploids) and a scale s_i applied to the decoded
+// dosage (1 for diploids, 0.5 for pseudohaploids, which tidypopgen stores as
+// 0/2), so that the genotype is g_ij = s_i lut[byte], a count out of n_i.
 // In the ADMIXTURE model, g_ij ~ Binomial(n_i, qp_ij), so a pseudohaploid
 // individual contributes a single allele (0 or 1) per locus.
 // (tidypopgen::gt_pseudohaploid() only checks the first loci for
 // heterozygous calls, so a pseudohaploid can still hold a stored 1 further
 // on. It decodes to g = 0.5 with n_i = 1, which the kernels treat as a
-// fractional count; the log-likelihood takes its slow, exact path for it.)
+// fractional count; the log-likelihood takes its slow, exact path for it,
+// see loglik_slice() in radmix_kernels.cpp.)
 //
 // The view is immutable after construction and therefore safe to share
 // between OpenMP threads. Do not call any R API from inside parallel regions.
@@ -62,29 +64,29 @@
 // hash mod v, so folds are of roughly (not exactly) equal size, as in
 // ADMIXTURE's description ("roughly equally sized"); genotypes that are
 // already missing are never assigned to a fold, because get() rejects them
-// first. Deviation from ADMIXTURE: ADMIXTURE draws a random partition with
-// its own random number generator (its source code is not available), so
-// our folds, and hence CV errors, cannot be identical to ADMIXTURE's, only
-// statistically equivalent.
+// first. ADMIXTURE draws its random partition with its own random number
+// generator (its source code is not available), so these folds, and hence
+// the CV errors, cannot be identical to ADMIXTURE's, only statistically
+// equivalent.
 
 #include <bigstatsr/BMAcc.h>
 #include <cmath>
 #include <cstdint>
 #include <vector>
 
-// All the internal C++ code of gt_radmix() (a modified version of the
-// algorithm of OpenADMIXTURE, Ko et al. 2023, largely ported from
-// OpenADMIXTURE.jl, under the MIT licence: see inst/COPYRIGHTS) lives in the
-// namespace radmix, so that its generic names (GenoView, project_q,
-// QPWork, ...) cannot clash with other compiled code in tidygenclust. Only
-// the functions exported to R (all prefixed radmix_) are global, as
-// Rcpp requires.
+// All the internal C++ code of gt_radmix() lives in the namespace radmix,
+// so that its generic names (GenoView, project_q, QPWork, ...) cannot clash
+// with other compiled code in tidygenclust. Only the functions exported to R
+// (all prefixed radmix_) are global, as Rcpp requires.
 namespace radmix {
 
-
-// cross-validation modes (see above)
+// cross-validation modes (see above), with the integer codes used by
+// radmix_set_cv() in R
 enum CvMode { CV_NONE = 0, CV_TRAIN = 1, CV_HELD_OUT = 2 };
 
+// The view of the genotypes of a gen_tibble (see the top of the file): built
+// once per call from R, then read by every kernel through get() (one
+// genotype) or slice_bytes() (the raw bytes of a block of individuals).
 class GenoView {
 public:
   // data: the list prepared in R by radmix_prepare(), with elements
@@ -214,11 +216,13 @@ public:
     }
   }
 
-  // number of selected individuals (I) and loci (J)
+  // number of selected individuals (I) and loci (J), i.e. the dimensions of
+  // the genotype matrix as the kernels see it
   size_t nrow() const { return _rows.size(); }
   size_t ncol() const { return _col_off.size(); }
 
-  // number of trials (allele copies) for individual i
+  // number of trials (allele copies) n_i for individual i: 2 for a diploid,
+  // 1 for a pseudohaploid
   inline double n_trials(size_t i) const { return _n[i]; }
 
   // The fast path for a block of genotypes: if individuals i0 to
@@ -263,7 +267,8 @@ public:
 
   // whether the view has a cross-validation mask, and whether it shows
   // genotype (i, j) (if it is observed): the test of get() without the
-  // decoding, for slice_bytes()
+  // decoding, for the callers of slice_bytes(), which must apply the mask
+  // themselves (cv_visible() is only meaningful when cv_masked() is true)
   inline bool cv_masked() const { return _cv_mode != CV_NONE; }
   inline bool cv_visible(size_t i, size_t j) const {
     return (fold(i, j) == _cv_fold) != _cv_hide_fold;

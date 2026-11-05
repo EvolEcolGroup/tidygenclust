@@ -23,20 +23,13 @@ algorithms:
 
 - `gt_radmix()` estimates individual ancestry proportions and ancestral
   allele frequencies with the method of the popular clustering tool
-  ADMIXTURE (Alexander et al. 2009), using a modified version of the fast
-  algorithm of OpenADMIXTURE (Ko et al. 2023). Much of its code is ported
-  from the Julia package `OpenADMIXTURE.jl`
-  (<https://github.com/OpenMendel/OpenADMIXTURE.jl>). It works directly on the
-  backing files of a `gen_tibble`, and it can use multiple cores. It has a
-  different name from OpenADMIXTURE because it differs from it: it does not
-  include the selection of ancestry informative markers implemented in the
-  original Julia package (it only provides the clustering algorithm); we
-  implemented the cross-validation of ADMIXTURE, to choose K, which is not
-  part of OpenADMIXTURE; and it changes some details of the algorithm (see
-  `?gt_radmix`). It also
-  does not have the GPU acceleration of the original Julia implementation, but
-  it is still faster than the original ADMIXTURE implementation and can handle
-  large datasets.
+  ADMIXTURE (Alexander et al. 2009), using the fast algorithm of ADMIXTURE
+  (block-wise Newton updates with quasi-Newton acceleration), implemented
+  in C++. It works directly on the backing files of a `gen_tibble`, it can
+  use multiple cores, and it supports pseudohaploid data. It also includes
+  the cross-validation of ADMIXTURE (Alexander and Lange 2011), to choose K
+  (see `?gt_radmix`). It is faster than the original ADMIXTURE program, and
+  can handle large datasets.
 
 - `gt_clumppling()` implements the method of clumppling (Liu, Kopelman, &
   Rosenberg, 2024), with code ported, with modifications, from the python
@@ -271,9 +264,9 @@ fastmixture and with ADAMIXTURE, see the article "Benchmarking gt_radmix()
 against ADMIXTURE, fastmixture and ADAMIXTURE" (in the Articles section of
 the website of the package).
 
-`gt_radmix()` uses a modified version of the algorithm of OpenADMIXTURE:
-when using it, make sure that you cite the original paper on the algorithm
-(Ko et al. 2023) and the original ADMIXTURE paper (Alexander et al. 2009).
+`gt_radmix()` implements the method and the algorithm of ADMIXTURE: when
+using it, make sure that you cite the original ADMIXTURE paper (Alexander et
+al. 2009) and, if you use cross-validation, Alexander and Lange (2011).
 
 ## Visualising the results
 
@@ -551,10 +544,8 @@ plt + scale_fill_viridis_d(guide = "none")
 Alexander DH, Novembre J, Lange K (2009) Fast model-based estimation of ancestry
 in unrelated individuals. Genome Research, 19(9), 1655-1664.
 
-Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH, Sobel EM, Zhou H,
-Lange KL (2023) Unsupervised discovery of ancestry informative markers and
-genetic admixture proportions in biobank-scale datasets. The American Journal of
-Human Genetics, 110(2), 314-325.
+Alexander DH, Lange K (2011) Enhancements to the ADMIXTURE algorithm for
+individual ancestry estimation. BMC Bioinformatics, 12, 246.
 
 Liu X, Kopelman NM, Rosenberg NA (2024) Clumppling: cluster matching and
 permutation program with integer linear programming. Bioinformatics, 40(1),

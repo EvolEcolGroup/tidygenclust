@@ -39,16 +39,15 @@ results_dir <- params$results_dir
 
 `gt_radmix()` estimates ancestry proportions with the method of ADMIXTURE
 (Alexander et al. 2009), directly from the backing file of a `gen_tibble`.
-It uses a modified version of the algorithm of OpenADMIXTURE (Ko et al.
-2023), whose C++ code was initially ported from OpenADMIXTURE.jl, and subsequently
-modified and optimised for performance whilst keeping the same outputs. We also
-implemented the cross-validation of ADMIXTURE, which is not part of
-OpenADMIXTURE. This article compares `gt_radmix()` with four programs that fit the
-same model: ADMIXTURE itself, fastmixture (Santander et al. 2024), ADAMIXTURE
-(Saurina-i-Ricos et al. 2026), and OpenADMIXTURE.jl, the Julia
-implementation of OpenADMIXTURE (without its selection of ancestry
-informative markers). The comparison uses the Human
-Genome Diversity Project (HGDP), and has two parts:
+It uses the algorithm of ADMIXTURE (block-wise Newton updates with
+quasi-Newton acceleration), in multithreaded C++, and the cross-validation
+of ADMIXTURE (Alexander and Lange 2011). This article compares `gt_radmix()`
+with four programs that fit the same model: ADMIXTURE itself, fastmixture
+(Santander et al. 2024), ADAMIXTURE (Saurina-i-Ricos et al. 2026), and
+OpenADMIXTURE.jl (Ko et al. 2023), a Julia implementation of the algorithm
+of ADMIXTURE (run without its selection of ancestry informative markers).
+The comparison uses the Human Genome Diversity Project (HGDP), and has two
+parts:
 
 - [Random starts](#random-starts): all the programs start from random
   values (ADMIXTURE and OpenADMIXTURE.jl have no other start, and
@@ -608,11 +607,10 @@ The cross-validation errors did not depend on the number of cores. On
 ADAMIXTURE and `r cv_of("fastmixture")` with fastmixture (see the
 [detailed results](#detailed-results) for all the runs).
 
-OpenADMIXTURE.jl has no cross-validation: we implemented in `gt_radmix()`
-that of ADMIXTURE. ADMIXTURE and `gt_radmix()` compute the same
-cross-validation error (Alexander and Lange 2011): they hold out a fold of
-the genotypes, refit the model on the others, and average the deviance of
-the held-out genotypes.
+OpenADMIXTURE.jl has no cross-validation. ADMIXTURE and `gt_radmix()`
+compute the same cross-validation error (Alexander and Lange 2011): they
+hold out a fold of the genotypes, refit the model on the others, and average
+the deviance of the held-out genotypes.
 They draw the folds differently, so their errors are close but not
 identical. fastmixture averages the same deviance, but holds out a fold of
 the individuals rather than of the genotypes. The allele frequencies come

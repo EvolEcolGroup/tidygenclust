@@ -25,20 +25,8 @@ radmix_als_cpp <- function(za, ua, w, init_p, max_iter, tol, n_cores) {
     .Call(`_tidygenclust_radmix_als_cpp`, za, ua, w, init_p, max_iter, tol, n_cores)
 }
 
-radmix_fit_cpp <- function(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose) {
-    .Call(`_tidygenclust_radmix_fit_cpp`, data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose)
-}
-
-radmix_decode_cpp <- function(data) {
-    .Call(`_tidygenclust_radmix_decode_cpp`, data)
-}
-
 radmix_loglik_cpp <- function(data, q, p, n_cores) {
     .Call(`_tidygenclust_radmix_loglik_cpp`, data, q, p, n_cores)
-}
-
-radmix_q_segments_cpp <- function(I, J) {
-    .Call(`_tidygenclust_radmix_q_segments_cpp`, I, J)
 }
 
 radmix_deviance_cpp <- function(data, q, p, n_cores) {
@@ -65,27 +53,27 @@ radmix_update_p_cpp <- function(data, q, p, n_cores) {
     .Call(`_tidygenclust_radmix_update_p_cpp`, data, q, p, n_cores)
 }
 
+radmix_q_segments_cpp <- function(I, J) {
+    .Call(`_tidygenclust_radmix_q_segments_cpp`, I, J)
+}
+
 radmix_qp_solve_cpp <- function(H, grad, par, simplex) {
     .Call(`_tidygenclust_radmix_qp_solve_cpp`, H, grad, par, simplex)
 }
 
-radmix_project_q_cpp <- function(q) {
-    .Call(`_tidygenclust_radmix_project_q_cpp`, q)
+radmix_project_cpp <- function(x, simplex) {
+    .Call(`_tidygenclust_radmix_project_cpp`, x, simplex)
 }
 
-radmix_project_p_cpp <- function(p) {
-    .Call(`_tidygenclust_radmix_project_p_cpp`, p)
+radmix_qn_step_cpp <- function(u, v, q, p, q1, p1, n_cores) {
+    .Call(`_tidygenclust_radmix_qn_step_cpp`, u, v, q, p, q1, p1, n_cores)
 }
 
-radmix_qn_new_cpp <- function(n_par, n_qn) {
-    .Call(`_tidygenclust_radmix_qn_new_cpp`, n_par, n_qn)
+radmix_decode_cpp <- function(data) {
+    .Call(`_tidygenclust_radmix_decode_cpp`, data)
 }
 
-radmix_qn_push_cpp <- function(state, col, q, p, q1, p1, q2, p2) {
-    invisible(.Call(`_tidygenclust_radmix_qn_push_cpp`, state, col, q, p, q1, p1, q2, p2))
-}
-
-radmix_qn_step_cpp <- function(state, n_used, q, p, q1, p1, n_cores) {
-    .Call(`_tidygenclust_radmix_qn_step_cpp`, state, n_used, q, p, q1, p1, n_cores)
+radmix_fit_cpp <- function(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose) {
+    .Call(`_tidygenclust_radmix_fit_cpp`, data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose)
 }
 

@@ -34,15 +34,15 @@ individual is then "pseudohaploid", with one allele per locus.
 `tidypopgen` stores such an allele as a homozygous genotype (0 or 2), and
 `tidypopgen::gt_pseudohaploid()` marks the individuals with no heterozygous
 genotypes as pseudohaploids (with a ploidy of 1). `gt_radmix()`, which
-estimates ancestry proportions with the method of ADMIXTURE (Alexander et
-al. 2009), using a modified version of the algorithm of OpenADMIXTURE (Ko
-et al. 2023) to which we added the cross-validation of ADMIXTURE, then
-counts a single copy of the allele for each of their genotypes.
+estimates ancestry proportions with the method and the algorithm of
+ADMIXTURE (Alexander et al. 2009), including its cross-validation (Alexander
+& Lange 2011), then counts a single copy of the allele for each of their
+genotypes.
 
 If the pseudohaploids are not declared, each of their genotypes counts as
 two copies of the same allele, as if every read had been seen twice. This
 is also what happens with programs that assume diploid genotypes, such as
-OpenADMIXTURE.jl, and ADMIXTURE for the autosomes. This article uses
+ADMIXTURE for the autosomes. This article uses
 simulated data to show the consequences:
 
 - the log-likelihood counts every pseudohaploid twice. Any choice of K
@@ -867,9 +867,3 @@ for individual ancestry estimation. *BMC Bioinformatics*, 12, 246.
 Balding, D. J. & Nichols, R. A. (1995). A method for quantifying
 differentiation between populations at multi-allelic loci and its
 implications for investigating identity and paternity. *Genetica*, 96, 3-12.
-
-Ko, S., Chu, B. B., Peterson, D., Okenwa, C., Papp, J. C., Alexander, D. H.,
-Sobel, E. M., Zhou, H. & Lange, K. L. (2023). Unsupervised discovery of
-ancestry informative markers and genetic admixture proportions in
-biobank-scale datasets. *The American Journal of Human Genetics*, 110,
-314-325.

@@ -106,11 +106,8 @@ test_that("gradients and Hessians match numerical derivatives", {
   p <- st$p
   gq <- radmix_grad_q_cpp(inp$geno, q, p, 1)
   gp <- radmix_grad_p_cpp(inp$geno, q, p, 1)
-  # Like OpenADMIXTURE.jl, the Q block differentiates the log-likelihood written
-  # as a homogeneous function of q (1 - qp = sum_k q_k (1 - p_k) on the
-  # simplex), which only changes the gradient by a constant across k
   ll_q <- function(x) {
-    radmix_ref_loglik_homog(inp$g, inp$n, matrix(x, nrow(q)), p)
+    radmix_ref_loglik(inp$g, inp$n, matrix(x, nrow(q)), p)
   }
   ll_p <- function(x) {
     radmix_ref_loglik(inp$g, inp$n, q, matrix(x, nrow(p)))
@@ -121,19 +118,10 @@ test_that("gradients and Hessians match numerical derivatives", {
   expect_equal(as.vector(gp$grad), numDeriv::grad(ll_p, as.vector(p)),
     tolerance = 1e-6
   )
-  # on the simplex, the two forms have the same directional derivatives
-  true_grad <- matrix(numDeriv::grad(
-    function(x) radmix_ref_loglik(inp$g, inp$n, matrix(x, nrow(q)), p),
-    as.vector(q)
-  ), nrow(q))
-  shift <- gq$grad - true_grad
-  expect_equal(shift, matrix(shift[1, ], nrow(q), ncol(q), byrow = TRUE),
-    tolerance = 1e-6
-  )
   # the kernels return the negative Hessian of each column
   ll_qi <- function(x, i) {
     q[, i] <- x
-    radmix_ref_loglik_homog(inp$g, inp$n, q, p)
+    radmix_ref_loglik(inp$g, inp$n, q, p)
   }
   ll_pj <- function(x, j) {
     p[, j] <- x
@@ -234,16 +222,15 @@ test_that("update_q followed by update_p increases the log-likelihood", {
   st <- radmix_ref_start(60, 200, 3)
   q <- st$q
   p <- st$p
-  # prime with a few EM steps, as in OpenADMIXTURE.jl
+  # prime with a few EM steps, as the fit does
   for (it in 1:5) {
     em <- radmix_em_cpp(inp$geno, q, p, 2)
     q <- em$q
     p <- em$p
   }
-  # with missing data, the EM step (like OpenADMIXTURE.jl's) leaves the columns
-  # of q summing to less than 1, and the Q block quadratic model is only
-  # valid on the simplex
-  q <- radmix_project_q_cpp(q)
+  # (EM keeps q on the simplex, but can take entries below the floor of
+  # 1e-5 that the Newton updates keep)
+  q <- radmix_project_cpp(q, TRUE)
   ll0 <- radmix_loglik_cpp(inp$geno, q, p, 2)
   q <- radmix_update_q_cpp(inp$geno, q, p, 2)
   ll1 <- radmix_loglik_cpp(inp$geno, q, p, 2)
@@ -256,8 +243,8 @@ test_that("update_q followed by update_p increases the log-likelihood", {
   )
 })
 
-# Deviation from OpenADMIXTURE.jl: non-finite Newton steps are discarded
-# (see discard_nonfinite_step() in src/radmix_kernels.cpp)
+# Non-finite Newton steps are discarded (see newton_column() in
+# src/radmix_kernels.cpp)
 test_that("update kernels keep a column whose Newton step is not finite", {
   geno <- rbind(c(2, 0, 1), c(0, 1, 2), c(1, 2, 0), c(2, 2, 1))
   dat <- radmix_prepare(radmix_test_gt(geno))
@@ -281,7 +268,7 @@ test_that("update kernels keep a column whose Newton step is not finite", {
 })
 
 # With few individuals, the Q-side kernels also split the loci into segments
-# (two-dimensional blocking, see accum_q_segmented() in
+# (two-dimensional blocking, see q_segments() and q_side() in
 # src/radmix_kernels.cpp)
 test_that("kernels are correct when the loci are split into segments", {
   # 70 individuals (2 blocks) and 2000 loci: 7 segments
@@ -305,7 +292,7 @@ test_that("kernels are correct when the loci are split into segments", {
     )
     q_ref[, i] <- st$q[, i] + step$delta
   }
-  q_ref <- radmix_project_q_cpp(q_ref)
+  q_ref <- radmix_project_cpp(q_ref, TRUE)
   expect_equal(
     radmix_update_q_cpp(inp$geno, st$q, st$p, 1), q_ref,
     tolerance = 1e-8
@@ -325,7 +312,7 @@ test_that("empty inputs give errors rather than crashes", {
   # these used to divide by zero (killing R) or read out of bounds
   expect_identical(radmix_q_segments_cpp(0, 1000), 1L)
   expect_error(
-    radmix_project_q_cpp(matrix(0, 0, 3)),
+    radmix_project_cpp(matrix(0, 0, 3), TRUE),
     "at least one row"
   )
   gt <- radmix_test_gt(sim$genotypes)
