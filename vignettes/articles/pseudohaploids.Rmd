@@ -124,23 +124,23 @@ fit_declared <- gt_radmix(gt_declared, k = 2, seed = 1)
 c(undeclared = fit_undeclared$loglik, declared = fit_declared$loglik)
 ```
 
-The two log-likelihoods are very different. In the ADMIXTURE model, the genotype g at a given locus is the number of alternate-allele copies carried by an individual, out of n total allele copies (n = 2 for diploids and n = 1 for pseudohaploids). This number follows a binomial distribution with the probability
+The two log-likelihoods are very different. In the ADMIXTURE model, the genotype g at a given locus is the number of alternate-allele copies carried by an individual, out of n total allele copies (n = 2 for diploids and n = 1 for pseudohaploids). The number of alternate-allele copies follows a binomial distribution with n trials and a probability of observing the alternate allele given by
 `qp = sum_k q_k p_k` (where `q_k` is the proportion of the ancestry of
 the individual from cluster `k`, and `p_k` the frequency of the allele in
-that cluster). Its contribution to the log-likelihood is
+that cluster). The log-likelihood contribution of this genotype is therefore
 
 ```
 g log(qp) + (n - g) log(1 - qp)
 ```
 
-A pseudohaploid that carries the allele has `g = 1` out of `n = 1`, and
+A pseudohaploid that carries the alternate allele at a locus has `g = 1` out of `n = 1`, and
 contributes `log(qp)`. Undeclared, it has `g = 2` out of `n = 2`, and
-contributes `2 log(qp)`: the log-likelihood of every pseudohaploid is
+contributes `2 log(qp)`. The log-likelihood of every pseudohaploid is
 exactly doubled. We can check this by computing the log-likelihood of each
 individual from the estimates of the declared fit:
 
 ```{r loglik-by-hand}
-# the log-likelihood of each individual, given the ancestry proportions q
+# the log-likelihood of each individual, given the  genotypes `gt`,  the ancestry proportions q
 # (individuals x K), the allele frequencies p (loci x K) and the number of
 # allele copies of each individual
 loglik_individuals <- function(gt, q, p, n_copies) {
