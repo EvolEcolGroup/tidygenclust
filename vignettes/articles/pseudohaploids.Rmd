@@ -133,7 +133,7 @@ that cluster). The log-likelihood contribution of this genotype is therefore
 g log(qp) + (n - g) log(1 - qp)
 ```
 
-A pseudohaploid that carries the alternate allele at a locus has `g = 1` out of `n = 1`, and
+A pseudohaploid individual carrying the alternate allele at a locus has `g = 1` out of `n = 1`, and
 contributes `log(qp)`. Undeclared, it has `g = 2` out of `n = 2`, and
 contributes `2 log(qp)`. The log-likelihood of every pseudohaploid is
 exactly doubled. We can check this by computing the log-likelihood of each
@@ -163,22 +163,16 @@ rbind(
 )
 ```
 
-The diploids contribute the same, and the pseudohaploids twice as much when
-undeclared. The model believes it has twice as much information about the
-pseudohaploids as it really has. The rest of this article shows the
-consequences.
+The diploids contribute the same log-likelihood in both cases, but the pseudohaploids contribute twice as much when undeclared. The model behaves as if it had twice as much information about the pseudohaploids as it really has. The rest of this article shows the consequences.
 
 ## Ancestry proportions at the true K
 
-The ancestry proportions of the pseudohaploids, given the allele
-frequencies, maximise their own log-likelihood, and doubling it does not
-move its maximum. However, the pseudohaploids also affect the allele
-frequencies of the clusters, and through them the ancestry of the other
-individuals:
+Given the allele frequencies, the ancestry proportions of the pseudohaploids maximise their own log-likelihood, and doubling that log-likelihood does not change where the maximum is. However, the pseudohaploids also affect the allele frequencies of the clusters, and through them the ancestry of the other individuals:
 
 ```{r plot-q-function}
 # the ancestry proportions of a gt_admix object with a single run, as a
-# data frame with one row per individual and cluster
+# data frame with one row per individual and cluster, labelled with the treatment ("declared" or "undeclared")
+
 q_long <- function(fit, gt, treatment) {
   q <- unclass(fit$Q[[1]])
   data.frame(
@@ -256,13 +250,12 @@ its population. A few individuals of A get a little ancestry from the
 cluster of B, and none of B from that of A, but this is due to the larger
 sample of A (60 individuals against 20), not to its pseudohaploids (see
 [Why population A looks slightly admixed](#why-population-a-looks-slightly-admixed)).
-Undeclared, the pseudohaploids still are, but the diploids
-of population A appear slightly admixed with population B. Treated as diploids, the
+Undeclared, the pseudohaploids are still assigned to their own cluster, but the diploids of population A appear slightly admixed with population B. Treated as diploids, the
 pseudohaploids are homozygous at every locus, which the model can only
 partly explain, with allele frequencies closer to 0 and 1. As they make up
 most of the information on population A (counted twice, they carry 80 of
 its 120 allele copies per locus), the cluster of population A takes more
-extreme frequencies than those of the population. The diploids of
+extreme frequencies than the true frequencies of the population. The diploids of
 population A, which do carry heterozygotes, then fit better as a mixture of
 this cluster with that of population B.
 
@@ -326,15 +319,9 @@ q_all %>%
   )
 ```
 
-Undeclared pseudohaploids make the diploids of their population appear four
-to five times more admixed than when the pseudohaploids are declared.
-The pseudohaploids themselves, and the other population, are unaffected.
-There is no bias when a population is made only of pseudohaploids (the
-third scenario), as there are no diploids in it to appear admixed.
+When undeclared, the pseudohaploids make the diploids of their population appear four to five times more admixed than when they are declared. The pseudohaploids themselves, and the other population, are unaffected. There is no bias when a population is made up only of pseudohaploids (the third scenario), as there are no diploids in it to appear admixed.
 
-Even when the pseudohaploids are declared, the individuals of population A
-get a little more ancestry from the other cluster than those of B. As
-explained below, this is not due to the pseudohaploids.
+Even when the pseudohaploids are declared, the individuals of population A get a little more ancestry from the other cluster than those of B do. As explained below, this is not due to the pseudohaploids.
 
 ### Why population A looks slightly admixed
 
@@ -342,14 +329,12 @@ The ancestry of an individual is estimated from a finite number of loci,
 and cannot be negative, so the noise of the estimate shows up as a little
 ancestry from the other cluster, even in an unadmixed individual. In the
 scenarios above, this is larger in population A than in B. Two differences
-between them could explain this: A has more individuals (60 against 20),
+between the populations could explain this: A has more individuals (60 against 20),
 and two thirds of them are pseudohaploids, whose ancestry is estimated with
 more noise. To
 separate the two, we simulated two populations of different or equal
 sizes, with and without pseudohaploids (F_ST = 0.1,
-`r n_distinct(sample_size$replicate)` replicates). We fitted K = 2 with
-the allele frequencies estimated, as usual, and with them fixed at their
-true values (the attribute "frequencies" of the simulated data, given to
+`r n_distinct(sample_size$replicate)` replicates). We fitted K = 2 in two ways: with the allele frequencies estimated, as usual, and with them fixed at their true values (stored in the “frequencies” of the simulated data, and passed to
 `gt_radmix()` with `init_p` and `fix_p = TRUE`):
 
 ```{r table-sample-size, echo = FALSE}
