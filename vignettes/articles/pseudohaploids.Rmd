@@ -344,7 +344,7 @@ ancestry from the other cluster, even in an unadmixed individual. In the
 scenarios above, this is larger in population A than in B. Two differences
 between them could explain this: A has more individuals (60 against 20),
 and two thirds of them are pseudohaploids, whose ancestry is estimated with
-more noise, as they carry half as many allele copies as diploids. To
+more noise. To
 separate the two, we simulated two populations of different or equal
 sizes, with and without pseudohaploids (F_ST = 0.1,
 `r n_distinct(sample_size$replicate)` replicates). We fitted K = 2 with
