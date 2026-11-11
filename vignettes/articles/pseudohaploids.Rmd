@@ -650,10 +650,8 @@ grid %>%
 ```
 
 At F_ST = 0.03, cross-validation misses the structure even without
-pseudohaploids, and at F_ST = 0.1 it always finds it. In between, declared
-pseudohaploids add information, and 40 of them are enough for
-cross-validation to detect the two populations in every replicate.
-Undeclared, 20 or 40 pseudohaploids hide the structure. With 80,
+pseudohaploids, and at F_ST = 0.1 it always finds it. At the intermediate value, declared pseudohaploids add information, and 40 of them are enough for cross-validation to detect the two populations in every replicate.
+When undeclared, 20 or 40 pseudohaploids hide the structure. With 80,
 cross-validation finds it again: the cluster of population A then fits its
 pseudohaploids, which make up most of it (its diploids appear admixed
 instead), and at K = 1 the allele frequencies of the whole sample,
