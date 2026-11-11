@@ -401,16 +401,7 @@ true_other <- sample_size %>%
   average), whatever the size of their population: this is the noise of
   the estimates. The pseudohaploids, with half as many allele copies, get a
   little more (`r true_other[["pseudohaploid"]]`%).
-- With the frequencies estimated, the difference between the populations
-  follows their sizes, not the pseudohaploids. Without any pseudohaploids,
-  60 diploids in A and 20 in B give the same difference as the first
-  scenario; with the pseudohaploids in A but 60 diploids in B, the two
-  populations look alike. The allele frequencies of a cluster are estimated
-  from the individuals assigned to it. With few individuals, they fit each
-  of them closely, and the individuals appear less admixed than with the
-  true frequencies (as in B, with 20 individuals). With many, they fit each
-  individual less closely, and the individuals appear more admixed (as in
-  A, with 60).
+- With the estimated frequencies, the difference between the populations follows their sizes, not the pseudohaploids. Without any pseudohaploids, A (60 diploids) still looks more admixed than B (20 diploids), by about the same amount as in the original scenario (A: 20 diploids and 40 pseudohaploids; B: 20 diploids). Conversely, when the pseudohaploids are kept in A but B is enlarged to 60 diploids, the two populations look alike. The allele frequencies of a cluster are estimated from the individuals assigned to it. With few individuals, the estimated frequencies are pulled towards each of them and fit them closely, so they appear less admixed than with the true frequencies (as in B, with 20 individuals). With many, each individual has less influence on the frequencies, which fit them less closely, so they appear more admixed (as in A, with 60).
 - The pseudohaploids themselves appear a little more admixed than the
   diploids of their population, because of the larger noise of their
   estimates.
@@ -422,7 +413,7 @@ true_other <- sample_size %>%
 So, when the pseudohaploids are declared, the slight admixture of
 population A comes mostly from its larger sample, and only a little from
 its pseudohaploids. It is a property of the maximum-likelihood estimates of
-the model of ADMIXTURE, with or without pseudohaploids, and the
+the ADMIXTURE model, with or without pseudohaploids, and the
 differences are small (about 1%).
 
 # Choosing K
@@ -434,7 +425,7 @@ three scenarios, each with two populations (so the true K is 2), and
 - **Pseudohaploids in A, F_ST = 0.1**: as above, 20 diploids from each
   population, and 40 pseudohaploids from population A;
 - **Pseudohaploids in A, F_ST = 0.05**: the same, with weaker structure;
-- **B only pseudohaploids, F_ST = 0.1**: 20 diploids from population A,
+- **Pseudohaploids in B only, F_ST = 0.1**: 20 diploids from population A,
   and 40 pseudohaploids from population B, e.g. a population known only
   from ancient samples.
 
@@ -446,7 +437,7 @@ cross-validation, with its pseudohaploids undeclared and declared.
 Adding a cluster always increases the log-likelihood, as the extra
 parameters can fit some of the noise of the sample. Criteria based on the
 log-likelihood, such as AIC, only add a cluster if the increase is large
-enough. AIC is `-2 log-likelihood + 2 x (number of parameters)`, and each
+enough. AIC is `-2 log-likelihood + 2 x (number of parameters)`. Each
 cluster adds the allele frequencies of every locus and an ancestry
 proportion for every individual, so a cluster lowers AIC if it increases
 the log-likelihood by more than the number of loci plus the number of
@@ -507,13 +498,9 @@ treatments. Further clusters only fit noise. Declared, they gain little
 more than half of what AIC requires; undeclared, the noise of the
 pseudohaploids counts twice, and every further cluster passes the line.
 
-## Cross-validation is not fooled by the doubled log-likelihood
+## Cross-validation is unaffected by the inflated log-likelihood
 
-Cross-validation (Alexander & Lange 2011) holds out a fold of the
-genotypes, fits the model to the others, and scores the predictions of the
-held-out genotypes. A cluster that fits noise does not predict new
-genotypes better, so the cross-validation error stops decreasing at the
-true K, whatever the size of the log-likelihood:
+Cross-validation (Alexander & Lange 2011) holds out a fold of the genotypes, fits the model to the remaining ones, and scores how well it predicts the held-out genotypes. A cluster that fits only noise does not improve these predictions, so the cross-validation error stops decreasing at the true K, whatever the size of the log-likelihood:
 
 ```{r cv-error, echo = FALSE, fig.width = 7, fig.height = 4.5}
 cv_best <- fits %>%
@@ -591,7 +578,7 @@ fits %>%
     col.names = c("Scenario", "Pseudohaploids", "Best K by AIC",
                   "Best K by cross-validation"),
     caption = paste0(
-      "K with the lowest AIC and cross-validation error, as ",
+      "K with the lowest AIC and cross-validation error, shown as ",
       "\"K (number of replicates)\", out of ", n_replicates,
       " replicates. The true K is 2."
     )
