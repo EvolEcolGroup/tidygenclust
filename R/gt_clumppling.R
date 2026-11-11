@@ -156,11 +156,8 @@ gt_clumppling <- function(
   # the other options are single values: NA or non-finite values would make
   # community detection fail in obscure ways (a non-finite resolution made
   # louvain loop forever)
-  for (arg in c("use_rep", "merge", "use_best_pair", "test_comm")) {
-    value <- get(arg)
-    if (!is.logical(value) || length(value) != 1 || is.na(value)) {
-      stop("'", arg, "' must be TRUE or FALSE")
-    }
+  for (flag in c("use_rep", "merge", "use_best_pair", "test_comm")) {
+    check_flag(get(flag), flag)
   }
   is_number <- function(value) {
     is.numeric(value) && length(value) == 1 && is.finite(value)
