@@ -15,12 +15,17 @@ radmix_ref_inputs <- function(gt) {
   )
 }
 
-# random starting values with q on the simplex and p in (0, 1)
-radmix_ref_start <- function(n_indiv, n_loci, k, seed = 42) {
-  set.seed(seed)
+# random starting values, in the layout of the kernels: q (K x I) with
+# columns on the simplex and p (K x J) uniform in p_range; with seed = NULL,
+# the global random number generator is used in its current state
+radmix_ref_start <- function(n_indiv, n_loci, k, seed = 42,
+                             p_range = c(0.05, 0.95)) {
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
   q <- matrix(stats::runif(k * n_indiv), k, n_indiv)
   q <- sweep(q, 2, colSums(q), "/")
-  p <- matrix(stats::runif(k * n_loci, 0.05, 0.95), k, n_loci)
+  p <- matrix(stats::runif(k * n_loci, p_range[1], p_range[2]), k, n_loci)
   list(q = q, p = p)
 }
 

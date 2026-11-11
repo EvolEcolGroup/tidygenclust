@@ -48,3 +48,32 @@ radmix_simulate_admixed <- function(n = 60, m = 200, k = 3,
   g[sample(length(g), round(missing * length(g)))] <- NA
   list(genotypes = g, q = q, p = p)
 }
+
+# a gen_tibble in which the individuals `hap` (indices of rows of
+# `genotypes`) are pseudohaploid: their heterozygous genotypes are made
+# homozygous for the alternate allele, so that tidypopgen::gt_pseudohaploid()
+# finds them pseudohaploid
+radmix_pseudohaploid_gt <- function(genotypes, hap) {
+  genotypes[hap, ] <- 2 * (genotypes[hap, ] >= 1)
+  tidypopgen::gt_pseudohaploid(radmix_test_gt(genotypes))
+}
+
+# Reorder the columns of q to best match q_ref (the labels of the clusters
+# are arbitrary); returns the permutation
+radmix_match_clusters <- function(q, q_ref) {
+  k <- ncol(q)
+  # all the permutations of 1:n, one per row, built recursively: each value
+  # i in turn, followed by every permutation of the other values
+  perms <- function(n) {
+    if (n == 1) {
+      return(matrix(1))
+    }
+    sub <- perms(n - 1)
+    do.call(rbind, lapply(seq_len(n), function(i) {
+      cbind(i, matrix(setdiff(seq_len(n), i)[sub], nrow = nrow(sub)))
+    }))
+  }
+  all_perms <- perms(k)
+  diffs <- apply(all_perms, 1, function(x) sum(abs(q[, x] - q_ref)))
+  all_perms[which.min(diffs), ]
+}
