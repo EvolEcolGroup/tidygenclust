@@ -316,9 +316,7 @@ subset_gt_clumppling <- function(x, k = NULL, indivs = NULL) {
         "K in K_range"
       )
     }
-    # the K of each mode, from its name (e.g. 12 for "K12M3"); selecting modes
-    # by matching the text "K1" would also select K10, K11, ...
-    mode_k <- function(mode) as.integer(sub("^K(\\d+)M\\d+$", "\\1", mode))
+    # the K of each mode, from its name (see mode_k())
     keep_modes <- mode_k(names(x$aligned_modes)) %in% k
     x$K_range <- x$K_range[x$K_range %in% k]
     x$aligned_modes <- x$aligned_modes[keep_modes]

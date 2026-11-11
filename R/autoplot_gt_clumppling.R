@@ -70,26 +70,23 @@ autoplot.gt_clumppling <- function(
     # their order of appearance (a named vector, with the names of the
     # groups): plot_q() draws the boundaries between groups after these
     # positions, and labels each group in the middle of its block
-    group_x <- cumsum(table(fct_inorder_base(group)))
+    group_x <- cumsum(table(factor(group, levels = unique(group))))
   } else {
     group_x <- NULL
   }
-
-  # the 'modes' plot is given the original group vector, as it calls
-  # autoplot() again to create the structure plots of all the modes
-  if (type == "modes") {
-    plot_modes(object, group)
-  } else if (type == "modes_within_k") {
-    plot_modes_within_k(object, group_x, k = k)
-  } else if (type == "major_modes") {
-    plot_major_modes(object, group_x)
-  } else if (type == "all_modes") {
-    plot_all_modes(object, group_x)
+  if (type == "modes_within_k") {
+    if (is.null(k)) {
+      stop("k must be provided for modes_within_k")
+    }
+    # a single value of K with modes (otherwise the plot would be empty, and
+    # only fail when printed, or a vector would be recycled)
+    if (length(k) != 1 || !k %in% object$K_range) {
+      stop(
+        "k must be one of the values of K in K_range (",
+        paste(object$K_range, collapse = ", "), ")"
+      )
+    }
   }
-}
-
-# Plot major modes
-plot_major_modes <- function(object, group_x) {
   if (!is.null(attr(object, "subset_indivs"))) {
     warning(
       "You are plotting a gt_clumppling object that has been subsetted by ",
@@ -101,101 +98,38 @@ plot_major_modes <- function(object, group_x) {
     )
   }
 
-  # one row per major mode (the mode of rank 1 of each K)
-  major_modes <- tidy(object, matrix = "major_modes")
-  # label each plot with its value of K (all major modes have m == 1)
-  y_labels <- rep("", nrow(major_modes))
-  y_labels[major_modes$m == 1] <- paste0(
-    "K = ",
-    major_modes$k[major_modes$m == 1]
+  if (type == "modes") {
+    return(plot_modes(object, group_x))
+  }
+  # the other types are a column of structure plots, one per mode (in the
+  # order of object$aligned_modes), which differ only in the modes they show
+  # and in the labels of the plots: the name of each mode (e.g. "K3M2") for
+  # the modes of a single K, and otherwise the value of K for the first mode
+  # of each K, marking where each block of modes with the same K starts
+  modes <- tidy(object, matrix = "modes")
+  modes <- switch(type,
+    modes_within_k = modes[modes$k == k, ],
+    major_modes = modes[modes$m == 1, ],
+    all_modes = modes
   )
-  # one structure plot per major mode: the i-th plot uses the i-th Q matrix
-  # and the i-th label
-  plot_list <- lapply(
-    seq_len(nrow(major_modes)),
-    plot_q_from_list,
-    object$aligned_modes[major_modes$label],
-    y_labels,
-    group_x
-  )
+  y_labels <- if (type == "modes_within_k") {
+    modes$label
+  } else {
+    ifelse(modes$m == 1, paste0("K = ", modes$k), "")
+  }
+  plot_list <- plot_mode_list(object, modes$label, y_labels, group_x)
   # stack the plots in a single column; identical x axes (the group labels,
   # if any) are collected, so that they are only shown below the last plot
   patchwork::wrap_plots(plot_list, ncol = 1) +
     patchwork::plot_layout(axes = "collect")
 }
 
-# Plot all modes
-plot_all_modes <- function(object, group_x) {
-  if (!is.null(attr(object, "subset_indivs"))) {
-    warning(
-      "You are plotting a gt_clumppling object that has been subsetted by ",
-      "individuals. ",
-      "This function can be used to create plot insets or explore data, but ",
-      "modes will not be representative of this subset. ",
-      "To visualise modes within a subset of individuals, please subset your ",
-      "gt_admix object and re-run gt_clumppling."
-    )
-  }
-
-  # one row per mode, in the same order as object$aligned_modes
-  all_modes <- tidy(object, matrix = "modes")
-  # only the first mode of each K is labelled with its value of K, so that the
-  # labels mark where each block of modes with the same K starts
-  y_labels <- rep("", nrow(all_modes))
-  y_labels[all_modes$m == 1] <- paste0("K = ", all_modes$k[all_modes$m == 1])
-  # one structure plot per mode, stacked in a single column (see
-  # plot_major_modes())
-  plot_list <- lapply(
-    seq_len(nrow(all_modes)),
-    plot_q_from_list,
-    object$aligned_modes,
-    y_labels,
-    group_x
-  )
-  patchwork::wrap_plots(plot_list, ncol = 1) +
-    patchwork::plot_layout(axes = "collect")
-}
-
-# Plot all the modes with a given value of K
-plot_modes_within_k <- function(object, group_x, k) {
-  if (!is.null(attr(object, "subset_indivs"))) {
-    warning(
-      "You are plotting a gt_clumppling object that has been subsetted by ",
-      "individuals. ",
-      "This function can be used to create plot insets or explore data, but ",
-      "modes will not be representative of this subset. ",
-      "To visualise modes within a subset of individuals, please subset your ",
-      "gt_admix object and re-run gt_clumppling."
-    )
-  }
-
-  if (is.null(k)) {
-    stop("k must be provided for modes_within_k")
-  }
-  # a single value of K with modes (otherwise the plot would be empty, and
-  # only fail when printed, or a vector would be recycled)
-  if (length(k) != 1 || !k %in% object$K_range) {
-    stop(
-      "k must be one of the values of K in K_range (",
-      paste(object$K_range, collapse = ", "), ")"
-    )
-  }
-  # select the modes with the requested K, and label each plot with the name
-  # of its mode (e.g. "K3M2")
-  all_modes <- tidy(object, matrix = "modes")
-  k_modes <- all_modes[all_modes$k == k, ]
-  y_labels <- k_modes$label
-  # one structure plot per mode, stacked in a single column (see
-  # plot_major_modes())
-  plot_list <- lapply(
-    seq_len(nrow(k_modes)),
-    plot_q_from_list,
-    object$aligned_modes[k_modes$label],
-    y_labels,
-    group_x
-  )
-  patchwork::wrap_plots(plot_list, ncol = 1) +
-    patchwork::plot_layout(axes = "collect")
+# a structure plot (see plot_q()) for each of the modes with the given
+# labels, with the corresponding y labels (recycled)
+plot_mode_list <- function(object, labels, y_labels, group_x) {
+  Map(function(label, y_lab) {
+    plot_q(tidy_q(object$aligned_modes[[label]]), y_lab, group_x)
+  }, labels, y_labels, USE.NAMES = FALSE)
 }
 
 # a compact q plot to use as a panel
@@ -277,11 +211,4 @@ plot_q <- function(q_tidied, y_lab = "", group_x) {
   }
 
   plt
-}
-
-# plot the i element from a q list (a helper to use plot_q() with lapply()
-# over the indices of the modes, so that each plot gets the corresponding
-# Q matrix and y label)
-plot_q_from_list <- function(i, q_list, y_labs, group_x) {
-  plot_q(tidy_q(q_list[[i]]), y_labs[i], group_x)
 }
