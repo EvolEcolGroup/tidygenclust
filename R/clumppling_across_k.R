@@ -161,9 +161,10 @@ clumppling_reorder_q_across_k <- function(k_range, q_modes_list,
   # the pattern of a mode q aligned (without merging) to a mode p whose
   # clusters go to the positions given by p_pattern
   follow <- function(p_pattern, p, q, pair) {
-    p_pattern[clumppling_align_q_wrt_p(p, q, alignment_across_k[[pair]],
+    aligned <- clumppling_align_q_wrt_p(p, q, alignment_across_k[[pair]],
       merge = FALSE
-    )$pattern]
+    )
+    p_pattern[aligned$pattern]
   }
   # for each mode, the final (1-based) position of each of its columns, so
   # that column j of the mode becomes column patterns[[mode]][j] of its
