@@ -5,38 +5,12 @@ performance. The plan comes from the code review of October 2026
 (`data-raw/code_review.md`) and was updated after the bug fixes that
 followed it. Its `gt_radmix()` items were done on 3 November 2026, together
 with a rewrite of the Q-side derivatives (see "Done on 3 November 2026"
-below); the other items have not been implemented yet.
+below), and the other items on 11 November 2026, on the `simplify` branch
+(see "Done on 11 November 2026" below). The plan has no open items left.
 
 "Identical" means bit-identical outputs (`gt_radmix()`) or identical results
 on the 60 scenarios of `data-raw/clumppling/validate_vs_python.R`
 (clumppling). Line counts are approximate.
-
-## Tier 1: prototyped, identical results and no loss of speed
-
-- **clumppling alignment**: `clumppling_reorder_q_across_k()` as a single
-  loop over K (about 20 lines); `clumppling_align_q_wrt_p()` written with
-  `order()`/`duplicated()` without merging, and with
-  `clumppling_move_columns()` with merging (about 25 lines).
-
-## Tier 2: refactoring off the hot path
-
-- **Plots**: `plot_major_modes()`, `plot_all_modes()` and
-  `plot_modes_within_k()` (`R/autoplot_gt_clumppling.R`) differ only in the
-  modes they select (about 50 lines); `R/plot_modes.R` repeats its inset and
-  rescaling code (about 70 lines).
-- **Argument checks**: `gt_clumppling()` checks its logical options with
-  its own loop; it could use `check_flag()` (from `R/gt_radmix.R`,
-  which `gt_fastmixture()` already shares; its messages say "should be"
-  rather than "must be").
-- **Tests**: shared helpers for pseudohaploid gen_tibbles, starting values
-  and cluster matching in the tests of `gt_radmix()` (about 50 lines).
-- **Installer**: resolve the yaml file of each environment with one helper,
-  and always leave fastmixture out of the yaml (it is reinstalled from
-  github in any case).
-- **`R/utils.R`**: `factor(x, levels = unique(x))` instead of fetching the
-  internal `fct_inorder_base()` of tidypopgen.
-- **`clumppling_run()`** returns several elements that nothing uses (about
-  10 lines).
 
 ## Not recommended
 
@@ -50,6 +24,56 @@ on the 60 scenarios of `data-raw/clumppling/validate_vs_python.R`
   algorithm, so modes would differ from python in ambiguous cases.
 - Merging the Q-side and P-side accumulation of the kernels: they need
   different memory layouts to be fast.
+
+## Done on 11 November 2026
+
+The clumppling, plot, argument-check, test, installer and `R/utils.R` items
+of tiers 1 and 2 (about 260 lines fewer in `R/`). Each item was checked to
+give the same results as before:
+
+- Tier 1, clumppling alignment: `clumppling_reorder_q_across_k()` is a
+  single loop over K (the anchor mode of the smallest K keeps its order,
+  the anchor of each larger K follows the mode of the previous K in its
+  anchor pair, and the other modes of a K follow its anchor), and
+  `clumppling_align_q_wrt_p()` finds the closest column of Q for each
+  column of P with `order()`/`duplicated()`, merging columns with
+  `clumppling_move_columns()` (which takes the number of columns of the
+  result). Checked with `identical()` against the previous code on 10000
+  random alignments (with tied distances), on 300 random scenarios like
+  those of `data-raw/clumppling/validate_vs_python.R` (also with values of
+  K that are not consecutive, and K up to 8) and on the capeverde and
+  chicken examples with each option, with the same run times. (The python
+  implementation itself was not available to run
+  `validate_vs_python.R` again, but the previous code gave the results
+  recorded in `validate_vs_python.csv`.)
+- Tier 2, `clumppling_run()`: no longer returns `alignment_acrossK`,
+  `best_acrossK`, `major_acrossK`, `cost_withinK` and `communities`.
+- Tier 2, plots: `autoplot()` checks `k` and warns about subsets of
+  individuals once, and the 'major_modes', 'all_modes' and
+  'modes_within_k' types share one code path (`plot_mode_list()`), only
+  selecting different modes and labels. `plot_modes()` computes all its
+  positions with `mode_cells()` (replacing `get_top_xy()`,
+  `get_bottom_xy()`, `get_inset_corners()` and the rescaling in
+  `make_connection_df()`), its edges with `mode_edges()`, adds every inset
+  with `add_inset()`, and builds the structure plots directly instead of
+  calling `autoplot(type = "all_modes")`. `mode_k()` and `mode_rank()`
+  parse mode labels for `tidy()`, `subset_gt_clumppling()` and the plots.
+  The four types of plot, with and without groups, on the capeverde
+  example, its subsets by K and by individuals, a single K and the chicken
+  example (40 plots) render to byte-identical png files.
+- Tier 2, argument checks: `gt_clumppling()` uses `check_flag()`, so its
+  message is now "should be TRUE or FALSE"; `check_count()`,
+  `check_flag()` and `gt_single_group()` moved to `R/utils.R`.
+- Tier 2, `R/utils.R`: `factor(x, levels = unique(x))` replaces the copy of
+  the internal `fct_inorder_base()` of tidypopgen.
+- Tier 2, installer: `tgc_env_yaml()` resolves the yaml file of one
+  environment, for `tgc_resolve_conda_yaml()` and
+  `tgc_admixture_install()` (the results of `tgc_resolve_conda_yaml()` are
+  the same as before for all the forms of `conda_yaml`, on linux and osx);
+  fastmixture is always left out of the yaml.
+- Tier 2, tests: `radmix_pseudohaploid_gt()`, `radmix_ref_start()` (with
+  an optional seed and range of p, giving the same draws as before) and
+  `radmix_match_clusters()` are shared by the tests of `gt_radmix()`.
 
 ## Done on 3 November 2026
 

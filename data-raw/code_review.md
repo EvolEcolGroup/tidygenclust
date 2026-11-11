@@ -63,7 +63,8 @@ The issues of the test suite were then addressed, one commit each:
 | kernel test of `p = 0` depends on the simulation | baa5235 |
 | installer decisions untested | bf94bec; 84eac02 |
 
-Still open: the simplification plan, now in `dev_notes/simplification_plan.md`.
+The simplification plan, now in `dev_notes/simplification_plan.md`, was
+completed on 11 November 2026.
 
 ## Bugs
 
