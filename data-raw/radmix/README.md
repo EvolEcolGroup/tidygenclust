@@ -123,6 +123,21 @@ ADMIXTURE reports the frequency of the second allele of the bim file
 position; this is the order of the input for `EUR_subset`, which the test
 checks.
 
+### ADMIXTURE, supervised: `fixtures/admixture_eur_supervised.rds`
+
+Also used by `tests/testthat/test_radmix_vs_admixture.R`, and made by the
+same script (`Rscript data-raw/radmix/regenerate_admixture_fixtures.R
+supervised` makes only this one, from the stored unsupervised fixture; the
+`admixture` binary must be on the PATH). It holds a run of ADMIXTURE
+`--supervised --cv` (seed 1, K = 3, 1 thread) on `EUR_subset`, which has no
+population labels: the references are the individuals with an ancestry
+proportion above 0.9 in a cluster of the unsupervised ADMIXTURE fit at
+K = 3 (15, 59 and 28 individuals), labelled `mid`, `zeta` and `alpha` for
+clusters 1 to 3, so that the order of first appearance in the `.pop` file,
+which ADMIXTURE uses for its columns, differs from the alphabetical order.
+It stores the labels, Q (in millionths), the log-likelihood, the number of
+iterations, the cross-validation error and the log (P is not stored).
+
 ## Other scripts
 
 These scripts use the `EUR_subset` data downloaded by
