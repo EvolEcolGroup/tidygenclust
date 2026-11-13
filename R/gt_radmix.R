@@ -98,9 +98,21 @@
 #'   faster than an unsupervised one. Cross-validation (`crossval = TRUE`)
 #'   is available, as in ADMIXTURE: the reference individuals stay fixed in
 #'   the fit of each fold, and their genotypes belong to the folds and are
-#'   predicted like the others (ADMIXTURE does not document this detail). `init_q` (whose rows for the reference individuals are ignored)
-#'   and `init_p` can give starting values; `fix_q`, `fix_p` and
+#'   predicted like the others (ADMIXTURE does not document this detail).
+#'   `init_q` (whose rows for the reference individuals are ignored) and
+#'   `init_p` can give starting values; `fix_q`, `fix_p` and
 #'   `init = "svd"` cannot be combined with `supervised`.
+#'
+#'   When the reference individuals are many, starting P from the allele
+#'   frequencies of the reference populations, as fastmixture does in its
+#'   supervised mode, can save iterations: pass them as `init_p` (the
+#'   frequency of the alternate allele, e.g. from
+#'   [tidypopgen::loci_alt_freq()] on the individuals of each population,
+#'   in the order of the columns), with `n_em_iter = 0` (the individuals to
+#'   estimate then start from random values). On the HGDP data (K = 5, 660
+#'   of 1043 individuals as references), this took 7 iterations instead of
+#'   11 and 5 EM steps, to the same log-likelihood; with fewer references
+#'   (`EUR_subset`, 102 of 379), it made no difference.
 #'
 #'   ## Starting values from the SVD
 #'
