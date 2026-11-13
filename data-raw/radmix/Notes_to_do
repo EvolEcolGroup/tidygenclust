@@ -6,7 +6,6 @@ Open items for gt_radmix() (the ADMIXTURE method and algorithm in tidygenclust)
 
 **Missing features**
 - **Bootstrap / standard errors:** available in ADMIXTURE, not implemented.
-- **Supervised analyses:** ADMIXTURE can fix the ancestry of individuals of known origin; we only offer a fixed reference panel (`init_p` + `fix_p`).
 - **AIM selection (SKFR):** not planned; loci can be selected beforehand with `tidypopgen::select_loci()`.
 
 **Waiting on tidypopgen PR #211**
@@ -26,3 +25,4 @@ Open items for gt_radmix() (the ADMIXTURE method and algorithm in tidygenclust)
 - Comparison with ADMIXTURE on EUR_subset (tests/testthat/test_radmix_vs_admixture.R, with stored fixtures).
 - Cross-validation as in ADMIXTURE (`crossval = TRUE`), agreeing with ADMIXTURE's CV errors to within 0.02%.
 - CI and website: GitHub Actions workflows (R CMD check, lint, pkgdown, test coverage) and a pkgdown site.
+- Supervised analyses (`supervised`, as ADMIXTURE's `--supervised`), checked against ADMIXTURE on EUR_subset (stored fixture) and on HGDP (data-raw/radmix/supervised/REPORT.md). Open: the start from the allele frequencies of the reference populations (fastmixture's start; about 45% fewer passes on HGDP with 660 references) is documented as `init_p` + `n_em_iter = 0` but not built in; supervised analyses with K larger than the number of reference populations (fastmixture allows them, ADMIXTURE does not) are not offered; see the report for these and the other decisions.
