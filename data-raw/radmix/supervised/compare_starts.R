@@ -31,7 +31,7 @@ starts <- if (length(args) >= 6) {
 library(tidygenclust, lib.loc = lib)
 
 if (data_name == "eur") {
-  x <- tidypopgen::gen_tibble("/home/andrea/.cache/R/tidygenclust/EUR_subset.bed",
+  x <- tidypopgen::gen_tibble(Sys.getenv("TGC_EUR_BED", file.path(tools::R_user_dir("tidygenclust", "cache"), "EUR_subset.bed")),
     backingfile = tempfile("eur_", tmpdir = scratch), quiet = TRUE
   )
   fixture <- readRDS("tests/testthat/fixtures/admixture_eur_reference.rds")
@@ -40,7 +40,7 @@ if (data_name == "eur") {
   labels[apply(q3, 1, max) <= 0.9] <- NA
   k <- 3
 } else {
-  hgdp_dir <- "/media/andrea/annex/git/tidygenclust/vignettes/articles/data/hgdp"
+  hgdp_dir <- Sys.getenv("TGC_HGDP_DIR", "vignettes/articles/data/hgdp")
   # (the gen_tibble made by hgdp_supervised.R, if it exists)
   gt_file <- file.path(scratch, "hgdp_bench.gt")
   if (file.exists(gt_file)) {

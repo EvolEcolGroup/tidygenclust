@@ -14,7 +14,7 @@ scratch <- args[2]
 n_reps <- if (length(args) >= 3) as.integer(args[3]) else 3L
 library(tidygenclust, lib.loc = lib)
 
-hgdp_dir <- "/media/andrea/annex/git/tidygenclust/vignettes/articles/data/hgdp"
+hgdp_dir <- Sys.getenv("TGC_HGDP_DIR", "vignettes/articles/data/hgdp")
 hgdp <- tidypopgen::gt_load(file.path(scratch, "hgdp_bench.gt"))
 lab <- utils::read.delim(file.path(hgdp_dir, "hgdp650_id_pop.txt"))
 lab <- lab[match(hgdp$id, lab$Id), ]

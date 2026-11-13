@@ -29,7 +29,7 @@ n_cores <- if (length(args) >= 5) as.integer(args[5]) else 1L
 seed <- if (length(args) >= 6) as.integer(args[6]) else 1L
 library(tidygenclust, lib.loc = lib)
 
-hgdp_dir <- "/media/andrea/annex/git/tidygenclust/vignettes/articles/data/hgdp"
+hgdp_dir <- Sys.getenv("TGC_HGDP_DIR", "vignettes/articles/data/hgdp")
 bed <- file.path(hgdp_dir, "hgdp_bench.bed")
 # one gen_tibble (backing file) per scratch dir, reused across calls
 # (gen_tibble() saves it as hgdp_bench.gt)

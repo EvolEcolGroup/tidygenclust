@@ -22,7 +22,7 @@ scratch <- args[2]
 n_cores <- if (length(args) >= 3) as.integer(args[3]) else 1L
 library(tidygenclust, lib.loc = lib)
 
-eur_bed <- "/home/andrea/.cache/R/tidygenclust/EUR_subset.bed"
+eur_bed <- Sys.getenv("TGC_EUR_BED", file.path(tools::R_user_dir("tidygenclust", "cache"), "EUR_subset.bed"))
 admixture <- "/home/andrea/.local/bin/admixture"
 fixture <- readRDS("tests/testthat/fixtures/admixture_eur_reference.rds")
 

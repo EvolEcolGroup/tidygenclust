@@ -14,7 +14,7 @@ out_file <- args[2]
 scratch <- args[3]
 library(tidygenclust, lib.loc = lib)
 
-eur_bed <- "/home/andrea/.cache/R/tidygenclust/EUR_subset.bed"
+eur_bed <- Sys.getenv("TGC_EUR_BED", file.path(tools::R_user_dir("tidygenclust", "cache"), "EUR_subset.bed"))
 eur <- tidypopgen::gen_tibble(eur_bed,
   backingfile = tempfile("eur_", tmpdir = scratch), quiet = TRUE
 )
