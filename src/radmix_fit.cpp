@@ -88,12 +88,15 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
   // The arguments have been validated in R; these checks only guard against
   // misuse from within the package. Every R error must happen here, before
   // any parallel region.
-  const GenoView geno(data);
+  GenoView geno(data);
   const size_t I = geno.nrow(), J = geno.ncol(), K = k;
   if (k < 1 || n_qn < 1 || n_cores < 1 || max_iter < 0 || n_em_iter < 0)
     stop("invalid arguments to radmix_fit_cpp()");
   if (I == 0 || J == 0)
     stop("There must be at least one individual and one locus.");
+  // A training view of cross-validation precomputes which genotypes it
+  // hides, once for all the passes of the fit (radmix_geno_access.h).
+  geno.build_cv_mask(n_cores);
   const size_t nq = K * I, np = K * J;
   FitLog log = {verbose, {}};
 
