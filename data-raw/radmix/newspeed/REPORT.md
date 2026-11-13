@@ -139,8 +139,10 @@ HGDP. They are in the desktop kit.
   desktop.
 - On the laptop, the inlining commit (d358c02) and the log-likelihood
   commit (373ae6c) were timed together, not separately.
-- `bench_fits.R` calls the internal `radmix_fit()`. If `newspeed-algo`
-  changes its signature, the `algo` build may need small changes in the kit.
+- `bench_fits.R` calls the internal `radmix_fit()`. The commits of the
+  algorithmic work (`data-raw/radmix/newspeed_algo/`) were later added to
+  this branch; they leave `radmix_fit()` unchanged, and the kit builds the
+  tip of the branch as `head`.
 
 ## Desktop tests
 
@@ -149,7 +151,7 @@ See `README.md` for the full commands. In short, with
 
 1. **Builds:** `MAKEFLAGS=-j8 PIN=0-7 bash $K/build_variants.sh
    base=b5999cc fused=378d830 cvmask=e2e3661 inline=d358c02 final=13f89be`,
-   plus `algo=<commit>` (see below). Add the flag variants of `13f89be`
+   plus `head=newspeed` (the tip of the branch). Add the flag variants of `13f89be`
    with `EXTRA_FLAGS=...`: `final_llnoinl`, `final_q64`, `final_q128`,
    `final_guided` and `final_tj32`.
 2. **Single passes:** `MODE=kernels CASES=hgdp:5,hgdp:10,eur:4 THREADS=1

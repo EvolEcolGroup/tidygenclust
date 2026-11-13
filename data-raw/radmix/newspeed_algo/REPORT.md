@@ -5,21 +5,21 @@ agent, and this report was saved by the session that coordinated it. The
 summary tables of the scripts are in `results_laptop/`. The commands for the
 desktop are in `README.md` and `run_desktop.sh`.
 
-## Commits
+## Commits (on the branch `newspeed`, where they were copied from the temporary branch `newspeed-algo`)
 
-- `1db95fc` The experiment scripts: `algo_lib.R`, `check_replica.R`,
+- `05b5e5a` The experiment scripts: `algo_lib.R`, `check_replica.R`,
   `cv_trajectories.R`, `cv_policies.R`, `cv_policy_timing.R`,
   `warmup_compare.R`, `warmup_summary.R`, `run_desktop.sh` and `README.md`.
-- `2072263` `gt_radmix(cv_max_iter = max_iter, cv_rtol = rtol)`: optional
+- `b092e3d` `gt_radmix(cv_max_iter = max_iter, cv_rtol = rtol)`: optional
   shorter refits of the CV folds. The default is unchanged. The commit
   includes the docs with the measurements, NEWS, dev_notes and tests in
   `test_gt_radmix.R`.
-- `ef6272c` `gt_radmix(init = "subset", init_subset = 0.05)`: a start from
+- `3cf356f` `gt_radmix(init = "subset", init_subset = 0.05)`: a start from
   a fit to a subset of the loci, in the new file `R/radmix_subset.R`. It is
   an option, and the default is unchanged. The commit includes the docs,
   NEWS, dev_notes and `tests/testthat/test_radmix_subset.R`. **This start
   moves runs to lower modes (see Part B), so the commit may be dropped.**
-- `e47e16d` The laptop results: `results_laptop/*.csv` and `*.txt`.
+- `07ea43e` The laptop results: `results_laptop/*.csv` and `*.txt`.
 
 ## How the work was checked
 
@@ -152,7 +152,7 @@ random starts.
    harmless. On EUR the bias grows with K, and with 5 iterations it reaches
    10-15% of the gap between successive K at K = 5. rtol 1e-7 is the
    cautious middle (on EUR: 30% of the passes saved, bias at most 0.66e-4).
-2. **The subset start:** keep commit `ef6272c` (an option with warnings, like
+2. **The subset start:** keep commit `3cf356f` (an option with warnings, like
    `init = "svd"`) or drop it. It needs about half the passes, but it moves
    runs to lower modes (HGDP K = 10, EUR K = 3).
 3. **The default of `init_subset`,** if the option is kept: 2% was as fast as

@@ -61,11 +61,13 @@ the builds, the cached data and nothing else:
 export TGC_WORK=$HOME/tgc_newspeed_work
 K=data-raw/radmix/newspeed
 # 1. the builds: the baseline (origin/dev), each change of newspeed, and the
-#    variants of the other speed branch (add as many label=commit as needed;
-#    the commits of newspeed: git log --oneline b5999cc..newspeed)
+#    tip of newspeed, `head`, which adds the options of the algorithmic work
+#    (cv_max_iter/cv_rtol, init = "subset", all opt-in, so its default fits
+#    should match `final`); add as many label=commit as needed (the commits
+#    of newspeed: git log --oneline b5999cc..newspeed)
 MAKEFLAGS=-j8 PIN=0-7 bash $K/build_variants.sh base=b5999cc \
   fused=378d830 cvmask=e2e3661 inline=d358c02 final=13f89be \
-  algo=newspeed-algo
+  head=newspeed
 # variants of the final code with compiler flags (a separate call each, as
 # EXTRA_FLAGS applies to all the builds of a call): the log-likelihood of the
 # fused pass called in baseline code; more Q-side tasks; other schedules
@@ -88,9 +90,9 @@ MODE=kernels CASES=hgdp:5,hgdp:10,eur:4 THREADS=1 ROUNDS=3 \
 # 3. a fixed number of iterations (the same work for every build), then
 #    whole fits; 1, 4 and 8 threads
 MAX_ITER=8 CASES=hgdp:5,hgdp:10,hgdp_full:5 THREADS="1 4 8" ROUNDS=3 \
-  bash $K/run_bench.sh $TGC_WORK/results/iter8 base fused final algo
+  bash $K/run_bench.sh $TGC_WORK/results/iter8 base fused final head
 CASES=hgdp:5,hgdp:10,hgdp_full:5,eur:3,eur:4 THREADS="1 4 8" ROUNDS=3 \
-  bash $K/run_bench.sh $TGC_WORK/results/whole base final algo
+  bash $K/run_bench.sh $TGC_WORK/results/whole base final head
 # correctness at several seeds (iterations, log-likelihoods), 8 threads
 SEEDS=1,2,3 CASES=hgdp:5,hgdp:10,eur:3,eur:4 THREADS=8 ROUNDS=1 \
   bash $K/run_bench.sh $TGC_WORK/results/seeds base final
