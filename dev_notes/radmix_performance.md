@@ -31,6 +31,55 @@ copies of the parameters to 10.
 | 2026-11-02 (#32) | four kernel changes (next table) | fits take 0.57-0.63 of the time on 1 core, 0.52-0.56 on the HGDP at any core count | rounding |
 | 2026-11-02 (#32) | default `rtol` 1e-8 instead of 1e-7 | +7-17% time, closer to the optimum (below) | more iterations |
 | 2026-11-03 | consolidation of the kernels; plain Q-side derivatives | 2-5% faster (desktop, 1 and 4 cores); 9 copies of the parameters instead of 10 | rounding |
+| 2026-11-13 | fused pass: the log-likelihood of a point computed with the next update of Q (`update_q_loglik()`) | 4 passes per accepted iteration instead of 5 (a fit of 8 iterations: 33 passes instead of 41, the start included) | log-likelihoods by rounding |
+| 2026-11-13 | cross-validation: the hidden genotypes of a fold as a bit mask, built once per fold fit | passes with a fold hidden cost as plain ones (were 1.44-1.56x); mask 17 MB for the HGDP, 87 MB unpruned | bit-identical |
+| 2026-11-13 | `slice_geno()` and `slice_coef()` forced inline into the AVX2 clones (they were calls to the baseline code) | with the next change: passes 10-15% faster | rounding |
+| 2026-11-13 | cheaper log-likelihood of a slice (scalar fix-up loop skipped for hard calls, arithmetic masks), inlined into the AVX2 clone in the fused pass | with the previous one: an accepted iteration 0.78 of the time before the fused pass (laptop, 1 core, HGDP K = 5) | rounding |
+
+### The changes of 2026-11-13 (branch `newspeed`)
+
+Laptop, 1 core (the other three busy with other jobs, load 4-11, so the
+timings are indicative), HGDP 1043 x 130,943, K = 5, single passes from the
+same estimates (medians of 2 runs of medians of 3, builds alternated),
+seconds:
+
+| build | loglik | update_q | update_p | update_q_loglik | accepted iteration |
+|---|---|---|---|---|---|
+| before (b5999cc) | 2.13 | 1.84 | 2.14 | | 10.09 (5 passes) |
+| fused pass | 2.20 | 2.08 | 2.30 | 3.31 | 9.99 (0.99) |
+| + inlining, cheaper log-likelihood, called in baseline code | 1.83 | 1.65 | 1.89 | 2.77 | 8.20 (0.81) |
+| + log-likelihood inlined into the AVX2 clone (the default) | 1.75 | 1.68 | 1.94 | 2.27 | 7.83 (0.78) |
+
+The fused pass alone saves about 0.9 s of log-likelihood per iteration, but
+in that build `update_q` and `update_p` (whose code it does not change)
+measured 5-10% slower in every run, a layout effect that disappeared with
+the inlining. Fits of 8 iterations (with EM) took 105.6 s before and 104.9 s
+with the fused pass alone (medians of 3, noise +-6%). Cross-validation:
+fold fits of 2 iterations, 25.0-27.0 s on the plain view, 39.0 s with the
+hash (1.44-1.56x), 25.6 s with the bit mask (0.95x).
+
+Whole fits, laptop, 1 core, random starts (5 EM steps), rtol 1e-8, before
+(b5999cc) and with all the changes (the build `sg5ll` of the kit, the code
+of 13f89be):
+
+| data, K, seed | before: s, iterations, passes | after: s (ratio), passes | log-likelihood, Q |
+|---|---|---|---|
+| EUR 3, 1 (2 runs) | 26.3, 23 (3 rejected), 119 | 21.6 (0.82), 96 | same iterations; 1e-16 relative |
+| EUR 4, 1 (2 runs) | 30.4, 24 (3 rejected), 124 | 26.8 (0.88), 100 | same iterations; 4e-16 |
+| HGDP 5, 1 | 225.9, 21, 106 | 175.6 (0.78), 85 | same iterations; 1e-14 along the history, Q 4e-13 |
+| HGDP 5, 2 | 277.8, 27, 136 | 191.4 (0.69), 109 | same iterations; 6e-15, Q 9e-14 |
+| HGDP 5, 3 | 219.4, 21, 106 | 160.1 (0.73), 85 | same iterations; 3e-15, Q 7e-14 |
+
+(The load was 3-5 during these runs, from other jobs on the other cores;
+the EM steps, 10 passes, are included in the times.)
+
+Lessons: GCC did not inline `slice_geno()` (qp and the decoding of every
+slice) into the AVX2 clones, so a share of every pass ran in SSE2 code
+(check with `objdump -d` that the clones only call `memset()` and `log()`);
+and in the baseline code, `(double) (x > y)`, `std::min()`, `std::max()` and
+`omp simd reduction(max:)` keep a loop from vectorising (a first version of
+the cheaper log-likelihood was 1.5x slower for that), while sums of products
+do not.
 
 ### The kernel changes of #32
 
@@ -161,6 +210,10 @@ Listed so that they are not retried without new evidence.
 - `-fno-trapping-math`: no effect (the loops have no branches).
 - AVX2 clones of the log-likelihood and the deviance: 7-9% slower on the
   laptop (scalar `log()` calls inside the loop), so they are not cloned.
+  (Since 2026-11-13 the scalar loop is skipped for hard calls, and the
+  log-likelihood inlined into the AVX2 clone of the fused pass is faster
+  than the baseline one: 2.27 against 2.77 s per pass; the standalone
+  `loglik()` pass, now rarely used, is still not cloned.)
 - BLAS products (GEMMs) for the Q-side sums: faster only for K >= ~8 and
   only with an optimised BLAS; 3-7x slower with the reference BLAS (the
   default of the CRAN builds of R for Windows and macOS), and R's BLAS
@@ -179,8 +232,12 @@ Listed so that they are not retried without new evidence.
 - `-march=native` is 11-16% faster than the multiversioned build (desktop),
   mostly in the log-likelihood (0.59-0.64 of the baseline with
   `-march=native`, 0.86-0.89 multiversioned) and in code outside the cloned
-  kernels. Compiling the whole file for AVX2 makes the log-likelihood faster
-  too, so the lead is how it is cloned (or a vectorisable `log()`).
+  kernels. Partly addressed on 2026-11-13: `slice_geno()` and
+  `slice_coef()` were outside the clones (now inlined into them), and the
+  log-likelihood now mostly runs inside the clone of the fused pass. To
+  check on the desktop: what is left between the multiversioned build and
+  `-march=native`; a vectorisable `log()` would only replace the 8 batched
+  logarithms per 64 genotypes.
 - `-O3` saves 2-5% of a fit with identical results, from inlining or loop
   unswitching rather than vectorisation; which loops is not known, and a
   package should not override R's optimisation flags.
@@ -189,18 +246,23 @@ Listed so that they are not retried without new evidence.
   iterations. The biggest lever for CV, but it changes the CV errors, and
   the warm start has seen the held-out genotypes: it needs a statistical
   check (same K chosen, agreement with ADMIXTURE).
-- A decoded in-memory copy of the genotypes (1 byte or 2 bits each), with
-  the fold mask applied once: passes with a fold hidden would cost the same
-  as plain ones (now 1.5x).
-- The log-likelihood of the quasi-Newton point folded into the next P
-  update, which reads the same genotypes: 4 passes instead of 5 per
-  accepted iteration (admixer measured ~4%).
+- (Done 2026-11-13, as a bit mask rather than a decoded copy of the
+  genotypes, 1/8 of the memory: passes with a fold hidden cost as plain
+  ones.) A decoded copy (1 byte per genotype) would also make the rows of
+  any subset contiguous (the fast path of the decoding), at the memory of
+  the genotypes (0.7 GB for the unpruned HGDP); not tried.
+- (Done 2026-11-13, folded into the next Q update rather than P, as that
+  pass reads the same (q, p): 4 passes instead of 5 per accepted
+  iteration.)
 - admixer's damped retries of a rejected quasi-Newton step (1.2-4.2x on
   hard data there, nothing elsewhere; ours accepted 16 of 16 steps on HGDP
   quick) and its mini-batch warm-up between EM and the main loop (there,
   K = 5 28.8 to ~20 s, K = 20 126.7 to 54.7 s).
 - More Q-side tasks for many cores (see "Where the time goes"), and tile
-  sizes and the OpenMP schedule, never tuned.
+  sizes and the OpenMP schedule, never tuned. Since 2026-11-13 they can be
+  set at compile time (`-DRADMIX_MIN_Q_TASKS`, `-DRADMIX_TILE_J`,
+  `-DRADMIX_OMP_SCHEDULE`) for the benchmarks of
+  `data-raw/radmix/newspeed` (the laptop cannot judge scaling).
 - For K >= 8, single-precision Hessians or BLAS products (admixer: 6-35%).
 
 ## How to measure
@@ -220,6 +282,11 @@ Listed so that they are not retried without new evidence.
   reference (`helper-radmix-reference.R`), and the `expect_identical()`
   checks of thread invariance; any sum whose order depends on the number
   of threads breaks them.
+- The kit of `data-raw/radmix/newspeed/` builds variants from commits
+  (`build_variants.sh`, `-O2` checked) and times single passes, fits of a
+  fixed number of iterations, whole fits and cross-validation passes,
+  alternated and pinned, with the load (`run_bench.sh`, `summarise.R`); its
+  README has the commands for the desktop.
 - Tools in `data-raw/radmix/`: `profile_eur.R` (per-kernel times),
   `benchmark_cv_access.R` (passes with and without a fold hidden),
   `benchmark_admixture.R`; and the benchmark of the article
