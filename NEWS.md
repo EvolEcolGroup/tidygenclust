@@ -27,7 +27,10 @@
   Each iteration now reads the genotypes four times instead of five: the
   log-likelihood of the point an iteration ends at is computed in the same
   pass as the first update of the next iteration, with the same iterations
-  and estimates.
+  and estimates. With `crossval = TRUE`, the fit of each fold computes once
+  which genotypes it hides (a bit mask, one bit per genotype) instead of in
+  every pass, so its passes cost as much as those of the main fit instead of
+  about 1.5 times as much; the cross-validation errors are identical.
   `?gt_radmix` describes the algorithm, the reproducibility of the results,
   and how they compare with those of ADMIXTURE.
 * `gt_clumppling()` is now a native R and C++ port, with modifications, of

@@ -157,6 +157,26 @@ test_that("gt_radmix computes the cross-validation error", {
   expect_identical(c(adm, adm2)$cv, c(adm$cv[1:2], adm2$cv, adm$cv[3]))
 })
 
+# The fit of a training view precomputes the genotypes it hides as a bit
+# mask (build_cv_mask() in src/radmix_geno_access.h)
+test_that("fold fits are identical with and without the precomputed mask", {
+  fit_fold <- function(d, mask, n_cores = 1) {
+    train <- radmix_set_cv(d, list(
+      mode = "train", fold = 2, n_folds = 5, seed = 7, mask = mask
+    ))
+    set.seed(1)
+    radmix_fit(train, k = 3, max_iter = 5, n_cores = n_cores)
+  }
+  # 80 individuals (a second word of bits per locus, partly used), and a
+  # subset in another order (decoded one genotype at a time)
+  cases <- list(dat, radmix_prepare(sim_gt[c(80:41, 1:20), ]))
+  for (d in cases) {
+    hashed <- fit_fold(d, mask = FALSE)
+    expect_identical(fit_fold(d, mask = TRUE), hashed)
+    expect_identical(fit_fold(d, mask = TRUE, n_cores = 3), hashed)
+  }
+})
+
 test_that("invalid cross-validation arguments are caught", {
   expect_error(
     gt_radmix(sim_gt, k = 2, crossval = "yes"),

@@ -117,6 +117,9 @@ namespace radmix {
 static const size_t TILE_I = 64;
 static const size_t TILE_J = 64;
 static_assert(TILE_J % 2 == 0, "TILE_J must be even");
+// (the bit mask of a training view gives one 64-bit word per slice, see
+// slice_geno())
+static_assert(TILE_I == 64, "slice_geno() requires TILE_I == 64");
 
 // the number of blocks of size `tile` needed to cover n (the last one may be
 // shorter; 0 for n = 0)
@@ -209,6 +212,16 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
         const unsigned char b = bytes[ii];
         g[ii] = gtab[b];
         h[ii] = htab[b];
+      }
+    } else if (geno.cv_bits()) {
+      // a training view with its precomputed bit mask: one word gives the
+      // visibility of the whole slice (i0 is a multiple of TILE_I = 64)
+      const uint64_t w = geno.cv_word(i0, j);
+      for (size_t ii = 0; ii < ni; ii++) {
+        const unsigned char b = bytes[ii];
+        const double vis = (double) ((w >> ii) & 1);
+        g[ii] = vis * gtab[b];
+        h[ii] = vis * htab[b];
       }
     } else {
       for (size_t ii = 0; ii < ni; ii++) {

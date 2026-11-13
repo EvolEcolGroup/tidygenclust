@@ -362,12 +362,18 @@ folds (5 by default). For each fold:
    with `0 log 0 = 0` (ADMIXTURE gives this formula for diploids).
 
 The error is the deviance averaged over all the held-out genotypes of all the
-folds. The fold of a genotype is not stored: it is computed on the fly from a
-hash (the splitmix64 finaliser) of a seed and the position of the genotype,
-modulo the number of folds. This needs no memory (a stored mask would be as
-large as the genotypes), is thread safe, and gives the same folds for the
-same seed; folds are of roughly equal size, and genotypes that are already
-missing belong to no fold. The seed is drawn from the random number
+folds. The fold of a genotype is computed from a hash (the splitmix64
+finaliser) of a seed and the position of the genotype, modulo the number of
+folds. This is thread safe and gives the same folds for the same seed;
+folds are of roughly equal size, and genotypes that are already missing
+belong to no fold. The fit of a fold evaluates the hash once per genotype,
+before its first pass, and keeps which genotypes are visible as a bit mask
+(one bit per genotype, 1/8 of the size of the genotypes; e.g. 18 MB for the
+HGDP of 1043 x 130,943, 87 MB for 1043 x 642,794), so that its passes read
+one 64-bit word per slice of 64 individuals instead of hashing every
+genotype. Beyond 1 GiB of mask (8.6e9 genotypes), the passes hash instead.
+The results are the same either way; the held-out view, used once per fold,
+always hashes. The seed is drawn from the random number
 generator after the main fit, whose state is then restored. ADMIXTURE's own
 random partition cannot be reproduced (its source code is not available), so
 the errors agree with ADMIXTURE's statistically, not exactly.
@@ -392,12 +398,13 @@ individuals at one locus are adjacent bytes. When the individuals of a slice
 pseudohaploids), their bytes are read directly and decoded with two tables
 giving `g` and `h` (0 for missing); otherwise each genotype goes through the
 row index, the decoding table and the ploidy scale. With a cross-validation
-view, the fold hash runs for every genotype in every pass, so it is kept
-cheap: the remainder by the number of folds uses compile-time constants for
-2 to 10 folds (a multiplication instead of a 64-bit division), and hidden
-genotypes are zeroed by multiplying rather than by a branch, which would be
-mispredicted (they are spread at random). A pass with a fold hidden costs
-about 1.5 times a plain pass.
+view, hidden genotypes are zeroed by multiplying rather than by a branch,
+which would be mispredicted (they are spread at random). The fit of a fold
+reads their visibility from its bit mask (see section 8), one word per
+slice; without the mask, the fold hash runs for every genotype in every
+pass, and is kept cheap (the remainder by the number of folds uses
+compile-time constants for 2 to 10 folds, a multiplication instead of a
+64-bit division), but such a pass costs about 1.5 times a plain pass.
 
 ### Slices and coefficients
 

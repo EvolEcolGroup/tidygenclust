@@ -126,7 +126,10 @@ radmix_decode <- function(data, cv = NULL) {
 #' @param data the output of `radmix_prepare()`
 #' @param cv `NULL` (no mask) or a list with elements `mode` ("train" or
 #'   "held_out"), `fold` (1 to `n_folds`), `n_folds` and `seed` (a
-#'   non-negative integer, stored as a double)
+#'   non-negative integer, stored as a double), and optionally `mask`
+#'   (`TRUE` by default): whether the fit of a training view may precompute
+#'   which genotypes it hides, as a bit mask (src/radmix_geno_access.h); the
+#'   results are the same either way
 #' @returns `data`, with an element `cv` holding the integer `mode`
 #'   (0 = none, 1 = train, 2 = held out) and the other elements, as expected
 #'   by the C++ functions
@@ -156,7 +159,8 @@ radmix_set_cv <- function(data, cv = NULL) {
     mode = match(cv$mode, c("train", "held_out")),
     fold = as.integer(cv$fold),
     n_folds = as.integer(cv$n_folds),
-    seed = as.numeric(cv$seed)
+    seed = as.numeric(cv$seed),
+    mask = if (is.null(cv$mask)) TRUE else isTRUE(cv$mask)
   )
   data
 }

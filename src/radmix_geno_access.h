@@ -68,9 +68,18 @@
 // generator (its source code is not available), so these folds, and hence
 // the CV errors, cannot be identical to ADMIXTURE's, only statistically
 // equivalent.
+//
+// The hash costs about half a plain pass per pass over the genotypes (a pass
+// with a fold hidden took 1.5 times a plain one). A training view is read by
+// every pass of the fit of its fold, so the fit precomputes its visibility
+// once, as a bit mask (build_cv_mask(): one bit per genotype, 1/8 of the
+// size of the genotypes), and the passes then read one 64-bit word per slice
+// of 64 individuals instead of hashing every genotype. The bits are those of
+// the hash, so the results are identical with or without the mask.
 
 #include <bigstatsr/BMAcc.h>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -181,6 +190,17 @@ public:
     if (!(cv_seed >= 0 && cv_seed < 9007199254740992.0) ||
         cv_seed != std::floor(cv_seed))
       Rcpp::stop("'cv_seed' must be a non-negative integer.");
+    // whether a training view may precompute its bit mask (see
+    // build_cv_mask(); an optional element of cv, TRUE by default, so that
+    // the tests and benchmarks can compare the two ways)
+    _cv_mask_allowed = true;
+    if (data.containsElementNamed("cv")) {
+      Rcpp::List cv = data["cv"];
+      if (cv.containsElementNamed("mask"))
+        _cv_mask_allowed = Rcpp::as<bool>(cv["mask"]);
+    }
+    _cv_bits = false;
+    _mask_words = 0;
     _cv_mode = cv_mode;
     _cv_fold = (uint64_t) cv_fold;
     _cv_hide_fold = cv_mode == CV_TRAIN;
@@ -259,7 +279,7 @@ public:
     // genotype is also computed, and ignored. For plain views the test on
     // the mode is a single, perfectly predictable branch.
     if (_cv_mode != CV_NONE) {
-      visible &= (fold(i, j) == _cv_fold) != _cv_hide_fold;
+      visible &= cv_visible(i, j);
     }
     g = _lut[b] * _scale[i];
     return visible;
@@ -268,10 +288,57 @@ public:
   // whether the view has a cross-validation mask, and whether it shows
   // genotype (i, j) (if it is observed): the test of get() without the
   // decoding, for the callers of slice_bytes(), which must apply the mask
-  // themselves (cv_visible() is only meaningful when cv_masked() is true)
+  // themselves (cv_visible() is only meaningful when cv_masked() is true).
+  // With a precomputed bit mask (cv_bits(), see build_cv_mask()), the bit
+  // is read instead of computing the hash (the branch is the same for every
+  // genotype, so it is perfectly predicted).
   inline bool cv_masked() const { return _cv_mode != CV_NONE; }
   inline bool cv_visible(size_t i, size_t j) const {
+    if (_cv_bits)
+      return (_cv_mask[j * _mask_words + (i >> 6)] >> (i & 63)) & 1;
+    return cv_visible_hash(i, j);
+  }
+  inline bool cv_visible_hash(size_t i, size_t j) const {
     return (fold(i, j) == _cv_fold) != _cv_hide_fold;
+  }
+
+  // Whether the bit mask of a training view has been built, and its word
+  // for the 64 individuals [i0, i0 + 64) at locus j (i0 a multiple of 64;
+  // bit ii is the visibility of individual i0 + ii, and the bits beyond the
+  // last individual are 0), so that the callers of slice_bytes() read one
+  // word per slice. Only meaningful when cv_bits() is true.
+  inline bool cv_bits() const { return _cv_bits; }
+  inline uint64_t cv_word(size_t i0, size_t j) const {
+    return _cv_mask[j * _mask_words + (i0 >> 6)];
+  }
+
+  // The largest bit mask that build_cv_mask() makes (1 GiB, for 8.6e9
+  // genotypes, e.g. 10,000 individuals x 860,000 loci); beyond it, the
+  // passes compute the hash, which needs no memory.
+  static constexpr double CV_MASK_MAX_BYTES = 1073741824.0;
+
+  // Precompute the visibility of every genotype of a training view as a bit
+  // mask (see the top of the file), with n_cores threads; nothing happens
+  // for other views, when the mask is not allowed (cv element mask = FALSE)
+  // or when it would exceed CV_MASK_MAX_BYTES. Called by the fitting loop
+  // on the main thread, before any pass, as the view must not change while
+  // it is shared between threads. Each locus is filled by one thread, and the
+  // bits are those of cv_visible_hash(), so the results of the passes do not
+  // depend on the mask or on the number of threads.
+  void build_cv_mask(int n_cores) {
+    if (_cv_mode != CV_TRAIN || !_cv_mask_allowed || _cv_bits) return;
+    const size_t I = nrow(), J = ncol(), words = (I + 63) / 64;
+    if ((double) words * J * 8.0 > CV_MASK_MAX_BYTES) return;
+    _mask_words = words;
+    _cv_mask.assign(words * J, 0);
+    uint64_t* mask = _cv_mask.data();
+#pragma omp parallel for num_threads(n_cores) schedule(static)
+    for (ptrdiff_t j = 0; j < (ptrdiff_t) J; j++) {
+      uint64_t* mj = mask + (size_t) j * words;
+      for (size_t i = 0; i < I; i++)
+        mj[i >> 6] |= (uint64_t) cv_visible_hash(i, j) << (i & 63);
+    }
+    _cv_bits = true;
   }
 
   // Fold (0 to n_folds - 1) of genotype (i, j), where i and j index the
@@ -334,6 +401,11 @@ private:
   double _gtab[256];             // g of each byte for slice_bytes()
   double _htab[256];             // h = n - g of each byte for slice_bytes()
   std::vector<size_t> _contig;   // adjacent rows from each individual on
+  bool _cv_mask_allowed;         // whether build_cv_mask() may build a mask
+  bool _cv_bits;                 // whether the bit mask has been built
+  size_t _mask_words;            // 64-bit words of the mask per locus
+  std::vector<uint64_t> _cv_mask;  // the visibility of each genotype of a
+                                   // training view, one bit each
 };
 
 }  // namespace radmix
