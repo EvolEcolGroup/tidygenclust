@@ -109,6 +109,18 @@ namespace radmix {
 #define RADMIX_MULTIVERSION
 #endif
 
+// A function called from a multiversioned one is compiled for AVX2 only if
+// it is inlined into it, and GCC does not inline the larger ones on its own:
+// slice_geno(), which computes qp and decodes the genotypes of every slice,
+// remained a call to its baseline version from every AVX2 clone (and so did
+// slice_coef(), which calls it, once slice_geno() was inlined into it).
+// Such functions are therefore forced inline.
+#if defined(__GNUC__)
+#define RADMIX_INLINE inline __attribute__((always_inline))
+#else
+#define RADMIX_INLINE inline
+#endif
+
 // Tile sizes. A vector of TILE_I accumulators takes 512 bytes, so the
 // Q-side accumulators (K + K (K + 1) / 2 vectors) and the TILE_I x K corner
 // of q stay in the L1 or L2 cache for moderate K. loglik_slice() needs
@@ -174,9 +186,10 @@ struct Slice {
 // transposed q (I x K, see transpose()), pj the K frequencies of locus j
 // (p + K j); i1 - i0 must be at most TILE_I. A missing (or hidden) genotype
 // gets g = h = 0, so that it drops out of every sum without a test.
-static inline void slice_geno(const GenoView& geno, const double* qT,
-                              const double* pj, int K, size_t j, size_t i0,
-                              size_t i1, Slice& s) {
+static RADMIX_INLINE void slice_geno(const GenoView& geno,
+                                     const double* qT, const double* pj,
+                                     int K, size_t j, size_t i0, size_t i1,
+                                     Slice& s) {
   const size_t I = geno.nrow(), ni = i1 - i0;
   // (__restrict tells the compiler that these buffers do not overlap, which
   // it needs to vectorise the loops below)
@@ -251,9 +264,10 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
 // current estimates (the Newton update then discards the step of that
 // column, see newton_column()).
 template <bool NEWTON>
-static inline void slice_coef(const GenoView& geno, const double* qT,
-                              const double* pj, int K, size_t j, size_t i0,
-                              size_t i1, Slice& s) {
+static RADMIX_INLINE void slice_coef(const GenoView& geno,
+                                     const double* qT, const double* pj,
+                                     int K, size_t j, size_t i0, size_t i1,
+                                     Slice& s) {
   slice_geno(geno, qT, pj, K, j, i0, i1, s);
   const size_t ni = i1 - i0;
   const double* __restrict qp = s.qp.data();
@@ -314,7 +328,7 @@ static_assert(LOG_BATCH * LOG_BATCH == TILE_I,
 // below LOG_MIN_Z use the direct formula. A missing genotype has
 // g = h = 0, hence z = 1. Uses s.a and s.b as scratch for z and for a flag
 // (all TILE_I entries of s.a, as pass 3 pads them). ni is at most TILE_I.
-static double loglik_slice(size_t ni, Slice& s) {
+static RADMIX_INLINE double loglik_slice_impl(size_t ni, Slice& s) {
   const double* __restrict qp = s.qp.data();
   const double* __restrict g = s.g.data();
   const double* __restrict h = s.h.data();
@@ -355,19 +369,28 @@ static double loglik_slice(size_t ni, Slice& s) {
   return ll;
 }
 
-// loglik_slice() for the Q-side passes that also return the log-likelihood
-// (accum_q_block() with LOGLIK). accum_q_block() is multiversioned, and a
-// function it calls would be inlined into its AVX2 version, where the calls
-// to log() of the C library are slower (see RADMIX_MULTIVERSION); this
-// wrapper is never inlined, so the logarithms always run in the baseline
-// code, as in loglik(), and each slice gets the same value as there. (One
-// call per slice of up to TILE_I genotypes costs nothing measurable.)
-#if defined(__GNUC__) && !defined(RADMIX_FUSED_LL_INLINE)
-__attribute__((noinline))
-#endif
-static double loglik_slice_q(size_t ni, Slice& s) {
-  return loglik_slice(ni, s);
+// loglik_slice() for loglik() and deviance() (sum_slices(), baseline code)
+static double loglik_slice(size_t ni, Slice& s) {
+  return loglik_slice_impl(ni, s);
 }
+
+// loglik_slice() for the Q-side passes that also return the log-likelihood
+// (accum_q_block() with LOGLIK). accum_q_block() is multiversioned; this
+// wrapper is never inlined into it, so the log-likelihood always runs in
+// the baseline code, as in loglik(), and each slice gets the same value as
+// there (the AVX2 versions of the log-likelihood were slower, see
+// RADMIX_MULTIVERSION; one call per slice of up to TILE_I genotypes costs
+// nothing measurable). Defining RADMIX_FUSED_LL_INLINE when compiling
+// inlines it into the AVX2 clone instead, for benchmarks.
+#if defined(__GNUC__) && !defined(RADMIX_FUSED_LL_INLINE)
+__attribute__((noinline)) static double loglik_slice_q(size_t ni, Slice& s) {
+  return loglik_slice_impl(ni, s);
+}
+#else
+static RADMIX_INLINE double loglik_slice_q(size_t ni, Slice& s) {
+  return loglik_slice_impl(ni, s);
+}
+#endif
 
 // Q side: the sums over loci [j0, j1) of each individual of the block
 // [i0, i1) (all the loci, unless the work is split into segments, see
