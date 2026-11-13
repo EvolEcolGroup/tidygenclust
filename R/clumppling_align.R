@@ -33,71 +33,38 @@ clumppling_align_within_k <- function(q_list) {
 #' @noRd
 clumppling_align_q_wrt_p <- function(p, q, idx, merge = TRUE) {
   kp <- ncol(p)
-  kq <- ncol(q)
   if (merge) {
-    aligned <- matrix(0, nrow(q), kp)
-    for (j in seq_len(kq)) {
-      aligned[, idx[j]] <- aligned[, idx[j]] + q[, j]
-    }
-    return(list(q = aligned, pattern = idx))
+    return(list(q = clumppling_move_columns(q, idx, kp), pattern = idx))
   }
-  # columns of P that receive several columns of Q
-  dups <- which(tabulate(idx, nbins = kp) > 1)
-  aligned <- matrix(0, nrow(q), kq)
-  new_pattern <- integer(kq)
-  # for each such column of P, the closest column of Q (the first one on
-  # ties) and its Euclidean distance
-  dups_min_diff <- rep(Inf, kp)
-  dups_min_q <- rep(NA_integer_, kp)
-  # first pass: columns of Q that are the only ones matched to their column
-  # of P go there; find the closest column for the other columns of P
-  for (j in seq_len(kq)) {
-    pj <- idx[j]
-    if (!pj %in% dups) {
-      new_pattern[j] <- pj
-      aligned[, pj] <- q[, j]
-    } else {
-      diff <- sqrt(sum((q[, j] - p[, pj])^2))
-      if (dups_min_diff[pj] > diff) {
-        dups_min_diff[pj] <- diff
-        dups_min_q[pj] <- j
-      }
-    }
-  }
-  # second pass: columns that are not the closest to their match go to new
-  # columns kp + 1, kp + 2, ... in their order in Q. When every column of P
-  # receives a column of Q (as in optimal alignments), the pattern is a
-  # permutation of 1:kq.
-  extras <- integer(0)
-  for (j in seq_len(kq)) {
-    pj <- idx[j]
-    if (pj %in% dups) {
-      if (j == dups_min_q[pj]) {
-        new_pattern[j] <- pj
-        aligned[, pj] <- q[, j]
-      } else {
-        extras <- c(extras, j)
-        new_pattern[j] <- kp + length(extras)
-      }
-    }
-  }
-  for (i in seq_along(extras)) {
-    aligned[, kp + i] <- q[, extras[i]]
-  }
-  list(q = aligned, pattern = new_pattern)
+  # the Euclidean distance of each column of Q to the column of P it maps to
+  dist <- sqrt(colSums((q - p[, idx, drop = FALSE])^2))
+  # among the columns of Q mapped to the same column of P, the closest one
+  # (the first one on ties, as order() is stable) is placed there; the others
+  # go to new columns kp + 1, kp + 2, ... in their order in Q. When every
+  # column of P receives a column of Q (as in optimal alignments), the
+  # pattern is a permutation of 1:kq.
+  by_dist <- order(idx, dist)
+  closest <- by_dist[!duplicated(idx[by_dist])]
+  others <- setdiff(seq_len(ncol(q)), closest)
+  pattern <- integer(ncol(q))
+  pattern[closest] <- idx[closest]
+  pattern[others] <- kp + seq_along(others)
+  list(q = clumppling_move_columns(q, pattern), pattern = pattern)
 }
 
 #' Move the columns of Q according to a pattern
 #'
 #' Column j of Q is added to column `pattern[j]` of the result (as done in
-#' `reorderQ_across_k()` in clumppling).
+#' `reorderQ_across_k()` in clumppling), so that columns with the same
+#' destination are summed.
 #' @param q a matrix
 #' @param pattern the destination column of each column of Q
-#' @returns a matrix with the same dimensions as Q
+#' @param k the number of columns of the result
+#' @returns a matrix with the same number of rows as Q, and `k` columns
 #' @keywords internal
 #' @noRd
-clumppling_move_columns <- function(q, pattern) {
-  aligned <- matrix(0, nrow(q), ncol(q))
+clumppling_move_columns <- function(q, pattern, k = ncol(q)) {
+  aligned <- matrix(0, nrow(q), k)
   for (j in seq_len(ncol(q))) {
     aligned[, pattern[j]] <- aligned[, pattern[j]] + q[, j]
   }

@@ -27,14 +27,15 @@ test_that("conda yaml files are filtered by the requested tools", {
     on.exit(unlink(filtered))
     readLines(filtered)
   }
-  # all the tools: the file is unchanged
+  # fastmixture is always left out, as it is installed from github: with
+  # all the tools, only its line is removed
   expect_identical(
     filter_lines(linux_yaml, c("fastmixture", "admixture", "adamixture")),
-    yaml_lines
+    yaml_lines[-11]
   )
-  # only fastmixture
+  # only fastmixture: the pip section, now empty, is removed too
   expect_identical(
-    filter_lines(linux_yaml, "fastmixture"), yaml_lines[-c(6, 12)]
+    filter_lines(linux_yaml, "fastmixture"), yaml_lines[-c(6, 10:12)]
   )
   # only ADAMIXTURE
   expect_identical(
@@ -100,6 +101,17 @@ test_that("conda yaml files are found", {
   expect_error(
     tgc_resolve_conda_yaml("not_a_file.yml", ci_install = FALSE),
     "does not exist"
+  )
+  # the yaml of a single environment
+  expect_identical(
+    tgc_env_yaml("auto", "ctidygenclust", ci_install = FALSE), yaml_files[1]
+  )
+  expect_identical(
+    tgc_env_yaml(NULL, "ctidygenclust", ci_install = FALSE), NA_character_
+  )
+  expect_identical(
+    tgc_env_yaml(yaml_files[1], "ctidygenclust", ci_install = FALSE),
+    yaml_files[1]
   )
 })
 

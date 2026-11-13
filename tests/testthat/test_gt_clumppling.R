@@ -309,13 +309,21 @@ test_that("the options of gt_clumppling are validated", {
   for (bad in list(NA, NaN, Inf, -1, 0, c(1, 2), "1")) {
     expect_error(gt_clumppling(capeverde, cd_res = bad), "'cd_res' must be")
   }
-  expect_error(gt_clumppling(capeverde, merge = "no"), "'merge' must be")
-  expect_error(gt_clumppling(capeverde, use_rep = NA), "'use_rep' must be")
+  # (with the message of the other functions of the package)
+  expect_error(
+    gt_clumppling(capeverde, merge = "no"), "'merge' should be TRUE or FALSE"
+  )
+  expect_error(
+    gt_clumppling(capeverde, use_rep = NA), "'use_rep' should be TRUE or FALSE"
+  )
   expect_error(
     gt_clumppling(capeverde, use_best_pair = c(TRUE, FALSE)),
-    "'use_best_pair' must be"
+    "'use_best_pair' should be TRUE or FALSE"
   )
-  expect_error(gt_clumppling(capeverde, test_comm = 1), "'test_comm' must be")
+  expect_error(
+    gt_clumppling(capeverde, test_comm = 1),
+    "'test_comm' should be TRUE or FALSE"
+  )
   expect_error(
     gt_clumppling(capeverde, comm_min = NA),
     "'comm_min' and 'comm_max'"

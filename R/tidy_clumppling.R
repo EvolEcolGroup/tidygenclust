@@ -40,8 +40,8 @@ tidy.gt_clumppling <- function(
     # the K and the rank of each mode are parsed from its label (e.g. "K3M2")
     all_modes <- names(x$aligned_modes)
     tibble::tibble(
-      k = as.numeric(gsub(".*K(\\d+)M.*", "\\1", all_modes)),
-      m = as.numeric(gsub(".*M(\\d+).*", "\\1", all_modes)),
+      k = as.numeric(mode_k(all_modes)),
+      m = as.numeric(mode_rank(all_modes)),
       label = all_modes
     )
   } else if (matrix == "major_modes") {
@@ -76,3 +76,8 @@ tidy_q <- function(x) {
     dplyr::mutate(q = sub("^\\.Q", "", .data$q))
   q_tbl
 }
+
+# the K and the rank of modes, parsed from their labels (e.g. 12 and 3 for
+# "K12M3"); matching the text "K1" would also select K10, K11, ...
+mode_k <- function(label) as.integer(sub("^K(\\d+)M\\d+$", "\\1", label))
+mode_rank <- function(label) as.integer(sub("^K\\d+M(\\d+)$", "\\1", label))

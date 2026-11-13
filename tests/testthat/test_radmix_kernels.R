@@ -22,14 +22,8 @@ test_that("kernels match the reference on unsorted rows and columns", {
 })
 
 test_that("kernels match the reference with pseudohaploids", {
-  hap_genotypes <- sim$genotypes
-  # make the first 15 individuals fully homozygous
-  hom <- 1:15
-  hap_genotypes[hom, ] <- 2 * (hap_genotypes[hom, ] >= 1)
-  pseudo_gt <- tidypopgen::gt_pseudohaploid(
-    radmix_test_gt(hap_genotypes)
-  )
-  inp <- radmix_ref_inputs(pseudo_gt)
+  # the first 15 individuals are pseudohaploid
+  inp <- radmix_ref_inputs(radmix_pseudohaploid_gt(sim$genotypes, 1:15))
   expect_true(any(inp$n == 1))
   expect_true(any(inp$n == 2))
   radmix_expect_ref_match(inp, k = 3)
@@ -96,11 +90,7 @@ test_that("gradients and Hessians match numerical derivatives", {
   small <- radmix_simulate_admixed(
     n = 7, m = 12, k = 2, missing = 0.1, seed = 5
   )
-  hom <- 1:2
-  small$genotypes[hom, ] <- 2 * (small$genotypes[hom, ] >= 1)
-  inp <- radmix_ref_inputs(tidypopgen::gt_pseudohaploid(
-    radmix_test_gt(small$genotypes)
-  ))
+  inp <- radmix_ref_inputs(radmix_pseudohaploid_gt(small$genotypes, 1:2))
   st <- radmix_ref_start(7, 12, 3)
   q <- st$q
   p <- st$p

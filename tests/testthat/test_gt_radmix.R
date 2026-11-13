@@ -3,20 +3,6 @@ sim <- radmix_simulate_admixed(
 )
 sim_gt <- radmix_test_gt(sim$genotypes)
 
-# best match between estimated and true clusters, by correlation of Q columns
-# (K = 3: of the 6 permutations, the one that maximises the summed
-# correlations between matched columns)
-match_clusters <- function(q_est, q_true) {
-  perms <- list(
-    c(1, 2, 3), c(1, 3, 2), c(2, 1, 3),
-    c(2, 3, 1), c(3, 1, 2), c(3, 2, 1)
-  )
-  scores <- vapply(perms, function(x) {
-    sum(diag(stats::cor(q_est[, x], q_true)))
-  }, numeric(1))
-  perms[[which.max(scores)]]
-}
-
 test_that("gt_radmix returns a valid gt_admix object", {
   adm <- gt_radmix(sim_gt, k = 2:3, n_runs = 2, seed = c(1, 2))
   expect_s3_class(adm, "gt_admix")
@@ -49,7 +35,7 @@ test_that("the log-likelihood is monotone and estimates recover the truth", {
   expect_true(fit$converged)
   # (a small relative tolerance allows for rounding)
   expect_true(all(diff(fit$loglik_history) >= -1e-6 * abs(fit$loglik)))
-  perm <- match_clusters(fit$q, sim$q)
+  perm <- radmix_match_clusters(fit$q, sim$q)
   expect_gt(min(diag(stats::cor(fit$q[, perm], sim$q))), 0.9)
   expect_lt(mean(abs(fit$q[, perm] - sim$q)), 0.08)
 })
@@ -112,12 +98,8 @@ test_that("fixing Q estimates allele frequencies", {
 })
 
 test_that("pseudohaploid data can be analysed", {
-  hap_genotypes <- sim$genotypes
-  # make the first 20 individuals pseudohaploid (homozygous)
-  hap_genotypes[1:20, ] <- 2 * (hap_genotypes[1:20, ] >= 1)
-  pseudo_gt <- tidypopgen::gt_pseudohaploid(
-    radmix_test_gt(hap_genotypes)
-  )
+  # the first 20 individuals are pseudohaploid
+  pseudo_gt <- radmix_pseudohaploid_gt(sim$genotypes, 1:20)
   expect_identical(tidypopgen::show_ploidy(pseudo_gt), -2)
   adm <- gt_radmix(pseudo_gt, k = 3, seed = 1)
   expect_true(adm$converged)

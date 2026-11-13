@@ -146,9 +146,7 @@ test_that("the SVD start works with grouped and pseudohaploid data", {
   expect_identical(
     adm$Q, gt_radmix(svd_gt, k = 3, seed = 1, init = "svd")$Q
   )
-  hap_genotypes <- svd_sim$genotypes
-  hap_genotypes[1:20, ] <- 2 * (hap_genotypes[1:20, ] >= 1)
-  pseudo_gt <- tidypopgen::gt_pseudohaploid(radmix_test_gt(hap_genotypes))
+  pseudo_gt <- radmix_pseudohaploid_gt(svd_sim$genotypes, 1:20)
   adm <- gt_radmix(pseudo_gt, k = 3, seed = 1, init = "svd")
   expect_true(adm$converged)
 })

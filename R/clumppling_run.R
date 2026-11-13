@@ -9,11 +9,9 @@
 #'   `clumppling_prepare_q_list()`
 #' @param cd_method,cd_res,test_comm,comm_min,comm_max see [gt_clumppling()]
 #' @param merge,use_rep,use_best_pair see [gt_clumppling()]
-#' @returns a list with the results, including intermediate ones: `N`,
-#'   `K_range`, `mode_names`, `aligned_modes` (a list of matrices),
-#'   `cost_acrossK`, `alignment_acrossK`, `best_acrossK`, `major_acrossK`,
-#'   `mode_stats`, `mode_alignment`, and, for each K, the `cost_withinK`
-#'   matrices and the `communities` of replicates
+#' @returns a list with `N`, `K_range`, `mode_names`, `aligned_modes` (a
+#'   list of matrices, one per mode), `cost_acrossK`, `mode_stats` and
+#'   `mode_alignment` (the mode of each replicate)
 #' @keywords internal
 #' @noRd
 clumppling_run <- function(q_data, cd_method = "louvain", cd_res = 1,
@@ -31,8 +29,6 @@ clumppling_run <- function(q_data, cd_method = "louvain", cd_res = 1,
   # align within K, and detect and extract modes; the results are lists with
   # one element per K (in increasing order), named "K2", "K3", ...
   cd_res_list <- list()
-  cost_within_k <- list()
-  communities_list <- list()
   for (k in k_range) {
     # the replicates with this K, in their order in the input (replicate r
     # of this K is named "<i>_K<k>R<r>", see clumppling_prepare_q_list())
@@ -56,8 +52,6 @@ clumppling_run <- function(q_data, cd_method = "louvain", cd_res = 1,
       aligned$cost, q_names_k, q_list_k, aligned$pattern,
       label_prefix = paste0(k_label, "M")
     )
-    cost_within_k[[k_label]] <- aligned$cost
-    communities_list[[k_label]] <- communities
   }
 
   # align modes across K: each mode is summarised by the Q matrix of its
@@ -101,12 +95,7 @@ clumppling_run <- function(q_data, cd_method = "louvain", cd_res = 1,
     mode_names = mode_names,
     aligned_modes = unname(aligned_qs[mode_names]),
     cost_acrossK = across_k$cost_acrossK,
-    alignment_acrossK = across_k$alignment_acrossK,
-    best_acrossK = across_k$best_acrossK,
-    major_acrossK = across_k$major_acrossK,
     mode_stats = rbind_cd("mode_stats"),
-    mode_alignment = rbind_cd("align_info"),
-    cost_withinK = cost_within_k,
-    communities = communities_list
+    mode_alignment = rbind_cd("align_info")
   )
 }

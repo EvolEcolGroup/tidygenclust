@@ -138,7 +138,7 @@ clumppling_align_across_k <- function(k_range, q_modes_list, mode_names_list,
 #' to propagate the order of the clusters to larger K, and the other modes of
 #' each K are aligned to the anchor mode of that K. New clusters appearing at
 #' larger K are placed after the existing ones.
-#' @param k_range the sorted values of K
+#' @param k_range the sorted values of K (at least two)
 #' @param q_modes_list a list (one element per K) of lists of mode matrices
 #' @param mode_names_list a list (one element per K) of mode names
 #' @param alignment_across_k the alignments returned by
@@ -151,82 +151,58 @@ clumppling_align_across_k <- function(k_range, q_modes_list, mode_names_list,
 clumppling_reorder_q_across_k <- function(k_range, q_modes_list,
                                           mode_names_list, alignment_across_k,
                                           anchor_pairs) {
-  # anchor pairs from the smallest K: the i-th pair links a mode of
-  # k_range[i] to a mode of k_range[i + 1]
-  anchor_pairs_rev <- rev(anchor_pairs)
-  aligned_qs <- list()
+  stopifnot(length(anchor_pairs) == length(k_range) - 1)
+  # the two modes of each anchor pair, from the smallest K: the i-th pair
+  # links a mode of k_range[i] to a mode of k_range[i + 1]
+  anchor_modes <- strsplit(rev(anchor_pairs), "-", fixed = TRUE)
+  get_mode <- function(i, mode) {
+    q_modes_list[[i]][[match(mode, mode_names_list[[i]])]]
+  }
+  # the pattern of a mode q aligned (without merging) to a mode p whose
+  # clusters go to the positions given by p_pattern
+  follow <- function(p_pattern, p, q, pair) {
+    aligned <- clumppling_align_q_wrt_p(p, q, alignment_across_k[[pair]],
+      merge = FALSE
+    )
+    p_pattern[aligned$pattern]
+  }
   # for each mode, the final (1-based) position of each of its columns, so
-  # that column j of the mode becomes column base_patterns[[mode]][j] of its
+  # that column j of the mode becomes column patterns[[mode]][j] of its
   # aligned matrix. Positions are consistent across K: a cluster matched to
   # a cluster of the smaller K takes its position, and the new clusters of a
   # larger K go after those of the smaller K.
-  base_patterns <- list()
-  split_pair <- function(pair) strsplit(pair, "-", fixed = TRUE)[[1]]
-
-  # the smallest K: the anchor mode keeps its order, the other modes are
-  # aligned to it (as their alignments to it are permutations, they are also
-  # their base patterns)
-  mode_names <- mode_names_list[[1]]
-  # there is always an anchor pair, as there are at least two K; the
-  # alternative is kept from clumppling
-  if (length(anchor_pairs) > 0) {
-    m1 <- split_pair(anchor_pairs_rev[1])[1]
-    m_m1 <- match(m1, mode_names)
-    base_patterns[[m1]] <- seq_len(k_range[1])
-  } else {
-    m_m1 <- 1L
-    m1 <- mode_names[1]
-  }
-  aligned_qs[[m1]] <- q_modes_list[[1]][[m_m1]]
-  for (m in seq_along(q_modes_list[[1]])) {
-    if (m == m_m1) next
-    m2 <- mode_names[m]
-    ali_pat <- alignment_across_k[[paste0(m1, "-", m2)]]
-    aligned_qs[[m2]] <- clumppling_move_columns(q_modes_list[[1]][[m]], ali_pat)
-    base_patterns[[m2]] <- ali_pat
-  }
-
-  # propagate to larger K through the anchor pairs
-  for (i_pair in seq_along(anchor_pairs_rev)) {
-    # m1: the mode of k_range[i_pair] in this pair (not necessarily the
-    # anchor of the previous step, but all the modes of k_range[i_pair]
-    # already have a base pattern); m2: the mode of the next K (i_k), which
-    # becomes the anchor of that K
-    pair <- anchor_pairs_rev[i_pair]
-    m1 <- split_pair(pair)[1]
-    m2 <- split_pair(pair)[2]
-    i_k <- i_pair + 1
-    m_m2 <- match(m2, mode_names_list[[i_k]])
-    q <- q_modes_list[[i_k]][[m_m2]]
-    m1_k <- k_range[i_pair]
-    p <- q_modes_list[[i_pair]][[match(m1, mode_names_list[[i_pair]])]]
-    # without merging, each column of P keeps the closest of the columns of Q
-    # matched to it (positions 1 to m1_k), and the other columns of Q get
-    # positions m1_k + 1, m1_k + 2, ...
-    new_pattern <- clumppling_align_q_wrt_p(p, q, alignment_across_k[[pair]],
-      merge = FALSE
-    )$pattern
-    # clusters matched to the smaller K follow its order, new ones are added
-    # at the end
-    pat <- vapply(new_pattern, function(i) {
-      if (i <= m1_k) base_patterns[[m1]][i] else i
-    }, integer(1))
-    aligned_qs[[m2]] <- clumppling_move_columns(q, pat)
-    base_patterns[[m2]] <- pat
-
+  patterns <- list()
+  aligned_qs <- list()
+  for (i in seq_along(k_range)) {
+    if (i == 1) {
+      # the anchor mode of the smallest K keeps its order
+      anchor <- anchor_modes[[1]][1]
+      patterns[[anchor]] <- seq_len(k_range[1])
+    } else {
+      # the anchor mode of this K follows the mode of the previous K in its
+      # anchor pair (not necessarily the anchor of that K, but all the modes
+      # of that K already have a pattern): the closest match of each cluster
+      # of that mode takes its position, and the other clusters of this K
+      # (the new ones) go after the clusters of the previous K
+      prev <- anchor_modes[[i - 1]][1]
+      anchor <- anchor_modes[[i - 1]][2]
+      new_clusters <- seq.int(k_range[i - 1] + 1, k_range[i])
+      patterns[[anchor]] <- follow(
+        c(patterns[[prev]], new_clusters), get_mode(i - 1, prev),
+        get_mode(i, anchor), paste0(prev, "-", anchor)
+      )
+    }
     # the other modes of this K are aligned to its anchor mode (with the same
     # K the alignments are permutations), and then follow its order
-    for (m in seq_along(q_modes_list[[i_k]])) {
-      if (m == m_m2) next
-      m3 <- mode_names_list[[i_k]][m]
-      q3 <- q_modes_list[[i_k]][[m]]
-      new_pattern <- clumppling_align_q_wrt_p(q, q3,
-        alignment_across_k[[paste0(m2, "-", m3)]],
-        merge = FALSE
-      )$pattern
-      pat <- base_patterns[[m2]][new_pattern]
-      aligned_qs[[m3]] <- clumppling_move_columns(q3, pat)
-      base_patterns[[m3]] <- pat
+    q_anchor <- get_mode(i, anchor)
+    for (mode in c(anchor, setdiff(mode_names_list[[i]], anchor))) {
+      q <- get_mode(i, mode)
+      if (mode != anchor) {
+        patterns[[mode]] <- follow(
+          patterns[[anchor]], q_anchor, q, paste0(anchor, "-", mode)
+        )
+      }
+      aligned_qs[[mode]] <- clumppling_move_columns(q, patterns[[mode]])
     }
   }
   aligned_qs

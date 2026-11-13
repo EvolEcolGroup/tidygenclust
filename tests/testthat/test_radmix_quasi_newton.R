@@ -12,13 +12,6 @@ qn_reference <- function(u_mat, v_mat, x0, x1) {
   drop(x1 - v_mat %*% coef)
 }
 
-random_state <- function(k, n_indiv, n_loci) {
-  q <- matrix(stats::runif(k * n_indiv), k)
-  q <- sweep(q, 2, colSums(q), "/")
-  p <- matrix(stats::runif(k * n_loci, 0.05, 0.95), k)
-  list(q = q, p = p)
-}
-
 # the secant pair of three successive states, as a column of U and of V
 secant_pair <- function(s0, s1, s2) {
   list(
@@ -34,7 +27,8 @@ test_that("the quasi-Newton step matches the formula", {
   # more parameters than a chunk (65536), to exercise the chunked sums
   n_loci <- 30000
   for (m in 1:3) {
-    states <- replicate(m + 2, random_state(k, n_indiv, n_loci),
+    states <- replicate(m + 2,
+      radmix_ref_start(n_indiv, n_loci, k, seed = NULL),
       simplify = FALSE
     )
     pairs <- lapply(seq_len(m), function(i) {
@@ -69,7 +63,7 @@ test_that("the quasi-Newton step matches the formula", {
 test_that("a singular system skips the step", {
   set.seed(2)
   k <- 2
-  st <- random_state(k, 5, 10)
+  st <- radmix_ref_start(5, 10, k, seed = NULL)
   s1 <- list(q = st$q * 0.9, p = st$p * 0.9)
   s2 <- list(q = st$q * 0.8, p = st$p * 0.8)
   pair <- secant_pair(st, s1, s2)
@@ -83,7 +77,7 @@ test_that("a singular system skips the step", {
 })
 
 test_that("invalid arguments are errors", {
-  st <- random_state(2, 5, 10)
+  st <- radmix_ref_start(5, 10, 2, seed = NULL)
   u_mat <- matrix(0.1, 2 * 15, 2)
   expect_error(
     radmix_qn_step_cpp(u_mat[-1, ], u_mat, st$q, st$p, st$q, st$p, 1),

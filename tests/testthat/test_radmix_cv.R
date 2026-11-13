@@ -82,11 +82,12 @@ test_that("invalid masks are rejected", {
 
 test_that("the deviance kernel matches the R reference", {
   # random q (columns on the simplex) and p, in the layout of the kernels
-  set.seed(1)
   k <- 3
-  q <- matrix(stats::runif(k * dat$n_indiv), k)
-  q <- sweep(q, 2, colSums(q), "/")
-  p <- matrix(stats::runif(k * dat$n_loci, 0.01, 0.99), k)
+  st <- radmix_ref_start(dat$n_indiv, dat$n_loci, k,
+    seed = 1, p_range = c(0.01, 0.99)
+  )
+  q <- st$q
+  p <- st$p
   cv <- list(mode = "held_out", fold = 2, n_folds = 5, seed = 11)
   held_out <- radmix_set_cv(dat, cv = cv)
   g_held_out <- radmix_decode(dat, cv = cv)
@@ -108,16 +109,13 @@ test_that("the deviance kernel matches the R reference", {
 })
 
 test_that("the deviance handles pseudohaploids", {
-  hap_genotypes <- sim$genotypes
-  hap_genotypes[1:20, ] <- 2 * (hap_genotypes[1:20, ] >= 1)
-  pseudo_dat <- radmix_prepare(
-    tidypopgen::gt_pseudohaploid(radmix_test_gt(hap_genotypes))
-  )
-  set.seed(2)
+  pseudo_dat <- radmix_prepare(radmix_pseudohaploid_gt(sim$genotypes, 1:20))
   k <- 2
-  q <- matrix(stats::runif(k * pseudo_dat$n_indiv), k)
-  q <- sweep(q, 2, colSums(q), "/")
-  p <- matrix(stats::runif(k * pseudo_dat$n_loci, 0.01, 0.99), k)
+  st <- radmix_ref_start(pseudo_dat$n_indiv, pseudo_dat$n_loci, k,
+    seed = 2, p_range = c(0.01, 0.99)
+  )
+  q <- st$q
+  p <- st$p
   expect_equal(
     radmix_deviance_cpp(pseudo_dat, q, p, 1),
     ref_deviance(radmix_decode(pseudo_dat), pseudo_dat$n_trials, q, p),

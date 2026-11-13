@@ -55,7 +55,8 @@
 #'   will apply to all the conda environments (e.g. `conda_yaml="auto"` is
 #'   equivalent to `conda_yaml = c("auto", "auto")` in osx); a single path is
 #'   used for `ctidygenclust` (and "auto" for the environment of ADMIXTURE on
-#'   osx). Tools that are not in `tools` are left out of the yaml files.
+#'   osx). Tools that are not in `tools` are left out of the yaml files, as
+#'   is `fastmixture`, which is always installed from github.
 #' @param ci_install a boolean indicating if the installation is being run on
 #'   continuous integration (CI) services. Default is FALSE. If TRUE, the
 #'   function will look for the conda yaml file in the `inst/env_snapshots`
@@ -134,8 +135,8 @@ tgc_tools_install <-
       }
     }
 
-    # fastmixture is always (re)installed from github in a new environment,
-    # as the conda yaml installs the version from pypi
+    # fastmixture is always installed from github in a new environment (it
+    # is left out of the conda yaml, which has the version from pypi)
     if ("fastmixture" %in% tools) {
       if (new_env || !tgc_tool_installed("fastmixture")) {
         tgc_fastmixture_install(fastmixture_hash = fastmixture_hash)
@@ -250,12 +251,7 @@ tgc_admixture_install <- function(conda_yaml = "auto", ci_install = FALSE) {
     if (reticulate::condaenv_exists("cadmixture86")) {
       reticulate::conda_remove("cadmixture86")
     }
-    if (is.null(conda_yaml)) {
-      conda_yaml <- NA_character_
-    }
-    # resolve the yaml of cadmixture86, the second environment on osx (the
-    # first value, for ctidygenclust, is a placeholder)
-    conda_yaml <- tgc_resolve_conda_yaml(c("auto", conda_yaml), ci_install)[2]
+    conda_yaml <- tgc_env_yaml(conda_yaml, "cadmixture86", ci_install)
     # ADMIXTURE is only available for osx as x86 in bioconda
     # so we have to create a new environment and set it to x86_64
     reticulate::conda_create("cadmixture86",
@@ -471,70 +467,64 @@ tgc_check_brew <- function() {
 # for ctidygenclust and, on osx, the one for cadmixture86 (NA if conda should
 # install the latest available packages)
 tgc_resolve_conda_yaml <- function(conda_yaml, ci_install) {
-  is_mac <- tgc_is_mac()
-  n_envs <- if (is_mac) 2 else 1
+  envs <- c("ctidygenclust", if (tgc_is_mac()) "cadmixture86")
+  # NULL means no yaml (also as "NULL", from as.character(list(NULL)))
   if (is.null(conda_yaml)) {
     conda_yaml <- NA_character_
   }
   conda_yaml <- as.character(conda_yaml)
-  conda_yaml[is.na(conda_yaml) | conda_yaml == "NULL"] <- NA_character_
+  conda_yaml[conda_yaml %in% "NULL"] <- NA_character_
   # a single "auto" or NA (NULL) applies to all the conda environments; a
   # single path is the yaml of ctidygenclust (the first environment), and the
   # other environments use the latest tested yaml
-  if (length(conda_yaml) == 1) {
-    recycle <- is.na(conda_yaml) || conda_yaml == "auto"
-    conda_yaml <- c(
-      conda_yaml,
-      rep(if (recycle) conda_yaml else "auto", n_envs - 1)
+  if (length(conda_yaml) == 1 && !is.na(conda_yaml) && conda_yaml != "auto") {
+    conda_yaml <- c(conda_yaml, "auto")
+  }
+  conda_yaml <- rep_len(conda_yaml, length(envs))
+  vapply(seq_along(envs), function(i) {
+    tgc_env_yaml(conda_yaml[i], envs[i], ci_install)
+  }, character(1))
+}
+
+# the conda yaml file of one environment ("ctidygenclust" or "cadmixture86"):
+# "auto" is the latest snapshot tested on this operating system, NA or NULL
+# give NA (conda installs the latest available packages), and any other value
+# is the path of a yaml file, which must exist
+tgc_env_yaml <- function(conda_yaml, env, ci_install) {
+  if (is.null(conda_yaml) || is.na(conda_yaml)) {
+    return(NA_character_)
+  }
+  if (conda_yaml == "auto") {
+    # the snapshots are in inst/env_snapshots of the source package, which is
+    # in the working directory on CI, or in env_snapshots once installed
+    conda_yaml_dir <- if (ci_install) {
+      file.path("inst", "env_snapshots")
+    } else {
+      system.file("env_snapshots", package = "tidygenclust")
+    }
+    # the file names end with the date of the snapshot, as YYYYMMDD, so the
+    # latest one is the last in alphabetical order
+    os <- if (tgc_is_mac()) "osx" else "linux"
+    snapshots <- list.files(conda_yaml_dir,
+      pattern = paste0("^", env, "_", os, "_"), full.names = TRUE
+    )
+    if (length(snapshots) == 0) {
+      stop(
+        "No conda yaml snapshot found in '", conda_yaml_dir, "'",
+        if (ci_install) {
+          " (with ci_install = TRUE, run from the root of the package source)"
+        }
+      )
+    }
+    return(utils::tail(snapshots, 1))
+  }
+  if (!file.exists(conda_yaml)) {
+    stop(
+      "The conda yaml file '", conda_yaml, "' does not exist. Please ",
+      "provide a valid path to a conda yaml file."
     )
   }
-
-  # the snapshots are in inst/env_snapshots of the source package, which is
-  # in the working directory on CI, or in env_snapshots once installed
-  conda_yaml_dir <- ifelse(
-    ci_install,
-    file.path("inst", "env_snapshots"),
-    system.file("env_snapshots/", package = "tidygenclust")
-  )
-  # replace "auto" with the path to the latest available yaml (the file
-  # names end with the date of the snapshot, as YYYYMMDD, so the latest one
-  # is the last in alphabetical order)
-  patterns <- if (is_mac) {
-    c("ctidygenclust_osx_", "cadmixture86_osx_")
-  } else {
-    "ctidygenclust_linux_"
-  }
-  for (i in seq_len(n_envs)) {
-    if (!is.na(conda_yaml[i]) && conda_yaml[i] == "auto") {
-      snapshots <- list.files(conda_yaml_dir,
-        pattern = patterns[i], full.names = TRUE
-      )
-      if (length(snapshots) == 0) {
-        stop(
-          "No conda yaml snapshot found in '", conda_yaml_dir, "'",
-          if (ci_install) {
-            " (with ci_install = TRUE, run from the root of the package source)"
-          }
-        )
-      }
-      conda_yaml[i] <- utils::tail(snapshots, 1)
-    }
-  }
-
-  # check that the files exist (NA values are left as they are)
-  for (i in seq_len(n_envs)) {
-    if (!is.na(conda_yaml[i]) && !file.exists(conda_yaml[i])) {
-      stop(
-        paste0(
-          "The conda yaml file '",
-          conda_yaml[i],
-          "' does not exist. Please provide a valid path to a ",
-          "conda yaml file."
-        )
-      )
-    }
-  }
-  conda_yaml[seq_len(n_envs)]
+  conda_yaml
 }
 
 # create the conda environment for the optional tools, from a yaml file (with
@@ -558,7 +548,9 @@ tgc_create_conda_env <- function(envname, tools, conda_yaml) {
   )
 }
 
-# a copy of a conda yaml file without the tools that were not requested
+# a copy of a conda yaml file without the tools that were not requested, and
+# without fastmixture, which is installed from github in any case (see
+# tgc_fastmixture_install())
 tgc_filter_conda_yaml <- function(conda_yaml, tools) {
   lines <- readLines(conda_yaml)
   # the dependency of each tool, either a conda package (e.g.
@@ -569,7 +561,7 @@ tgc_filter_conda_yaml <- function(conda_yaml, tools) {
     admixture = "^\\s*- admixture\\s*([=<>]|$)",
     adamixture = "^\\s*- adamixture\\s*([=<>]|$)"
   )
-  for (tool in setdiff(names(tool_lines), tools)) {
+  for (tool in union("fastmixture", setdiff(names(tool_lines), tools))) {
     lines <- lines[!grepl(tool_lines[[tool]], lines)]
   }
   # remove the pip section if it is now empty (i.e. it is not followed by
