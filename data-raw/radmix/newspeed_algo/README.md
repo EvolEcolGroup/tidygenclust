@@ -50,13 +50,31 @@ export HGDP_DIR=/path/to/vignettes/articles/data/hgdp
 export EUR_BED=$HOME/.cache/R/tidygenclust/EUR_subset.bed   # if elsewhere
 S=data-raw/radmix/newspeed_algo/run_desktop.sh
 bash $S smoke          # HGDP quick, a few minutes: the scripts run
-bash $S cv_timing      # Part A wall-clock (~1 h)
+bash $S cv_timing      # Part A wall-clock (rough guess: ~1 h)
 bash $S warmup hgdp    # Part B on the pruned HGDP, K = 5 and 10 (~1 h)
 bash $S warmup hgdp_full   # Part B on the unpruned HGDP (~2-3 h)
-bash $S warmup eur     # Part B on EUR_subset (~10 min)
+bash $S warmup eur     # Part B on EUR_subset, 10 seeds: the modes (~20 min)
 bash $S cv             # Part A, more K and seeds (several hours)
-bash $S summary        # tables of the report, from all the outputs
+bash $S summary        # the summary tables, from all the outputs
 ```
+
+`smoke` was run on the laptop (HGDP quick, 1 core) on 2026-11-13 and
+completed. The durations above are guesses from the laptop's pass counts
+and the desktop's earlier timings.
+
+## The laptop's results
+
+`results_laptop/` holds the summaries of the laptop runs of 2026-11-13
+(one thread per job, on a machine loaded by other jobs, so the times in
+them are indicative only):
+
+- `cv_policies_errors.csv` and `cv_policies.txt`: Part A, HGDP K = 2, 3,
+  5, 8 (seed 1) and EUR_subset K = 1-5 (seed 1), every policy;
+- `warmup.csv` and `warmup.txt`: Part B, HGDP K = 5 (seeds 1-3) and
+  K = 10 (seed 1), unpruned HGDP K = 5 (seed 1), EUR_subset K = 3 and 4
+  (seeds 1-5);
+- `smoke_cv_timing.csv`: the smoke run of `cv_policy_timing.R` (HGDP
+  quick, K = 3).
 
 `NC` (default 8) sets the number of threads; they are bound to the
 P-cores with `OMP_PROC_BIND=close OMP_PLACES=cores`. Keep the machine

@@ -64,14 +64,14 @@ case "${1:-}" in
     ds=${2:-all}
     if [[ $ds == all || $ds == eur ]]; then
       for k in 3 4; do
-        run "$here/warmup_compare.R" "$LIB" eur $k 1:5 \
-          random,svd,sub10,sub25,mbtol3 "$NC" "$out/warmup"
+        run "$here/warmup_compare.R" "$LIB" eur $k 1:10 \
+          random,svd,sub10,sub25,sub50 "$NC" "$out/warmup"
       done
     fi
     if [[ $ds == all || $ds == hgdp ]]; then
       for k in 5 10; do
         run "$here/warmup_compare.R" "$LIB" hgdp $k 1:5 \
-          random,svd,sub5,sub10,sub25,mbtol3 "$NC" "$out/warmup"
+          random,svd,sub2,sub5,sub10,mbtol3 "$NC" "$out/warmup"
       done
     fi
     if [[ $ds == all || $ds == hgdp_full ]]; then
