@@ -22,6 +22,7 @@ implemented, and ends with the origins of the code.
 | `R/gt_radmix.R` | User interface: checks the arguments, prepares the data once, loops over K and runs, assembles the `gt_admix` object |
 | `R/radmix_data.R` | Builds the description of the genotypes passed to C++ (backing file, selected rows and columns, decoding table, ploidy) and the cross-validation masks |
 | `R/radmix_svd.R` | The SVD start (`init = "svd"`): the factors of the SVD, and the best of several ALS solutions |
+| `R/radmix_subset.R` | The subset start (`init = "subset"`): a fit to a random subset of the loci, extended to all of them |
 | `R/radmix_fit.R` | Thin wrapper around the C++ fitting loop |
 | `R/radmix_cv.R` | Cross-validation |
 | `src/radmix_fit.cpp` | The fitting loop: random start, EM priming, block updates, quasi-Newton steps, convergence |
@@ -131,7 +132,7 @@ when `seed` is given, the user's random number state is restored on exit.
 
 ### 3. Starting values
 
-There are three ways to start a fit.
+There are four ways to start a fit.
 
 **Random start (the default).** Q and P are drawn from uniform
 distributions, and each column of Q is rescaled to sum to one. This is far
@@ -184,6 +185,22 @@ so repeated runs explore few modes: it is an option, for a fast single fit,
 not the default. R's BLAS is limited to one thread while ALS runs: its
 products are tall and skinny, and BLAS threads only competed with the OpenMP
 threads.
+
+**Subset start** (`init = "subset"`, `radmix_subset_start()`). A random
+start fitted to a random subset of the loci (a fraction `init_subset`, 5%
+by default), with its EM priming, to a relative tolerance of 1e-6; then P
+for all the loci given the Q of that fit: one EM step from frequencies of
+0.5 in every population, which gives the frequencies weighted by
+ancestry (`p_kj = sum_i q_ik g_ij / sum_i n_i q_ik`), and two Newton P
+steps (three passes over all the genotypes). The fit of all the loci
+starts from there, without EM. The subset is a view (its `cols` only), so
+no genotypes are copied. On the HGDP it halves the passes of a fit, as
+the fit of all the loci then needs about 9 iterations, and the passes
+over the subset cost a fraction of a full pass; but the subset fit
+chooses the mode, and it ended in a lower mode more often than random
+starts did on weakly structured data (EUR_subset, K = 3), and in a much
+lower one in a single run on the HGDP at K = 10
+(`data-raw/radmix/newspeed_algo/`). An option, not the default.
 
 ### 4. The EM step
 

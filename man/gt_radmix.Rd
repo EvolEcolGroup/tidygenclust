@@ -13,7 +13,8 @@ gt_radmix(
   rtol = 1e-08,
   n_em_iter = 5,
   n_qn = 3,
-  init = c("random", "svd"),
+  init = c("random", "svd", "subset"),
+  init_subset = 0.05,
   init_q = NULL,
   init_p = NULL,
   fix_q = FALSE,
@@ -58,8 +59,14 @@ acceleration (defaults to 3, as in ADMIXTURE)}
 in ADMIXTURE; or \code{"svd"}, from a truncated SVD of the
 genotypes, which needs fewer iterations but is not suited to exploring
 the modes of the likelihood with several runs (see "Starting values
-from the SVD" in the details). \code{"svd"} cannot be combined with \code{init_q}
-or \code{init_p}.}
+from the SVD" in the details); or \code{"subset"}, a random start fitted to
+a random subset of the loci and extended to all of them, which needs
+fewer passes over the genotypes on large data (see "Starting values
+from a subset of the loci" in the details). \code{"svd"} and \code{"subset"}
+cannot be combined with \code{init_q} or \code{init_p}.}
+
+\item{init_subset}{the fraction of the loci used by \code{init = "subset"}
+(defaults to 0.05)}
 
 \item{init_q}{optional matrix (individuals x k) of starting ancestry
 proportions; only allowed with a single value of \code{k}}
@@ -226,6 +233,30 @@ likelihood with several runs (e.g. with \code{\link[=gt_clumppling]{gt_clumpplin
 starts (the default), and do not mix runs started in the two ways, as
 the runs started from the SVD would over-represent the solutions that
 they favour.
+}
+
+\subsection{Starting values from a subset of the loci}{
+
+With \code{init = "subset"}, each run starts with a fit to a random subset
+of the loci (a fraction \code{init_subset} of them, 5\% by default), from a
+random start primed by \code{n_em_iter} EM iterations, to a relative
+tolerance of 1e-6. The ancestry proportions of that fit, and the
+allele frequencies that best fit each locus given them (one EM and two
+Newton steps over all the loci), then start the fit of all the loci,
+without EM priming. Passes over the subset cost a fraction of a pass
+over all the loci, and the fit of all the loci starts close to a mode,
+so it needs fewer iterations: in our tests on the HGDP (1,043
+individuals, K = 5), 9-11 iterations instead of 21-27, and 0.4-0.55
+times the passes over the genotypes of a random start, on 130,943 or
+642,794 loci. But the fit of the subset chooses the mode: on
+EUR_subset (379 individuals, 54,051 loci, K = 3, 10\% of the loci), 4
+of 5 runs ended in a lower mode, against 1 of 5 from random starts,
+and on the HGDP at K = 10 (a single run, 5\% of the loci) the run
+ended 67,600 log-likelihood units below the random start of the same
+seed (in 64 passes, against 206).
+This start is meant for a fast fit of a large dataset; to explore the
+modes of the likelihood with several runs (e.g. with \code{\link[=gt_clumppling]{gt_clumppling()}}),
+use random starts, and do not mix runs started in different ways.
 }
 
 \subsection{Cross-validation}{

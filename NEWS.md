@@ -21,6 +21,10 @@
   The refits of the folds of cross-validation, which run to convergence by
   default, can be shortened with `cv_max_iter` or `cv_rtol` (faster, but
   with errors biased downwards, more so at larger K).
+  With `init = "subset"`, runs start from a fit to a random subset of the
+  loci (`init_subset`, 5% by default), extended to all of them: about half
+  the passes over the genotypes of a random start on large data, but the
+  runs can favour other modes than random starts do.
   Its computations were sped up by cheaper decoding of the genotypes and
   likelihood terms and by processing two loci at a time (about 1.3-1.4x),
   and, on x86-64 Linux, by also compiling them for AVX2 and FMA (about 1.6x

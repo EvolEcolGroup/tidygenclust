@@ -35,6 +35,7 @@ copies of the parameters to 10.
 | 2026-11-13 | cross-validation: the hidden genotypes of a fold as a bit mask, built once per fold fit | passes with a fold hidden cost as plain ones (were 1.44-1.56x); mask 17 MB for the HGDP, 87 MB unpruned | bit-identical |
 | 2026-11-13 | `slice_geno()` and `slice_coef()` forced inline into the AVX2 clones (they were calls to the baseline code) | with the next change: passes 10-15% faster | rounding |
 | 2026-11-13 | cheaper log-likelihood of a slice (scalar fix-up loop skipped for hard calls, arithmetic masks), inlined into the AVX2 clone in the fused pass | with the previous one: an accepted iteration 0.78 of the time before the fused pass (laptop, 1 core, HGDP K = 5) | rounding |
+| 2026-11-13 | subset start, `init = "subset"` (an option) | see below: 0.4-0.5 of the passes of a random start on the HGDP, pruned or not | different starts |
 
 ### The changes of 2026-11-13 (branch `newspeed`)
 
@@ -145,6 +146,40 @@ refined ALS, best of 3) come from `data-raw/radmix/explore_svd_start_refined.R`:
 - the best of 3 ALS solutions (by log-likelihood) removed the poor modes
   of single solutions (HGDP quick K = 5, Africa split in two, 19,800 units
   below); the best of 5 added nothing.
+
+### The subset start
+
+`init = "subset"` (2026-11-13, an option): a random start fitted to a
+random subset of the loci (rtol 1e-6), P extended to all the loci given
+its Q (1 EM + 2 Newton P passes), then the fit of all the loci. Laptop, 1
+core, rtol 1e-8, passes over the genotypes (a pass over the subset counts
+as its fraction of a full pass; `data-raw/radmix/newspeed_algo/`):
+
+| data, K | random: passes (iterations) | subset: passes (iterations of the full fit) | modes |
+|---|---|---|---|
+| HGDP, 5, seeds 1-3 | 111 (21), 141 (27), 111 (21) | 5%: 58.7 (9), 67.3 (11), 55.0 (9); 2%, seed 2: 61.1 (11) | all at the same mode |
+| unpruned HGDP, 5, seed 1 | 130 (24) | 2%: 53.8 (9); 5%: 69.6 (11) | same mode |
+| EUR, 3, seeds 1-5 | median 108 (17-41) | 10%: median 89 (9-50); 25%: 88.5 (8-15); 50%: 99.5 (7-12) | best mode: random 4/5; subset 10% 1/5, 25% 2/5, 50% 3/5 (the others 61-64 units below) |
+| EUR, 4, seeds 1-5 | median 129 (20-53) | 10%: median 78 (11-50) | all at the same mode |
+| HGDP, 10, seed 1 | 206 (37) | 5%: 64.3 (11) | subset 67,600 units below random |
+
+The fit of all the loci needs ~9-11 iterations whatever the size of the
+subset (5, 10 and 25% on the HGDP: 9, 11 and 12), so smaller subsets are
+cheaper. The gain is about the same on the pruned and the unpruned HGDP
+(0.43-0.53 and 0.41-0.54 of the passes): random starts need 21-27 and 24
+iterations, the full fit after the warm-up 9-11 either way, and the
+warm-up costs 5-13 full passes; a subset of a fixed number of loci (2% of
+the unpruned HGDP is 12,900 loci) costs less on more loci, but the full
+fit dominates, so the gain does not grow with the number of loci. Like
+the SVD start, it changes which modes the runs find (HGDP K = 10, one
+seed: a mode 67,600 units below that of the random start; EUR K = 3: the
+smaller the subset, the more often a lower mode; with 50% of the loci the
+bias is smaller but so is the gain), so it is an option, not the
+default. admixer's mini-batch warm-up (B = 32 batches
+of loci, P and Q steps per batch) was less effective: HGDP K = 5, 86
+passes (39 of warm-up, with B halved when an epoch gains less than a
+relative 1e-3; without a tolerance B never halved on HGDP quick, and the
+warm-up ran its 100 epochs).
 
 ### The convergence threshold
 

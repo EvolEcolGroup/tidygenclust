@@ -106,6 +106,29 @@
 #'   the runs started from the SVD would over-represent the solutions that
 #'   they favour.
 #'
+#'   ## Starting values from a subset of the loci
+#'
+#'   With `init = "subset"`, each run starts with a fit to a random subset
+#'   of the loci (a fraction `init_subset` of them, 5% by default), from a
+#'   random start primed by `n_em_iter` EM iterations, to a relative
+#'   tolerance of 1e-6. The ancestry proportions of that fit, and the
+#'   allele frequencies that best fit each locus given them (one EM and two
+#'   Newton steps over all the loci), then start the fit of all the loci,
+#'   without EM priming. Passes over the subset cost a fraction of a pass
+#'   over all the loci, and the fit of all the loci starts close to a mode,
+#'   so it needs fewer iterations: in our tests on the HGDP (1,043
+#'   individuals, K = 5), 9-11 iterations instead of 21-27, and 0.4-0.55
+#'   times the passes over the genotypes of a random start, on 130,943 or
+#'   642,794 loci. But the fit of the subset chooses the mode: on
+#'   EUR_subset (379 individuals, 54,051 loci, K = 3, 10% of the loci), 4
+#'   of 5 runs ended in a lower mode, against 1 of 5 from random starts,
+#'   and on the HGDP at K = 10 (a single run, 5% of the loci) the run
+#'   ended 67,600 log-likelihood units below the random start of the same
+#'   seed (in 64 passes, against 206).
+#'   This start is meant for a fast fit of a large dataset; to explore the
+#'   modes of the likelihood with several runs (e.g. with [gt_clumppling()]),
+#'   use random starts, and do not mix runs started in different ways.
+#'
 #'   ## Cross-validation
 #'
 #'   With `crossval = TRUE`, the cross-validation error of ADMIXTURE
@@ -237,8 +260,13 @@
 #'   in ADMIXTURE; or `"svd"`, from a truncated SVD of the
 #'   genotypes, which needs fewer iterations but is not suited to exploring
 #'   the modes of the likelihood with several runs (see "Starting values
-#'   from the SVD" in the details). `"svd"` cannot be combined with `init_q`
-#'   or `init_p`.
+#'   from the SVD" in the details); or `"subset"`, a random start fitted to
+#'   a random subset of the loci and extended to all of them, which needs
+#'   fewer passes over the genotypes on large data (see "Starting values
+#'   from a subset of the loci" in the details). `"svd"` and `"subset"`
+#'   cannot be combined with `init_q` or `init_p`.
+#' @param init_subset the fraction of the loci used by `init = "subset"`
+#'   (defaults to 0.05)
 #' @param init_q optional matrix (individuals x k) of starting ancestry
 #'   proportions; only allowed with a single value of `k`
 #' @param init_p optional matrix (loci x k) of starting allele frequencies
@@ -296,9 +324,9 @@
 #' adm_cv$cv
 gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
                       rtol = 1e-8, n_em_iter = 5, n_qn = 3,
-                      init = c("random", "svd"),
-                      init_q = NULL, init_p = NULL, fix_q = FALSE,
-                      fix_p = FALSE, use_imputed = FALSE,
+                      init = c("random", "svd", "subset"),
+                      init_subset = 0.05, init_q = NULL, init_p = NULL,
+                      fix_q = FALSE, fix_p = FALSE, use_imputed = FALSE,
                       crossval = FALSE, n_folds = 5,
                       cv_max_iter = max_iter, cv_rtol = rtol, n_cores = 1,
                       verbose = FALSE) {
@@ -360,10 +388,16 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   if (!is.null(seed) && length(seed) == n_runs) {
     seed <- rep(seed, length(k))
   }
-  if (init == "svd" && (!is.null(init_q) || !is.null(init_p))) {
-    stop("'init = \"svd\"' cannot be combined with 'init_q' or 'init_p'",
+  if (init != "random" && (!is.null(init_q) || !is.null(init_p))) {
+    stop("'init = \"", init, "\"' cannot be combined with 'init_q' or ",
+      "'init_p'",
       call. = FALSE
     )
+  }
+  subset_ok <- is.numeric(init_subset) && length(init_subset) == 1 &&
+    is.finite(init_subset) && init_subset > 0 && init_subset <= 1
+  if (!subset_ok) {
+    stop("'init_subset' should be a number in (0, 1]", call. = FALSE)
   }
   if ((!is.null(init_q) || !is.null(init_p)) && length(k) > 1) {
     stop("'init_q' and 'init_p' can only be used with a single 'k'",
@@ -491,9 +525,20 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
       # init_q and init_p are given, that start is overwritten and EM
       # priming is skipped, so all the runs give the same result. An SVD
       # start gives both, from ALS solutions that each run draws from its
-      # own random allele frequencies.
+      # own random allele frequencies; a subset start gives both, from the
+      # fit of a random start to its own random subset of the loci
+      # (R/radmix_subset.R).
       run_q <- init_q
       run_p <- init_p
+      if (init == "subset") {
+        start <- radmix_subset_start(data,
+          k = this_k, frac = init_subset, max_iter = max_iter,
+          n_em_iter = n_em_iter, n_qn = n_qn, n_cores = n_cores,
+          verbose = verbose
+        )
+        run_q <- start$q
+        run_p <- start$p
+      }
       if (init == "svd") {
         start <- radmix_svd_start(data,
           factors = svd_factors, k = this_k, n_cores = n_cores,
@@ -509,7 +554,7 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
         n_em_iter = n_em_iter, n_qn = n_qn, n_cores = n_cores,
         verbose = verbose
       )
-      if (init == "svd") fit$log <- c(start$log, fit$log)
+      if (init != "random") fit$log <- c(start$log, fit$log)
       # P has one row per locus, in the order of show_loci(x), and gives the
       # frequency of the alternate allele in each ancestral population
       p_mat <- fit$p
