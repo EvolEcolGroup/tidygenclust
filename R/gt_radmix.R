@@ -9,10 +9,11 @@
 #' quasi-Newton scheme of Zhou, Alexander and Lange (2011). It also offers
 #' the cross-validation of ADMIXTURE to choose K (Alexander and Lange 2011),
 #' a start from a truncated singular value decomposition (SVD) of the
-#' genotypes, and support for pseudohaploid data. With genotype likelihoods
-#' (given by another package, see [gt_radmix_data()]), it fits the model of
-#' NGSadmix (Skotte et al. 2013), the ADMIXTURE model for low-depth
-#' sequencing data, with the same algorithm. If you use this function,
+#' genotypes, supervised analyses with individuals of known ancestry, and
+#' support for pseudohaploid data. With genotype likelihoods (given by
+#' another package, see [gt_radmix_data()]), it fits the model of NGSadmix
+#' (Skotte et al. 2013), the ADMIXTURE model for low-depth sequencing data,
+#' with the same algorithm. If you use this function,
 #' please cite Alexander et al. (2009) for the method, and, if you use
 #' cross-validation, Alexander and Lange (2011); with genotype likelihoods,
 #' also cite Skotte et al. (2013).
@@ -110,6 +111,40 @@
 #'   likelihoods. Unlike NGSadmix, which by default drops loci with a minor
 #'   allele frequency below 0.05 (its option `-minMaf`), `gt_radmix()` uses
 #'   all the loci of `x`: select them beforehand if needed.
+#'
+#'   ## Supervised analyses
+#'
+#'   As with ADMIXTURE's `--supervised` option, the ancestry of some
+#'   individuals can be given rather than estimated: `supervised` gives the
+#'   population of each of these reference individuals (and `NA` for the
+#'   individuals to estimate), and each population is one of the `k`
+#'   ancestral populations, so `k` must equal the number of populations in
+#'   `supervised`. The ancestry proportions of each reference individual
+#'   are fixed at 1 for its population and 0 for the others (moved inside
+#'   the feasible set like every estimate, i.e. 1 - (k - 1) 1e-5 and 1e-5,
+#'   as reported by ADMIXTURE); the allele frequencies of the ancestral
+#'   populations (P) are estimated from all the individuals, and the ancestry
+#'   of the other individuals is estimated given them. Each column of Q and
+#'   P is one reference population: in the order of the levels of
+#'   `supervised` if it is a factor, or of their first appearance otherwise
+#'   (the order used by ADMIXTURE for the populations of its `.pop` file).
+#'   The populations are listed in the element `ref_pops` of the result (the
+#'   columns of Q keep the names `.Q1`, `.Q2`, ..., which tidypopgen's
+#'   methods expect).
+#'
+#'   The fit is the same as in an unsupervised analysis (random start, EM
+#'   priming, block updates and quasi-Newton steps), with the reference
+#'   individuals fixed from the start; their ancestry proportions are never
+#'   updated, and the passes over the genotypes skip the work that only
+#'   serves them, so a supervised fit with many reference individuals is
+#'   faster than an unsupervised one. Cross-validation (`crossval = TRUE`)
+#'   is available, as in ADMIXTURE: the reference individuals stay fixed in
+#'   the fit of each fold, and their genotypes belong to the folds and are
+#'   predicted like the others (ADMIXTURE does not document this detail).
+#'   `init_q` (whose rows for the reference individuals are ignored) and
+#'   `init_p` can give starting values; `fix_q`, `fix_p` and `init = "svd"`
+#'   cannot be combined with `supervised`. Supervised analyses are also
+#'   available for genotype likelihoods (without cross-validation).
 #'
 #'   ## Starting values from the SVD
 #'
@@ -226,9 +261,15 @@
 #'   - ADMIXTURE treats the autosomal genotypes of every individual as
 #'     diploid, whereas `gt_radmix()` counts a single allele per locus for
 #'     pseudohaploid individuals (see above);
-#'   - bootstrap standard errors and supervised analyses with individuals of
-#'     known ancestry, available in ADMIXTURE, are not implemented (a fixed
-#'     reference panel can be used with `init_p` and `fix_p`).
+#'   - supervised analyses (`supervised`) follow ADMIXTURE's `--supervised`
+#'     option: the same fixed ancestry of the reference individuals, the
+#'     same order of the populations, and the same requirement that `k`
+#'     equals their number; `supervised` gives the populations as a vector
+#'     (with `NA` for the individuals to estimate) instead of a `.pop` file
+#'     (with `-`). The test suite checks the estimates against those of
+#'     ADMIXTURE on `EUR_subset`;
+#'   - bootstrap standard errors, available in ADMIXTURE, are not
+#'     implemented.
 #'
 #' @references Alexander DH, Novembre J, Lange K (2009) Fast model-based
 #'   estimation of ancestry in unrelated individuals. Genome Research, 19(9),
@@ -300,6 +341,12 @@
 #'   in the order of the loci of `x`
 #' @param fix_q,fix_p booleans; if `TRUE`, Q (respectively P) is kept at the
 #'   value given in `init_q` (respectively `init_p`)
+#' @param supervised optional vector (character or factor) with one element
+#'   per individual of `x`, for a supervised analysis (as ADMIXTURE's
+#'   `--supervised`): the population of each reference individual, whose
+#'   ancestry is then fixed, and `NA` for the individuals to estimate. `k`
+#'   must be a single value, equal to the number of populations. See
+#'   "Supervised analyses" in the details.
 #' @param use_imputed boolean; if `TRUE`, imputed genotypes are used as if
 #'   they were observed; otherwise they are treated as missing (the default).
 #'   Only for genotypes.
@@ -330,6 +377,8 @@
 #' - `cv` the cross-validation error of each run (if `crossval` is `TRUE`)
 #' - `id` the id column of `x`
 #' - `group` the group column of `x` (if `x` is grouped)
+#' - `ref_pops` the reference population of each column of Q and P (only for
+#'   a supervised analysis)
 #' - `algorithm` "radmix"
 #' @export
 #' @examples
@@ -345,12 +394,21 @@
 #' # choose k by cross-validation
 #' adm_cv <- gt_radmix(pop_a, k = 1:3, seed = 1, crossval = TRUE)
 #' adm_cv$cv
+#'
+#' # supervised analysis: the first two individuals are references of
+#' # population "A" and the next two of population "B"; the ancestry of the
+#' # others is estimated
+#' pops <- rep(NA, nrow(pop_a))
+#' pops[1:4] <- c("A", "A", "B", "B")
+#' adm_sup <- gt_radmix(pop_a, k = 2, seed = 1, supervised = pops)
+#' adm_sup$ref_pops
+#' adm_sup$Q[[1]]
 gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
                       rtol = 1e-8, n_em_iter = 5, n_qn = 3,
                       init = c("random", "svd"),
                       init_q = NULL, init_p = NULL, fix_q = FALSE,
-                      fix_p = FALSE, use_imputed = FALSE,
-                      crossval = FALSE, n_folds = 5,
+                      fix_p = FALSE, supervised = NULL,
+                      use_imputed = FALSE, crossval = FALSE, n_folds = 5,
                       cv_max_iter = max_iter, cv_rtol = rtol, n_cores = 1,
                       verbose = FALSE) {
   # This function is a thin wrapper: it checks the arguments, prepares the
@@ -438,6 +496,25 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   if (crossval && (fix_q || fix_p)) {
     stop("'crossval' cannot be used with 'fix_q' or 'fix_p'", call. = FALSE)
   }
+  # A supervised analysis fixes the ancestry of the reference individuals:
+  # it estimates the ancestry of the others and P, for the K populations of
+  # the references. The options that fix a whole block, or start from
+  # clusters in an arbitrary order (the SVD start), do not fit with it.
+  if (!is.null(supervised)) {
+    if (length(k) > 1) {
+      stop("'supervised' can only be used with a single 'k'", call. = FALSE)
+    }
+    if (fix_q || fix_p) {
+      stop("'supervised' cannot be combined with 'fix_q' or 'fix_p'",
+        call. = FALSE
+      )
+    }
+    if (init == "svd") {
+      stop("'supervised' cannot be combined with 'init = \"svd\"'",
+        call. = FALSE
+      )
+    }
+  }
 
   # Prepare the data: indices into the backing file, decoding table and
   # ploidy of each individual of a gen_tibble (R/radmix_data.R), or the
@@ -509,6 +586,10 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
     init_p <- init_p[p_rows, , drop = FALSE]
   }
   init_p <- radmix_check_init(init_p, data$n_loci, k[1], "init_p", FALSE)
+  # the reference populations (in the order of the columns of Q and P) and
+  # the fixed ancestry proportions of the reference individuals (NULL for an
+  # unsupervised analysis); k is a single value here (checked above)
+  sup <- radmix_check_supervised(supervised, data$n_indiv, k[1])
 
   # use our own seeds without disturbing the global RNG state
   # (the random starting values are drawn with R's generator, so set.seed()
@@ -582,8 +663,8 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
       fit <- radmix_fit(
         data,
         k = this_k, init_q = run_q, init_p = run_p,
-        fix_q = fix_q, fix_p = fix_p, max_iter = max_iter, rtol = rtol,
-        n_em_iter = n_em_iter, n_qn = n_qn, n_cores = n_cores,
+        fix_q = fix_q, fix_p = fix_p, sup_q = sup$q, max_iter = max_iter,
+        rtol = rtol, n_em_iter = n_em_iter, n_qn = n_qn, n_cores = n_cores,
         verbose = verbose
       )
       if (init == "svd") fit$log <- c(start$log, fit$log)
@@ -614,7 +695,8 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
         cv_seed <- floor(stats::runif(1) * 2^31)
         cv_res <- radmix_cv(data,
           fit = fit, k = this_k, n_folds = n_folds, cv_seed = cv_seed,
-          max_iter = cv_max_iter, rtol = cv_rtol, n_qn = n_qn,
+          sup_q = sup$q, max_iter = cv_max_iter, rtol = cv_rtol,
+          n_qn = n_qn,
           n_cores = n_cores
         )
         assign(".Random.seed", rng_state, envir = globalenv()) # nolint
@@ -635,9 +717,94 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   if (!is.null(group)) {
     adm_list$group <- group
   }
+  # in a supervised analysis, the reference population of each column of Q
+  # and P (the column names stay .Q1, .Q2, ..., which tidypopgen's methods
+  # expect)
+  if (!is.null(sup)) {
+    adm_list$ref_pops <- sup$pops
+  }
   adm_list$algorithm <- "radmix"
   class(adm_list) <- c("gt_admix", "list")
   adm_list
+}
+
+#' Validate the population labels of a supervised analysis
+#'
+#' The reference populations are the distinct labels of `supervised`, in the
+#' order of their levels for a factor, or of their first appearance
+#' otherwise (as ADMIXTURE orders the populations of its `.pop` file). Each
+#' reference individual has its ancestry fixed at the indicator of its
+#' population, moved inside the feasible set as other fixed values (the
+#' population gets 1 - (k - 1) 1e-5, the others 1e-5, as in ADMIXTURE).
+#' @param supervised the population of each individual (`NA` for the
+#'   individuals to estimate), or `NULL`
+#' @param n_indiv the number of individuals
+#' @param k the number of ancestral populations
+#' @returns `NULL` for an unsupervised analysis; otherwise a list with
+#'   elements `pops` (the reference populations, in the order of the columns
+#'   of Q) and `q` (a matrix, individuals x k, with the fixed ancestry
+#'   proportions of the reference individuals and `NA` for the others)
+#' @keywords internal
+#' @noRd
+radmix_check_supervised <- function(supervised, n_indiv, k) {
+  if (is.null(supervised)) {
+    return(NULL)
+  }
+  if (!is.character(supervised) && !is.factor(supervised)) {
+    stop("'supervised' should be a character vector or a factor",
+      call. = FALSE
+    )
+  }
+  if (length(supervised) != n_indiv) {
+    stop("'supervised' should have one element per individual of 'x' (",
+      n_indiv, "), not ", length(supervised),
+      call. = FALSE
+    )
+  }
+  is_ref <- !is.na(supervised)
+  if (!any(is_ref)) {
+    stop("'supervised' should give the population of at least one ",
+      "individual (it only contains NA)",
+      call. = FALSE
+    )
+  }
+  # The order of the populations, which is that of the columns of Q and P:
+  # the levels of a factor (each of which must have a reference individual,
+  # as k must equal their number), or the order of first appearance, as in
+  # the .pop file of ADMIXTURE
+  if (is.factor(supervised)) {
+    pops <- levels(supervised)
+    empty <- setdiff(pops, as.character(supervised[is_ref]))
+    if (length(empty) > 0) {
+      stop("the level(s) ", paste(empty, collapse = ", "), " of ",
+        "'supervised' have no reference individual (use droplevels() to ",
+        "remove them)",
+        call. = FALSE
+      )
+    }
+  } else {
+    pops <- unique(supervised[is_ref])
+  }
+  # as in ADMIXTURE, k is the number of reference populations: each
+  # population is one ancestral population (and there are no others)
+  if (length(pops) != k) {
+    stop("'k' should equal the number of reference populations in ",
+      "'supervised' (", length(pops), ": ", paste(pops, collapse = ", "),
+      "), not ", k,
+      call. = FALSE
+    )
+  }
+  # The fixed ancestry proportions of the reference individuals: the
+  # indicator of their population, projected onto the feasible set (rows
+  # summing to one with entries of at least 1e-5) by the same projection as
+  # the starting values (radmix_check_init()); the projection works on the
+  # columns of a K x I matrix, hence the transposes
+  pop_index <- match(as.character(supervised[is_ref]), pops)
+  indicator <- matrix(0, nrow = sum(is_ref), ncol = k)
+  indicator[cbind(seq_along(pop_index), pop_index)] <- 1
+  q <- matrix(NA_real_, nrow = n_indiv, ncol = k)
+  q[is_ref, ] <- t(radmix_project_cpp(t(indicator), TRUE))
+  list(pops = as.character(pops), q = q)
 }
 
 #' Validate a matrix of starting values
