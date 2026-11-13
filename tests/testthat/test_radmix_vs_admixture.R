@@ -24,6 +24,10 @@
 # radmix_eur_subset_bed() in helper-radmix-admixture.R), so the
 # tests are skipped without an internet connection.
 #
+# A supervised analysis (ADMIXTURE --supervised, K = 3, with reference
+# individuals chosen from ADMIXTURE's unsupervised fit) is compared in the
+# same way, from fixtures/admixture_eur_supervised.rds (see the last test).
+#
 # See data-raw/radmix/README.md for how the fixtures were created and how
 # to regenerate them.
 
@@ -130,4 +134,37 @@ for (run in fixture$runs) {
 test_that("cross-validation ranks K as ADMIXTURE does", {
   adm_cv <- vapply(fixture$runs, function(run) run$cv, numeric(1))
   expect_identical(order(cv_radmix), order(adm_cv))
+})
+
+test_that("supervised analyses agree with ADMIXTURE --supervised", {
+  sup_file <- test_path("fixtures", "admixture_eur_supervised.rds")
+  skip_if_not(file.exists(sup_file), "supervised fixture not available")
+  sup <- readRDS(sup_file)
+  expect_identical(unname(sup$md5), unname(fixture$md5))
+  # the references are the individuals with q > 0.9 in a cluster of the
+  # unsupervised ADMIXTURE fit (K = 3), labelled mid, zeta and alpha
+  # (the fixture stores the labels, NA for the individuals to estimate)
+  is_ref <- !is.na(sup$labels)
+  fit <- gt_radmix(eur,
+    k = sup$k, supervised = sup$labels, seed = 1, n_cores = n_cores,
+    crossval = TRUE
+  )
+  # the columns are in the order of first appearance of the populations,
+  # as in ADMIXTURE, so the clusters need no matching
+  expect_identical(fit$ref_pops, c("zeta", "alpha", "mid"))
+  q_adm <- sup$q_millionths / 1e6
+  q_radmix <- unname(unclass(fit$Q[[1]]))
+  # the references have the fixed values that ADMIXTURE reports (0.99998
+  # and 0.00001, to its 6 decimal places)
+  expect_identical(
+    round(q_radmix[is_ref, ] * 1e6),
+    matrix(as.numeric(sup$q_millionths[is_ref, ]), ncol = sup$k)
+  )
+  # the log-likelihood, and the ancestry of the other individuals, agree
+  expect_true(fit$converged)
+  expect_equal(fit$loglik, sup$loglik, tolerance = 1e-8)
+  expect_lt(mean(abs(q_radmix[!is_ref, ] - q_adm[!is_ref, ])), 0.001)
+  expect_lt(max(abs(q_radmix[!is_ref, ] - q_adm[!is_ref, ])), 0.01)
+  # cross-validation (with different folds) gives the same error
+  expect_equal(fit$cv, sup$cv, tolerance = 1e-3)
 })
