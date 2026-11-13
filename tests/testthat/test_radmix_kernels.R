@@ -354,6 +354,22 @@ test_that("the Q side keeps fixed individuals and updates the others", {
       tolerance = 1e-12
     )
   }
+  # with pseudohaploids (decoded individual by individual), the free
+  # individuals are read through the general paths
+  hap <- radmix_simulate_admixed(n = 130, m = 150, k = 3, seed = 9)$genotypes
+  hap[1:15, ] <- 2 * (hap[1:15, ] >= 1)
+  inp <- radmix_ref_inputs(
+    tidypopgen::gt_pseudohaploid(radmix_test_gt(hap))
+  )
+  expect_true(any(inp$n == 1))
+  st <- radmix_ref_start(130, 150, 3)
+  fixed <- rep(FALSE, 130)
+  fixed[c(1:40, seq(45, 130, by = 3))] <- TRUE
+  expect_equal(
+    radmix_update_q_cpp(inp$geno, st$q, st$p, 1, fixed)[, !fixed],
+    radmix_update_q_cpp(inp$geno, st$q, st$p, 1)[, !fixed],
+    tolerance = 1e-12
+  )
   expect_error(
     radmix_update_q_cpp(inp$geno, st$q, st$p, 1, fixed[-1]),
     "'fixed' must have one value per individual"

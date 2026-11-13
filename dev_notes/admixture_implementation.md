@@ -400,9 +400,11 @@ individuals:
 so the Q-side passes (EM and the Q block updates) skip it entirely: they
 build the list of the free individuals, transpose only their columns of Q
 (a "compact" transpose), and work on blocks of 64 consecutive entries of
-that list rather than of 64 consecutive individuals. A slice reads the
-genotypes of its individuals through their indices, or directly from the
-backing file (the fast path) when they are consecutive rows. The sums of
+that list rather than of 64 consecutive individuals. A slice of free
+individuals that are consecutive rows of the backing file takes the fast
+path; otherwise their bytes are read from the column of the locus through
+their rows (and decoded with the same tables), or, with pseudohaploids,
+through the general path. The sums of
 each free individual are the same as without the mask (the same terms,
 added in the same order). Neither the sums nor the quadratic programs of the
 references are computed; the P-side passes and the log-likelihood still read

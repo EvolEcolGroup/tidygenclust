@@ -256,7 +256,30 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
   }
   // free individuals that are not consecutive: each genotype is read
   // through the index of its individual (the folds of cross-validation
-  // follow these indices, so they are the same as in the other passes)
+  // follow these indices, so they are the same as in the other passes).
+  // When every individual is decoded alike, their bytes are read from the
+  // column of the locus through their rows, and decoded with the tables of
+  // the fast path (the same values as the general loop below).
+  const double* gtab;
+  const double* htab;
+  const unsigned char* __restrict col = geno.locus_bytes(j, gtab, htab);
+  if (col != nullptr) {
+    if (!geno.cv_masked()) {
+      for (size_t ii = 0; ii < ni; ii++) {
+        const unsigned char b = col[geno.row(idx[ii])];
+        g[ii] = gtab[b];
+        h[ii] = htab[b];
+      }
+    } else {
+      for (size_t ii = 0; ii < ni; ii++) {
+        const unsigned char b = col[geno.row(idx[ii])];
+        const double vis = geno.cv_visible(idx[ii], j) ? 1.0 : 0.0;
+        g[ii] = vis * gtab[b];
+        h[ii] = vis * htab[b];
+      }
+    }
+    return;
+  }
   double gij;
   for (size_t ii = 0; ii < ni; ii++) {
     const size_t i = idx[ii];
