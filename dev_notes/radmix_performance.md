@@ -241,11 +241,21 @@ Listed so that they are not retried without new evidence.
 - `-O3` saves 2-5% of a fit with identical results, from inlining or loop
   unswitching rather than vectorisation; which loops is not known, and a
   package should not override R's optimisation flags.
-- Cross-validation refits each fold to convergence (7-11 iterations on
-  HGDP quick); ADAMIXTURE polishes each fold with 5 warm-started
-  iterations. The biggest lever for CV, but it changes the CV errors, and
-  the warm start has seen the held-out genotypes: it needs a statistical
-  check (same K chosen, agreement with ADMIXTURE).
+- Cross-validation refits each fold to convergence; ADAMIXTURE polishes
+  each fold with 5 warm-started iterations. Measured on 2026-11-13
+  (`data-raw/radmix/newspeed_algo/`, one seed per K, the trajectory of
+  each refit scored after every iteration): on the HGDP (K = 2, 5, 8)
+  the refits converge in 6-7 iterations and CV costs 1.6x the passes of
+  the main fit; 5 iterations save 24% of the CV passes and `rtol` 1e-5
+  47%, changing the errors by less than 5e-5 (the errors of K = 5 and 8
+  differ by 5e-3). On EUR_subset (K = 1-5) the refits take 7-34
+  iterations; 5 iterations save 61% and `rtol` 1e-6 50%, but lower the
+  error at K = 5 by 4.3e-4 and 2.7e-4 (the bias grows with K: 0.05,
+  0.4, 1.8 and 4.3e-4 at K = 2-5 for 5 iterations), against 1e-3 to
+  3e-3 between successive K. No policy changed the K chosen; with no
+  refit at all, EUR would choose K = 5 instead of 2. `gt_radmix()`
+  offers `cv_max_iter` and `cv_rtol` (default: the main fit's); the
+  default policy is still to be decided.
 - (Done 2026-11-13, as a bit mask rather than a decoded copy of the
   genotypes, 1/8 of the memory: passes with a fold hidden cost as plain
   ones.) A decoded copy (1 byte per genotype) would also make the rows of

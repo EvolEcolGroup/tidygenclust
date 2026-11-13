@@ -352,7 +352,10 @@ folds (5 by default). For each fold:
    exactly as if they were missing. The fit starts from the estimates for
    the full data (a warm start, as in fastmixture), without EM: they are
    close to the optimum without the fold, so each fold converges in a few
-   iterations. The convergence criteria are those of the main fit.
+   iterations. The convergence criteria are those of the main fit, unless
+   `cv_max_iter` or `cv_rtol` shorten the refits (faster, but the errors
+   are then biased downwards, as the start has seen the held-out
+   genotypes; measured in `data-raw/radmix/newspeed_algo/`).
 2. The genotypes of the fold are predicted by `mu = n qp`, through a
    "held-out" view that shows only them.
 3. The binomial deviance of those genotypes is summed:

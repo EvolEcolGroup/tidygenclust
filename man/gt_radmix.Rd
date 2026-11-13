@@ -21,6 +21,8 @@ gt_radmix(
   use_imputed = FALSE,
   crossval = FALSE,
   n_folds = 5,
+  cv_max_iter = max_iter,
+  cv_rtol = rtol,
   n_cores = 1,
   verbose = FALSE
 )
@@ -82,6 +84,12 @@ they were observed; otherwise they are treated as missing (the default)}
 
 \item{n_folds}{the number of folds used for cross-validation (defaults to
 5, as in ADMIXTURE)}
+
+\item{cv_max_iter, cv_rtol}{the maximum number of iterations and the
+convergence threshold of the refit of each fold in cross-validation
+(default to \code{max_iter} and \code{rtol}, as for the full data). Smaller
+\code{cv_max_iter} or larger \code{cv_rtol} make cross-validation faster but bias
+its errors downwards (see "Cross-validation" in the details).}
 
 \item{n_cores}{the number of cores to use (defaults to 1); the results
 do not depend on it}
@@ -237,7 +245,8 @@ averaged over all the masked genotypes of all folds. Where ADMIXTURE does
 not document the details, we made the following choices:
 \itemize{
 \item each fold is fitted starting from the estimates for the full data, with
-the same convergence criteria (\code{max_iter} and \code{rtol});
+the same convergence criteria (\code{max_iter} and \code{rtol}) by default
+(see below for \code{cv_max_iter} and \code{cv_rtol});
 \item genotypes are assigned to folds by a hash of their position and of a
 seed drawn from the random number generator (reproducible with
 \code{seed}), so the folds differ from those of ADMIXTURE and the errors
@@ -248,6 +257,22 @@ agree with ADMIXTURE's closely but not exactly;
 Cross-validation does not change the estimates of Q and P, but requires
 \code{n_folds} additional fits for each run (each usually converging in a few
 iterations).
+
+The refits of the folds can be shortened with \code{cv_max_iter} (at most
+that many iterations per fold; ADAMIXTURE refits each fold with 5) or
+\code{cv_rtol} (a looser convergence threshold). This saves time, but biases
+the errors downwards: each refit starts from the estimates for the full
+data, which have seen the masked genotypes, and a refit stopped early
+still predicts them too well, the more so at larger \code{k}. In our tests
+(one seed per value of \code{k}), on the HGDP (1,043 individuals, 130,943
+loci, \code{k} = 2, 5 and 8) the refits converged in 6-7 iterations, and 5
+iterations per fold changed the errors by less than 1e-5. On EUR_subset
+(379 individuals, 54,051 loci, \code{k} = 1-5) they took 7-34 iterations: 5
+iterations saved 60\% of the passes over the genotypes of
+cross-validation but lowered the error at \code{k} = 5 by 4e-4, and
+\code{cv_rtol = 1e-6} saved 50\% and lowered it by 3e-4, while the errors of
+successive values of \code{k} differed by 1e-3 to 3e-3. Neither changed the
+value of \code{k} with the lowest error.
 }
 
 \subsection{Reproducibility}{

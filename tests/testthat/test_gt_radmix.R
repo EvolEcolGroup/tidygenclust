@@ -272,6 +272,32 @@ test_that("cross-validation does not change the estimates, without seed", {
   expect_length(adm_cv$cv, 4)
 })
 
+test_that("the refits of cross-validation can be shortened", {
+  adm <- gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE)
+  # the iterations of the refit of each fold, from the "CV fold" lines of
+  # the log
+  fold_iter <- function(a) {
+    lines <- grep("^CV fold", a$log[[1]], value = TRUE)
+    as.integer(sub(".*, ([0-9]+) iterations,.*", "\\1", lines))
+  }
+  # by default, the folds are refitted with max_iter and rtol
+  adm_explicit <- gt_radmix(sim_gt,
+    k = 3, seed = 1, crossval = TRUE, cv_max_iter = 1000, cv_rtol = 1e-8
+  )
+  expect_identical(adm_explicit$cv, adm$cv)
+  # a single iteration per fold: the main fit is unchanged, the error is not
+  short <- gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE, cv_max_iter = 1)
+  expect_identical(short$Q, adm$Q)
+  expect_identical(short$loglik, adm$loglik)
+  expect_identical(fold_iter(short), rep(1L, 5))
+  expect_gt(min(fold_iter(adm)), 1)
+  expect_false(identical(short$cv, adm$cv))
+  # a looser threshold stops each refit no later than the default one
+  loose <- gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE, cv_rtol = 1e-4)
+  expect_true(all(fold_iter(loose) <= fold_iter(adm)))
+  expect_lt(sum(fold_iter(loose)), sum(fold_iter(adm)))
+})
+
 test_that("all the arguments are validated", {
   # flags must be TRUE or FALSE (fix_q = NA was taken as TRUE)
   expect_error(
@@ -289,6 +315,7 @@ test_that("all the arguments are validated", {
   # rtol = NA or a negative value disabled convergence
   for (bad in list(NA, -1, Inf, "0.1")) {
     expect_error(gt_radmix(sim_gt, k = 2, rtol = bad), "'rtol'")
+    expect_error(gt_radmix(sim_gt, k = 2, cv_rtol = bad), "'cv_rtol'")
   }
   # counts are checked in R, with a message naming the argument
   expect_error(
@@ -296,6 +323,7 @@ test_that("all the arguments are validated", {
     "'max_iter' should be an integer of at least 0"
   )
   expect_error(gt_radmix(sim_gt, k = 2, n_qn = 0), "'n_qn'")
+  expect_error(gt_radmix(sim_gt, k = 2, cv_max_iter = 1.5), "'cv_max_iter'")
   expect_error(gt_radmix(sim_gt, k = 2, n_cores = NA), "'n_cores'")
   expect_error(gt_radmix(sim_gt, k = 2, n_em_iter = 1.5), "'n_em_iter'")
   # non-integer values are not truncated
