@@ -73,6 +73,16 @@ void grad_p(const GenoView& geno, const double* q, const double* p, int K,
 void update_q(const GenoView& geno, const double* q, const double* p, int K,
               double* q_new, int n_cores);
 
+// update_q() and the log-likelihood L(q, p), which is returned, in a single
+// pass over the genotypes: the Q-side pass computes qp for every genotype,
+// so the log-likelihood of its input costs little more (the fitting loop
+// uses it to evaluate a point and start the next iteration from it at the
+// same time). q_new is identical to that of update_q(), and the
+// log-likelihood equals that of loglik() up to rounding (the same terms,
+// added up in another order); neither depends on the number of threads.
+double update_q_loglik(const GenoView& geno, const double* q,
+                       const double* p, int K, double* q_new, int n_cores);
+
 // The block update of p given q (p_new, K x J): the same, within the box
 // [0, 1], then clamped to [1e-5, 1 - 1e-5].
 void update_p(const GenoView& geno, const double* q, const double* p, int K,

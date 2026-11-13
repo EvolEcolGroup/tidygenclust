@@ -121,6 +121,19 @@ NumericMatrix radmix_update_q_cpp(List data, NumericMatrix q,
   return q_new;
 }
 
+// Block update of q and log-likelihood of (q, p) in one pass; returns
+// list(q = the new K x I matrix, loglik).
+// [[Rcpp::export]]
+List radmix_update_q_loglik_cpp(List data, NumericMatrix q,
+                                NumericMatrix p, int n_cores) {
+  const GenoView geno(data);
+  const int K = check_dims(geno, q, p, n_cores);
+  NumericMatrix q_new(K, q.ncol());
+  const double ll = update_q_loglik(geno, q.begin(), p.begin(), K,
+                                    q_new.begin(), n_cores);
+  return List::create(_["q"] = q_new, _["loglik"] = ll);
+}
+
 // Block update of p; returns the new K x J matrix.
 // [[Rcpp::export]]
 NumericMatrix radmix_update_p_cpp(List data, NumericMatrix q,

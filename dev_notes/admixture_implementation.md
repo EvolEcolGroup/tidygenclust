@@ -316,9 +316,23 @@ is higher than that of `x0`; otherwise the iteration ends at `x2`. The
 comparison is with `x0` rather than with `x2`: a point slightly worse than
 `x2` still makes progress, and tends to pay off in the following
 iterations. It also means that `L(x2)` is only needed when the point is
-rejected, so that an iteration costs five passes over the genotypes (four
-block updates and the log-likelihood of the quasi-Newton point), and six
-only after a rejection; the point is accepted in most iterations.
+rejected; the point is accepted in most iterations.
+
+**Evaluating a point and starting from it in one pass.** The first block
+update of an iteration, the update of Q given `x0 = (q, p)`, forms `qp` for
+every genotype, which is all that the log-likelihood of `x0` needs. So
+whenever the loop evaluates a point from which the next iteration may start
+(the start, the quasi-Newton point, and `x2` after a rejection), it also
+computes the update of Q from that point in the same pass
+(`update_q_loglik()`), and the next iteration starts from it. An iteration
+then costs four passes over the genotypes (three block updates and the
+fused pass at the quasi-Newton point) instead of five, and five instead of
+six after a rejection. The update is identical to that of a separate pass,
+and the log-likelihood differs from that of `loglik()` only by rounding (the
+same terms, added up in another order, still independent of the number of
+threads). The update computed with the last log-likelihood of a fit (at
+convergence) or with a rejected point is wasted; it is not computed after
+the last iteration allowed (`max_iter`), nor when Q is fixed.
 
 ### 7. Convergence
 
@@ -362,8 +376,10 @@ the errors agree with ADMIXTURE's statistically, not exactly.
 
 Every pass reads the whole genotype matrix, so the number of passes and
 their cost determine the run time on large data. A fit makes `n_em_iter`
-EM steps (two passes each), one pass for the starting log-likelihood, and
-five passes per iteration (six after a rejected quasi-Newton step).
+EM steps (two passes each), one pass for the starting log-likelihood (and
+the first update of Q), and four passes per iteration (five after a
+rejected quasi-Newton step), see "Evaluating a point and starting from it
+in one pass" above.
 
 ### Data access
 

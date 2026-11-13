@@ -73,10 +73,17 @@ test_that("loglik handles extreme frequencies and non-integer dosages", {
   expect_equal(ll, radmix_ref_loglik(inp$g, inp$n, st$q, p),
     tolerance = 1e-10
   )
+  # (the same from the pass that also updates q)
+  expect_equal(radmix_update_q_loglik_cpp(inp$geno, st$q, p, 2)$loglik, ll,
+    tolerance = 1e-12
+  )
   # a qp of exactly 0 for an observed alt allele gives -Inf, not NaN
   p[, 1] <- 0
   expect_true(any(inp$g[, 1] > 0, na.rm = TRUE))
   expect_identical(radmix_loglik_cpp(inp$geno, st$q, p, 2), -Inf)
+  expect_identical(
+    radmix_update_q_loglik_cpp(inp$geno, st$q, p, 2)$loglik, -Inf
+  )
   # dosages that are not hard calls use the direct formula
   # (decoding byte 1 as 0.7 instead of 1 turns heterozygotes into
   # non-integer dosages)
@@ -87,6 +94,11 @@ test_that("loglik handles extreme frequencies and non-integer dosages", {
   expect_true(any(g == 0.7, na.rm = TRUE))
   expect_equal(
     radmix_loglik_cpp(geno, st$q, st$p, 2),
+    radmix_ref_loglik(g, inp$n, st$q, st$p),
+    tolerance = 1e-10
+  )
+  expect_equal(
+    radmix_update_q_loglik_cpp(geno, st$q, st$p, 2)$loglik,
     radmix_ref_loglik(g, inp$n, st$q, st$p),
     tolerance = 1e-10
   )
@@ -305,6 +317,39 @@ test_that("kernels are correct when the loci are split into segments", {
     res1 <- kernel(inp$geno, st$q, st$p, 1)
     expect_identical(kernel(inp$geno, st$q, st$p, 3), res1)
     expect_identical(kernel(inp$geno, st$q, st$p, 4), res1)
+  }
+})
+
+# The fitting loop evaluates a point and computes the first update of the
+# next iteration in one pass (update_q_loglik() in src/radmix_kernels.cpp)
+test_that("the fused update of q and log-likelihood match the two passes", {
+  # one dataset with a single segment of loci and one with several (and
+  # missing genotypes), and a cross-validation view with a fold hidden
+  big <- radmix_simulate_admixed(n = 130, m = 150, k = 3, seed = 6)
+  seg <- radmix_simulate_admixed(
+    n = 70, m = 2000, k = 3, missing = 0.03, seed = 8
+  )
+  seg_geno <- radmix_prepare(radmix_test_gt(seg$genotypes))
+  cases <- list(
+    list(geno = radmix_prepare(radmix_test_gt(big$genotypes)), n = 130,
+      m = 150),
+    list(geno = seg_geno, n = 70, m = 2000),
+    list(geno = radmix_set_cv(seg_geno, list(
+      mode = "train", fold = 2, n_folds = 5, seed = 3
+    )), n = 70, m = 2000)
+  )
+  for (cs in cases) {
+    st <- radmix_ref_start(cs$n, cs$m, 3)
+    fused <- radmix_update_q_loglik_cpp(cs$geno, st$q, st$p, 1)
+    # the same update, and the same log-likelihood up to rounding (the terms
+    # are added up in another order)
+    expect_identical(fused$q, radmix_update_q_cpp(cs$geno, st$q, st$p, 1))
+    expect_equal(fused$loglik, radmix_loglik_cpp(cs$geno, st$q, st$p, 1),
+      tolerance = 1e-12
+    )
+    # identical for any number of threads
+    expect_identical(radmix_update_q_loglik_cpp(cs$geno, st$q, st$p, 3), fused)
+    expect_identical(radmix_update_q_loglik_cpp(cs$geno, st$q, st$p, 4), fused)
   }
 })
 

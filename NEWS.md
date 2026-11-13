@@ -24,6 +24,10 @@
   in all). A later reorganisation of the computations made fits slightly
   faster (a few percent), with the same numbers of iterations and estimates
   that differ from those of earlier development versions only by rounding.
+  Each iteration now reads the genotypes four times instead of five: the
+  log-likelihood of the point an iteration ends at is computed in the same
+  pass as the first update of the next iteration, with the same iterations
+  and estimates.
   `?gt_radmix` describes the algorithm, the reproducibility of the results,
   and how they compare with those of ADMIXTURE.
 * `gt_clumppling()` is now a native R and C++ port, with modifications, of

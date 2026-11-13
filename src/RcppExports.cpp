@@ -170,6 +170,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// radmix_update_q_loglik_cpp
+List radmix_update_q_loglik_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
+RcppExport SEXP _tidygenclust_radmix_update_q_loglik_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type q(qSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type p(pSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    rcpp_result_gen = Rcpp::wrap(radmix_update_q_loglik_cpp(data, q, p, n_cores));
+    return rcpp_result_gen;
+END_RCPP
+}
 // radmix_update_p_cpp
 NumericMatrix radmix_update_p_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
 RcppExport SEXP _tidygenclust_radmix_update_p_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
@@ -286,6 +300,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_tidygenclust_radmix_grad_q_cpp", (DL_FUNC) &_tidygenclust_radmix_grad_q_cpp, 4},
     {"_tidygenclust_radmix_grad_p_cpp", (DL_FUNC) &_tidygenclust_radmix_grad_p_cpp, 4},
     {"_tidygenclust_radmix_update_q_cpp", (DL_FUNC) &_tidygenclust_radmix_update_q_cpp, 4},
+    {"_tidygenclust_radmix_update_q_loglik_cpp", (DL_FUNC) &_tidygenclust_radmix_update_q_loglik_cpp, 4},
     {"_tidygenclust_radmix_update_p_cpp", (DL_FUNC) &_tidygenclust_radmix_update_p_cpp, 4},
     {"_tidygenclust_radmix_q_segments_cpp", (DL_FUNC) &_tidygenclust_radmix_q_segments_cpp, 2},
     {"_tidygenclust_radmix_qp_solve_cpp", (DL_FUNC) &_tidygenclust_radmix_qp_solve_cpp, 4},
