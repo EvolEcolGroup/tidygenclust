@@ -177,6 +177,30 @@ test_that("fold fits are identical with and without the precomputed mask", {
   }
 })
 
+# A supervised fold fit reads the free individuals through their indices,
+# which may not start at a word of the bit mask: the bits are then read one
+# by one (slice_geno() in src/radmix_kernels.cpp)
+test_that("supervised fold fits are identical with and without the mask", {
+  # references in a run and scattered, so that the slices of free
+  # individuals are sometimes consecutive and sometimes not
+  labels <- rep(NA_character_, 80)
+  labels[c(1:10, 21:30, seq(43, 80, by = 4))] <- "A"
+  labels[c(11:15, seq(44, 80, by = 4))] <- "B"
+  labels[c(16:20, seq(45, 80, by = 4))] <- "C"
+  sup <- radmix_check_supervised(labels, 80, 3)
+  fit_fold <- function(mask, n_cores = 1) {
+    train <- radmix_set_cv(dat, list(
+      mode = "train", fold = 2, n_folds = 5, seed = 7, mask = mask
+    ))
+    set.seed(1)
+    radmix_fit(train, k = 3, sup_q = sup$q, max_iter = 5, n_cores = n_cores)
+  }
+  hashed <- fit_fold(mask = FALSE)
+  expect_identical(hashed$q[!is.na(labels), ], sup$q[!is.na(labels), ])
+  expect_identical(fit_fold(mask = TRUE), hashed)
+  expect_identical(fit_fold(mask = TRUE, n_cores = 3), hashed)
+})
+
 test_that("invalid cross-validation arguments are caught", {
   expect_error(
     gt_radmix(sim_gt, k = 2, crossval = "yes"),

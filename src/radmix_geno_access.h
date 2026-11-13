@@ -262,6 +262,22 @@ public:
     return _pMat + _rows[i0] + _col_off[j];
   }
 
+  // The fast path for individuals in any order (the free individuals of a
+  // supervised analysis, see slice_geno()): if the view decodes every
+  // individual alike, returns a pointer to the bytes of locus j, in which
+  // individual i is at offset row(i), and sets gtab and htab as
+  // slice_bytes() does; otherwise returns nullptr. The same caveat about
+  // cross-validation masks applies.
+  inline const unsigned char* locus_bytes(size_t j, const double*& gtab,
+                                          const double*& htab) const {
+    if (!_fast) return nullptr;
+    gtab = _gtab;
+    htab = _htab;
+    return _pMat + _col_off[j];
+  }
+  // the 0-based FBM row of individual i
+  inline size_t row(size_t i) const { return _rows[i]; }
+
   // Decode genotype (i, j). Returns whether it is observed (and visible,
   // with a cross-validation mask), and sets g to the (scaled) alt allele
   // count in [0, n_i] (0 for a missing genotype; for a hidden one, its

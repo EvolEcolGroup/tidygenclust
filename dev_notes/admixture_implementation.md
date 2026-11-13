@@ -7,7 +7,8 @@ ADMIXTURE: block relaxation, in which Q and P are updated in turn by
 constrained Newton steps, accelerated by the quasi-Newton scheme of Zhou,
 Alexander and Lange (2011), after a few EM steps that prime a random start.
 It offers the cross-validation of ADMIXTURE to choose K (Alexander and
-Lange 2011) and, as an option, a start from a truncated singular value
+Lange 2011), the supervised analyses of ADMIXTURE (individuals of known
+ancestry) and, as an option, a start from a truncated singular value
 decomposition (SVD) of the genotypes, as in fastmixture and ADAMIXTURE.
 
 The computations are in C++, multithreaded with OpenMP, and read the
@@ -398,6 +399,59 @@ generator after the main fit, whose state is then restored. ADMIXTURE's own
 random partition cannot be reproduced (its source code is not available), so
 the errors agree with ADMIXTURE's statistically, not exactly.
 
+### 9. Supervised analyses (optional)
+
+With `supervised` (ADMIXTURE's `--supervised`), some individuals are
+references of known populations, and each of the K ancestral populations is
+one of these populations (K must equal their number, as in ADMIXTURE). The
+ancestry proportions of a reference individual are fixed at the indicator
+of its population, projected onto the feasible set like any other fixed
+value: `1 - (K - 1) 1e-5` for its population and `1e-5` for the others,
+which are the values that ADMIXTURE reports. P and the ancestry of the
+other individuals are estimated by maximum likelihood with the references
+fixed. Each column of Q and P is one population, in the order of first
+appearance of the labels (ADMIXTURE's order for its `.pop` file; checked
+empirically, with labels whose first appearance and alphabetical orders
+differ), or of the levels of a factor; `ref_pops` in the result records it.
+
+`radmix_check_supervised()` (`R/gt_radmix.R`) validates the labels and
+builds an I x K matrix with the fixed values of the references (and NA for
+the others), which `radmix_fit_cpp()` turns into a mask of fixed
+individuals:
+
+- the references are set to their fixed values right after the random
+  start (the values drawn for them are discarded, so the draws of the
+  others do not move), before EM, so that EM estimates P from them;
+- EM and the Q block updates copy their columns instead of updating them
+  (`radmix_kernels.h`, "Fixed individuals"); P is updated from all the
+  individuals;
+- the quasi-Newton step leaves them unchanged (u = v = 0), but its
+  projection could move them by rounding errors, so they are restored
+  exactly after it, as a fixed Q block is;
+- `init_q` gives the start of the other individuals (its rows for the
+  references are replaced by their fixed values), and `init_p` that of P;
+  `fix_q`, `fix_p` and the SVD start (whose clusters come in an arbitrary
+  order) are not available;
+- cross-validation (which ADMIXTURE allows with `--supervised`) keeps the
+  references fixed in the fit of each fold; their held-out genotypes are
+  predicted, and count in the error, like the others.
+
+**Skipping the references.** The ancestry of a reference is never updated,
+so the Q-side passes (EM and the Q block updates) skip it entirely: they
+build the list of the free individuals, transpose only their columns of Q
+(a "compact" transpose), and work on blocks of 64 consecutive entries of
+that list rather than of 64 consecutive individuals. A slice of free
+individuals that are consecutive rows of the backing file takes the fast
+path; otherwise their bytes are read from the column of the locus through
+their rows (and decoded with the same tables), or, with pseudohaploids,
+through the general path. The sums of
+each free individual are the same as without the mask (the same terms,
+added in the same order). Neither the sums nor the quadratic programs of the
+references are computed; the P-side passes and the log-likelihood still read
+every genotype. With references the bulk of the individuals, a supervised
+fit is therefore cheaper per iteration than an unsupervised one (the Q side
+is about half of the work of the block updates).
+
 ## How the passes over the genotypes are organised
 
 Every pass reads the whole genotype matrix, so the number of passes and
@@ -549,7 +603,8 @@ The test suite checks:
 - that the results are identical for any number of threads;
 - the estimates, log-likelihoods and cross-validation errors against stored
   results of ADMIXTURE 1.3.0 on the `EUR_subset` data of SnpArrays.jl
-  (`tests/testthat/test_radmix_vs_admixture.R`);
+  (`tests/testthat/test_radmix_vs_admixture.R`), unsupervised (K = 2 to 4)
+  and supervised (K = 3);
 - the log-likelihood, EM step, Newton updates and full path against stored
   results of OpenADMIXTURE.jl, an independent implementation of the same
   model and of a closely related algorithm
@@ -602,9 +657,9 @@ OpenADMIXTURE.jl in many places. The main changes were:
   rejected (and that of the EM steps only when it is reported);
 - the EM step normalises Q by the observed allele copies of each individual,
   which keeps it on the simplex with missing data;
-- pseudohaploid individuals, the cross-validation of ADMIXTURE, the SVD
-  start and the direct reading of the backing file of a `gen_tibble` were
-  added;
+- pseudohaploid individuals, the cross-validation and supervised analyses
+  of ADMIXTURE, the SVD start and the direct reading of the backing file of
+  a `gen_tibble` were added;
 - numerical safeguards were added (section "Numerical safeguards"), and the
   active-set solver stops when it cycles at a vertex;
 - the selection of ancestry informative markers by sparse K-means, which is

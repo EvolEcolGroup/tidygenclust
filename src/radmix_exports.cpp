@@ -44,6 +44,26 @@ static int check_dims(const GenoView& geno, const NumericMatrix& q,
   return K;
 }
 
+// The mask of fixed individuals of em() and update_q() (radmix_kernels.h,
+// "Fixed individuals") from an optional logical vector with one value per
+// individual (TRUE = fixed): fills `mask` and returns its data, or NULL
+// when fixed is NULL. Checked on the main thread, before any kernel.
+static const unsigned char* fixed_mask(const GenoView& geno,
+                                       const Nullable<LogicalVector>& fixed,
+                                       std::vector<unsigned char>& mask) {
+  if (fixed.isNull()) return nullptr;
+  LogicalVector fv(fixed.get());
+  if ((size_t) fv.size() != geno.nrow())
+    stop("'fixed' must have one value per individual (%d), not %d.",
+         (int) geno.nrow(), (int) fv.size());
+  mask.assign(geno.nrow(), 0);
+  for (size_t i = 0; i < mask.size(); i++) {
+    if (fv[i] == NA_LOGICAL) stop("'fixed' must not contain NA.");
+    mask[i] = fv[i] ? 1 : 0;
+  }
+  return mask.data();
+}
+
 // Log-likelihood (a scalar) of q (K x I) and p (K x J) for the genotypes of
 // data (the output of radmix_prepare(), with an optional cross-validation
 // mask); the same arguments are used by the other passes below.
@@ -67,14 +87,19 @@ NumericVector radmix_deviance_cpp(List data, NumericMatrix q,
   return NumericVector::create(dev, count);
 }
 
-// One EM step; returns list(q = K x I, p = K x J).
+// One EM step; returns list(q = K x I, p = K x J). The individuals marked
+// TRUE in the optional `fixed` keep their column of q.
 // [[Rcpp::export]]
 List radmix_em_cpp(List data, NumericMatrix q, NumericMatrix p,
-                   int n_cores) {
+                   int n_cores,
+                   Nullable<LogicalVector> fixed = R_NilValue) {
   const GenoView geno(data);
   const int K = check_dims(geno, q, p, n_cores);
+  std::vector<unsigned char> mask;
+  const unsigned char* fx = fixed_mask(geno, fixed, mask);
   NumericMatrix q_new(K, q.ncol()), p_new(K, p.ncol());
-  em(geno, q.begin(), p.begin(), K, q_new.begin(), p_new.begin(), n_cores);
+  em(geno, q.begin(), p.begin(), K, q_new.begin(), p_new.begin(), n_cores,
+     fx);
   return List::create(_["q"] = q_new, _["p"] = p_new);
 }
 
@@ -110,14 +135,19 @@ List radmix_grad_p_cpp(List data, NumericMatrix q, NumericMatrix p,
 }
 
 // Block update of q (a constrained Newton step for each column); returns the
-// new K x I matrix.
+// new K x I matrix. The individuals marked TRUE in the optional `fixed`
+// keep their column of q.
 // [[Rcpp::export]]
 NumericMatrix radmix_update_q_cpp(List data, NumericMatrix q,
-                                  NumericMatrix p, int n_cores) {
+                                  NumericMatrix p, int n_cores,
+                                  Nullable<LogicalVector> fixed =
+                                    R_NilValue) {
   const GenoView geno(data);
   const int K = check_dims(geno, q, p, n_cores);
+  std::vector<unsigned char> mask;
+  const unsigned char* fx = fixed_mask(geno, fixed, mask);
   NumericMatrix q_new(K, q.ncol());
-  update_q(geno, q.begin(), p.begin(), K, q_new.begin(), n_cores);
+  update_q(geno, q.begin(), p.begin(), K, q_new.begin(), n_cores, fx);
   return q_new;
 }
 
