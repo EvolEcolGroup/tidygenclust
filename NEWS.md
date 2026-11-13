@@ -26,6 +26,15 @@
   that differ from those of earlier development versions only by rounding.
   `?gt_radmix` describes the algorithm, the reproducibility of the results,
   and how they compare with those of ADMIXTURE.
+  Supervised analyses, as ADMIXTURE's `--supervised` option, are run with
+  the new argument `supervised`: the population of each reference
+  individual (`NA` for the individuals to estimate), whose ancestry is then
+  fixed. As in ADMIXTURE, `k` must equal the number of reference
+  populations, and the columns of Q follow the order of their first
+  appearance (or the levels of a factor); the result lists them in
+  `ref_pops`. Cross-validation is available, and the fit skips the work of
+  the reference individuals. The estimates are checked against ADMIXTURE in
+  the test suite.
 * `gt_clumppling()` is now a native R and C++ port, with modifications, of
   clumppling 2.0.10 (Liu, Kopelman & Rosenberg 2024, by Xiran Liu).
 * The conda environment is no longer needed by default, as the core

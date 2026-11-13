@@ -29,6 +29,19 @@
 // are K x K per column (K x K x I or K x K x J), and are the NEGATIVE
 // second derivatives of L (positive semi-definite).
 //
+// Fixed individuals
+// -----------------
+// In a supervised analysis, the ancestry proportions of the reference
+// individuals are known and kept fixed. The Q-side passes (em() and
+// update_q()) then take a mask, fixed (I values, fixed[i] != 0 for an
+// individual whose column of q is fixed), and copy the columns of those
+// individuals into their output instead of updating them. They also skip
+// the work that only serves those columns: their quadratic programs, and
+// their sums over the loci wherever the block structure allows (see
+// q_side()). The P-side passes use every individual, fixed or not. Without
+// a mask (fixed = NULL, the default), every column is updated, exactly as
+// before the mask existed.
+//
 // Common arguments:
 //   geno     the genotypes (I individuals x J loci), see radmix_geno_access.h
 //   q, p     the current estimates (K x I and K x J), read only
@@ -53,9 +66,12 @@ double loglik(const GenoView& geno, const double* q, const double* p, int K,
 
 // One EM step, updating both blocks from the same (q, p): q_new (K x I) and
 // p_new (K x J). The result is not projected: each column of q_new is on
-// the simplex, but p_new can be exactly 0 or 1 (see em()).
+// the simplex, but p_new can be exactly 0 or 1 (see em()). If fixed is not
+// NULL, the individuals i with fixed[i] != 0 keep their column of q (see
+// "Fixed individuals" below).
 void em(const GenoView& geno, const double* q, const double* p, int K,
-        double* q_new, double* p_new, int n_cores);
+        double* q_new, double* p_new, int n_cores,
+        const unsigned char* fixed = nullptr);
 
 // The gradient (K x I) and negative Hessian (K x K x I) of L with respect to
 // each column of q.
@@ -69,9 +85,11 @@ void grad_p(const GenoView& geno, const double* q, const double* p, int K,
 
 // The block update of q given p (q_new, K x I): each column takes the step
 // that maximises the quadratic approximation of L subject to staying on the
-// simplex, and is then projected onto {sum = 1, q >= 1e-5}.
+// simplex, and is then projected onto {sum = 1, q >= 1e-5}. If fixed is not
+// NULL, the individuals i with fixed[i] != 0 keep their column of q.
 void update_q(const GenoView& geno, const double* q, const double* p, int K,
-              double* q_new, int n_cores);
+              double* q_new, int n_cores,
+              const unsigned char* fixed = nullptr);
 
 // The block update of p given q (p_new, K x J): the same, within the box
 // [0, 1], then clamped to [1e-5, 1 - 1e-5].

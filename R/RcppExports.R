@@ -33,8 +33,8 @@ radmix_deviance_cpp <- function(data, q, p, n_cores) {
     .Call(`_tidygenclust_radmix_deviance_cpp`, data, q, p, n_cores)
 }
 
-radmix_em_cpp <- function(data, q, p, n_cores) {
-    .Call(`_tidygenclust_radmix_em_cpp`, data, q, p, n_cores)
+radmix_em_cpp <- function(data, q, p, n_cores, fixed = NULL) {
+    .Call(`_tidygenclust_radmix_em_cpp`, data, q, p, n_cores, fixed)
 }
 
 radmix_grad_q_cpp <- function(data, q, p, n_cores) {
@@ -45,8 +45,8 @@ radmix_grad_p_cpp <- function(data, q, p, n_cores) {
     .Call(`_tidygenclust_radmix_grad_p_cpp`, data, q, p, n_cores)
 }
 
-radmix_update_q_cpp <- function(data, q, p, n_cores) {
-    .Call(`_tidygenclust_radmix_update_q_cpp`, data, q, p, n_cores)
+radmix_update_q_cpp <- function(data, q, p, n_cores, fixed = NULL) {
+    .Call(`_tidygenclust_radmix_update_q_cpp`, data, q, p, n_cores, fixed)
 }
 
 radmix_update_p_cpp <- function(data, q, p, n_cores) {
@@ -73,7 +73,7 @@ radmix_decode_cpp <- function(data) {
     .Call(`_tidygenclust_radmix_decode_cpp`, data)
 }
 
-radmix_fit_cpp <- function(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose) {
-    .Call(`_tidygenclust_radmix_fit_cpp`, data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose)
+radmix_fit_cpp <- function(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose, sup_q) {
+    .Call(`_tidygenclust_radmix_fit_cpp`, data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose, sup_q)
 }
 

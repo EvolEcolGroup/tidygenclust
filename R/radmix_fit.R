@@ -22,6 +22,10 @@
 #' @param init_p optional matrix (loci x K) of starting allele frequencies
 #' @param fix_q,fix_p booleans; if `TRUE`, the corresponding parameter block
 #'   is kept at its starting value
+#' @param sup_q optional matrix (individuals x K) for a supervised analysis,
+#'   as returned by `radmix_check_supervised()`: the rows of the reference
+#'   individuals hold their fixed ancestry proportions, the rows of the
+#'   individuals to estimate are `NA`
 #' @param max_iter maximum number of iterations of the main loop
 #' @param rtol convergence threshold on the relative change in log-likelihood
 #' @param n_em_iter number of EM iterations used to prime the estimates
@@ -34,9 +38,9 @@
 #' @keywords internal
 #' @noRd
 radmix_fit <- function(data, k, init_q = NULL, init_p = NULL,
-                       fix_q = FALSE, fix_p = FALSE, max_iter = 1000,
-                       rtol = 1e-8, n_em_iter = 5, n_qn = 3, n_cores = 1,
-                       verbose = FALSE) {
+                       fix_q = FALSE, fix_p = FALSE, sup_q = NULL,
+                       max_iter = 1000, rtol = 1e-8, n_em_iter = 5,
+                       n_qn = 3, n_cores = 1, verbose = FALSE) {
   # The whole fit runs in C++ (src/radmix_fit.cpp; the algorithm is
   # described in dev_notes/admixture_implementation.md). Running the loop in C++
   # means that the estimates live in buffers allocated once and reused at
@@ -66,6 +70,6 @@ radmix_fit <- function(data, k, init_q = NULL, init_p = NULL,
     init_p = as_double_matrix(init_p),
     fix_q = fix_q, fix_p = fix_p, max_iter = max_iter, rtol = rtol,
     n_em_iter = n_em_iter, n_qn = n_qn, n_cores = n_cores,
-    verbose = verbose
+    verbose = verbose, sup_q = as_double_matrix(sup_q)
   )
 }

@@ -69,6 +69,10 @@ using namespace radmix;
 // init_q, init_p: optional starting values in the user layout (individuals
 //   x K and loci x K), already validated in R; NULL to start at random.
 // fix_q, fix_p: keep the corresponding block at its starting value.
+// sup_q: optional I x K matrix for a supervised analysis, already validated
+//   in R: the row of each reference individual holds its fixed ancestry
+//   proportions (inside the feasible set), and the rows of the individuals
+//   to estimate are NA. NULL for an unsupervised analysis.
 // max_iter, rtol: maximum number of iterations and convergence threshold on
 //   the relative change in log-likelihood.
 // n_em_iter: number of EM steps that prime a random start (skipped when both
@@ -84,7 +88,8 @@ using namespace radmix;
 List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
                     Nullable<NumericMatrix> init_p, bool fix_q,
                     bool fix_p, int max_iter, double rtol, int n_em_iter,
-                    int n_qn, int n_cores, bool verbose) {
+                    int n_qn, int n_cores, bool verbose,
+                    Nullable<NumericMatrix> sup_q) {
   // The arguments have been validated in R; these checks only guard against
   // misuse from within the package. Every R error must happen here, before
   // any parallel region.
@@ -96,6 +101,43 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     stop("There must be at least one individual and one locus.");
   const size_t nq = K * I, np = K * J;
   FitLog log = {verbose, {}};
+
+  // Supervised analysis: the reference individuals (fixed[i] = 1) keep the
+  // ancestry proportions given in sup_q (stored in q_sup, in the K x I
+  // layout) throughout the fit: they are set before EM, the Q-side passes
+  // copy them instead of updating them (radmix_kernels.h, "Fixed
+  // individuals"), and they are restored after each quasi-Newton step. P is
+  // estimated from all the individuals. fx is NULL in an unsupervised
+  // analysis, which then runs exactly as without this option.
+  std::vector<unsigned char> fixed;
+  std::vector<double> q_sup;
+  size_t n_fixed = 0;
+  if (sup_q.isNotNull()) {
+    NumericMatrix sq(sup_q.get());
+    if ((size_t) sq.nrow() != I || (size_t) sq.ncol() != K)
+      stop("invalid arguments to radmix_fit_cpp()");
+    fixed.assign(I, 0);
+    q_sup.assign(nq, 0.0);
+    for (size_t i = 0; i < I; i++) {
+      if (ISNAN(sq(i, 0))) continue;
+      fixed[i] = 1;
+      n_fixed++;
+      for (size_t kk = 0; kk < K; kk++) q_sup[K * i + kk] = sq(i, kk);
+    }
+  }
+  const unsigned char* fx = n_fixed > 0 ? fixed.data() : nullptr;
+  // set the columns of the reference individuals of a q (K x I) to their
+  // fixed values
+  auto set_fixed = [&](std::vector<double>& qq) {
+    for (size_t i = 0; i < I; i++)
+      if (fixed[i])
+        std::copy(&q_sup[K * i], &q_sup[K * (i + 1)], &qq[K * i]);
+  };
+  if (fx != nullptr) {
+    log.add("Supervised analysis: " + std::to_string(n_fixed) +
+            " reference individuals (fixed ancestry), " +
+            std::to_string(I - n_fixed) + " individuals to estimate");
+  }
 
   // the current estimate x0 = (q, p), and the estimates after one and two
   // sweeps of block updates, x1 = (q1, p1) and x2 = (q2, p2)
@@ -111,6 +153,10 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     for (size_t kk = 0; kk < K; kk++) q[K * i + kk] /= sum;
   }
   for (size_t t = 0; t < np; t++) p[t] = R::runif(0.0, 1.0);
+  // the reference individuals start (and stay) at their fixed values, so
+  // that EM estimates P from them (the random values drawn for them above
+  // are discarded, which keeps the draws of the others in place)
+  if (fx != nullptr) set_fixed(q);
 
   // EM priming, unless both blocks are given: a few EM steps move a random
   // start into a sensible region of the parameter space. Their
@@ -123,7 +169,7 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
   double ll_after_em = R_NaN;
   if (init_q.isNull() || init_p.isNull()) {
     for (int it = 1; it <= n_em_iter; it++) {
-      em(geno, q.data(), p.data(), k, q1.data(), p1.data(), n_cores);
+      em(geno, q.data(), p.data(), k, q1.data(), p1.data(), n_cores, fx);
       std::swap(q, q1);
       std::swap(p, p1);
       ll_after_em = R_NaN;
@@ -145,6 +191,9 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     NumericMatrix iq(init_q.get());
     for (size_t i = 0; i < I; i++)
       for (size_t kk = 0; kk < K; kk++) q[K * i + kk] = iq(i, kk);
+    // (the reference individuals keep their fixed values whatever init_q
+    // says about them)
+    if (fx != nullptr) set_fixed(q);
     ll_after_em = R_NaN;
   }
   if (init_p.isNotNull()) {
@@ -168,13 +217,14 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
 
     // Two sweeps of block updates, x1 = F(x0) and x2 = F(x1). A sweep updates
     // all of q given p, then all of p given the new q, each column by a
-    // constrained Newton step (radmix_kernels.cpp). A fixed block is copied.
+    // constrained Newton step (radmix_kernels.cpp). A fixed block is copied,
+    // and so are the columns of the reference individuals (fx).
     if (fix_q) q1 = q;
-    else update_q(geno, q.data(), p.data(), k, q1.data(), n_cores);
+    else update_q(geno, q.data(), p.data(), k, q1.data(), n_cores, fx);
     if (fix_p) p1 = p;
     else update_p(geno, q1.data(), p.data(), k, p1.data(), n_cores);
     if (fix_q) q2 = q1;
-    else update_q(geno, q1.data(), p1.data(), k, q2.data(), n_cores);
+    else update_q(geno, q1.data(), p1.data(), k, q2.data(), n_cores, fx);
     if (fix_p) p2 = p1;
     else update_p(geno, q2.data(), p1.data(), k, p2.data(), n_cores);
 
@@ -194,6 +244,8 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
       // projection could move it by rounding errors: restore it exactly.
       if (fix_q) q = q1;
       if (fix_p) p = p1;
+      // the same for the columns of the reference individuals
+      if (fx != nullptr) set_fixed(q);
       ll_qn = loglik(geno, q.data(), p.data(), k, n_cores);
     }
 

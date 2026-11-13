@@ -144,6 +144,17 @@ static std::vector<double> transpose(const double* q, int K, size_t I) {
   return qT;
 }
 
+// The transpose of the columns idx[0], ..., idx[n - 1] of q: an n x K
+// column-major matrix, whose row f is individual idx[f] (the "compact"
+// transpose of the free individuals of the Q side, see q_side()).
+static std::vector<double> transpose_subset(const double* q, int K,
+                                            const size_t* idx, size_t n) {
+  std::vector<double> qT((size_t) K * n);
+  for (size_t f = 0; f < n; f++)
+    for (int k = 0; k < K; k++) qT[f + n * k] = q[k + K * idx[f]];
+  return qT;
+}
+
 // Thread-local buffers for one slice (one locus x up to TILE_I individuals):
 // qp, the decoded genotypes g and h, and the coefficients defined at the top
 // of the file, a and b (EM) or d1 and d2 (Newton). loglik_slice() uses a and
@@ -171,10 +182,18 @@ struct Slice {
 // transposed q (I x K, see transpose()), pj the K frequencies of locus j
 // (p + K j); i1 - i0 must be at most TILE_I. A missing (or hidden) genotype
 // gets g = h = 0, so that it drops out of every sum without a test.
+//
+// With idx (the free individuals of the Q side, see q_side()), [i0, i1) are
+// rows of a compact transpose qT with ldq rows (transpose_subset()), and
+// entry ii of the slice is individual idx[ii] of the genotypes (idx points
+// to the entry of row i0). Without it (idx = NULL, the default), ldq is I
+// and the individuals are i0 to i1 - 1.
 static inline void slice_geno(const GenoView& geno, const double* qT,
                               const double* pj, int K, size_t j, size_t i0,
-                              size_t i1, Slice& s) {
-  const size_t I = geno.nrow(), ni = i1 - i0;
+                              size_t i1, Slice& s,
+                              const size_t* idx = nullptr, size_t ldq = 0) {
+  const size_t ni = i1 - i0;
+  const size_t I = idx == nullptr ? geno.nrow() : ldq;
   // (__restrict tells the compiler that these buffers do not overlap, which
   // it needs to vectorise the loops below)
   double* __restrict qp = s.qp.data();
@@ -199,33 +218,51 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
   // backing file and are decoded alike (no pseudohaploids), their bytes are
   // read directly and decoded with two tables giving g and h (both 0 for a
   // missing genotype). This gives the same values as the general loop below.
-  const double* gtab;
-  const double* htab;
-  const unsigned char* __restrict bytes =
-    geno.slice_bytes(i0, ni, j, gtab, htab);
-  if (bytes != nullptr) {
-    if (!geno.cv_masked()) {
-      for (size_t ii = 0; ii < ni; ii++) {
-        const unsigned char b = bytes[ii];
-        g[ii] = gtab[b];
-        h[ii] = htab[b];
+  // (with idx, the individuals of the slice are a run of consecutive
+  // individuals of the genotypes when their indices are, and can then take
+  // the paths below from the first of them, gi0)
+  const size_t gi0 = idx == nullptr ? i0 : idx[0];
+  const bool run = idx == nullptr || idx[ni - 1] - idx[0] == ni - 1;
+  if (run) {
+    const double* gtab;
+    const double* htab;
+    const unsigned char* __restrict bytes =
+      geno.slice_bytes(gi0, ni, j, gtab, htab);
+    if (bytes != nullptr) {
+      if (!geno.cv_masked()) {
+        for (size_t ii = 0; ii < ni; ii++) {
+          const unsigned char b = bytes[ii];
+          g[ii] = gtab[b];
+          h[ii] = htab[b];
+        }
+      } else {
+        for (size_t ii = 0; ii < ni; ii++) {
+          const unsigned char b = bytes[ii];
+          const double vis = geno.cv_visible(gi0 + ii, j) ? 1.0 : 0.0;
+          g[ii] = vis * gtab[b];
+          h[ii] = vis * htab[b];
+        }
       }
-    } else {
-      for (size_t ii = 0; ii < ni; ii++) {
-        const unsigned char b = bytes[ii];
-        const double vis = geno.cv_visible(i0 + ii, j) ? 1.0 : 0.0;
-        g[ii] = vis * gtab[b];
-        h[ii] = vis * htab[b];
-      }
+      return;
+    }
+    // general path: any order of the rows, pseudohaploids, masks
+    double gij;
+    for (size_t ii = 0; ii < ni; ii++) {
+      const double obs = geno.get(gi0 + ii, j, gij) ? 1.0 : 0.0;
+      g[ii] = obs * gij;
+      h[ii] = obs * (geno.n_trials(gi0 + ii) - gij);
     }
     return;
   }
-  // general path: any order of the rows, pseudohaploids, masks
+  // free individuals that are not consecutive: each genotype is read
+  // through the index of its individual (the folds of cross-validation
+  // follow these indices, so they are the same as in the other passes)
   double gij;
   for (size_t ii = 0; ii < ni; ii++) {
-    const double obs = geno.get(i0 + ii, j, gij) ? 1.0 : 0.0;
+    const size_t i = idx[ii];
+    const double obs = geno.get(i, j, gij) ? 1.0 : 0.0;
     g[ii] = obs * gij;
-    h[ii] = obs * (geno.n_trials(i0 + ii) - gij);
+    h[ii] = obs * (geno.n_trials(i) - gij);
   }
 }
 
@@ -240,8 +277,9 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
 template <bool NEWTON>
 static inline void slice_coef(const GenoView& geno, const double* qT,
                               const double* pj, int K, size_t j, size_t i0,
-                              size_t i1, Slice& s) {
-  slice_geno(geno, qT, pj, K, j, i0, i1, s);
+                              size_t i1, Slice& s,
+                              const size_t* idx = nullptr, size_t ldq = 0) {
+  slice_geno(geno, qT, pj, K, j, i0, i1, s, idx, ldq);
   const size_t ni = i1 - i0;
   const double* __restrict qp = s.qp.data();
   const double* __restrict g = s.g.data();
@@ -284,6 +322,8 @@ static inline void slice_coef(const GenoView& geno, const double* qT,
 // i1 - i0 must be at most TILE_I. s holds two slices (one per locus of a
 // step); gT (K vectors of TILE_I values) and hT (K (K + 1) / 2 vectors of
 // TILE_I values, only used if NEWTON) are scratch for the accumulators.
+// With a list of free individuals (free_idx, see q_side()), [i0, i1) are
+// positions in that list, and qT is their compact transpose, with ldq rows.
 //
 // The accumulators are kept "transposed": one vector of length TILE_I per
 // gradient entry k, and one per Hessian entry (k, k2) with k2 >= k, so that
@@ -299,7 +339,8 @@ RADMIX_MULTIVERSION
 static void accum_q_block(const GenoView& geno, const double* qT,
                           const double* p, int K, size_t i0, size_t i1,
                           size_t j0, size_t j1, double* grad, double* hess,
-                          Slice* s, double* gT, double* hT) {
+                          Slice* s, double* gT, double* hT,
+                          const size_t* free_idx = nullptr, size_t ldq = 0) {
   const size_t ni = i1 - i0, KK = (size_t) K * K;
   // the number of entries (k, k2) with k2 >= k of a symmetric K x K matrix
   const size_t n_pair = (size_t) K * (K + 1) / 2;
@@ -317,14 +358,16 @@ static void accum_q_block(const GenoView& geno, const double* qT,
   const double* __restrict d21 = s[0].d2.data();
   const double* __restrict d12 = s[1].d1.data();
   const double* __restrict d22 = s[1].d2.data();
+  // with a list of free individuals, those of the block (see q_side())
+  const size_t* fi = free_idx == nullptr ? nullptr : free_idx + i0;
   for (size_t j = j0; j < j1; j += 2) {
     // the frequencies of the two loci; the padding locus of an odd range
     // (j + 1 == j1) has zero coefficients, so any frequencies will do
     const bool two = j + 1 < j1;
     const double* pj = p + K * j;
     const double* pj2 = two ? pj + K : pj;
-    slice_coef<NEWTON>(geno, qT, pj, K, j, i0, i1, s[0]);
-    if (two) slice_coef<NEWTON>(geno, qT, pj2, K, j + 1, i0, i1, s[1]);
+    slice_coef<NEWTON>(geno, qT, pj, K, j, i0, i1, s[0], fi, ldq);
+    if (two) slice_coef<NEWTON>(geno, qT, pj2, K, j + 1, i0, i1, s[1], fi, ldq);
     else s[1].zero_coef(ni);
     if (NEWTON) {
       // gradient: gT[, k] += d1 p_kj, for both loci
@@ -421,6 +464,16 @@ size_t q_segments(size_t I, size_t J) {
 // point to thread-local buffers, valid only during the call. qT is the
 // transposed q (I x K), p is K x J.
 //
+// With a list of free individuals (free_idx, n_free values, in increasing
+// order; see "Fixed individuals" in radmix_kernels.h), only those are
+// processed: the blocks are blocks of TILE_I consecutive entries of the
+// list, qT is the compact transpose of their columns (n_free x K, see
+// transpose_subset()), and [i0, i1) passed to finish() are positions in
+// the list (entry f is individual free_idx[f]). The sums of the fixed
+// individuals are never computed. The free individuals of a slice are read
+// through their indices, unless they are consecutive (slice_geno()); the
+// arithmetic of each sum is the same as without the list.
+//
 // With one segment, each block is accumulated over all the loci by one
 // thread, into thread-local buffers. With several, each (segment, block)
 // task writes its partial sums into its own slot of grad_part and
@@ -429,8 +482,12 @@ size_t q_segments(size_t I, size_t J) {
 // region, separated by the barrier at the end of the first loop.
 template <bool NEWTON, class Finish>
 static void q_side(const GenoView& geno, const double* qT, const double* p,
-                   int K, int n_cores, Finish finish) {
-  const size_t I = geno.nrow(), J = geno.ncol(), KK = (size_t) K * K;
+                   int K, int n_cores, Finish finish,
+                   const size_t* free_idx = nullptr, size_t n_free = 0) {
+  // I: the number of individuals processed (all of them, or the free ones),
+  // which is also the number of rows of qT
+  const size_t I = free_idx == nullptr ? geno.nrow() : n_free;
+  const size_t J = geno.ncol(), KK = (size_t) K * K;
   const size_t n_pair = (size_t) K * (K + 1) / 2;
   const size_t nbi = n_blocks(I, TILE_I), n_seg = q_segments(I, J);
   // the partial sums of individual i in segment seg start at
@@ -457,7 +514,8 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
       accum_q_block<NEWTON>(geno, qT, p, K, i0, i1, j0, j1,
                             &grad_part[K * (seg * I + i0)],
                             NEWTON ? &hess_part[KK * (seg * I + i0)] : NULL,
-                            s, gT.data(), NEWTON ? hT.data() : NULL);
+                            s, gT.data(), NEWTON ? hT.data() : NULL, free_idx,
+                            I);
     }
     // (the implicit barrier at the end of the loop above guarantees that
     // all the partial sums are written before they are added up below)
@@ -470,7 +528,7 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
     if (n_seg == 1) {
       accum_q_block<NEWTON>(geno, qT, p, K, i0, i1, 0, J, grad.data(),
                             NEWTON ? hess.data() : NULL, s, gT.data(),
-                            NEWTON ? hT.data() : NULL);
+                            NEWTON ? hT.data() : NULL, free_idx, I);
     } else {
       // add up the partial sums of the segments, always in segment order
       for (size_t i = i0; i < i1; i++) {
@@ -494,6 +552,20 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
     finish(i0, i1, grad.data(), hess.data());
   }
 }
+}
+
+// The free individuals of a mask of fixed individuals (see "Fixed
+// individuals" in radmix_kernels.h), in increasing order, for q_side(); the
+// columns of the fixed individuals of q are copied into q_new.
+static std::vector<size_t> free_individuals(const unsigned char* fixed,
+                                            const double* q, int K,
+                                            size_t I, double* q_new) {
+  std::vector<size_t> free_idx;
+  for (size_t i = 0; i < I; i++) {
+    if (fixed[i]) std::copy(q + K * i, q + K * (i + 1), q_new + K * i);
+    else free_idx.push_back(i);
+  }
+  return free_idx;
 }
 
 // P side: the sums over all the individuals of each locus of the block
@@ -827,14 +899,27 @@ void deviance(const GenoView& geno, const double* q, const double* p, int K,
 // over blocks of loci, both from the same (q, p) (and the same transposed
 // q), so one EM step costs two passes over the genotypes.
 void em(const GenoView& geno, const double* q, const double* p, int K,
-        double* q_new, double* p_new, int n_cores) {
-  std::vector<double> qT = transpose(q, K, geno.nrow());
+        double* q_new, double* p_new, int n_cores,
+        const unsigned char* fixed) {
+  const size_t I = geno.nrow();
+  std::vector<double> qT = transpose(q, K, I);
+  // With fixed individuals, their columns are copied into q_new, and the Q
+  // side only processes the free ones (free_idx, with the compact transpose
+  // of their columns, qT_free); the P side below uses every individual.
+  std::vector<size_t> free_idx;
+  std::vector<double> qT_free;
+  if (fixed != nullptr) {
+    free_idx = free_individuals(fixed, q, K, I, q_new);
+    qT_free = transpose_subset(q, K, free_idx.data(), free_idx.size());
+  }
   // Q: q_new_ki proportional to q_ki sum_j [a p_kj + b (1 - p_kj)]
-  q_side<false>(geno, qT.data(), p, K, n_cores,
-                [&](size_t i0, size_t i1, const double* sums,
-                    const double*) {
-    for (size_t i = i0; i < i1; i++) {
-      const double* si = sums + K * (i - i0);
+  // (f indexes the processed individuals, i the individuals of the data;
+  // they are the same without fixed individuals)
+  auto q_finish = [&](size_t i0, size_t i1, const double* sums,
+                      const double*) {
+    for (size_t f = i0; f < i1; f++) {
+      const size_t i = fixed == nullptr ? f : free_idx[f];
+      const double* si = sums + K * (f - i0);
       const double* qi = q + K * i;
       double* qn = q_new + K * i;
       double denom = 0.0;
@@ -849,7 +934,13 @@ void em(const GenoView& geno, const double* q, const double* p, int K,
       else
         for (int k = 0; k < K; k++) qn[k] = qi[k];
     }
-  });
+  };
+  if (fixed == nullptr) {
+    q_side<false>(geno, qT.data(), p, K, n_cores, q_finish);
+  } else if (!free_idx.empty()) {
+    q_side<false>(geno, qT_free.data(), p, K, n_cores, q_finish,
+                  free_idx.data(), free_idx.size());
+  }
   // P: p_new = A / (A + B), where A = p sum_i a q and B = (1 - p) sum_i b q
   // are the expected numbers of alternate and reference allele copies at
   // locus j from population k
@@ -952,18 +1043,40 @@ static inline void newton_column(const double* H, const double* grad,
 // Hessians are used while they are in cache, and those of all the
 // individuals are never stored (except with segments, which are only used
 // with few individuals). Every block gets its own QPWork, a few small
-// vectors whose allocation costs nothing next to the accumulation.
+// vectors whose allocation costs nothing next to the accumulation. With a
+// mask of fixed individuals (a supervised analysis), their columns are
+// copied, and neither their sums nor their quadratic programs are computed.
 void update_q(const GenoView& geno, const double* q, const double* p, int K,
-              double* q_new, int n_cores) {
-  const size_t KK = (size_t) K * K;
-  std::vector<double> qT = transpose(q, K, geno.nrow());
+              double* q_new, int n_cores, const unsigned char* fixed) {
+  const size_t KK = (size_t) K * K, I = geno.nrow();
+  if (fixed == nullptr) {
+    std::vector<double> qT = transpose(q, K, I);
+    q_side<true>(geno, qT.data(), p, K, n_cores,
+                 [&](size_t i0, size_t i1, const double* g,
+                     const double* H) {
+      QPWork work(K);
+      for (size_t i = i0; i < i1; i++)
+        newton_column(H + KK * (i - i0), g + K * (i - i0), q + K * i, K,
+                      true, q_new + K * i, work);
+    });
+    return;
+  }
+  // with fixed individuals: copy their columns, and update the free ones
+  // only (positions f in the list of free individuals, individuals
+  // free_idx[f] of the data), from the compact transpose of their columns
+  std::vector<size_t> free_idx = free_individuals(fixed, q, K, I, q_new);
+  if (free_idx.empty()) return;
+  std::vector<double> qT =
+    transpose_subset(q, K, free_idx.data(), free_idx.size());
   q_side<true>(geno, qT.data(), p, K, n_cores,
                [&](size_t i0, size_t i1, const double* g, const double* H) {
     QPWork work(K);
-    for (size_t i = i0; i < i1; i++)
-      newton_column(H + KK * (i - i0), g + K * (i - i0), q + K * i, K, true,
+    for (size_t f = i0; f < i1; f++) {
+      const size_t i = free_idx[f];
+      newton_column(H + KK * (f - i0), g + K * (f - i0), q + K * i, K, true,
                     q_new + K * i, work);
-  });
+    }
+  }, free_idx.data(), free_idx.size());
 }
 
 // The block update of p: the same for the loci, block by block, inside

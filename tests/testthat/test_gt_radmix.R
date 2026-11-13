@@ -344,3 +344,143 @@ test_that("a fixed Q is kept exactly at its starting value", {
   # the quasi-Newton step used to move it by rounding errors
   expect_identical(q_fit, q_start)
 })
+
+# Supervised analyses: the individuals with more than 90% of their simulated
+# ancestry from one population are references of that population, labelled
+# so that the order of first appearance (a, c, b: the order of the columns)
+# differs from the alphabetical order; the others are estimated
+sup_names <- c("c", "a", "b")
+sup_is_ref <- apply(sim$q, 1, max) > 0.9
+sup_labels <- ifelse(sup_is_ref, sup_names[apply(sim$q, 1, which.max)], NA)
+
+test_that("supervised analyses fix the ancestry of the references", {
+  # (grouped, to check tidypopgen's methods below; the groups do not change
+  # the fit)
+  grouped_gt <- dplyr::group_by(sim_gt, population)
+  adm <- gt_radmix(grouped_gt, k = 3, supervised = sup_labels, seed = 1)
+  expect_s3_class(adm$Q[[1]], "q_matrix")
+  expect_true(adm$converged)
+  expect_match(adm$log[[1]][1], paste0(
+    "^Supervised analysis: ", sum(sup_is_ref), " reference individuals"
+  ))
+  # the columns follow the order of first appearance, as in ADMIXTURE
+  expect_identical(adm$ref_pops, unique(sup_labels[sup_is_ref]))
+  q <- unname(unclass(adm$Q[[1]]))
+  # the references keep exactly their fixed value: 1 for their population,
+  # 0 for the others, moved inside the feasible set (1 - 2e-5 and 1e-5,
+  # the values reported by ADMIXTURE)
+  col <- match(sup_labels[sup_is_ref], adm$ref_pops)
+  q_fixed <- matrix(1e-5, sum(sup_is_ref), 3)
+  q_fixed[cbind(seq_along(col), col)] <- 1 - 2e-5
+  expect_equal(q[sup_is_ref, ], q_fixed, tolerance = 1e-12)
+  sup <- radmix_check_supervised(sup_labels, nrow(sim_gt), 3)
+  expect_identical(q[sup_is_ref, ], sup$q[sup_is_ref, ])
+  # the others recover their simulated ancestry, whose columns are matched
+  # to the populations by their labels (no relabelling of the clusters)
+  truth <- sim$q[, match(adm$ref_pops, sup_names)]
+  expect_lt(mean(abs(q[!sup_is_ref, ] - truth[!sup_is_ref, ])), 0.05)
+  # the order of the levels of a factor is used instead, giving the same
+  # estimates up to the order of the columns (and the path of the fit)
+  adm_f <- gt_radmix(sim_gt,
+    k = 3, seed = 1,
+    supervised = factor(sup_labels, levels = c("a", "b", "c"))
+  )
+  expect_identical(adm_f$ref_pops, c("a", "b", "c"))
+  expect_equal(unname(unclass(adm_f$Q[[1]])),
+    q[, match(c("a", "b", "c"), adm$ref_pops)],
+    tolerance = 1e-3
+  )
+  # results do not depend on the number of cores
+  adm2 <- gt_radmix(sim_gt,
+    k = 3, supervised = sup_labels, seed = 1, n_cores = 2
+  )
+  expect_identical(adm2$Q, adm$Q)
+  expect_identical(adm2$P, adm$P)
+  # the result works with tidypopgen's methods
+  expect_s3_class(
+    ggplot2::autoplot(adm, k = 3, run = 1, type = "barplot"),
+    "ggplot"
+  )
+  q_mat <- tidypopgen::get_q_matrix(adm, k = 3, run = 1)
+  expect_identical(nrow(generics::tidy(q_mat, grouped_gt)), 80L * 3L)
+  expect_identical(
+    as.numeric(generics::augment(q_mat, grouped_gt)$.Q2),
+    as.numeric(q_mat[, 2])
+  )
+})
+
+test_that("supervised analyses support cross-validation and init_q", {
+  adm <- gt_radmix(sim_gt, k = 3, supervised = sup_labels, seed = 1)
+  adm_cv <- gt_radmix(sim_gt,
+    k = 3, supervised = sup_labels, seed = 1, crossval = TRUE
+  )
+  # cross-validation does not change the estimates
+  expect_identical(adm_cv$Q, adm$Q)
+  expect_true(is.finite(adm_cv$cv) && adm_cv$cv > 0)
+  # the references stay fixed in the fit of each fold
+  sup <- radmix_check_supervised(sup_labels, nrow(sim_gt), 3)
+  dat <- radmix_prepare(sim_gt)
+  train <- radmix_set_cv(dat, cv = list(
+    mode = "train", fold = 1, n_folds = 5, seed = 1
+  ))
+  fold_fit <- radmix_fit(train,
+    k = 3, init_q = unclass(adm$Q[[1]]), init_p = adm$P[[1]],
+    sup_q = sup$q
+  )
+  expect_identical(fold_fit$q[sup_is_ref, ], sup$q[sup_is_ref, ])
+  # init_q gives the start of the individuals to estimate; its rows for the
+  # references are ignored
+  init_q <- matrix(1 / 3, nrow(sim_gt), 3)
+  adm_q <- gt_radmix(sim_gt,
+    k = 3, supervised = sup_labels, init_q = init_q, seed = 1
+  )
+  expect_identical(
+    unclass(adm_q$Q[[1]])[sup_is_ref, ],
+    unclass(adm$Q[[1]])[sup_is_ref, ]
+  )
+  expect_equal(adm_q$loglik, adm$loglik, tolerance = 1e-6)
+})
+
+test_that("invalid supervised analyses are caught", {
+  n <- nrow(sim_gt)
+  expect_error(
+    gt_radmix(sim_gt, k = 3, supervised = sup_labels[-1]),
+    "'supervised' should have one element per individual of 'x' \\(80\\)"
+  )
+  expect_error(
+    gt_radmix(sim_gt, k = 3, supervised = rep(NA_character_, n)),
+    "it only contains NA"
+  )
+  expect_error(
+    gt_radmix(sim_gt, k = 3, supervised = rep(1, n)),
+    "'supervised' should be a character vector or a factor"
+  )
+  # as in ADMIXTURE, k must equal the number of reference populations
+  expect_error(
+    gt_radmix(sim_gt, k = 2, supervised = sup_labels),
+    paste0(
+      "'k' should equal the number of reference populations in ",
+      "'supervised' \\(3: a, c, b\\), not 2"
+    )
+  )
+  expect_error(
+    gt_radmix(sim_gt, k = 2:3, supervised = sup_labels),
+    "'supervised' can only be used with a single 'k'"
+  )
+  expect_error(
+    gt_radmix(sim_gt,
+      k = 3, supervised = factor(sup_labels, levels = c("a", "b", "c", "d"))
+    ),
+    "the level\\(s\\) d of 'supervised' have no reference individual"
+  )
+  expect_error(
+    gt_radmix(sim_gt,
+      k = 3, supervised = sup_labels, init_p = t(sim$p), fix_p = TRUE
+    ),
+    "'supervised' cannot be combined with 'fix_q' or 'fix_p'"
+  )
+  expect_error(
+    gt_radmix(sim_gt, k = 3, supervised = sup_labels, init = "svd"),
+    "'supervised' cannot be combined with 'init = \"svd\"'"
+  )
+})
