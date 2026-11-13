@@ -128,8 +128,28 @@ namespace radmix {
 // of q stay in the L1 or L2 cache for moderate K. loglik_slice() needs
 // TILE_I == LOG_BATCH^2, and the padding of odd ranges of loci on the P side
 // needs TILE_J to be even (see accum_p_block()).
+//
+// TILE_J, MIN_Q_TASKS (below) and the OpenMP schedule of the passes can be
+// changed at compile time, for benchmarks only (e.g. -DRADMIX_TILE_J=32
+// -DRADMIX_MIN_Q_TASKS=64 -DRADMIX_OMP_SCHEDULE=guided in the CXXFLAGS of a
+// private Makevars, see data-raw/radmix/newspeed): they were never tuned for
+// many cores. The schedule never changes the results (each block is
+// processed start to finish by one thread). TILE_J changes the partial sums
+// of loglik() and deviance(), and MIN_Q_TASKS the segments of the Q side, so
+// with other values results differ by rounding (and test_radmix_kernels.R,
+// which checks the segments of the default, fails), but they are still the
+// same for any number of threads.
+#ifndef RADMIX_TILE_J
+#define RADMIX_TILE_J 64
+#endif
+#ifndef RADMIX_MIN_Q_TASKS
+#define RADMIX_MIN_Q_TASKS 32
+#endif
+#ifndef RADMIX_OMP_SCHEDULE
+#define RADMIX_OMP_SCHEDULE dynamic
+#endif
 static const size_t TILE_I = 64;
-static const size_t TILE_J = 64;
+static const size_t TILE_J = RADMIX_TILE_J;
 static_assert(TILE_J % 2 == 0, "TILE_J must be even");
 // (the bit mask of a training view gives one 64-bit word per slice, see
 // slice_geno())
@@ -563,7 +583,7 @@ static double accum_q_block(const GenoView& geno, const double* qT,
 // n_seg I stays below 2 MIN_Q_TASKS TILE_I = 4096: under 4 MB for K = 10.
 
 // the target number of Q-side tasks, enough to balance a few dozen threads
-static const size_t MIN_Q_TASKS = 32;
+static const size_t MIN_Q_TASKS = RADMIX_MIN_Q_TASKS;
 // the minimum number of loci of a segment, so that each task has enough
 // work to amortise its overheads
 static const size_t MIN_SEG_LOCI = 256;
@@ -630,7 +650,7 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
     // tasks t = seg * nbi + bl: blocks vary fastest, so threads that start
     // together read the same columns of the backing file
     const ptrdiff_t n_tasks = (ptrdiff_t) (nbi * n_seg);
-#pragma omp for schedule(dynamic)
+#pragma omp for schedule(RADMIX_OMP_SCHEDULE)
     for (ptrdiff_t t = 0; t < n_tasks; t++) {
       const size_t seg = t / nbi, bl = t % nbi;
       const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
@@ -647,7 +667,7 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
   }
   // one task per block of individuals: accumulate it over all the loci, or
   // add up its partial sums, then hand the complete sums to finish()
-#pragma omp for schedule(dynamic)
+#pragma omp for schedule(RADMIX_OMP_SCHEDULE)
   for (ptrdiff_t bl = 0; bl < (ptrdiff_t) nbi; bl++) {
     const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
     if (n_seg == 1) {
@@ -824,7 +844,7 @@ static void p_side(const GenoView& geno, const double* qT, const double* p,
   // (TILE_J slots, so that the spare slot of a padding locus always exists)
   Slice s[2];
   std::vector<double> out1(K * TILE_J), out2((NEWTON ? KK : K) * TILE_J);
-#pragma omp for schedule(dynamic)
+#pragma omp for schedule(RADMIX_OMP_SCHEDULE)
   for (ptrdiff_t bl = 0; bl < nb; bl++) {
     const size_t j0 = bl * TILE_J, j1 = std::min(J, j0 + TILE_J);
     accum_p_block<NEWTON>(geno, qT, p, K, j0, j1, out1.data(), out2.data(),
@@ -856,7 +876,7 @@ static void sum_slices(const GenoView& geno, const double* q, const double* p,
   Slice s;
   // (dynamic scheduling balances the load if some threads are slower, e.g.
   // while the backing file is being paged in)
-#pragma omp for schedule(dynamic)
+#pragma omp for schedule(RADMIX_OMP_SCHEDULE)
   for (ptrdiff_t bl = 0; bl < nb; bl++) {
     const size_t j1 = std::min(J, (bl + 1) * TILE_J);
     double acc[NS] = {};
