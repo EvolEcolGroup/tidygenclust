@@ -280,6 +280,17 @@ predicted like the others (ADMIXTURE does not document this detail).
 \code{init_p} can give starting values; \code{fix_q}, \code{fix_p} and \code{init = "svd"}
 cannot be combined with \code{supervised}. Supervised analyses are also
 available for genotype likelihoods (without cross-validation).
+
+When the reference individuals are many, starting P from the allele
+frequencies of the reference populations, as fastmixture does in its
+supervised mode, can save iterations: pass them as \code{init_p} (the
+frequency of the alternate allele, e.g. from
+\code{\link[tidypopgen:loci_alt_freq]{tidypopgen::loci_alt_freq()}} on the individuals of each population,
+in the order of the columns), with \code{n_em_iter = 0} (the individuals to
+estimate then start from random values). On the HGDP data (K = 5, 660
+of 1043 individuals as references), this took 7 iterations instead of
+11 and 5 EM steps, to the same log-likelihood; with fewer references
+(\code{EUR_subset}, 102 of 379), it made no difference.
 }
 
 \subsection{Starting values from the SVD}{
