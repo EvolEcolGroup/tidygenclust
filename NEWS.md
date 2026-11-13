@@ -30,7 +30,12 @@
   and estimates. With `crossval = TRUE`, the fit of each fold computes once
   which genotypes it hides (a bit mask, one bit per genotype) instead of in
   every pass, so its passes cost as much as those of the main fit instead of
-  about 1.5 times as much; the cross-validation errors are identical.
+  about 1.5 times as much; the cross-validation errors are identical. On
+  x86-64 Linux, the computation of the expected genotypes and of the
+  log-likelihood in each pass is now also compiled for AVX2 and FMA, and
+  the log-likelihood is cheaper; with the fused pass, an iteration takes
+  about 0.8 of the time it took on one core (HGDP, 1043 x 130,943, K = 5),
+  with the same iterations and estimates that differ only by rounding.
   `?gt_radmix` describes the algorithm, the reproducibility of the results,
   and how they compare with those of ADMIXTURE.
 * `gt_clumppling()` is now a native R and C++ port, with modifications, of

@@ -92,10 +92,12 @@ namespace radmix {
 // loops, are also compiled for the x86-64-v3 level (AVX2: 4 doubles per
 // instruction, and FMA), and the version that suits the processor is chosen
 // once, when the package is loaded (an ifunc). This makes the Newton updates
-// and EM steps 15-30% faster. The log-likelihood and the deviance are left
-// alone: their AVX2 versions are slower (they call log() from the C
-// library inside their loops). The two versions can differ by rounding (FMA
-// and wider vectors change the order of operations), so results are
+// and EM steps 15-30% faster. The log-likelihood and the deviance passes
+// are left alone (their AVX2 versions were slower, with log() called for
+// some genotypes inside their loops); the log-likelihood computed by the
+// fused pass (update_q_loglik()) is inlined into the clone of
+// accum_q_block(). The two versions can differ by rounding (FMA and wider
+// vectors change the order of operations), so results are
 // reproducible on a given machine but not bit-identical across machines;
 // defining RADMIX_NO_MULTIVERSION when compiling (e.g. in ~/.R/Makevars)
 // builds only the baseline version, whose results are the same on every
@@ -298,13 +300,16 @@ static RADMIX_INLINE void slice_coef(const GenoView& geno,
   }
 }
 
-// x^e for e in {0, 1, 2}, without branches: the Lagrange interpolation
-// polynomial in e through (0, 1), (1, x) and (2, x^2). It gives 1 for e = 0
-// even if x = 0; for other values of e the result is meaningless, but
-// loglik_slice() never uses it then.
+// x^e for e in {0, 1, 2}, without branches, where x is already 1 when
+// e = 0 (as in loglik_slice()): x when e < 2, x x when e = 2 (the factor
+// in brackets is x or exactly 1, as m2 = e (e - 1) / 2 is 0, 0 or 1). For
+// other values of e the result is meaningless, but loglik_slice() never
+// uses it then. (Only arithmetic: a mask written as (double) (e > 1) keeps
+// the loop of loglik_slice() from being vectorised in the baseline x86-64
+// code, as do min() and max().)
 static inline double pow012(double x, double e) {
-  return 0.5 * (e - 1.0) * (e - 2.0) + x * e * (2.0 - e) +
-    0.5 * x * x * e * (e - 1.0);
+  const double m2 = 0.5 * e * (e - 1.0);
+  return x * (m2 * x + (1.0 - m2));
 }
 
 // The log-likelihood of a slice takes LOG_BATCH logarithms instead of one or
@@ -327,7 +332,7 @@ static_assert(LOG_BATCH * LOG_BATCH == TILE_I,
 // genotypes (dosages, from imputed or rescaled genotypes) and the rare z
 // below LOG_MIN_Z use the direct formula. A missing genotype has
 // g = h = 0, hence z = 1. Uses s.a and s.b as scratch for z and for a flag
-// (all TILE_I entries of s.a, as pass 3 pads them). ni is at most TILE_I.
+// (all TILE_I entries of s.a, as pass 2 pads them). ni is at most TILE_I.
 static RADMIX_INLINE double loglik_slice_impl(size_t ni, Slice& s) {
   const double* __restrict qp = s.qp.data();
   const double* __restrict g = s.g.data();
@@ -335,27 +340,26 @@ static RADMIX_INLINE double loglik_slice_impl(size_t ni, Slice& s) {
   double* __restrict z = s.a.data();
   double* __restrict c = s.b.data();
   // Pass 1 (vectorised): z = qp^g (1 - qp)^h, assuming that g and h are 0,
-  // 1 or 2, and a flag c that is 0 if and only if they are
-#pragma omp simd
+  // 1 or 2, and a flag c that is 0 if and only if they are (c_sum = 0 if
+  // all of them are). As in slice_coef(), x = qp if g > 0 and 1 otherwise,
+  // and y = 1 - qp if h > 0 and 1 otherwise, so that pow012() only has to
+  // choose between x and x^2 (z is exactly qp, qp^2, 1 - qp, ... as a
+  // product of the same factors). For counts of 0, 1 or 2, the mask g > 0
+  // is g (3 - g) / 2 (0, 1, 1; other counts are flagged by c), written with
+  // arithmetic only so that the loop vectorises (see pow012()).
+  double c_sum = 0.0;
+#pragma omp simd reduction(+:c_sum)
   for (size_t ii = 0; ii < ni; ii++) {
-    z[ii] = pow012(qp[ii], g[ii]) * pow012(1.0 - qp[ii], h[ii]);
+    const double mg = 0.5 * g[ii] * (3.0 - g[ii]);
+    const double mh = 0.5 * h[ii] * (3.0 - h[ii]);
+    const double x = mg * qp[ii] + (1.0 - mg);
+    const double y = mh * (1.0 - qp[ii]) + (1.0 - mh);
+    z[ii] = pow012(x, g[ii]) * pow012(y, h[ii]);
     c[ii] = std::fabs(g[ii] * (g[ii] - 1.0) * (g[ii] - 2.0)) +
       std::fabs(h[ii] * (h[ii] - 1.0) * (h[ii] - 2.0));
+    c_sum += c[ii];
   }
-  // Pass 2 (scalar, rarely taken): the genotypes that cannot go into the
-  // products get explicit logarithms, and a neutral z = 1. This includes
-  // z = 0 (an impossible genotype, qp of exactly 0 with g > 0, or 1 with
-  // h > 0), which correctly gives -Inf. (| rather than || avoids a second
-  // branch.)
-  double ll = 0.0;
-  for (size_t ii = 0; ii < ni; ii++) {
-    if ((z[ii] < LOG_MIN_Z) | (c[ii] != 0)) {
-      z[ii] = 1.0;
-      if (g[ii] > 0) ll += g[ii] * std::log(qp[ii]);
-      if (h[ii] > 0) ll += h[ii] * std::log(1.0 - qp[ii]);
-    }
-  }
-  // Pass 3: LOG_BATCH interleaved products (product b collects z[b],
+  // Pass 2: LOG_BATCH interleaved products (product b collects z[b],
   // z[b + 8], z[b + 16], ...), so that the inner loop multiplies 8
   // independent accumulators by 8 contiguous values and vectorises. A short
   // slice is padded with ones (log(1) = 0) to keep the loop bounds fixed.
@@ -365,6 +369,33 @@ static RADMIX_INLINE double loglik_slice_impl(size_t ni, Slice& s) {
   for (int m = 0; m < LOG_BATCH; m++)
 #pragma omp simd
     for (int b = 0; b < LOG_BATCH; b++) prod[b] *= z[LOG_BATCH * m + b];
+  // Pass 3 (scalar, rarely taken): the genotypes that cannot go into the
+  // products, dosages (c > 0) and z below LOG_MIN_Z, get explicit logarithms
+  // and a neutral z = 1, and the products are formed again. This includes
+  // z = 0 (an impossible genotype, qp of exactly 0 with g > 0, or 1 with
+  // h > 0), which correctly gives -Inf. The factors of hard calls are at
+  // most 1, so a z below LOG_MIN_Z makes its product smaller than LOG_MIN_Z:
+  // the pass is needed only if c_sum > 0 or a product is below LOG_MIN_Z,
+  // which never happens for hard calls with estimates inside
+  // [1e-5, 1 - 1e-5] (z >= 1e-10). Otherwise the result is the same as if
+  // the pass had run (it would not have changed anything). (| rather than ||
+  // avoids a second branch.)
+  double ll = 0.0;
+  double p_min = prod[0];
+  for (int b = 1; b < LOG_BATCH; b++) p_min = std::min(p_min, prod[b]);
+  if ((c_sum != 0) | !(p_min >= LOG_MIN_Z)) {
+    for (size_t ii = 0; ii < ni; ii++) {
+      if ((z[ii] < LOG_MIN_Z) | (c[ii] != 0)) {
+        z[ii] = 1.0;
+        if (g[ii] > 0) ll += g[ii] * std::log(qp[ii]);
+        if (h[ii] > 0) ll += h[ii] * std::log(1.0 - qp[ii]);
+      }
+    }
+    for (int b = 0; b < LOG_BATCH; b++) prod[b] = 1.0;
+    for (int m = 0; m < LOG_BATCH; m++)
+#pragma omp simd
+      for (int b = 0; b < LOG_BATCH; b++) prod[b] *= z[LOG_BATCH * m + b];
+  }
   for (int b = 0; b < LOG_BATCH; b++) ll += std::log(prod[b]);
   return ll;
 }
@@ -375,14 +406,18 @@ static double loglik_slice(size_t ni, Slice& s) {
 }
 
 // loglik_slice() for the Q-side passes that also return the log-likelihood
-// (accum_q_block() with LOGLIK). accum_q_block() is multiversioned; this
-// wrapper is never inlined into it, so the log-likelihood always runs in
-// the baseline code, as in loglik(), and each slice gets the same value as
-// there (the AVX2 versions of the log-likelihood were slower, see
-// RADMIX_MULTIVERSION; one call per slice of up to TILE_I genotypes costs
-// nothing measurable). Defining RADMIX_FUSED_LL_INLINE when compiling
-// inlines it into the AVX2 clone instead, for benchmarks.
-#if defined(__GNUC__) && !defined(RADMIX_FUSED_LL_INLINE)
+// (accum_q_block() with LOGLIK), inlined into accum_q_block(), so that it is
+// also compiled for AVX2 in its clone. Its logarithms are calls to log() of
+// the C library either way (8 per slice of 64 genotypes, or more for
+// dosages), and its products and masks are exact, so each slice gets the
+// same value as in loglik() (up to the rounding of dosages, whose terms can
+// be contracted into FMAs). This made the fused pass about 20% faster than
+// with a call to the baseline version (laptop, HGDP, K = 5); the AVX2
+// clones of the whole log-likelihood pass that were measured slower before
+// (see RADMIX_MULTIVERSION) also called log() for every genotype of a slice
+// with a dosage or a tiny likelihood. Defining RADMIX_FUSED_LL_NOINLINE when
+// compiling calls the baseline version instead, for benchmarks.
+#if defined(__GNUC__) && defined(RADMIX_FUSED_LL_NOINLINE)
 __attribute__((noinline)) static double loglik_slice_q(size_t ni, Slice& s) {
   return loglik_slice_impl(ni, s);
 }
