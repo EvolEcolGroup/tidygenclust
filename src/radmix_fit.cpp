@@ -154,8 +154,35 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     ll_after_em = R_NaN;
   }
 
-  double ll_new = ISNAN(ll_after_em) ?
-    loglik(geno, q.data(), p.data(), k, n_cores) : ll_after_em;
+  // Evaluating a point and starting the next iteration from it share a
+  // pass: the first block update of an iteration, q1 = update of q given
+  // (q, p), forms qp for every genotype, and the log-likelihood of (q, p)
+  // costs little more on top (update_q_loglik()). So whenever the loop
+  // needs the log-likelihood of a point from which the next iteration may
+  // start (the start, the quasi-Newton point, x2), it computes q1 from that
+  // point at the same time, speculatively; q1_ready records that q1 holds
+  // the update of the current x0 = (q, p), so that the next iteration skips
+  // its first pass. An accepted iteration then takes 4 passes over the
+  // genotypes instead of 5, and a rejected one 5 instead of 6, with the same
+  // estimates (q1 is identical either way) and the same log-likelihoods up
+  // to rounding (the same terms, added up in another order). The update is
+  // wasted only when no iteration follows (convergence, or a rejected
+  // quasi-Newton point, whose update is replaced by that of x2), where the
+  // pass costs a little more than the log-likelihood alone; it is not
+  // computed when the iteration limit is reached, nor when q is fixed (there
+  // is no update of q to compute).
+  bool q1_ready = false;
+  double ll_new;
+  if (!ISNAN(ll_after_em)) {
+    // (the last EM step of a verbose fit has already computed it)
+    ll_new = ll_after_em;
+  } else if (!fix_q && max_iter > 0) {
+    ll_new = update_q_loglik(geno, q.data(), p.data(), k, q1.data(),
+                             n_cores);
+    q1_ready = true;
+  } else {
+    ll_new = loglik(geno, q.data(), p.data(), k, n_cores);
+  }
   log.add("Initial loglikelihood: " + fmt(ll_new, 12));
   // the log-likelihood of the start, then at the end of every iteration
   std::vector<double> ll_history(1, ll_new);
@@ -169,8 +196,11 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     // Two sweeps of block updates, x1 = F(x0) and x2 = F(x1). A sweep updates
     // all of q given p, then all of p given the new q, each column by a
     // constrained Newton step (radmix_kernels.cpp). A fixed block is copied.
+    // The first update is usually already done (q1_ready, see above).
     if (fix_q) q1 = q;
-    else update_q(geno, q.data(), p.data(), k, q1.data(), n_cores);
+    else if (!q1_ready)
+      update_q(geno, q.data(), p.data(), k, q1.data(), n_cores);
+    q1_ready = false;
     if (fix_p) p1 = p;
     else update_p(geno, q1.data(), p.data(), k, p1.data(), n_cores);
     if (fix_q) q2 = q1;
@@ -187,6 +217,10 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
                 q2.data(), p2.data(), nq, np);
     const size_t n_used = std::min((size_t) iter, (size_t) n_qn);
     double ll_qn = R_NegInf;
+    // whether to compute the next first update of q along with the
+    // log-likelihood of the point that the iteration ends at (see above):
+    // not after the last iteration allowed, nor with q fixed
+    const bool speculate = !fix_q && iter < max_iter;
     if (qn_step(pairs.U.data(), pairs.V.data(), nq + np, n_used, q.data(),
                 p.data(), q1.data(), p1.data(), k, I, J, q.data(), p.data(),
                 n_cores)) {
@@ -194,7 +228,14 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
       // projection could move it by rounding errors: restore it exactly.
       if (fix_q) q = q1;
       if (fix_p) p = p1;
-      ll_qn = loglik(geno, q.data(), p.data(), k, n_cores);
+      // (q1 is no longer needed: x1 is only used by the secant pairs and the
+      // quasi-Newton step, so it can receive the update of the point)
+      if (speculate) {
+        ll_qn = update_q_loglik(geno, q.data(), p.data(), k, q1.data(),
+                                n_cores);
+      } else {
+        ll_qn = loglik(geno, q.data(), p.data(), k, n_cores);
+      }
     }
 
     // The quasi-Newton point is kept if it improves on the log-likelihood of
@@ -203,11 +244,20 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     // and tends to pay off in the following iterations. It also means that
     // L(x2) is only needed when the point is rejected, saving a pass over
     // the genotypes in most iterations. (isfinite() rejects -Inf and NaN.)
+    // If the point is rejected, the update of q computed with its
+    // log-likelihood is discarded, and that of x2 is computed instead.
     double ll_basic = R_NaN;
     if (std::isfinite(ll_qn) && ll_prev < ll_qn) {
       ll_new = ll_qn;
+      q1_ready = speculate;
     } else {
-      ll_basic = loglik(geno, q2.data(), p2.data(), k, n_cores);
+      if (speculate) {
+        ll_basic = update_q_loglik(geno, q2.data(), p2.data(), k, q1.data(),
+                                   n_cores);
+      } else {
+        ll_basic = loglik(geno, q2.data(), p2.data(), k, n_cores);
+      }
+      q1_ready = speculate;
       std::swap(q, q2);
       std::swap(p, p2);
       ll_new = ll_basic;

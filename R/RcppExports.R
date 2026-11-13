@@ -49,6 +49,10 @@ radmix_update_q_cpp <- function(data, q, p, n_cores) {
     .Call(`_tidygenclust_radmix_update_q_cpp`, data, q, p, n_cores)
 }
 
+radmix_update_q_loglik_cpp <- function(data, q, p, n_cores) {
+    .Call(`_tidygenclust_radmix_update_q_loglik_cpp`, data, q, p, n_cores)
+}
+
 radmix_update_p_cpp <- function(data, q, p, n_cores) {
     .Call(`_tidygenclust_radmix_update_p_cpp`, data, q, p, n_cores)
 }
