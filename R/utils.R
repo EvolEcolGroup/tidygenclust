@@ -24,11 +24,12 @@ check_flag <- function(x, name) {
   invisible(TRUE)
 }
 
-# The group of each individual of a grouped gen_tibble (NULL if it is not
-# grouped), for the `group` element of a gt_admix object. As in
+# The group of each individual of a grouped gen_tibble, or of any other
+# grouped tibble (e.g. genotype likelihoods from another package), NULL if
+# it is not grouped, for the `group` element of a gt_admix object. As in
 # gt_admixture(), a single grouping variable is supported
 gt_single_group <- function(x) {
-  if (!inherits(x, "grouped_gen_tbl")) {
+  if (!inherits(x, "grouped_df")) {
     return(NULL)
   }
   group_vars <- dplyr::group_vars(x)

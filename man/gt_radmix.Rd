@@ -26,7 +26,9 @@ gt_radmix(
 )
 }
 \arguments{
-\item{x}{a \code{\link[tidypopgen:gen_tibble]{tidypopgen::gen_tibble}} (possibly grouped)}
+\item{x}{a \code{\link[tidypopgen:gen_tibble]{tidypopgen::gen_tibble}}, or genotype likelihoods from
+another package (see "Genotype likelihoods" in the details), possibly
+grouped}
 
 \item{k}{an integer vector giving the number(s) of ancestral populations}
 
@@ -57,13 +59,14 @@ in ADMIXTURE; or \code{"svd"}, from a truncated SVD of the
 genotypes, which needs fewer iterations but is not suited to exploring
 the modes of the likelihood with several runs (see "Starting values
 from the SVD" in the details). \code{"svd"} cannot be combined with \code{init_q}
-or \code{init_p}.}
+or \code{init_p}, nor used with genotype likelihoods.}
 
 \item{init_q}{optional matrix (individuals x k) of starting ancestry
 proportions; only allowed with a single value of \code{k}}
 
 \item{init_p}{optional matrix (loci x k) of starting allele frequencies
-(of the alternate allele, as in the P matrices returned by this
+(of the alternate allele, or of \code{allele2} for genotype likelihoods, as
+in the P matrices returned by this
 function; those of \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}} give the frequency of
 the reference allele, so use \code{1 - P}); only allowed with a single value
 of \code{k}. If it has row names (as the P matrices returned by this
@@ -75,10 +78,11 @@ in the order of the loci of \code{x}}
 value given in \code{init_q} (respectively \code{init_p})}
 
 \item{use_imputed}{boolean; if \code{TRUE}, imputed genotypes are used as if
-they were observed; otherwise they are treated as missing (the default)}
+they were observed; otherwise they are treated as missing (the default).
+Only for genotypes.}
 
 \item{crossval}{boolean; should the cross-validation error be computed
-(defaults to \code{FALSE})? See the details.}
+(defaults to \code{FALSE})? See the details. Only for genotypes.}
 
 \item{n_folds}{the number of folds used for cross-validation (defaults to
 5, as in ADMIXTURE)}
@@ -98,6 +102,7 @@ an object of class \code{gt_admix}, a list with elements:
 \item \code{Q} a list of \code{\link[tidypopgen:q_matrix]{tidypopgen::q_matrix()}} objects with the ancestry
 proportions
 \item \code{P} a list of matrices (loci x k) with the alternate allele frequencies
+(frequencies of \code{allele2} for genotype likelihoods)
 \item \code{log} a list with the log of each run
 \item \code{loglik} the log-likelihood of each run
 \item \code{converged} whether each run converged
@@ -117,14 +122,20 @@ and P, each solved as a constrained quadratic program, accelerated by the
 quasi-Newton scheme of Zhou, Alexander and Lange (2011). It also offers
 the cross-validation of ADMIXTURE to choose K (Alexander and Lange 2011),
 a start from a truncated singular value decomposition (SVD) of the
-genotypes, and support for pseudohaploid data. If you use this function,
+genotypes, and support for pseudohaploid data. With genotype likelihoods
+(given by another package, see \code{\link[=gt_radmix_data]{gt_radmix_data()}}), it fits the model of
+NGSadmix (Skotte et al. 2013), the ADMIXTURE model for low-depth
+sequencing data, with the same algorithm. If you use this function,
 please cite Alexander et al. (2009) for the method, and, if you use
-cross-validation, Alexander and Lange (2011).
+cross-validation, Alexander and Lange (2011); with genotype likelihoods,
+also cite Skotte et al. (2013).
 }
 \details{
 Genotypes are read directly from the backing file of the \code{gen_tibble}
 (respecting any filtering of individuals and selection of loci), so no
-intermediate PLINK file is written. Computation is in C++, multithreaded
+intermediate PLINK file is written; the same holds for genotype
+likelihoods, which the package that stores them gives to \code{gt_radmix()}
+through a method of \code{\link[=gt_radmix_data]{gt_radmix_data()}}. Computation is in C++, multithreaded
 with OpenMP. The C++ code started as a port of the Julia package
 \href{https://github.com/OpenMendel/OpenADMIXTURE.jl}{OpenADMIXTURE.jl}, and
 has since been extensively rewritten (see the file \code{COPYRIGHTS} of the
@@ -136,7 +147,9 @@ allele per locus. Only diploid and pseudohaploid \code{gen_tibble}s are
 supported.
 
 \code{P} gives the frequency of the \strong{alternate} allele (\code{allele_alt} in
-\code{\link[tidypopgen:show_loci]{tidypopgen::show_loci()}}) in each ancestral population.
+\code{\link[tidypopgen:show_loci]{tidypopgen::show_loci()}}) in each ancestral population (for genotype
+likelihoods, of \code{allele2}, often the minor allele; see
+"Genotype likelihoods" below).
 
 Supplying \code{init_p} together with \code{fix_p = TRUE} estimates the ancestry of
 new individuals given the allele frequencies of a reference panel (a
@@ -178,6 +191,41 @@ the results when the computations are well behaved: for example, a
 Newton step that is not finite (because a genotype is impossible under
 the current estimates) is discarded, and the individual or locus keeps
 its current value for that iteration.
+}
+
+\subsection{Genotype likelihoods}{
+
+With genotype likelihoods, the genotypes are not observed: each
+individual has the likelihoods of its data (its reads) given each of
+the three genotypes at a locus, with 0, 1 and 2 copies of \code{allele2}.
+tidygenclust does not store them: a package that does can provide a
+method of \code{\link[=gt_radmix_data]{gt_radmix_data()}} for its class. The model is that of
+NGSadmix (Skotte et al. 2013): the genotypes follow the ADMIXTURE
+model, with \code{P} the frequency of \code{allele2}, and the log-likelihood is
+\deqn{\sum_{ij} \log \sum_{g=0}^{2} P(D_{ij} | g) P(g | x_{ij}),}{
+  sum_ij log sum_g P(D_ij | g) P(g | x_ij),}
+where \eqn{x_{ij} = \sum_k q_{ik} p_{kj}}{x_ij = sum_k q_ik p_kj},
+\eqn{P(g | x)}{P(g | x)} is binomial (Hardy-Weinberg proportions), and
+the likelihoods \eqn{P(D_{ij} | g)}{P(D_ij | g)} of each individual are
+normalised to sum to 1, as in the beagle files read by NGSadmix.
+Individuals without data at a locus do not contribute to it, whereas
+NGSadmix counts \eqn{\log(1/3)}{log(1/3)} for each of them (they have
+three equal likelihoods): otherwise, the log-likelihoods of the two
+programs are the same.
+
+The algorithm is the same as for genotypes: every step uses the
+expected numbers of copies of each allele given the likelihoods and the
+current estimates in place of the observed ones. EM steps are then
+those of NGSadmix, and the gradients of the block updates are exact; as
+the log-likelihood of genotype likelihoods is not concave in each block,
+the Newton steps use the curvature of the expected log-likelihood of the
+genotypes (that of the EM algorithm), which keeps every quadratic
+program convex. The quasi-Newton steps are accepted on the
+log-likelihood above. Cross-validation (\code{crossval}), starts from the SVD
+(\code{init = "svd"}) and \code{use_imputed} are not available for genotype
+likelihoods. Unlike NGSadmix, which by default drops loci with a minor
+allele frequency below 0.05 (its option \code{-minMaf}), \code{gt_radmix()} uses
+all the loci of \code{x}: select them beforehand if needed.
 }
 
 \subsection{Starting values from the SVD}{
@@ -333,4 +381,8 @@ https://doi.org/10.1093/bioinformatics/btag236
 Santander CG, Refoyo Martinez A, Meisner J (2024) Faster model-based
 estimation of ancestry proportions. Peer Community Journal, 4, e115.
 doi: https://doi.org/10.24072/pcjournal.503
+
+Skotte L, Korneliussen TS, Albrechtsen A (2013) Estimating individual
+admixture proportions from next generation sequencing data. Genetics,
+195(3), 693-702.
 }

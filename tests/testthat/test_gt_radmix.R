@@ -326,3 +326,70 @@ test_that("a fixed Q is kept exactly at its starting value", {
   # the quasi-Newton step used to move it by rounding errors
   expect_identical(q_fit, q_start)
 })
+
+test_that("gt_radmix() fits genotype likelihoods given by another package", {
+  # A package that stores genotype likelihoods gives them to gt_radmix()
+  # through its method of gt_radmix_data(). Here, a grouped gen_tibble with a
+  # class of its own,
+  # whose method gives the likelihoods of hard calls of its genotypes
+  # (likelihood 1 for the observed genotype and 0 for the others, no data
+  # for a missing one), so that the fit is that of the genotypes.
+  sim <- radmix_simulate_admixed(n = 30, m = 150, k = 2, seed = 2)
+  hard_ll <- array(-Inf, c(dim(sim$genotypes), 3))
+  for (gg in 0:2) {
+    hard_ll[, , gg + 1][sim$genotypes == gg] <- 0
+  }
+  hard_ll[is.na(sim$genotypes)] <- 0
+  test_gt <- dplyr::group_by(radmix_test_gt(sim$genotypes), population)
+  test_gl <- test_gt
+  class(test_gl) <- c("test_likelihoods", class(test_gl))
+  local_mocked_s3_method(
+    "gt_radmix_data", "test_likelihoods",
+    function(x, use_imputed = FALSE, ...) {
+      if (use_imputed) stop("'use_imputed' cannot be TRUE", call. = FALSE)
+      radmix_test_gl(hard_ll)
+    }
+  )
+  # (the log-likelihoods differ by a constant, which changes the relative
+  # changes that the convergence criterion tests, hence a stringent rtol for
+  # both, so that both fits are close to the maximum)
+  adm_gl <- gt_radmix(test_gl, k = 2, seed = 1, rtol = 1e-12)
+  adm_gt <- gt_radmix(test_gt, k = 2, seed = 1, rtol = 1e-12)
+  expect_s3_class(adm_gl, "gt_admix")
+  expect_true(adm_gl$converged)
+  expect_identical(adm_gl$id, test_gt$id)
+  expect_identical(adm_gl$group, test_gt$population)
+  expect_identical(rownames(adm_gl$P[[1]]), rownames(adm_gt$P[[1]]))
+  expect_equal(adm_gl$Q[[1]], adm_gt$Q[[1]], tolerance = 1e-5)
+  expect_equal(adm_gl$P[[1]], adm_gt$P[[1]], tolerance = 1e-5)
+  # the log-likelihood of genotype likelihoods includes the binomial
+  # coefficient of each heterozygote
+  expect_equal(adm_gl$loglik,
+    adm_gt$loglik + sum(sim$genotypes == 1, na.rm = TRUE) * log(2),
+    tolerance = 1e-8
+  )
+  # the results do not depend on the number of cores
+  adm2 <- gt_radmix(test_gl, k = 2, seed = 1, rtol = 1e-12, n_cores = 2)
+  expect_identical(adm2$Q[[1]], adm_gl$Q[[1]])
+  # options that need hard calls
+  expect_error(
+    gt_radmix(test_gl, k = 2, crossval = TRUE),
+    "'crossval' is not available for genotype likelihoods"
+  )
+  expect_error(
+    gt_radmix(test_gl, k = 2, init = "svd"),
+    "not available for genotype likelihoods"
+  )
+  expect_error(gt_radmix(test_gl, k = 2, use_imputed = TRUE), "use_imputed")
+  # a method that gives data for other individuals than those of x
+  local_mocked_s3_method(
+    "gt_radmix_data", "test_likelihoods",
+    function(x, ...) radmix_test_gl(hard_ll[-1, , ])
+  )
+  expect_error(gt_radmix(test_gl, k = 2), "gave data for 29 individuals")
+  # an object without a method
+  expect_error(
+    gt_radmix(data.frame(a = 1), k = 2),
+    "a method of gt_radmix_data"
+  )
+})

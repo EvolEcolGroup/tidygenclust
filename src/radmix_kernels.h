@@ -21,6 +21,18 @@
 // passes sum over the loci of each individual, P-side passes over the
 // individuals of each locus.
 //
+// With genotype likelihoods (the model of NGSadmix, Skotte et al. 2013;
+// given by another package, see radmix_geno_access.h), the genotypes are
+// not observed: p_kj is the frequency of allele2 (often the minor allele),
+// and the log-likelihood is
+//   L(q, p) = sum_ij log sum_g P(data_ij | g) P(g | qp_ij),
+// with P(g | x) = (1 - x)^2, 2 x (1 - x), x^2 for 0, 1, 2 copies of
+// allele2, and the likelihoods P(data_ij | g) normalised to sum to 1.
+// The passes then use the expected allele counts given the data (see
+// slice_gl() in radmix_kernels.cpp): the gradients are those of L, the
+// Hessians those of the expected log-likelihood of the genotypes (positive
+// semi-definite, as above), and the EM step is that of NGSadmix.
+//
 // Conventions
 // -----------
 // q is K x I (column i holds the K ancestry proportions of individual i) and
@@ -47,7 +59,8 @@
 namespace radmix {
 
 // The log-likelihood L(q, p) (-Inf if a genotype is impossible under q and
-// p, i.e. qp of exactly 0 with g > 0, or of exactly 1 with g < n_i).
+// p, i.e. qp of exactly 0 with g > 0, or of exactly 1 with g < n_i; always
+// finite with genotype likelihoods).
 double loglik(const GenoView& geno, const double* q, const double* p, int K,
               int n_cores);
 

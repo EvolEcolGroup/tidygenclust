@@ -1,6 +1,9 @@
 # Pure R reference implementation of the kernels, on dense matrices.
 # `g` is the decoded genotype matrix (individuals x loci, NA = missing),
 # `n` the number of trials per individual, `q` is K x I and `p` is K x J.
+# For genotype likelihoods, `g` is instead a list with the likelihoods e1
+# and e2 (relative to the first genotype) and obs (FALSE for no data), all
+# individuals x loci (see radmix_ref_gl_inputs()).
 
 # the prepared dataset (`dat`, also available as `geno`, the name used for
 # the argument of the kernels), and the decoded genotypes and numbers of
@@ -12,6 +15,17 @@ radmix_ref_inputs <- function(gt) {
     geno = dat,
     g = radmix_decode(dat),
     n = dat$n_trials
+  )
+}
+
+# the same for a dataset of genotype likelihoods (see radmix_test_gl()),
+# which keeps its likelihoods as matrices
+radmix_ref_gl_inputs <- function(dat) {
+  list(
+    dat = dat,
+    geno = dat,
+    g = list(e1 = dat$e1, e2 = dat$e2, obs = dat$obs),
+    n = rep(2, dat$n_indiv)
   )
 }
 
@@ -32,9 +46,20 @@ radmix_ref_start <- function(n_indiv, n_loci, k, seed = 42,
 # per-entry quantities shared by all the reference kernels
 radmix_ref_terms <- function(g, n, q, p) {
   qp <- t(q) %*% p
-  obs <- !is.na(g)
-  g0 <- ifelse(obs, g, 0)
-  h0 <- ifelse(obs, n - g0, 0)
+  if (is.list(g)) {
+    # genotype likelihoods: the expected counts of the alternate and
+    # reference alleles (allele2 and allele1) given the likelihoods and qp
+    w0 <- (1 - qp)^2
+    w1 <- 2 * g$e1 * qp * (1 - qp)
+    w2 <- g$e2 * qp^2
+    f <- w0 + w1 + w2
+    g0 <- ifelse(g$obs, (w1 + 2 * w2) / f, 0)
+    h0 <- ifelse(g$obs, (2 * w0 + w1) / f, 0)
+  } else {
+    obs <- !is.na(g)
+    g0 <- ifelse(obs, g, 0)
+    h0 <- ifelse(obs, n - g0, 0)
+  }
   # a = g / qp, b = (n - g) / (1 - qp), 0 when the coefficient is 0
   a <- ifelse(g0 > 0, g0 / qp, 0)
   b <- ifelse(h0 > 0, h0 / (1 - qp), 0)
@@ -42,6 +67,12 @@ radmix_ref_terms <- function(g, n, q, p) {
 }
 
 radmix_ref_loglik <- function(g, n, q, p) {
+  if (is.list(g)) {
+    # genotype likelihoods, normalised to sum to 1
+    qp <- t(q) %*% p
+    f <- (1 - qp)^2 + 2 * g$e1 * qp * (1 - qp) + g$e2 * qp^2
+    return(sum(ifelse(g$obs, log(f / (1 + g$e1 + g$e2)), 0)))
+  }
   tt <- radmix_ref_terms(g, n, q, p)
   sum(ifelse(tt$g0 > 0, tt$g0 * log(tt$qp), 0)) +
     sum(ifelse(tt$h0 > 0, tt$h0 * log(1 - tt$qp), 0))
@@ -96,7 +127,7 @@ radmix_ref_grad_p <- function(g, n, q, p) {
 
 # compare every kernel with the pure R reference
 radmix_expect_ref_match <- function(inp, k, tolerance = 1e-10) {
-  st <- radmix_ref_start(nrow(inp$g), ncol(inp$g), k)
+  st <- radmix_ref_start(inp$dat$n_indiv, inp$dat$n_loci, k)
   q <- st$q
   p <- st$p
   testthat::expect_equal(

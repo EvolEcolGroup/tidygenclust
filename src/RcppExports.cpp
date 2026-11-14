@@ -272,6 +272,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// radmix_gl_dense_source_cpp
+Rcpp::List radmix_gl_dense_source_cpp(const Rcpp::NumericMatrix& e1, const Rcpp::NumericMatrix& e2, const Rcpp::LogicalMatrix& obs);
+RcppExport SEXP _tidygenclust_radmix_gl_dense_source_cpp(SEXP e1SEXP, SEXP e2SEXP, SEXP obsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type e1(e1SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type e2(e2SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::LogicalMatrix& >::type obs(obsSEXP);
+    rcpp_result_gen = Rcpp::wrap(radmix_gl_dense_source_cpp(e1, e2, obs));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_tidygenclust_clumppling_lsap_cpp", (DL_FUNC) &_tidygenclust_clumppling_lsap_cpp, 1},
@@ -293,6 +306,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_tidygenclust_radmix_qn_step_cpp", (DL_FUNC) &_tidygenclust_radmix_qn_step_cpp, 7},
     {"_tidygenclust_radmix_decode_cpp", (DL_FUNC) &_tidygenclust_radmix_decode_cpp, 1},
     {"_tidygenclust_radmix_fit_cpp", (DL_FUNC) &_tidygenclust_radmix_fit_cpp, 12},
+    {"_tidygenclust_radmix_gl_dense_source_cpp", (DL_FUNC) &_tidygenclust_radmix_gl_dense_source_cpp, 3},
     {NULL, NULL, 0}
 };
 
