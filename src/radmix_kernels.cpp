@@ -15,6 +15,10 @@
 //   a  = g / qp,  b = h / (1 - qp)            (EM step)
 //   d1 = l'(qp)  = a - b                      (gradients)
 //   d2 = -l''(qp) = g / qp^2 + h / (1 - qp)^2 (Hessians; d2 >= 0)
+// With genotype likelihoods (from another package), g and h are the
+// expected counts of allele2 and allele1 given the likelihoods and qp, and
+// the log-likelihood is that of the likelihoods (see slice_gl() and
+// loglik_gl_slice()); every pass is otherwise the same.
 //
 // Gradients and Hessians, by the chain rule
 // -----------------------------------------
@@ -151,11 +155,13 @@ static std::vector<double> transpose(const double* q, int K, size_t I) {
 // slices once, at the start of a parallel region, and reuses them for every
 // slice it processes; every buffer is recomputed for each slice. Entry ii of
 // each buffer refers to individual i0 + ii of the slice; only the first
-// ni = i1 - i0 entries are meaningful.
+// ni = i1 - i0 entries are meaningful. With genotype likelihoods, e1, e2 and
+// obs hold the decoded likelihoods of the slice (see slice_gl()).
 struct Slice {
-  std::vector<double> qp, g, h, a, b, d1, d2, tmp;
+  std::vector<double> qp, g, h, a, b, d1, d2, tmp, e1, e2, obs;
   Slice() : qp(TILE_I), g(TILE_I), h(TILE_I), a(TILE_I), b(TILE_I),
-    d1(TILE_I), d2(TILE_I), tmp(TILE_I) {}
+    d1(TILE_I), d2(TILE_I), tmp(TILE_I), e1(TILE_I), e2(TILE_I),
+    obs(TILE_I) {}
   // zero coefficients for the first ni individuals: the padding locus of a
   // range with an odd number of loci, which adds nothing to any sum
   void zero_coef(size_t ni) {
@@ -166,11 +172,72 @@ struct Slice {
   }
 };
 
+// Genotype likelihoods: the expected allele counts of the slice of locus j
+// and individuals [i0, i0 + ni), given their likelihoods and s.qp (already
+// computed by slice_geno()). With likelihoods (1, e1, e2) of 0, 1 and 2
+// copies of allele2 (from the source, see radmix_geno_access.h; allele2 is
+// often the minor allele) and x = qp, the frequency of allele2,
+// the probabilities of the three genotypes given the data and the
+// estimates are proportional to
+//   w0 = (1 - x)^2,  w1 = 2 e1 x (1 - x),  w2 = e2 x^2,
+// and the expected counts of allele2 and allele1 are
+//   g = (w1 + 2 w2) / f,  h = (2 w0 + w1) / f,  f = w0 + w1 + w2
+// (g + h = 2; h is computed directly rather than as 2 - g, which would
+// lose precision when g is close to 2). The kernels then use g and h as
+// they use genotypes, which gives:
+// - the EM step of NGSadmix (Skotte et al. 2013): the E step over the
+//   unobserved genotypes and over the ancestry of each allele copy;
+// - d1 = g / x - h / (1 - x) = f'(x) / f(x), the derivative of the
+//   log-likelihood log f(x) of the genotype likelihoods, so the gradients
+//   are exact;
+// - d2 = g / x^2 + h / (1 - x)^2 >= 0, the negative second derivative of the
+//   expected log-likelihood of the genotypes (the function that the EM step
+//   maximises), rather than of log f(x), which is not concave in x (its
+//   Hessian can be indefinite, and the quadratic programs of the Newton
+//   updates need a positive semi-definite one). Each Newton update is then
+//   a Newton step on that concave function, which has the same gradient as
+//   the log-likelihood at the current estimates; the quasi-Newton step is
+//   accepted on the log-likelihood itself (loglik_gl_slice()).
+// f > 0 always (the source gives positive likelihoods), and x of exactly 0
+// or 1 gives finite counts (g = 0 or h = 0): with likelihoods no genotype is
+// impossible. An individual without data gets g = h = 0, so that it drops
+// out of every sum, as a missing genotype.
+// The kind of data is a template parameter (GL) of the functions that
+// process slices (slice_geno(), slice_coef(), the accumulation functions and
+// sum_slices()), chosen once per block of work by the drivers (q_side(),
+// p_side(), loglik()), so that the passes over genotypes are compiled as if
+// genotype likelihoods did not exist: testing the kind in every slice made
+// them about 3% slower (and more when the decoding of the likelihoods was
+// inlined into them, which the call through the source now rules out).
+static inline void slice_gl(const GenoView& geno, size_t j, size_t i0,
+                            size_t ni, Slice& s) {
+  geno.gl_slice(i0, ni, j, s.e1.data(), s.e2.data(), s.obs.data());
+  const double* __restrict qp = s.qp.data();
+  const double* __restrict e1 = s.e1.data();
+  const double* __restrict e2 = s.e2.data();
+  const double* __restrict obs = s.obs.data();
+  double* __restrict g = s.g.data();
+  double* __restrict h = s.h.data();
+#pragma omp simd
+  for (size_t ii = 0; ii < ni; ii++) {
+    const double x = qp[ii], y = 1.0 - x;
+    const double w0 = y * y, w1 = 2.0 * e1[ii] * x * y, w2 = e2[ii] * x * x;
+    // (obs zeroes the counts of an individual without data, without a
+    // branch)
+    const double rf = obs[ii] / (w0 + w1 + w2);
+    g[ii] = (w1 + 2.0 * w2) * rf;
+    h[ii] = (2.0 * w0 + w1) * rf;
+  }
+}
+
 // qp and the decoded genotypes of the slice of locus j and individuals
 // [i0, i1): s.qp, s.g and s.h for ii = i - i0 in [0, i1 - i0). qT is the
 // transposed q (I x K, see transpose()), pj the K frequencies of locus j
 // (p + K j); i1 - i0 must be at most TILE_I. A missing (or hidden) genotype
-// gets g = h = 0, so that it drops out of every sum without a test.
+// gets g = h = 0, so that it drops out of every sum without a test. With
+// genotype likelihoods (GL true, for a view with is_gl()), g and h are the
+// expected allele counts given qp (see slice_gl()).
+template <bool GL>
 static inline void slice_geno(const GenoView& geno, const double* qT,
                               const double* pj, int K, size_t j, size_t i0,
                               size_t i1, Slice& s) {
@@ -189,6 +256,11 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
     const double* __restrict qk = qT + I * k + i0;
 #pragma omp simd
     for (size_t ii = 0; ii < ni; ii++) qp[ii] += qk[ii] * pk;
+  }
+  // genotype likelihoods (a constant: see slice_gl())
+  if (GL) {
+    slice_gl(geno, j, i0, ni, s);
+    return;
   }
   // Decoding the genotypes needs table lookups, which do not vectorise, so
   // it has loops of its own. Missing and hidden genotypes are zeroed by
@@ -237,11 +309,11 @@ static inline void slice_geno(const GenoView& geno, const double* qT,
 // does give an infinite coefficient: that genotype is impossible under the
 // current estimates (the Newton update then discards the step of that
 // column, see newton_column()).
-template <bool NEWTON>
+template <bool NEWTON, bool GL>
 static inline void slice_coef(const GenoView& geno, const double* qT,
                               const double* pj, int K, size_t j, size_t i0,
                               size_t i1, Slice& s) {
-  slice_geno(geno, qT, pj, K, j, i0, i1, s);
+  slice_geno<GL>(geno, qT, pj, K, j, i0, i1, s);
   const size_t ni = i1 - i0;
   const double* __restrict qp = s.qp.data();
   const double* __restrict g = s.g.data();
@@ -294,7 +366,7 @@ static inline void slice_coef(const GenoView& geno, const double* qT,
 // tail of each vector unused. They are copied into the output layout once,
 // at the end. Each step of the loop over the loci reads and writes every
 // accumulator once for two loci (see "Layout of the work" at the top).
-template <bool NEWTON>
+template <bool NEWTON, bool GL>
 RADMIX_MULTIVERSION
 static void accum_q_block(const GenoView& geno, const double* qT,
                           const double* p, int K, size_t i0, size_t i1,
@@ -323,8 +395,8 @@ static void accum_q_block(const GenoView& geno, const double* qT,
     const bool two = j + 1 < j1;
     const double* pj = p + K * j;
     const double* pj2 = two ? pj + K : pj;
-    slice_coef<NEWTON>(geno, qT, pj, K, j, i0, i1, s[0]);
-    if (two) slice_coef<NEWTON>(geno, qT, pj2, K, j + 1, i0, i1, s[1]);
+    slice_coef<NEWTON, GL>(geno, qT, pj, K, j, i0, i1, s[0]);
+    if (two) slice_coef<NEWTON, GL>(geno, qT, pj2, K, j + 1, i0, i1, s[1]);
     else s[1].zero_coef(ni);
     if (NEWTON) {
       // gradient: gT[, k] += d1 p_kj, for both loci
@@ -437,6 +509,9 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
   // K (seg I + i) (and KK (seg I + i) for the Hessians)
   std::vector<double> grad_part(n_seg > 1 ? n_seg * K * I : 0);
   std::vector<double> hess_part(n_seg > 1 && NEWTON ? n_seg * KK * I : 0);
+  // the accumulation function for the kind of data (see slice_gl())
+  const auto accum = geno.is_gl() ? accum_q_block<NEWTON, true> :
+    accum_q_block<NEWTON, false>;
 #pragma omp parallel num_threads(n_cores)
 {
   // thread-local buffers: two slices, the accumulators, and the sums of one
@@ -454,10 +529,9 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
       const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
       // n_seg contiguous, nearly equal ranges of loci
       const size_t j0 = J * seg / n_seg, j1 = J * (seg + 1) / n_seg;
-      accum_q_block<NEWTON>(geno, qT, p, K, i0, i1, j0, j1,
-                            &grad_part[K * (seg * I + i0)],
-                            NEWTON ? &hess_part[KK * (seg * I + i0)] : NULL,
-                            s, gT.data(), NEWTON ? hT.data() : NULL);
+      accum(geno, qT, p, K, i0, i1, j0, j1, &grad_part[K * (seg * I + i0)],
+            NEWTON ? &hess_part[KK * (seg * I + i0)] : NULL, s, gT.data(),
+            NEWTON ? hT.data() : NULL);
     }
     // (the implicit barrier at the end of the loop above guarantees that
     // all the partial sums are written before they are added up below)
@@ -468,9 +542,9 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
   for (ptrdiff_t bl = 0; bl < (ptrdiff_t) nbi; bl++) {
     const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
     if (n_seg == 1) {
-      accum_q_block<NEWTON>(geno, qT, p, K, i0, i1, 0, J, grad.data(),
-                            NEWTON ? hess.data() : NULL, s, gT.data(),
-                            NEWTON ? hT.data() : NULL);
+      accum(geno, qT, p, K, i0, i1, 0, J, grad.data(),
+            NEWTON ? hess.data() : NULL, s, gT.data(),
+            NEWTON ? hT.data() : NULL);
     } else {
       // add up the partial sums of the segments, always in segment order
       for (size_t i = i0; i < i1; i++) {
@@ -514,7 +588,7 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
 // reused for all the loci of the block, so it stays in cache, and each sum
 // is a dot product over the individuals of the tile; for each locus, the
 // tiles are always added in the same order (i0 = 0, TILE_I, ...).
-template <bool NEWTON>
+template <bool NEWTON, bool GL>
 RADMIX_MULTIVERSION
 static void accum_p_block(const GenoView& geno, const double* qT,
                           const double* p, int K, size_t j0, size_t j1,
@@ -547,9 +621,10 @@ static void accum_p_block(const GenoView& geno, const double* qT,
     // zero coefficients, when jj + 1 == nj)
     for (size_t jj = 0; jj < nj; jj += 2) {
       const size_t j = j0 + jj;
-      slice_coef<NEWTON>(geno, qT, p + K * j, K, j, i0, i1, s[0]);
+      slice_coef<NEWTON, GL>(geno, qT, p + K * j, K, j, i0, i1, s[0]);
       if (jj + 1 < nj)
-        slice_coef<NEWTON>(geno, qT, p + K * (j + 1), K, j + 1, i0, i1, s[1]);
+        slice_coef<NEWTON, GL>(geno, qT, p + K * (j + 1), K, j + 1, i0, i1,
+                               s[1]);
       else
         s[1].zero_coef(ni);
       // the output columns of the two loci (those of the second follow
@@ -626,6 +701,9 @@ static void p_side(const GenoView& geno, const double* qT, const double* p,
                    int K, int n_cores, Finish finish) {
   const size_t J = geno.ncol(), KK = (size_t) K * K;
   const ptrdiff_t nb = (ptrdiff_t) n_blocks(J, TILE_J);
+  // the accumulation function for the kind of data (see slice_gl())
+  const auto accum = geno.is_gl() ? accum_p_block<NEWTON, true> :
+    accum_p_block<NEWTON, false>;
 #pragma omp parallel num_threads(n_cores)
 {
   // thread-local buffers: two slices, and the sums of one block of loci
@@ -635,8 +713,7 @@ static void p_side(const GenoView& geno, const double* qT, const double* p,
 #pragma omp for schedule(dynamic)
   for (ptrdiff_t bl = 0; bl < nb; bl++) {
     const size_t j0 = bl * TILE_J, j1 = std::min(J, j0 + TILE_J);
-    accum_p_block<NEWTON>(geno, qT, p, K, j0, j1, out1.data(), out2.data(),
-                          s);
+    accum(geno, qT, p, K, j0, j1, out1.data(), out2.data(), s);
     finish(j0, j1, out1.data(), out2.data());
   }
 }
@@ -713,6 +790,54 @@ static double loglik_slice(size_t ni, Slice& s) {
   return ll;
 }
 
+// The log-likelihood of the ni individuals of a slice of genotype
+// likelihoods (after slice_geno()): the sum of log(f / (1 + e1 + e2)) over
+// the individuals with data, where f = (1 - qp)^2 + 2 e1 qp (1 - qp) +
+// e2 qp^2 (see slice_gl()). Dividing by 1 + e1 + e2 normalises the
+// likelihoods of each individual to sum to 1, as in the beagle files read
+// by NGSadmix, so that the log-likelihood does not depend on the constant
+// factor of the likelihoods of the source; it is the log of the
+// probability of the data under the estimates, up to the probability of the
+// reads given each genotype. Individuals without data contribute 0. Each
+// factor z = f / (1 + e1 + e2) is a weighted mean of the three genotype
+// probabilities, at most 1, and is far from LOG_MIN_Z in practice (as long
+// as the likelihoods are not many orders of magnitude apart, e.g. within
+// about 32 nats of the best, as the tests clamp them), so the factors are
+// multiplied in batches before taking logarithms, as in
+// loglik_slice(); smaller ones take the direct formula. Uses s.a as scratch
+// (all TILE_I entries). ni is at most TILE_I.
+static double loglik_gl_slice(size_t ni, Slice& s) {
+  const double* __restrict qp = s.qp.data();
+  const double* __restrict e1 = s.e1.data();
+  const double* __restrict e2 = s.e2.data();
+  const double* __restrict obs = s.obs.data();
+  double* __restrict z = s.a.data();
+  // z = f / (1 + e1 + e2), and 1 for an individual without data
+#pragma omp simd
+  for (size_t ii = 0; ii < ni; ii++) {
+    const double x = qp[ii], y = 1.0 - x;
+    const double f = y * y + 2.0 * e1[ii] * x * y + e2[ii] * x * x;
+    z[ii] = obs[ii] * (f / (1.0 + e1[ii] + e2[ii])) + (1.0 - obs[ii]);
+  }
+  // the rare factors that cannot go into the products (see loglik_slice())
+  double ll = 0.0;
+  for (size_t ii = 0; ii < ni; ii++) {
+    if (z[ii] < LOG_MIN_Z) {
+      ll += std::log(z[ii]);
+      z[ii] = 1.0;
+    }
+  }
+  // LOG_BATCH interleaved products, padded with ones (see loglik_slice())
+  std::fill(z + ni, z + TILE_I, 1.0);
+  double prod[LOG_BATCH];
+  for (int b = 0; b < LOG_BATCH; b++) prod[b] = 1.0;
+  for (int m = 0; m < LOG_BATCH; m++)
+#pragma omp simd
+    for (int b = 0; b < LOG_BATCH; b++) prod[b] *= z[LOG_BATCH * m + b];
+  for (int b = 0; b < LOG_BATCH; b++) ll += std::log(prod[b]);
+  return ll;
+}
+
 // Sums over all the genotypes, for loglik() and deviance(): NS running sums,
 // to which slice_sum(ni, s, acc) adds the contribution of each slice (after
 // slice_geno(), which fills s.qp, s.g and s.h). Parallelised over blocks of
@@ -722,7 +847,7 @@ static double loglik_slice(size_t ni, Slice& s) {
 // sums. slice_sum runs inside the parallel region, so it must not call R.
 // Within a block, each locus is processed for all the tiles of individuals
 // in turn, so the bytes of a column of the backing file are read in order.
-template <int NS, class SliceSum>
+template <int NS, bool GL, class SliceSum>
 static void sum_slices(const GenoView& geno, const double* q, const double* p,
                        int K, int n_cores, double* total,
                        SliceSum slice_sum) {
@@ -742,7 +867,7 @@ static void sum_slices(const GenoView& geno, const double* q, const double* p,
     for (size_t j = bl * TILE_J; j < j1; j++) {
       for (size_t i0 = 0; i0 < I; i0 += TILE_I) {
         const size_t i1 = std::min(I, i0 + TILE_I);
-        slice_geno(geno, qT.data(), p + K * j, K, j, i0, i1, s);
+        slice_geno<GL>(geno, qT.data(), p + K * j, K, j, i0, i1, s);
         slice_sum(i1 - i0, s, acc);
       }
     }
@@ -756,15 +881,23 @@ static void sum_slices(const GenoView& geno, const double* q, const double* p,
   }
 }
 
-// The log-likelihood (see radmix_kernels.h): the sum of loglik_slice() over
-// all the slices.
+// The log-likelihood (see radmix_kernels.h): the sum of loglik_slice() (or
+// of loglik_gl_slice(), for genotype likelihoods) over all the slices. (The
+// kind of data is tested once, outside the pass: see slice_gl().)
 double loglik(const GenoView& geno, const double* q, const double* p, int K,
               int n_cores) {
   double ll;
-  sum_slices<1>(geno, q, p, K, n_cores, &ll,
-                [](size_t ni, Slice& s, double* acc) {
-                  acc[0] += loglik_slice(ni, s);
-                });
+  if (geno.is_gl()) {
+    sum_slices<1, true>(geno, q, p, K, n_cores, &ll,
+                        [](size_t ni, Slice& s, double* acc) {
+                          acc[0] += loglik_gl_slice(ni, s);
+                        });
+  } else {
+    sum_slices<1, false>(geno, q, p, K, n_cores, &ll,
+                         [](size_t ni, Slice& s, double* acc) {
+                           acc[0] += loglik_slice(ni, s);
+                         });
+  }
   return ll;
 }
 
@@ -785,8 +918,10 @@ void deviance(const GenoView& geno, const double* q, const double* p, int K,
               int n_cores, double* dev, double* count) {
   // total[0]: the sum of the deviances, total[1]: the number of genotypes
   double total[2];
-  sum_slices<2>(geno, q, p, K, n_cores, total,
-                [](size_t ni, Slice& s, double* acc) {
+  // (genotypes only: the deviance is not available for genotype
+  // likelihoods, see radmix_deviance_cpp())
+  sum_slices<2, false>(geno, q, p, K, n_cores, total,
+                       [](size_t ni, Slice& s, double* acc) {
     // (a plain scalar loop: cross-validation computes the deviance once per
     // fold, a single pass that costs little next to the fit of the fold)
     for (size_t ii = 0; ii < ni; ii++) {

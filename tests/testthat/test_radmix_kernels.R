@@ -323,3 +323,146 @@ test_that("empty inputs give errors rather than crashes", {
     "at least one individual and one locus"
   )
 })
+
+# Genotype likelihoods, from a source (here the example source of
+# src/radmix_gl_source.cpp, which holds them in memory; see
+# radmix_test_gl()): the kernels use the expected allele counts given the
+# likelihoods (see slice_gl() in src/radmix_kernels.cpp)
+test_that("kernels match the reference with genotype likelihoods", {
+  # depth 2: many genotypes without reads (no data), and many uncertain ones
+  gl_ll <- radmix_simulate_gl(sim$genotypes, depth = 2)
+  inp <- radmix_ref_gl_inputs(radmix_test_gl(gl_ll))
+  expect_true(any(!inp$g$obs))
+  radmix_expect_ref_match(inp, k = 3)
+  radmix_expect_ref_match(inp, k = 1)
+  # tiles at the edges, and results that do not depend on the number of
+  # cores
+  big <- radmix_simulate_admixed(n = 130, m = 150, k = 3, seed = 6)
+  inp <- radmix_ref_gl_inputs(radmix_test_gl(
+    radmix_simulate_gl(big$genotypes, depth = 3)
+  ))
+  radmix_expect_ref_match(inp, k = 4)
+  st <- radmix_ref_start(130, 150, 3)
+  kernels <- list(
+    radmix_loglik_cpp, radmix_em_cpp,
+    radmix_update_q_cpp, radmix_update_p_cpp
+  )
+  for (kernel in kernels) {
+    res1 <- kernel(inp$geno, st$q, st$p, 1)
+    expect_identical(kernel(inp$geno, st$q, st$p, 3), res1)
+  }
+})
+
+test_that("gradients of likelihoods are exact, Hessians bound the curvature", {
+  small <- radmix_simulate_admixed(
+    n = 7, m = 12, k = 2, missing = 0.1, seed = 5
+  )
+  inp <- radmix_ref_gl_inputs(radmix_test_gl(
+    radmix_simulate_gl(small$genotypes, depth = 2)
+  ))
+  st <- radmix_ref_start(7, 12, 3)
+  q <- st$q
+  p <- st$p
+  gq <- radmix_grad_q_cpp(inp$geno, q, p, 1)
+  gp <- radmix_grad_p_cpp(inp$geno, q, p, 1)
+  ll_q <- function(x) {
+    radmix_ref_loglik(inp$g, inp$n, matrix(x, nrow(q)), p)
+  }
+  ll_p <- function(x) {
+    radmix_ref_loglik(inp$g, inp$n, q, matrix(x, nrow(p)))
+  }
+  # the gradients are those of the log-likelihood of the genotype
+  # likelihoods
+  expect_equal(as.vector(gq$grad), numDeriv::grad(ll_q, as.vector(q)),
+    tolerance = 1e-6
+  )
+  expect_equal(as.vector(gp$grad), numDeriv::grad(ll_p, as.vector(p)),
+    tolerance = 1e-6
+  )
+  # the negative Hessians are those of the expected log-likelihood of the
+  # genotypes: they exceed the negative Hessians of the log-likelihood by a
+  # positive semi-definite matrix (the missing information)
+  ll_pj <- function(x, j) {
+    p[, j] <- x
+    radmix_ref_loglik(inp$g, inp$n, q, p)
+  }
+  for (j in c(2, 12)) {
+    excess <- gp$hess[, , j] + numDeriv::hessian(ll_pj, p[, j], j = j)
+    expect_gt(min(eigen(excess, symmetric = TRUE)$values), -1e-6)
+  }
+})
+
+test_that("genotype likelihoods of hard calls give the results of genotypes", {
+  # likelihood 1 for the observed genotype and 0 for the others (clamped to
+  # about exp(-32) by radmix_test_gl()), and no data for missing genotypes
+  hard_ll <- array(-Inf, c(dim(sim$genotypes), 3))
+  for (gg in 0:2) {
+    hard_ll[, , gg + 1][sim$genotypes == gg] <- 0
+  }
+  hard_ll[is.na(sim$genotypes)] <- 0
+  gl_dat <- radmix_test_gl(hard_ll)
+  geno_dat <- radmix_prepare(radmix_test_gt(sim$genotypes))
+  st <- radmix_ref_start(60, 200, 3)
+  for (kernel in list(radmix_em_cpp, radmix_grad_q_cpp, radmix_grad_p_cpp)) {
+    expect_equal(kernel(gl_dat, st$q, st$p, 2),
+      kernel(geno_dat, st$q, st$p, 2),
+      tolerance = 1e-9
+    )
+  }
+  # the log-likelihood of the genotype likelihoods includes the binomial
+  # coefficients that the log-likelihood of genotypes leaves out: 2 for each
+  # heterozygote
+  expect_equal(
+    radmix_loglik_cpp(gl_dat, st$q, st$p, 2),
+    radmix_loglik_cpp(geno_dat, st$q, st$p, 2) +
+      sum(sim$genotypes == 1, na.rm = TRUE) * log(2),
+    tolerance = 1e-9
+  )
+})
+
+test_that("invalid datasets of genotype likelihoods are errors", {
+  gl_dat <- radmix_test_gl(radmix_simulate_gl(sim$genotypes))
+  st <- radmix_ref_start(60, 200, 3)
+  # cross-validation, the deviance and decoding into genotypes are only for
+  # genotypes
+  expect_error(
+    radmix_loglik_cpp(
+      radmix_set_cv(gl_dat, list(
+        mode = "train", fold = 1, n_folds = 5, seed = 1
+      )),
+      st$q, st$p, 1
+    ),
+    "Cross-validation is not available"
+  )
+  expect_error(
+    radmix_deviance_cpp(gl_dat, st$q, st$p, 1),
+    "deviance is not available"
+  )
+  expect_error(radmix_decode(gl_dat), "cannot be decoded")
+  # lists that do not follow the interface of a source (see
+  # inst/include/tidygenclust/radmix_gl_source.h)
+  bad <- gl_dat
+  bad$version <- 2L
+  expect_error(radmix_loglik_cpp(bad, st$q, st$p, 1), "version 2")
+  # the external pointer of the context is not that of a function
+  bad <- gl_dat
+  bad$fill <- bad$ctx
+  expect_error(radmix_loglik_cpp(bad, st$q, st$p, 1), "tagged")
+  bad <- gl_dat
+  bad$ctx <- 1
+  expect_error(radmix_loglik_cpp(bad, st$q, st$p, 1), "'ctx' must be")
+  bad <- gl_dat
+  bad$n_loci <- NULL
+  expect_error(radmix_loglik_cpp(bad, st$q, st$p, 1), "'n_loci'")
+  bad <- gl_dat
+  bad$n_indiv <- 59.5
+  expect_error(radmix_loglik_cpp(bad, st$q, st$p, 1), "non-negative integers")
+  bad$n_indiv <- 0
+  expect_error(
+    radmix_loglik_cpp(bad, st$q[, 0, drop = FALSE], st$p, 1),
+    "at least one individual"
+  )
+  bad <- gl_dat
+  bad$kind <- "gl8"
+  expect_error(radmix_loglik_cpp(bad, st$q, st$p, 1), "'kind' must be")
+})

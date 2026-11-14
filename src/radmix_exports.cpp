@@ -61,6 +61,10 @@ double radmix_loglik_cpp(List data, NumericMatrix q, NumericMatrix p,
 NumericVector radmix_deviance_cpp(List data, NumericMatrix q,
                                   NumericMatrix p, int n_cores) {
   const GenoView geno(data);
+  // (the deviance of hard calls has no meaning for genotype likelihoods,
+  // whose views cannot hold a held-out mask anyway)
+  if (geno.is_gl())
+    stop("The deviance is not available for genotype likelihoods.");
   const int K = check_dims(geno, q, p, n_cores);
   double dev, count;
   deviance(geno, q.begin(), p.begin(), K, n_cores, &dev, &count);
@@ -214,6 +218,8 @@ SEXP radmix_qn_step_cpp(const NumericMatrix& u, const NumericMatrix& v,
 // [[Rcpp::export]]
 NumericMatrix radmix_decode_cpp(const List& data) {
   const GenoView geno(data);
+  if (geno.is_gl())
+    stop("Genotype likelihoods cannot be decoded into genotypes.");
   const size_t n = geno.nrow(), m = geno.ncol();
   NumericMatrix out(n, m);
   double g;

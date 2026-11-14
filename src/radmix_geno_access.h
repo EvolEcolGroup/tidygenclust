@@ -2,7 +2,9 @@
 #define RADMIX_GENO_ACCESS_H
 
 // Read-only view of a subset of a bigstatsr FBM.code256 (one raw byte per
-// genotype, individuals in rows, loci in columns, column-major).
+// genotype, individuals in rows, loci in columns, column-major), or of the
+// genotype likelihoods given by another package (see "Genotype likelihoods"
+// below).
 //
 // How tidypopgen stores genotypes
 // -------------------------------
@@ -68,10 +70,30 @@
 // generator (its source code is not available), so these folds, and hence
 // the CV errors, cannot be identical to ADMIXTURE's, only statistically
 // equivalent.
+//
+// Genotype likelihoods
+// --------------------
+// tidygenclust does not store genotype likelihoods: a package that does
+// gives them through a "source", a C function that fills the likelihoods of a block of individuals at one
+// locus, and the context that it reads (its own view of its storage). Its
+// method of gt_radmix_data() returns them in a list of kind "gl_source";
+// the interface is specified in
+// inst/include/tidygenclust/radmix_gl_source.h, and src/radmix_gl_source.cpp
+// holds an example (used by the tests). A view of such a source has two
+// copies of allele2 per individual (n_i = 2), and the kernels read it
+// through gl_slice(), which gets the likelihoods (1, e1, e2) of 0, 1 and 2
+// copies of allele2 for a block of individuals: they turn them into the
+// expected allele counts given the current estimates (slice_geno() in
+// radmix_kernels.cpp). get() and slice_bytes() are for genotypes only.
+// Cross-validation is not available for genotype likelihoods (the deviance
+// of held-out genotypes assumes hard calls), so a view of genotype
+// likelihoods only accepts the mode CV_NONE.
 
 #include <bigstatsr/BMAcc.h>
+#include <tidygenclust/radmix_gl_source.h>
 #include <cmath>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 // All the internal C++ code of gt_radmix() lives in the namespace radmix,
@@ -89,23 +111,30 @@ enum CvMode { CV_NONE = 0, CV_TRAIN = 1, CV_HELD_OUT = 2 };
 // genotype) or slice_bytes() (the raw bytes of a block of individuals).
 class GenoView {
 public:
-  // data: the list prepared in R by radmix_prepare(), with elements
+  // data: the list prepared in R by radmix_prepare() (genotypes), with
+  // elements
   //   fbm: the FBM (an R reference class object, i.e. an environment);
   //   rows, cols: 1-based indices of the selected individuals and loci in
   //     the FBM, in the order in which they appear in the gen_tibble (they
   //     do not need to be sorted);
   //   lut: 256 values, the decoded dosage of each byte (NaN for missing);
   //   n_trials, scale: one value per selected individual (see above);
+  //   kind (optional): "code256";
   //   cv (optional): the cross-validation mask (see above), as created by
   //     radmix_set_cv(): integer mode (0 = none, 1 = train,
   //     2 = held out), 1-based fold, n_folds and seed. Without it, the view
-  //     shows all the observed genotypes.
+  //     shows all the observed genotypes;
+  // or, for genotype likelihoods, the list returned by a method of
+  // gt_radmix_data() from another package, with elements kind
+  // ("gl_source"), version, fill, ctx, n_indiv and n_loci (see "Genotype
+  // likelihoods" above).
   // The view is built at the start of every C++ function called from R (as
   // tidypopgen does with its accessors), which costs a pass over the
   // indices, negligible compared with any kernel. It reads the backing file
   // through a raw pointer, so `data` (which holds the FBM, and hence the
   // mapping) must stay alive while the view is used, which is always the
-  // case within a call from R.
+  // case within a call from R; the same holds for the context of a source of
+  // genotype likelihoods.
   // (Strictly, the mapping belongs to the external pointer kept in the
   // FBM's `extptr` field, and R code that resets that field, such as
   // FBM$add_columns(), lets the garbage collector unmap it. No R code runs
@@ -115,48 +144,22 @@ public:
   // the main thread before any parallel region, so that Rcpp::stop() can
   // safely be used.
   explicit GenoView(const Rcpp::List& data) {
-    const char* needed[] = {"fbm", "rows", "cols", "lut", "n_trials",
-                            "scale"};
-    for (const char* name : needed) {
-      if (!data.containsElementNamed(name))
-        Rcpp::stop("'data' must be prepared by radmix_prepare() "
-                   "(element '%s' is missing).", name);
+    // the kind of data: genotypes (code256, also when `kind` is absent) or
+    // genotype likelihoods from another package (gl_source)
+    _gl = false;
+    if (data.containsElementNamed("kind")) {
+      const std::string kind = Rcpp::as<std::string>(data["kind"]);
+      if (kind == "gl_source") {
+        _gl = true;
+      } else if (kind != "code256") {
+        Rcpp::stop("'kind' must be \"code256\" or \"gl_source\".");
+      }
     }
-    Rcpp::Environment BM = data["fbm"];
-    Rcpp::IntegerVector row_ind = data["rows"], col_ind = data["cols"];
-    Rcpp::NumericVector lut = data["lut"], n_trials = data["n_trials"],
-      scale = data["scale"];
-    // the "address" field of the FBM holds an external pointer to the
-    // read-only memory mapping of the backing file
-    Rcpp::XPtr<FBM> xpBM = BM["address"];
-    // type 1 = unsigned char, i.e. code256; other FBM types (e.g. doubles)
-    // cannot be decoded with a byte lookup table
-    if (xpBM->matrix_type() != 1)
-      Rcpp::stop("The backing file must be an FBM.code256 (raw bytes).");
-    if (lut.size() != 256) Rcpp::stop("'lut' must have length 256.");
-    size_t n = row_ind.size();
-    if ((size_t) n_trials.size() != n || (size_t) scale.size() != n)
-      Rcpp::stop("'n_trials' and 'scale' must have one value per individual.");
-    // raw pointer to the first byte of the mapped file (see above)
-    _pMat = static_cast<const unsigned char*>(xpBM->matrix());
-    _nrow_fbm = xpBM->nrow();
-    // 1-based R indices -> 0-based offsets (bounds checked)
-    _rows = vec_int_to_size(row_ind, xpBM->nrow(), 1);
-    std::vector<size_t> cols = vec_int_to_size(col_ind, xpBM->ncol(), 1);
-    // precompute the offset of the start of each selected column, so that
-    // get() needs a single addition instead of a multiplication
-    _col_off.resize(cols.size());
-    for (size_t j = 0; j < cols.size(); j++) _col_off[j] = cols[j] * _nrow_fbm;
-    // split the lookup table into a missing flag and a value (0 for missing
-    // bytes), so that get() never has to test for NaN
-    for (int b = 0; b < 256; b++) {
-      _missing[b] = ISNAN(lut[b]);
-      _lut[b] = _missing[b] ? 0.0 : lut[b];
+    if (!_gl) {
+      init_genotypes(data);
+    } else {
+      init_gl_source(data);
     }
-    // copy the per-individual values out of R memory, so that they can be
-    // read from any thread
-    _n.assign(n_trials.begin(), n_trials.end());
-    _scale.assign(scale.begin(), scale.end());
     // cross-validation mask
     int cv_mode = CV_NONE, cv_fold = 0, n_folds = 1;
     double cv_seed = 0;
@@ -188,17 +191,22 @@ public:
     // fold() (hash % _n_folds) free of a division by zero in any mode
     _n_folds = (uint64_t) (n_folds > 0 ? n_folds : 1);
     _cv_seed = (uint64_t) cv_seed;
+    if (_gl && cv_mode != CV_NONE)
+      Rcpp::stop("Cross-validation is not available for genotype "
+                 "likelihoods.");
+    const size_t n = _n_indiv;
     // Fast path for decoding a block of genotypes (see slice_bytes()). It
     // needs the same decoding for every individual, i.e. a uniform number of
     // trials and scale (always true without pseudohaploids). The tables then
     // give g and h = n - g for each byte directly, with g = h = 0 for
     // missing bytes, exactly the values that get() leads to (see
     // slice_geno() in radmix_kernels.cpp); with a cross-validation mask, the
-    // caller also multiplies them by cv_visible().
+    // caller also multiplies them by cv_visible(). (Genotype likelihoods
+    // are read by gl_slice() instead.)
     bool uniform = true;
     for (size_t i = 1; i < n; i++)
       uniform = uniform && _n[i] == _n[0] && _scale[i] == _scale[0];
-    _fast = uniform && n > 0;
+    _fast = uniform && n > 0 && !_gl;
     if (_fast) {
       for (int b = 0; b < 256; b++) {
         const double obs = _missing[b] ? 0.0 : 1.0;
@@ -210,20 +218,41 @@ public:
     // _contig[i]: the number of individuals from i onwards whose rows follow
     // each other in the FBM (rows i, i + 1, ... are rows r, r + 1, ...),
     // so that the bytes of a block of them are adjacent in each column
-    _contig.assign(n, 1);
-    for (size_t i = n; i-- > 1;) {
+    // (genotypes only: a view of genotype likelihoods has no rows)
+    _contig.assign(_rows.size(), 1);
+    for (size_t i = _rows.size(); i-- > 1;) {
       if (_rows[i] == _rows[i - 1] + 1) _contig[i - 1] = _contig[i] + 1;
     }
   }
 
   // number of selected individuals (I) and loci (J), i.e. the dimensions of
   // the genotype matrix as the kernels see it
-  size_t nrow() const { return _rows.size(); }
-  size_t ncol() const { return _col_off.size(); }
+  size_t nrow() const { return _n_indiv; }
+  size_t ncol() const { return _n_loci; }
 
   // number of trials (allele copies) n_i for individual i: 2 for a diploid,
   // 1 for a pseudohaploid
   inline double n_trials(size_t i) const { return _n[i]; }
+
+  // whether the view holds genotype likelihoods (from a source) rather
+  // than genotypes (code256)
+  inline bool is_gl() const { return _gl; }
+
+  // Genotype likelihoods only: the likelihoods (1, e1, e2) of 0, 1 and 2
+  // copies of allele2 for individuals i0 to i0 + ni - 1 at locus j, up to a
+  // constant factor per individual, into e1[0..ni) and e2[0..ni), and
+  // obs[ii] = 1 if individual i0 + ii has data at that locus, 0 if not: a
+  // call to the function of the source (see "Genotype likelihoods" above).
+  // The call is indirect, so the function is never inlined into the
+  // accumulation functions of the kernels (radmix_kernels.cpp), which is
+  // what we want: inlined, the decoding of the likelihoods competes for
+  // registers with their accumulators, and made their passes over
+  // likelihoods about 50% slower, whereas a call per slice of 64
+  // individuals costs nothing.
+  inline void gl_slice(size_t i0, size_t ni, size_t j, double* e1,
+                       double* e2, double* obs) const {
+    _fill(_ctx, i0, ni, j, e1, e2, obs);
+  }
 
   // The fast path for a block of genotypes: if individuals i0 to
   // i0 + ni - 1 are adjacent in the FBM and the view decodes every
@@ -316,10 +345,119 @@ public:
   }
 
 private:
-  const unsigned char* _pMat;    // start of the memory-mapped FBM
-  size_t _nrow_fbm;              // number of rows of the full FBM
+  // The genotypes of a gen_tibble (kind code256, see the top of the file):
+  // the mapped backing file, the selected rows and columns, and the
+  // decoding of the bytes
+  void init_genotypes(const Rcpp::List& data) {
+    const char* needed[] = {"fbm", "rows", "cols", "lut", "n_trials",
+                            "scale"};
+    for (const char* name : needed) {
+      if (!data.containsElementNamed(name))
+        Rcpp::stop("'data' must be prepared by radmix_prepare() "
+                   "(element '%s' is missing).", name);
+    }
+    Rcpp::Environment BM = data["fbm"];
+    Rcpp::IntegerVector row_ind = data["rows"], col_ind = data["cols"];
+    Rcpp::NumericVector lut = data["lut"], n_trials = data["n_trials"],
+      scale = data["scale"];
+    // the "address" field of the FBM holds an external pointer to the
+    // read-only memory mapping of the backing file
+    Rcpp::XPtr<FBM> xpBM = BM["address"];
+    // type 1 = unsigned char, i.e. code256; other FBM types (e.g. doubles)
+    // cannot be decoded with a byte lookup table
+    if (xpBM->matrix_type() != 1)
+      Rcpp::stop("The backing file must be an FBM.code256 (raw bytes).");
+    if (lut.size() != 256) Rcpp::stop("'lut' must have length 256.");
+    size_t n = row_ind.size();
+    if ((size_t) n_trials.size() != n || (size_t) scale.size() != n)
+      Rcpp::stop("'n_trials' and 'scale' must have one value per individual.");
+    // raw pointer to the first byte of the mapped file (see above)
+    _pMat = static_cast<const unsigned char*>(xpBM->matrix());
+    const size_t nrow_fbm = xpBM->nrow();
+    // 1-based R indices -> 0-based offsets (bounds checked)
+    _rows = vec_int_to_size(row_ind, nrow_fbm, 1);
+    std::vector<size_t> cols = vec_int_to_size(col_ind, xpBM->ncol(), 1);
+    // precompute the offset of the start of each selected column, so that
+    // get() needs a single addition instead of a multiplication
+    _col_off.resize(cols.size());
+    for (size_t j = 0; j < cols.size(); j++) _col_off[j] = cols[j] * nrow_fbm;
+    _n_indiv = n;
+    _n_loci = cols.size();
+    // split the lookup table into a missing flag and a value (0 for missing
+    // bytes), so that get() never has to test for NaN
+    for (int b = 0; b < 256; b++) {
+      _missing[b] = ISNAN(lut[b]);
+      _lut[b] = _missing[b] ? 0.0 : lut[b];
+    }
+    // copy the per-individual values out of R memory, so that they can be
+    // read from any thread
+    _n.assign(n_trials.begin(), n_trials.end());
+    _scale.assign(scale.begin(), scale.end());
+    _fill = nullptr;
+    _ctx = nullptr;
+  }
+
+  // The genotype likelihoods of a source (kind gl_source, see "Genotype
+  // likelihoods" at the top of the file and radmix_gl_source.h): the
+  // function and its context, after checking that the list follows the
+  // version of the interface that this code reads
+  void init_gl_source(const Rcpp::List& data) {
+    const char* needed[] = {"version", "fill", "ctx", "n_indiv", "n_loci"};
+    for (const char* name : needed) {
+      if (!data.containsElementNamed(name))
+        Rcpp::stop("A source of genotype likelihoods needs the element "
+                   "'%s'.", name);
+    }
+    const int version = Rcpp::as<int>(data["version"]);
+    if (version != TIDYGENCLUST_GL_SOURCE_VERSION)
+      Rcpp::stop("The source of genotype likelihoods follows version %d of "
+                 "the interface, but tidygenclust reads version %d.",
+                 version, TIDYGENCLUST_GL_SOURCE_VERSION);
+    // the function: an external pointer with the agreed tag (so that any
+    // other external pointer, e.g. that of the context, is refused rather
+    // than called)
+    SEXP fill = data["fill"], ctx = data["ctx"];
+    if (TYPEOF(fill) != EXTPTRSXP ||
+        R_ExternalPtrTag(fill) != Rf_install(TIDYGENCLUST_GL_FILL_TAG) ||
+        R_ExternalPtrAddrFn(fill) == NULL)
+      Rcpp::stop("'fill' must be an external pointer to the function of a "
+                 "source of genotype likelihoods, tagged %s.",
+                 TIDYGENCLUST_GL_FILL_TAG);
+    if (TYPEOF(ctx) != EXTPTRSXP)
+      Rcpp::stop("'ctx' must be an external pointer.");
+    _fill = reinterpret_cast<tidygenclust_gl_fill_fn>(
+      R_ExternalPtrAddrFn(fill));
+    _ctx = R_ExternalPtrAddr(ctx);
+    // the dimensions, read as doubles so that any number from R can be
+    // checked (below 2^53, as the seed of cross-validation; empty data are
+    // refused later, with the same error as for genotypes)
+    const double n_indiv = Rcpp::as<double>(data["n_indiv"]),
+      n_loci = Rcpp::as<double>(data["n_loci"]);
+    if (!(n_indiv >= 0 && n_loci >= 0 && n_indiv < 9007199254740992.0 &&
+          n_loci < 9007199254740992.0) ||
+        n_indiv != std::floor(n_indiv) || n_loci != std::floor(n_loci))
+      Rcpp::stop("'n_indiv' and 'n_loci' must be non-negative integers.");
+    _n_indiv = (size_t) n_indiv;
+    _n_loci = (size_t) n_loci;
+    _pMat = nullptr;
+    // get() is not used for genotype likelihoods; a table that marks every
+    // byte as missing keeps it harmless
+    for (int b = 0; b < 256; b++) {
+      _missing[b] = true;
+      _lut[b] = 0.0;
+    }
+    // diploids: two copies of allele2, without rescaling
+    _n.assign(_n_indiv, 2.0);
+    _scale.assign(_n_indiv, 1.0);
+  }
+
+  bool _gl;                      // genotype likelihoods, not genotypes
+  size_t _n_indiv, _n_loci;      // numbers of selected individuals and loci
+  const unsigned char* _pMat;    // start of the memory-mapped FBM (genotypes)
   std::vector<size_t> _rows;     // 0-based FBM row of each individual
-  std::vector<size_t> _col_off;  // byte offset of the start of each locus
+  std::vector<size_t> _col_off;  // offset of the start of each locus
+  tidygenclust_gl_fill_fn _fill; // the function of a source of genotype
+  const void* _ctx;              // likelihoods, and its context
   double _lut[256];              // decoded dosage of each byte (0 if missing)
   bool _missing[256];            // whether each byte means "missing"
   std::vector<double> _n;        // number of trials of each individual
