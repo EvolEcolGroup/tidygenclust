@@ -123,6 +123,44 @@ ADMIXTURE reports the frequency of the second allele of the bim file
 position; this is the order of the input for `EUR_subset`, which the test
 checks.
 
+### NGSadmix: `fixtures/ngsadmix_gl_reference.rds`
+
+Used by `tests/testthat/test_radmix_vs_ngsadmix.R`, which checks
+`gt_radmix()` on genotype likelihoods against NGSadmix (Skotte et al.
+2013), as distributed with ANGSD 0.940. It holds simulated genotype
+likelihoods (60 individuals, 600 loci from 3 ancestral populations, reads at
+a mean depth of 3 with an error rate of 0.01, simulated with the helpers of
+`tests/testthat/helper-radmix-data.R`), stored compactly as 16-bit codes
+(which the test decodes in R), and, for K = 2 and 3, the estimates of the best of 10
+runs of NGSadmix (seeds 1 to 10): Q, F (the frequency of allele2, as the P
+matrices of `gt_radmix()` for genotype likelihoods) and the log-likelihood,
+with the log of the run. NGSadmix read the likelihoods decoded from the
+codes, so both programs fit the same data, and the test does not need
+NGSadmix.
+
+To regenerate it, install NGSadmix (it comes with ANGSD; put it on the
+`PATH`, or set `NGSADMIX` to the path of the executable), then run (a few
+seconds):
+
+```bash
+Rscript data-raw/radmix/regenerate_ngsadmix_fixtures.R
+```
+
+NGSadmix is run without its filter on the minor allele frequency
+(`-minMaf 0`; by default it drops loci below 0.05) and with stringent
+convergence criteria (`-tol 1e-10 -tolLike50 1e-8 -maxiter 10000`; by
+default it stops when the log-likelihood changes by less than 0.1 in 50
+iterations). Two details matter when comparing the programs, and are
+handled by the test:
+
+- NGSadmix counts log(1/3) in its log-likelihood for each individual
+  without data at a locus (three equal likelihoods), which `gt_radmix()`
+  leaves out;
+- NGSadmix keeps its estimates within [1e-9, 1 - 1e-9], and `gt_radmix()`,
+  as ADMIXTURE, within [1e-5, 1 - 1e-5], so the maximum of `gt_radmix()` is
+  slightly lower (by 0.02 and 0.08 log-likelihood units here), and the
+  estimates differ slightly where they are close to 0 or 1.
+
 ## Other scripts
 
 These scripts use the `EUR_subset` data downloaded by
