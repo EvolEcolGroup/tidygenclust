@@ -1,4 +1,13 @@
 # tidygenclust (development version)
+* `gt_radmix()` also fits genotype likelihoods, with the model of NGSadmix
+  (Skotte, Korneliussen & Albrechtsen 2013) and the algorithm of ADMIXTURE.
+  tidygenclust does not store genotype likelihoods: a package that does can
+  provide a method of the new generic `gt_radmix_data()`, which gives the
+  kernels a C function that reads its likelihoods (see
+  `inst/include/tidygenclust/radmix_gl_source.h`), so tidygenclust does not
+  depend on it. `P` then gives the frequency of
+  `allele2`. Cross-validation, starts from the SVD and `use_imputed` are
+  not available for genotype likelihoods yet.
 * New `gt_adamixture()`: ancestry estimation with the python package
   ADAMIXTURE (Saurina-i-Ricos, Mas Montserrat & Ioannidis 2026), run with
   `reticulate` like `gt_fastmixture()`, on a `gen_tibble` (including subsets)

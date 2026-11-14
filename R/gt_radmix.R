@@ -9,13 +9,19 @@
 #' quasi-Newton scheme of Zhou, Alexander and Lange (2011). It also offers
 #' the cross-validation of ADMIXTURE to choose K (Alexander and Lange 2011),
 #' a start from a truncated singular value decomposition (SVD) of the
-#' genotypes, and support for pseudohaploid data. If you use this function,
+#' genotypes, and support for pseudohaploid data. With genotype likelihoods
+#' (given by another package, see [gt_radmix_data()]), it fits the model of
+#' NGSadmix (Skotte et al. 2013), the ADMIXTURE model for low-depth
+#' sequencing data, with the same algorithm. If you use this function,
 #' please cite Alexander et al. (2009) for the method, and, if you use
-#' cross-validation, Alexander and Lange (2011).
+#' cross-validation, Alexander and Lange (2011); with genotype likelihoods,
+#' also cite Skotte et al. (2013).
 #'
 #' Genotypes are read directly from the backing file of the `gen_tibble`
 #' (respecting any filtering of individuals and selection of loci), so no
-#' intermediate PLINK file is written. Computation is in C++, multithreaded
+#' intermediate PLINK file is written; the same holds for genotype
+#' likelihoods, which the package that stores them gives to `gt_radmix()`
+#' through a method of [gt_radmix_data()]. Computation is in C++, multithreaded
 #' with OpenMP. The C++ code started as a port of the Julia package
 #' [OpenADMIXTURE.jl](https://github.com/OpenMendel/OpenADMIXTURE.jl), and
 #' has since been extensively rewritten (see the file `COPYRIGHTS` of the
@@ -27,7 +33,9 @@
 #'   supported.
 #'
 #'   `P` gives the frequency of the **alternate** allele (`allele_alt` in
-#'   [tidypopgen::show_loci()]) in each ancestral population.
+#'   [tidypopgen::show_loci()]) in each ancestral population (for genotype
+#'   likelihoods, of `allele2`, often the minor allele; see
+#'   "Genotype likelihoods" below).
 #'
 #'   Supplying `init_p` together with `fix_p = TRUE` estimates the ancestry of
 #'   new individuals given the allele frequencies of a reference panel (a
@@ -68,6 +76,40 @@
 #'   Newton step that is not finite (because a genotype is impossible under
 #'   the current estimates) is discarded, and the individual or locus keeps
 #'   its current value for that iteration.
+#'
+#'   ## Genotype likelihoods
+#'
+#'   With genotype likelihoods, the genotypes are not observed: each
+#'   individual has the likelihoods of its data (its reads) given each of
+#'   the three genotypes at a locus, with 0, 1 and 2 copies of `allele2`.
+#'   tidygenclust does not store them: a package that does can provide a
+#'   method of [gt_radmix_data()] for its class. The model is that of
+#'   NGSadmix (Skotte et al. 2013): the genotypes follow the ADMIXTURE
+#'   model, with `P` the frequency of `allele2`, and the log-likelihood is
+#'   \deqn{\sum_{ij} \log \sum_{g=0}^{2} P(D_{ij} | g) P(g | x_{ij}),}{
+#'   sum_ij log sum_g P(D_ij | g) P(g | x_ij),}
+#'   where \eqn{x_{ij} = \sum_k q_{ik} p_{kj}}{x_ij = sum_k q_ik p_kj},
+#'   \eqn{P(g | x)}{P(g | x)} is binomial (Hardy-Weinberg proportions), and
+#'   the likelihoods \eqn{P(D_{ij} | g)}{P(D_ij | g)} of each individual are
+#'   normalised to sum to 1, as in the beagle files read by NGSadmix.
+#'   Individuals without data at a locus do not contribute to it, whereas
+#'   NGSadmix counts \eqn{\log(1/3)}{log(1/3)} for each of them (they have
+#'   three equal likelihoods): otherwise, the log-likelihoods of the two
+#'   programs are the same.
+#'
+#'   The algorithm is the same as for genotypes: every step uses the
+#'   expected numbers of copies of each allele given the likelihoods and the
+#'   current estimates in place of the observed ones. EM steps are then
+#'   those of NGSadmix, and the gradients of the block updates are exact; as
+#'   the log-likelihood of genotype likelihoods is not concave in each block,
+#'   the Newton steps use the curvature of the expected log-likelihood of the
+#'   genotypes (that of the EM algorithm), which keeps every quadratic
+#'   program convex. The quasi-Newton steps are accepted on the
+#'   log-likelihood above. Cross-validation (`crossval`), starts from the SVD
+#'   (`init = "svd"`) and `use_imputed` are not available for genotype
+#'   likelihoods. Unlike NGSadmix, which by default drops loci with a minor
+#'   allele frequency below 0.05 (its option `-minMaf`), `gt_radmix()` uses
+#'   all the loci of `x`: select them beforehand if needed.
 #'
 #'   ## Starting values from the SVD
 #'
@@ -198,7 +240,13 @@
 #'   estimation of ancestry proportions. Peer Community Journal, 4, e115.
 #'   doi: https://doi.org/10.24072/pcjournal.503
 #'
-#' @param x a [`tidypopgen::gen_tibble`] (possibly grouped)
+#'   Skotte L, Korneliussen TS, Albrechtsen A (2013) Estimating individual
+#'   admixture proportions from next generation sequencing data. Genetics,
+#'   195(3), 693-702.
+#'
+#' @param x a [`tidypopgen::gen_tibble`], or genotype likelihoods from
+#'   another package (see "Genotype likelihoods" in the details), possibly
+#'   grouped
 #' @param k an integer vector giving the number(s) of ancestral populations
 #' @param n_runs the number of runs for each value of `k` (defaults to 1)
 #' @param seed the seed for the random number generator (defaults to `NULL`).
@@ -221,11 +269,12 @@
 #'   genotypes, which needs fewer iterations but is not suited to exploring
 #'   the modes of the likelihood with several runs (see "Starting values
 #'   from the SVD" in the details). `"svd"` cannot be combined with `init_q`
-#'   or `init_p`.
+#'   or `init_p`, nor used with genotype likelihoods.
 #' @param init_q optional matrix (individuals x k) of starting ancestry
 #'   proportions; only allowed with a single value of `k`
 #' @param init_p optional matrix (loci x k) of starting allele frequencies
-#'   (of the alternate allele, as in the P matrices returned by this
+#'   (of the alternate allele, or of `allele2` for genotype likelihoods, as
+#'   in the P matrices returned by this
 #'   function; those of [tidypopgen::gt_admixture()] give the frequency of
 #'   the reference allele, so use `1 - P`); only allowed with a single value
 #'   of `k`. If it has row names (as the P matrices returned by this
@@ -235,9 +284,10 @@
 #' @param fix_q,fix_p booleans; if `TRUE`, Q (respectively P) is kept at the
 #'   value given in `init_q` (respectively `init_p`)
 #' @param use_imputed boolean; if `TRUE`, imputed genotypes are used as if
-#'   they were observed; otherwise they are treated as missing (the default)
+#'   they were observed; otherwise they are treated as missing (the default).
+#'   Only for genotypes.
 #' @param crossval boolean; should the cross-validation error be computed
-#'   (defaults to `FALSE`)? See the details.
+#'   (defaults to `FALSE`)? See the details. Only for genotypes.
 #' @param n_folds the number of folds used for cross-validation (defaults to
 #'   5, as in ADMIXTURE)
 #' @param n_cores the number of cores to use (defaults to 1); the results
@@ -251,6 +301,7 @@
 #' - `Q` a list of [tidypopgen::q_matrix()] objects with the ancestry
 #'   proportions
 #' - `P` a list of matrices (loci x k) with the alternate allele frequencies
+#'   (frequencies of `allele2` for genotype likelihoods)
 #' - `log` a list with the log of each run
 #' - `loglik` the log-likelihood of each run
 #' - `converged` whether each run converged
@@ -361,9 +412,35 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   }
 
   # Prepare the data: indices into the backing file, decoding table and
-  # ploidy of each individual (R/radmix_data.R). This is done once and
-  # shared by all runs.
-  data <- radmix_prepare(x, use_imputed = use_imputed)
+  # ploidy of each individual of a gen_tibble (R/radmix_data.R), or the
+  # source of genotype likelihoods given by the method of another package.
+  # This is done once and shared by all runs.
+  data <- gt_radmix_data(x, use_imputed = use_imputed)
+  # the method of another package must give the individuals and loci of x,
+  # which label the rows of Q and of P
+  n_loci_x <- nrow(tidypopgen::show_loci(x))
+  if (!isTRUE(data$n_indiv == nrow(x)) || !isTRUE(data$n_loci == n_loci_x)) {
+    stop(
+      "gt_radmix_data() gave data for ", format(data$n_indiv),
+      " individuals and ", format(data$n_loci), " loci, but 'x' has ",
+      nrow(x), " individuals and ", n_loci_x, " loci",
+      call. = FALSE
+    )
+  }
+  # genotype likelihoods: the deviance of cross-validation and the SVD of
+  # the genotypes need hard calls, so neither is available yet
+  if (identical(data$kind, "gl_source")) {
+    if (crossval) {
+      stop("'crossval' is not available for genotype likelihoods",
+        call. = FALSE
+      )
+    }
+    if (init == "svd") {
+      stop("'init = \"svd\"' is not available for genotype likelihoods",
+        call. = FALSE
+      )
+    }
+  }
   # with as many clusters as individuals, each individual could form its own
   # ancestral population, so the model would not be identifiable
   # (with P fixed, the ancestry of each individual is estimated on its own,
@@ -483,7 +560,8 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
       )
       if (init == "svd") fit$log <- c(start$log, fit$log)
       # P has one row per locus, in the order of show_loci(x), and gives the
-      # frequency of the alternate allele in each ancestral population
+      # frequency of the alternate allele in each ancestral population (of
+      # allele2, for genotype likelihoods)
       p_mat <- fit$p
       dimnames(p_mat) <- list(loci_names, paste0(".P", seq_len(this_k)))
       adm_list$k[index] <- this_k
