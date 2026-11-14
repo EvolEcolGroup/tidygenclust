@@ -9,6 +9,9 @@ Alexander and Lange (2011), after a few EM steps that prime a random start.
 It offers the cross-validation of ADMIXTURE to choose K (Alexander and
 Lange 2011) and, as an option, a start from a truncated singular value
 decomposition (SVD) of the genotypes, as in fastmixture and ADAMIXTURE.
+With genotype likelihoods, given by a package that stores them, it fits the
+model of NGSadmix (Skotte, Korneliussen and Albrechtsen 2013) with the same
+algorithm (section "Genotype likelihoods").
 
 The computations are in C++, multithreaded with OpenMP, and read the
 genotypes directly from the backing file of a `gen_tibble`. This document
@@ -30,7 +33,8 @@ implemented, and ends with the origins of the code.
 | `src/radmix_quasi_newton.cpp` | The quasi-Newton step |
 | `src/radmix_projections.cpp` | Projections onto the simplex (Q) and the box (P) |
 | `src/radmix_als.cpp` | Alternating least squares on the factors of the SVD (`init = "svd"`) |
-| `src/radmix_geno_access.h` | Read-only view of the genotypes in the backing file, with the cross-validation masks |
+| `src/radmix_geno_access.h` | Read-only view of the genotypes in the backing file, with the cross-validation masks, or of a source of genotype likelihoods |
+| `inst/include/tidygenclust/radmix_gl_source.h` | The C interface of a source of genotype likelihoods, for the packages that store them (`src/radmix_gl_source.cpp` is an example, used by the tests) |
 | `src/radmix_exports.cpp` | The R interface of the building blocks (used by the tests, and by R for the log-likelihood, the deviance and the projections) |
 
 The C++ files are commented in detail; this document gives the overall
@@ -475,6 +479,142 @@ longer needed once the secant pair is stored, and accepting an estimate
 swaps buffers rather than copying them. Each pass also makes a transposed
 copy of Q (K x I), and each thread small buffers of the size of a tile.
 
+## Genotype likelihoods
+
+With low-depth sequencing data, genotypes are uncertain, and the
+likelihoods of each individual's reads given the three genotypes at each
+locus are used instead. `gt_radmix()` then fits the model of NGSadmix
+(Skotte et al. 2013): the ADMIXTURE model for the unobserved genotypes,
+with `p_kj` the frequency of `allele2` (often the minor allele), and the
+log-likelihood
+
+```
+L(Q, P) = sum_ij log f_ij(qp_ij),
+f(x) = (1 - x)^2 + 2 e1 x (1 - x) + e2 x^2,
+```
+
+where `(1, e1, e2)` are the likelihoods of 0, 1 and 2 copies of
+`allele2`, up to a constant factor per individual and locus.
+
+### The same algorithm, with expected allele counts
+
+Every pass of the algorithm is built from the counts `g` and `h` of the two
+alleles (section "Derivatives"). With likelihoods, the passes use their
+expected values given the data and the current `qp`:
+
+```
+w0 = (1 - x)^2,  w1 = 2 e1 x (1 - x),  w2 = e2 x^2,  f = w0 + w1 + w2,
+g = (w1 + 2 w2) / f,   h = (2 w0 + w1) / f      (g + h = 2).
+```
+
+This single substitution (`slice_gl()` in `src/radmix_kernels.cpp`, called
+by `slice_geno()`) gives:
+
+- **the EM step of NGSadmix**: the E step now covers both the genotypes and
+  the ancestry of each allele copy, and `em()` is unchanged;
+- **exact gradients**: `d1 = g / x - h / (1 - x) = f'(x) / f(x)` is the
+  derivative of `log f(x)` (both equal
+  `[2 e1 (1 - 2x) + 2 e2 x - 2 (1 - x)] / f`), so the gradients of the block
+  updates are those of `L`;
+- **positive semi-definite Hessians**: `d2 = g / x^2 + h / (1 - x)^2 >= 0` is
+  the curvature of the expected log-likelihood of the genotypes (the
+  function that an EM step maximises), not of `log f(x)`. The latter is not
+  concave in `x`: its negative second derivative is `d2` minus the variance
+  of the score of the genotype (the missing information, Louis 1982), and
+  can be negative, which would make the quadratic programs non-convex (the
+  solver then returns a zero step, section 5). Each block update is
+  therefore a Newton step on a concave function that touches `L` with the
+  same gradient at the current estimates, a step between EM and Newton's
+  method on `L`; the quasi-Newton step is accepted on `L` itself. A test
+  checks that the Hessians of the kernels exceed those of `L` by a positive
+  semi-definite matrix.
+
+`h` is computed directly rather than as `2 - g`, which would lose precision
+when `g` is close to 2. `f > 0` always (the likelihoods of a source must be
+positive), and `qp` of exactly 0 or 1 gives finite counts: with
+likelihoods, no genotype is impossible. An individual without data at a
+locus gets `g = h = 0`, and drops out of every sum.
+
+**The log-likelihood** (`loglik_gl_slice()`) normalises the likelihoods of
+each individual to sum to 1, as in the beagle files read by NGSadmix, so
+that it does not depend on the constant factor of the likelihoods:
+`log(f / (1 + e1 + e2))`. Each such factor is a weighted mean of the three
+genotype probabilities, far above `LOG_MIN_Z` in practice (as long as the
+likelihoods are within a few tens of nats of the best), so the factors are
+batched before taking logarithms, as for hard calls. NGSadmix also
+counts `log(1/3)` for each individual without data, which we leave out;
+otherwise the two log-likelihoods are the same (to 1e-9 in the tests).
+
+### Data access: sources of likelihoods
+
+tidygenclust neither stores nor decodes genotype likelihoods, and does not
+depend on the packages that do. Such a package provides a method of the
+exported generic `gt_radmix_data()` (`R/radmix_data.R`) for its class,
+which returns a list of kind `"gl_source"`: an external pointer to a C
+function that fills the likelihoods `e1` and `e2` and the indicator of data
+`obs` of a block of individuals at one locus, an external pointer to the
+context that the function reads, the numbers of individuals and loci, and
+anything that must stay alive while the source is used (e.g. the
+file-backed matrix that the context points into).
+- The interface (version 1) is a single typedef, in
+  `inst/include/tidygenclust/radmix_gl_source.h`, which such a package
+  copies or takes with `LinkingTo`. `GenoView` checks
+  the version and the tag of the external pointer to the function, so a
+  mismatch is an error rather than a crash.
+- The function is called from the OpenMP threads of the kernels, so it must
+  only read, never call R and never throw.
+- `src/radmix_gl_source.cpp` is an example over matrices in memory, which
+  the tests use, so that tidygenclust tests the likelihood kernels on its
+  own.
+
+`gt_radmix()` checks that the data describe the individuals and loci of `x`
+(which label the rows of Q and of P). The same `GenoView` holds genotypes
+or a source, and the fitting loop and the R wrappers are shared. The kind
+of data is a template parameter (`GL`) of the functions that process
+slices (`slice_geno()`, `slice_coef()`, the two accumulation functions and
+`sum_slices()`), chosen once per pass by `q_side()`, `p_side()` and
+`loglik()`, so that the passes over genotypes compile as they did before
+likelihoods existed: testing `is_gl()` in every slice instead made them up
+to 11% slower (the log-likelihood; 4% for a fit). `GenoView::gl_slice()`
+calls the function of the source once per slice of up to 64 individuals.
+The call is indirect, so the decoding is never inlined into the
+accumulation functions, which is what they need: in a first version, in
+which tidygenclust decoded the likelihoods itself (from 16-bit codes),
+inlining the decoding made the passes over likelihoods about 50% slower (it
+competes for registers with the accumulators); reading the same codes
+through a source was then as fast as, or slightly faster than, the
+decoding in tidygenclust. `slice_gl()` then computes the expected
+counts in a loop that vectorises (inline, in the AVX2 versions too).
+
+The cost of a pass over likelihoods depends on the source (how much it
+reads per individual and locus, and how it decodes it); the expected counts
+cost a division and a few multiplications more than the decoding of a
+genotype. On 200 individuals and 50,000 loci (one thread), with the
+example source of `src/radmix_gl_source.cpp` (three doubles per individual
+and locus, in memory), a pass over likelihoods takes 1.0 (log-likelihood)
+to 2.1 (update of Q) times the cycles of a pass over genotypes, and a fit
+2.5 times as many, as it also needs more iterations (16 instead of 9: the
+curvature of the expected log-likelihood of the genotypes, larger than
+that of `L` when genotypes are uncertain, makes the Newton steps shorter).
+The passes over genotypes execute the same instructions as on `dev` (0.2
+to 0.6% fewer) and take at most 1.5% more cycles (counted with `perf`).
+NGSadmix, on the same likelihoods and with 4 threads, is about 40 times
+slower (153 iterations of its accelerated EM, against 16). The measurements
+are in `data-raw/radmix/gl/REPORT.md`.
+
+### What is not available yet
+
+- **Cross-validation**: the deviance of held-out genotypes assumes hard
+  calls. Its natural counterpart for likelihoods is
+  `log max_x f(x) - log f(qp)` (`f` is a quadratic in `x`, so its maximum on
+  `[0, 1]` is in closed form), which equals ADMIXTURE's deviance when the
+  likelihoods are hard calls. The view refuses cross-validation masks, and
+  `gt_radmix()` stops.
+- **The SVD start**: it needs the SVD of the genotypes. With likelihoods, it
+  could use the posterior dosages under the allele frequencies of emMAF
+  (as PCAngsd does, computable from the source), or an EM-based PCA of the
+  likelihoods; `gt_radmix()` stops.
+
 ## Numerical safeguards
 
 None of these changes the results when the computations are well behaved:
@@ -510,7 +650,17 @@ The test suite checks:
 - the log-likelihood, EM step, Newton updates and full path against stored
   results of OpenADMIXTURE.jl, an independent implementation of the same
   model and of a closely related algorithm
-  (`tests/testthat/test_radmix_vs_julia.R`).
+  (`tests/testthat/test_radmix_vs_julia.R`);
+- with genotype likelihoods (given by the example source of
+  `src/radmix_gl_source.cpp`): every pass against the R reference, the
+  gradients against numerical derivatives of `L`, and the Hessians against
+  its curvature (`tests/testthat/test_radmix_kernels.R`); that likelihoods of
+  hard calls, through a method of `gt_radmix_data()`, give the fit of the
+  genotypes (`test_gt_radmix.R`); and the log-likelihood and estimates
+  against stored results of NGSadmix (ANGSD 0.940) on simulated likelihoods
+  (`test_radmix_vs_ngsadmix.R`). `data-raw/radmix/gl/` holds the
+  benchmarks of the likelihoods, with a comparison of speed with NGSadmix
+  (its `REPORT.md`).
 
 `data-raw/radmix/README.md` describes how the stored results were made.
 
@@ -586,6 +736,13 @@ Journal of Human Genetics*, 110, 314-325.
 
 Lange K (2010) *Numerical Analysis for Statisticians*, 2nd edition.
 Springer.
+
+Louis TA (1982) Finding the observed information matrix when using the EM
+algorithm. *Journal of the Royal Statistical Society B*, 44, 226-233.
+
+Skotte L, Korneliussen TS, Albrechtsen A (2013) Estimating individual
+admixture proportions from next generation sequencing data. *Genetics*,
+195, 693-702.
 
 Tang H, Peng J, Wang P, Risch NJ (2005) Estimation of individual admixture:
 analytical and study design considerations. *Genetic Epidemiology*, 28,

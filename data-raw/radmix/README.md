@@ -188,6 +188,12 @@ version control), and need `tidygenclust` to be installed (timings from
   true one), and shows that the diploids of the population of the
   pseudohaploids do appear admixed at K = 2.
 
+`gl/` holds the benchmarks of genotype likelihoods (given by the example
+source of tidygenclust): `benchmark_gl.R` times the passes over
+likelihoods and over genotypes (and NGSadmix) on simulated data, and
+`perf_gl.R` counts their instructions and cycles. Their results are in
+`gl/results/`, and `gl/REPORT.md` summarises them.
+
 ## Speed-ups
 
 `dev_notes/radmix_performance.md` records the work that sped up `gt_radmix()`
