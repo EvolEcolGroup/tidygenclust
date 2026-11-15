@@ -14,10 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-      # one OpenMP thread unless the code asks for more: the counters of
-      # --coverage are shared by all the threads, which slow each other down
-      # (the radmix kernels set their threads with n_cores, default 1)
-      OMP_NUM_THREADS: 1
 
     steps:
       - uses: actions/checkout@v4
