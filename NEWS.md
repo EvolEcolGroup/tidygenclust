@@ -51,6 +51,9 @@
   the log-likelihood is cheaper; with the fused pass, an iteration takes
   about 0.8 of the time it took on one core (HGDP, 1043 x 130,943, K = 5),
   with the same iterations and estimates that differ only by rounding.
+  The work on Q of datasets with fewer than 8,192 individuals is split into
+  more tasks (128 rather than 32), which makes fits on 8 threads 3-6%
+  faster (estimates differ only by rounding).
   `?gt_radmix` describes the algorithm, the reproducibility of the results,
   and how they compare with those of ADMIXTURE.
   Supervised analyses, as ADMIXTURE's `--supervised` option, are run with

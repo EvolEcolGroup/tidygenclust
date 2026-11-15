@@ -136,9 +136,12 @@ namespace radmix {
 // TILE_J, MIN_Q_TASKS (below) and the OpenMP schedule of the passes can be
 // changed at compile time, for benchmarks only (e.g. -DRADMIX_TILE_J=32
 // -DRADMIX_MIN_Q_TASKS=64 -DRADMIX_OMP_SCHEDULE=guided in the CXXFLAGS of a
-// private Makevars, see data-raw/radmix/newspeed): they were never tuned for
-// many cores. The schedule never changes the results (each block is
-// processed start to finish by one thread). TILE_J changes the partial sums
+// private Makevars). On the desktop (i9-13900, 8 threads, HGDP K = 5 and
+// 10, 15 Nov 2026), MIN_Q_TASKS = 128 made fits 3-6% faster than 32, and
+// 2-3% faster on 1 thread; TILE_J = 32 changed nothing, and a guided
+// schedule was 5-7% slower than the dynamic one. The schedule never
+// changes the results (each block is processed start to finish by one
+// thread). TILE_J changes the partial sums
 // of loglik() and deviance(), and MIN_Q_TASKS the segments of the Q side, so
 // with other values results differ by rounding (and test_radmix_kernels.R,
 // which checks the segments of the default, fails), but they are still the
@@ -147,7 +150,7 @@ namespace radmix {
 #define RADMIX_TILE_J 64
 #endif
 #ifndef RADMIX_MIN_Q_TASKS
-#define RADMIX_MIN_Q_TASKS 32
+#define RADMIX_MIN_Q_TASKS 128
 #endif
 #ifndef RADMIX_OMP_SCHEDULE
 #define RADMIX_OMP_SCHEDULE dynamic
@@ -784,10 +787,12 @@ static double accum_q_block(const GenoView& geno, const double* qT,
 //
 // Memory: the partial sums of the segments take n_seg I (K + K^2) doubles.
 // Segments are only used with fewer than MIN_Q_TASKS blocks, i.e.
-// I < MIN_Q_TASKS TILE_I = 2048, and n_seg = ceil(MIN_Q_TASKS / n_blocks), so
-// n_seg I stays below 2 MIN_Q_TASKS TILE_I = 4096: under 4 MB for K = 10.
+// I < MIN_Q_TASKS TILE_I = 8192, and n_seg = ceil(MIN_Q_TASKS / n_blocks), so
+// n_seg I stays below 2 MIN_Q_TASKS TILE_I = 16384: under 15 MB for K = 10.
 
-// the target number of Q-side tasks, enough to balance a few dozen threads
+// the target number of Q-side tasks, enough to balance many threads: with
+// 32, the HGDP (1043 individuals, 17 blocks) had 34 tasks, and fits on 8
+// threads were 3-6% slower than with 128 (136 tasks; see above)
 static const size_t MIN_Q_TASKS = RADMIX_MIN_Q_TASKS;
 // the minimum number of loci of a segment, so that each task has enough
 // work to amortise its overheads

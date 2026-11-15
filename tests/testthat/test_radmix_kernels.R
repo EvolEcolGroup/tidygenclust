@@ -276,7 +276,9 @@ test_that("kernels are correct when the loci are split into segments", {
   # 70 individuals (2 blocks) and 2000 loci: 7 segments
   expect_identical(radmix_q_segments_cpp(70, 2000), 7L)
   # many individuals, or few loci, use a single pass
-  expect_identical(radmix_q_segments_cpp(5000, 2000), 1L)
+  expect_identical(radmix_q_segments_cpp(10000, 2000), 1L)
+  # the HGDP (1043 individuals, 17 blocks): 8 segments, for 136 tasks
+  expect_identical(radmix_q_segments_cpp(1043, 130943), 8L)
   expect_identical(radmix_q_segments_cpp(70, 300), 1L)
   seg <- radmix_simulate_admixed(
     n = 70, m = 2000, k = 3, missing = 0.03, seed = 8
