@@ -15,8 +15,8 @@ likelihoods), and in `radmix_performance.md`.
   `slice_gl()` reads the free individuals of a supervised fit through their
   index, so both features also work on genotype likelihoods. Then the two
   decided defaults, and the notes.
-- **Where:** branch `newspeed_port`, commits 32aeab2 to the commit of this entry, on
-  `dev` a20eb08; tags `archive/newspeed` (ec96315) and `archive/supervised`
+- **Where:** PR #36 (open), branch `newspeed_port`, commits 32aeab2 to
+  the commit of this entry, on `dev` a20eb08; tags `archive/newspeed` (ec96315) and `archive/supervised`
   (fc43f9b) keep the old branches' records.
 - **Result:** the full test suite passes on an -O2 build (3918
   expectations, none skipped, with the ADMIXTURE, OpenADMIXTURE.jl and

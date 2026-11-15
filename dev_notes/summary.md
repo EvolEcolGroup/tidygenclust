@@ -8,7 +8,7 @@ issue (`scripts/sync_issue.py`).
 
 Native implementation of ADMIXTURE's method in tidygenclust (`gt_radmix()`): port, speed-ups and consolidation.
 
-**Status.** The speed-ups of `newspeed` and the supervised analyses of `supervised` are ported onto `dev` on the branch `newspeed_port` (13 commits on a20eb08), with Andrea's decisions of 15 Nov applied, and the full test suite passes on an -O2 build. Fits take 0.75-0.85 of the time of the previous code (desktop, measured before the port). Handover: `dev_notes/handover.md`.
+**Status.** The speed-ups of `newspeed` and the supervised analyses of `supervised` are ported onto `dev` in PR #36 (branch `newspeed_port`, open), with Andrea's decisions of 15 Nov applied, and the full test suite passes on an -O2 build. Fits take 0.75-0.85 of the time of the previous code (desktop, measured before the port). Handover: `dev_notes/handover.md`.
 
 The port rebuilt each package commit of the two branches on top of #35,
 which had made the kind of data (genotypes or genotype likelihoods) a
@@ -24,7 +24,7 @@ the old branches, archived under the tags `archive/newspeed` and
 `archive/supervised`; their conclusions are in `radmix_performance.md`.
 
 **Next steps**
-- [ ] **P1** [review] Review and merge the PR of `newspeed_port` into `dev`, then delete `newspeed`, `supervised` and `newspeed_supervised` (archived under tags): it also adds supervised analyses of genotype likelihoods, which were not asked for.
+- [ ] **P1** [review] Review and merge PR #36 (`newspeed_port` into `dev`), then delete `newspeed`, `supervised` and `newspeed_supervised` (archived under tags): it also adds supervised analyses of genotype likelihoods, which were not asked for.
 - [ ] **P2** [claude] Find out why the `test-coverage` CI has failed on `dev` since #34.
 - [ ] **P2** [claude] then [review] `articles_revised`: resolve its conflict in `pseudohaploids.Rmd`, then review and merge.
 - [ ] **P3** [desktop] Time the port against `dev` (a20eb08) and `newspeed` (13f89be): the `iter8` step of the newspeed kit, HGDP K = 5 and 10, 1 and 8 threads, about 30 min; #35's templating may shift the gains.
@@ -35,7 +35,7 @@ Backlog (P3, in `handover.md`): the vignette's P comparison as code, P as a matr
 
 **Done**
 - Decisions on the newspeed defaults and the supervised API: Andrea, 15 Nov 2026.
-- Port of `newspeed_supervised` onto `dev`: `newspeed_port`, 15 Nov 2026.
+- Port of `newspeed_supervised` onto `dev`: PR #36, 15 Nov 2026.
 
 ## tidygenclust gl: dramanica/claude_jobs#12
 

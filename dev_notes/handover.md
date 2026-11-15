@@ -8,7 +8,7 @@ documents listed in `README.md`.
 
 | branch | purpose | base | pushed | merged |
 |---|---|---|---|---|
-| `newspeed_port` | the port of `newspeed` + `supervised` onto `dev`, with the decisions of 15 Nov (13 commits) | `dev` a20eb08 | see `progress.md` | no |
+| `newspeed_port` | the port of `newspeed` + `supervised` onto `dev`, with the decisions of 15 Nov | `dev` a20eb08 | yes | no (PR #36) |
 | `newspeed` | per-iteration speed-ups, CV refit options, subset start; kits and desktop results | `dev` b5999cc | yes | superseded by `newspeed_port`; archived as `archive/newspeed` (ec96315) |
 | `supervised` | supervised analyses; validation scripts and desktop results | `dev` b5999cc | yes | superseded by `newspeed_port`; archived as `archive/supervised` (fc43f9b) |
 | `newspeed_supervised` | the merge of the two, before #35 | `newspeed` | yes | superseded by `newspeed_port` |
@@ -18,9 +18,9 @@ documents listed in `README.md`.
 
 ## Next tasks
 
-### 1. **P1** [review] Review and merge the PR of `newspeed_port`
+### 1. **P1** [review] Review and merge PR #36 (`newspeed_port`)
 
-- **Branch:** `newspeed_port` (PR into `dev`).
+- **Branch:** `newspeed_port`, PR #36 into `dev`.
 - **Read first:** the PR description; `dev_notes/radmix_performance.md`
   ("The changes of 13 November 2026", "Cross-validation refits").
 - **What Andrea checks:** the decisions as applied (`cv_rtol =
