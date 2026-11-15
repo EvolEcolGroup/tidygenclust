@@ -444,6 +444,22 @@ every genotype. With references the bulk of the individuals, a supervised
 fit is therefore cheaper per iteration than an unsupervised one (the Q side
 is about half of the work of the block updates).
 
+A supervised fit does not use the fused pass ("Evaluating a point and
+starting from it in one pass"): its Q side does not read the genotypes of
+the references, so it cannot give the log-likelihood, which takes a pass of
+its own; an iteration costs five passes, as before the fused pass.
+
+**Genotype likelihoods.** Supervised analyses also work with genotype
+likelihoods: the free individuals of a slice are read from the source
+through their index, a run of consecutive individuals in one call (as
+without references) and scattered ones one at a time (`slice_gl()`), and
+everything else is the same. The tests compare a supervised fit of the
+likelihoods of hard calls with the same fit of the genotypes
+(`test_gt_radmix.R`), and the Q side with and without fixed individuals
+(`test_radmix_kernels.R`). Added when the branches `newspeed` and
+`supervised` were ported onto `dev` (15 Nov 2026), after #35; there is no
+reference program to compare with (NGSadmix has no supervised mode).
+
 ## How the passes over the genotypes are organised
 
 Every pass reads the whole genotype matrix, so the number of passes and
