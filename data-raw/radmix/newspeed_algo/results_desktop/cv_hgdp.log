@@ -1,0 +1,168 @@
+== /home/andrea/git/tidygenclust_newspeed/data-raw/radmix/newspeed_algo/cv_trajectories.R /home/andrea/tgc_newspeed_work/libs/head hgdp 2:10 1 8 /home/andrea/tgc_newspeed_work/algo/out/cv
+hgdp K 2 seed 1 fold 1 : 6 iterations
+hgdp K 2 seed 1 fold 2 : 6 iterations
+hgdp K 2 seed 1 fold 3 : 6 iterations
+hgdp K 2 seed 1 fold 4 : 6 iterations
+hgdp K 2 seed 1 fold 5 : 6 iterations
+hgdp K 2 seed 1 main fit 17 iterations 10.3 s, CV 34.8 s, load 8.93 5.09 3.78 5/4449 1857908 
+hgdp K 3 seed 1 fold 1 : 7 iterations
+hgdp K 3 seed 1 fold 2 : 6 iterations
+hgdp K 3 seed 1 fold 3 : 7 iterations
+hgdp K 3 seed 1 fold 4 : 7 iterations
+hgdp K 3 seed 1 fold 5 : 7 iterations
+hgdp K 3 seed 1 main fit 13 iterations 9.1 s, CV 42.1 s, load 11.75 6.50 4.34 10/4426 1859030 
+hgdp K 4 seed 1 fold 1 : 7 iterations
+hgdp K 4 seed 1 fold 2 : 7 iterations
+hgdp K 4 seed 1 fold 3 : 7 iterations
+hgdp K 4 seed 1 fold 4 : 6 iterations
+hgdp K 4 seed 1 fold 5 : 7 iterations
+hgdp K 4 seed 1 main fit 17 iterations 13.3 s, CV 47.9 s, load 13.88 8.06 5.01 9/4415 1860959 
+hgdp K 5 seed 1 fold 1 : 7 iterations
+hgdp K 5 seed 1 fold 2 : 7 iterations
+hgdp K 5 seed 1 fold 3 : 7 iterations
+hgdp K 5 seed 1 fold 4 : 7 iterations
+hgdp K 5 seed 1 fold 5 : 7 iterations
+hgdp K 5 seed 1 main fit 21 iterations 18.3 s, CV 53.4 s, load 19.16 10.74 6.16 8/4430 1862486 
+hgdp K 6 seed 1 fold 1 : 7 iterations
+hgdp K 6 seed 1 fold 2 : 7 iterations
+hgdp K 6 seed 1 fold 3 : 7 iterations
+hgdp K 6 seed 1 fold 4 : 7 iterations
+hgdp K 6 seed 1 fold 5 : 7 iterations
+hgdp K 6 seed 1 main fit 25 iterations 24.3 s, CV 59.4 s, load 17.52 12.19 7.07 15/4427 1865688 
+hgdp K 7 seed 1 fold 1 : 7 iterations
+hgdp K 7 seed 1 fold 2 : 7 iterations
+hgdp K 7 seed 1 fold 3 : 7 iterations
+hgdp K 7 seed 1 fold 4 : 7 iterations
+hgdp K 7 seed 1 fold 5 : 7 iterations
+hgdp K 7 seed 1 main fit 51 iterations 62 s, CV 61.3 s, load 14.54 13.01 8.03 7/4402 1868512 
+hgdp K 8 seed 1 fold 1 : 7 iterations
+hgdp K 8 seed 1 fold 2 : 7 iterations
+hgdp K 8 seed 1 fold 3 : 7 iterations
+hgdp K 8 seed 1 fold 4 : 7 iterations
+hgdp K 8 seed 1 fold 5 : 7 iterations
+hgdp K 8 seed 1 main fit 25 iterations 30.8 s, CV 65.1 s, load 14.32 13.25 8.60 9/4350 1870342 
+hgdp K 9 seed 1 fold 1 : 7 iterations
+== /home/andrea/git/tidygenclust_newspeed/data-raw/radmix/newspeed_algo/cv_trajectories.R /home/andrea/tgc_newspeed_work/libs/head hgdp 2:10 1 8 /home/andrea/tgc_newspeed_work/algo/out/cv
+hgdp K 9 seed 1 fold 1 : 7 iterations
+hgdp K 9 seed 1 fold 2 : 7 iterations
+hgdp K 9 seed 1 fold 3 : 7 iterations
+hgdp K 9 seed 1 fold 4 : 7 iterations
+hgdp K 9 seed 1 fold 5 : 9 iterations
+hgdp K 9 seed 1 main fit 37 iterations 58.4 s, CV 76.2 s, load 8.66 7.30 7.43 2/4367 1885696 
+hgdp K 10 seed 1 fold 1 : 7 iterations
+hgdp K 10 seed 1 fold 2 : 8 iterations
+hgdp K 10 seed 1 fold 3 : 8 iterations
+hgdp K 10 seed 1 fold 4 : 7 iterations
+hgdp K 10 seed 1 fold 5 : 7 iterations
+hgdp K 10 seed 1 main fit 37 iterations 69.8 s, CV 85.9 s, load 9.45 8.20 7.75 3/4390 1889836 
+== /home/andrea/git/tidygenclust_newspeed/data-raw/radmix/newspeed_algo/cv_trajectories.R /home/andrea/tgc_newspeed_work/libs/head hgdp 2:10 2:3 8 /home/andrea/tgc_newspeed_work/algo/out/cv
+hgdp K 2 seed 2 fold 1 : 6 iterations
+hgdp K 2 seed 2 fold 2 : 6 iterations
+hgdp K 2 seed 2 fold 3 : 6 iterations
+hgdp K 2 seed 2 fold 4 : 6 iterations
+hgdp K 2 seed 2 fold 5 : 6 iterations
+hgdp K 2 seed 2 main fit 17 iterations 10.6 s, CV 34.3 s, load 9.37 9.05 8.88 2/3101 1918502 
+hgdp K 3 seed 2 fold 1 : 7 iterations
+hgdp K 3 seed 2 fold 2 : 7 iterations
+hgdp K 3 seed 2 fold 3 : 6 iterations
+hgdp K 3 seed 2 fold 4 : 6 iterations
+hgdp K 3 seed 2 fold 5 : 7 iterations
+hgdp K 3 seed 2 main fit 14 iterations 9.4 s, CV 39.6 s, load 9.29 9.06 8.89 2/3109 1918947 
+hgdp K 4 seed 2 fold 1 : 6 iterations
+hgdp K 4 seed 2 fold 2 : 6 iterations
+hgdp K 4 seed 2 fold 3 : 7 iterations
+hgdp K 4 seed 2 fold 4 : 7 iterations
+hgdp K 4 seed 2 fold 5 : 6 iterations
+hgdp K 4 seed 2 main fit 30 iterations 23.8 s, CV 41.6 s, load 8.87 9.02 8.89 1/3078 1920061 
+hgdp K 5 seed 2 fold 1 : 7 iterations
+hgdp K 5 seed 2 fold 2 : 7 iterations
+hgdp K 5 seed 2 fold 3 : 7 iterations
+hgdp K 5 seed 2 fold 4 : 7 iterations
+hgdp K 5 seed 2 fold 5 : 7 iterations
+hgdp K 5 seed 2 main fit 27 iterations 21.3 s, CV 49 s, load 7.82 8.71 8.79 1/3088 1920951 
+hgdp K 6 seed 2 fold 1 : 7 iterations
+hgdp K 6 seed 2 fold 2 : 7 iterations
+hgdp K 6 seed 2 fold 3 : 7 iterations
+hgdp K 6 seed 2 fold 4 : 7 iterations
+hgdp K 6 seed 2 fold 5 : 7 iterations
+hgdp K 6 seed 2 main fit 33 iterations 31.8 s, CV 53.2 s, load 7.34 8.33 8.65 2/3076 1922188 
+hgdp K 7 seed 2 fold 1 : 7 iterations
+hgdp K 7 seed 2 fold 2 : 7 iterations
+hgdp K 7 seed 2 fold 3 : 7 iterations
+hgdp K 7 seed 2 fold 4 : 7 iterations
+hgdp K 7 seed 2 fold 5 : 7 iterations
+hgdp K 7 seed 2 main fit 22 iterations 22.7 s, CV 58.3 s, load 8.89 8.54 8.69 3/3120 1923744 
+hgdp K 8 seed 2 fold 1 : 7 iterations
+hgdp K 8 seed 2 fold 2 : 7 iterations
+hgdp K 8 seed 2 fold 3 : 7 iterations
+hgdp K 8 seed 2 fold 4 : 7 iterations
+hgdp K 8 seed 2 fold 5 : 7 iterations
+hgdp K 8 seed 2 main fit 25 iterations 29.7 s, CV 63.6 s, load 10.01 8.98 8.83 2/3109 1925681 
+hgdp K 9 seed 2 fold 1 : 7 iterations
+hgdp K 9 seed 2 fold 2 : 7 iterations
+hgdp K 9 seed 2 fold 3 : 7 iterations
+hgdp K 9 seed 2 fold 4 : 7 iterations
+hgdp K 9 seed 2 fold 5 : 7 iterations
+hgdp K 9 seed 2 main fit 37 iterations 54.9 s, CV 70.6 s, load 8.64 8.84 8.80 1/3087 1931799 
+hgdp K 10 seed 2 fold 1 : 7 iterations
+hgdp K 10 seed 2 fold 2 : 8 iterations
+hgdp K 10 seed 2 fold 3 : 7 iterations
+hgdp K 10 seed 2 fold 4 : 7 iterations
+hgdp K 10 seed 2 fold 5 : 7 iterations
+hgdp K 10 seed 2 main fit 35 iterations 63 s, CV 83.1 s, load 7.89 8.43 8.65 2/3081 1933511 
+hgdp K 2 seed 3 fold 1 : 6 iterations
+hgdp K 2 seed 3 fold 2 : 6 iterations
+hgdp K 2 seed 3 fold 3 : 6 iterations
+hgdp K 2 seed 3 fold 4 : 6 iterations
+hgdp K 2 seed 3 fold 5 : 6 iterations
+hgdp K 2 seed 3 main fit 17 iterations 10.2 s, CV 33.8 s, load 9.05 8.64 8.71 2/3117 1934391 
+hgdp K 3 seed 3 fold 1 : 7 iterations
+hgdp K 3 seed 3 fold 2 : 7 iterations
+hgdp K 3 seed 3 fold 3 : 6 iterations
+hgdp K 3 seed 3 fold 4 : 7 iterations
+hgdp K 3 seed 3 fold 5 : 7 iterations
+hgdp K 3 seed 3 main fit 13 iterations 8.9 s, CV 40.6 s, load 8.54 8.54 8.67 2/3111 1935299 
+hgdp K 4 seed 3 fold 1 : 6 iterations
+hgdp K 4 seed 3 fold 2 : 6 iterations
+hgdp K 4 seed 3 fold 3 : 6 iterations
+hgdp K 4 seed 3 fold 4 : 7 iterations
+hgdp K 4 seed 3 fold 5 : 7 iterations
+hgdp K 4 seed 3 main fit 19 iterations 14.4 s, CV 41.4 s, load 8.49 8.50 8.65 3/3104 1936371 
+hgdp K 5 seed 3 fold 1 : 7 iterations
+hgdp K 5 seed 3 fold 2 : 7 iterations
+hgdp K 5 seed 3 fold 3 : 7 iterations
+hgdp K 5 seed 3 fold 4 : 7 iterations
+hgdp K 5 seed 3 fold 5 : 7 iterations
+hgdp K 5 seed 3 main fit 21 iterations 17 s, CV 48.9 s, load 8.29 8.46 8.63 3/3125 1937719 
+hgdp K 6 seed 3 fold 1 : 7 iterations
+hgdp K 6 seed 3 fold 2 : 7 iterations
+hgdp K 6 seed 3 fold 3 : 7 iterations
+hgdp K 6 seed 3 fold 4 : 7 iterations
+hgdp K 6 seed 3 fold 5 : 7 iterations
+hgdp K 6 seed 3 main fit 21 iterations 19.1 s, CV 52.9 s, load 7.76 8.36 8.59 1/3099 1938699 
+hgdp K 7 seed 3 fold 1 : 7 iterations
+hgdp K 7 seed 3 fold 2 : 7 iterations
+hgdp K 7 seed 3 fold 3 : 7 iterations
+hgdp K 7 seed 3 fold 4 : 7 iterations
+hgdp K 7 seed 3 fold 5 : 7 iterations
+hgdp K 7 seed 3 main fit 44 iterations 48.5 s, CV 58 s, load 8.19 8.31 8.55 1/3096 1942978 
+hgdp K 8 seed 3 fold 1 : 7 iterations
+hgdp K 8 seed 3 fold 2 : 7 iterations
+hgdp K 8 seed 3 fold 3 : 7 iterations
+hgdp K 8 seed 3 fold 4 : 7 iterations
+hgdp K 8 seed 3 fold 5 : 7 iterations
+hgdp K 8 seed 3 main fit 23 iterations 27.1 s, CV 63 s, load 8.12 8.22 8.48 1/3105 1944666 
+hgdp K 9 seed 3 fold 1 : 7 iterations
+hgdp K 9 seed 3 fold 2 : 7 iterations
+hgdp K 9 seed 3 fold 3 : 7 iterations
+hgdp K 9 seed 3 fold 4 : 7 iterations
+hgdp K 9 seed 3 fold 5 : 7 iterations
+hgdp K 9 seed 3 main fit 24 iterations 34.2 s, CV 70.7 s, load 9.45 8.69 8.63 2/3161 1947165 
+hgdp K 10 seed 3 fold 1 : 7 iterations
+hgdp K 10 seed 3 fold 2 : 7 iterations
+hgdp K 10 seed 3 fold 3 : 7 iterations
+hgdp K 10 seed 3 fold 4 : 7 iterations
+hgdp K 10 seed 3 fold 5 : 7 iterations
+hgdp K 10 seed 3 main fit 24 iterations 41.1 s, CV 80.7 s, load 9.55 8.99 8.75 2/3157 1950823 
+== /home/andrea/git/tidygenclust_newspeed/data-raw/radmix/newspeed_algo/cv_trajectories.R /home/andrea/tgc_newspeed_work/libs/head hgdp 2:10 1 8 /home/andrea/tgc_newspeed_work/algo/out/cv
+== /home/andrea/git/tidygenclust_newspeed/data-raw/radmix/newspeed_algo/cv_trajectories.R /home/andrea/tgc_newspeed_work/libs/head hgdp 2:10 2:3 8 /home/andrea/tgc_newspeed_work/algo/out/cv

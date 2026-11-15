@@ -1,0 +1,10 @@
+== Sun 15 Nov 12:17:31 GMT 2026 run_bench.sh /home/andrea/tgc_newspeed_work/results/seeds base final
+MODE=fits CASES=hgdp:5,hgdp:10,eur:3,eur:4 THREADS=8 ROUNDS=1 SEEDS=1,2,3 MAX_ITER=1000 RTOL=1e-8 PIN1=2 PCORES=0-7
+12:17:31 base hgdp:5 n=8 round 1:  12:17:31 up 9 days,  2:24,  3 users,  load average: 0.67, 3.75, 4.11
+12:18:11 final hgdp:5 n=8 round 1:  12:18:11 up 9 days,  2:24,  3 users,  load average: 2.86, 3.90, 4.15
+12:18:46 base hgdp:10 n=8 round 1:  12:18:46 up 9 days,  2:25,  3 users,  load average: 3.01, 3.84, 4.12
+12:20:13 final hgdp:10 n=8 round 1:  12:20:13 up 9 days,  2:26,  3 users,  load average: 5.86, 4.51, 4.33
+12:21:28 base eur:3 n=8 round 1:  12:21:28 up 9 days,  2:28,  3 users,  load average: 6.19, 4.86, 4.46
+12:21:46 final eur:3 n=8 round 1:  12:21:46 up 9 days,  2:28,  3 users,  load average: 5.07, 4.68, 4.41
+12:22:04 base eur:4 n=8 round 1:  12:22:04 up 9 days,  2:28,  3 users,  load average: 3.95, 4.45, 4.34
+12:22:25 final eur:4 n=8 round 1:  12:22:25 up 9 days,  2:29,  3 users,  load average: 3.42, 4.29, 4.29

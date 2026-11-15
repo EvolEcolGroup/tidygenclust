@@ -1,0 +1,242 @@
+== /home/andrea/git/tidygenclust_newspeed/data-raw/radmix/newspeed_algo/cv_policy_timing.R /home/andrea/tgc_newspeed_work/libs/head eur 2:6 1 conv,it5,it10,rtol1e-6,rtol1e-5 8 /home/andrea/tgc_newspeed_work/algo/out/cv_timing_eur.csv
+ dataset k seed policy        cv  fold_iter time_cv time_fit fit_iter n_cores
+     eur 2    1   conv 0.4342812 7/7/10/7/7    1.15    0.377       14       8
+ load1
+  0.73
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 2    1    it5 0.4342763 5/5/5/5/5   0.791    0.377       14       8
+ load1
+  0.73
+ dataset k seed policy        cv  fold_iter time_cv time_fit fit_iter n_cores
+     eur 2    1   it10 0.4342812 7/7/10/7/7   1.144    0.377       14       8
+ load1
+  0.73
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 2    1 rtol1e-6 0.4342773 6/6/6/6/6   0.928    0.377       14       8
+ load1
+  0.73
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 2    1 rtol1e-5 0.4342531 4/5/4/5/5   0.744    0.377       14       8
+ load1
+  1.31
+ dataset k seed policy        cv      fold_iter time_cv time_fit fit_iter
+     eur 3    1   conv 0.4352221 11/13/11/11/11   2.052    0.709       23
+ n_cores load1
+       8  1.31
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 3    1    it5 0.4351841 5/5/5/5/5   0.909    0.709       23       8
+ load1
+  1.31
+ dataset k seed policy        cv      fold_iter time_cv time_fit fit_iter
+     eur 3    1   it10 0.4352258 10/10/10/10/10   1.686    0.709       23
+ n_cores load1
+       8  1.93
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 3    1 rtol1e-6 0.4351985 6/6/6/6/6   1.175    0.709       23       8
+ load1
+  1.93
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 3    1 rtol1e-5 0.4351091 5/4/5/4/5   0.973    0.709       23       8
+ load1
+  1.93
+ dataset k seed policy        cv      fold_iter time_cv time_fit fit_iter
+     eur 4    1   conv 0.4373351 10/13/13/13/11   2.339    0.876       24
+ n_cores load1
+       8  2.41
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 4    1    it5 0.4371551 5/5/5/5/5   1.055    0.876       24       8
+ load1
+  2.41
+ dataset k seed policy        cv      fold_iter time_cv time_fit fit_iter
+     eur 4    1   it10 0.4373234 10/10/10/10/10    1.96    0.876       24
+ n_cores load1
+       8  2.41
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 4    1 rtol1e-6 0.4372485 6/6/6/6/6   1.327    0.876       24       8
+ load1
+  2.86
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 4    1 rtol1e-5 0.4371551 5/5/5/5/5    1.15    0.876       24       8
+ load1
+  2.86
+ dataset k seed policy        cv      fold_iter time_cv time_fit fit_iter
+     eur 5    1   conv 0.4405018 26/17/22/34/19   5.856    1.702       38
+ n_cores load1
+       8  3.35
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 5    1    it5 0.4400725 5/5/5/5/5   1.221    1.702       38       8
+ load1
+  3.72
+ dataset k seed policy        cv      fold_iter time_cv time_fit fit_iter
+     eur 5    1   it10 0.4403902 10/10/10/10/10   2.411    1.702       38
+ n_cores load1
+       8  3.72
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 5    1 rtol1e-6 0.4402368 7/6/6/6/6   1.517    1.702       38       8
+ load1
+  3.72
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 5    1 rtol1e-5 0.4400725 5/5/5/5/5   1.246    1.702       38       8
+ load1
+  4.07
+ dataset k seed policy        cv        fold_iter time_cv time_fit fit_iter
+     eur 6    1   conv 0.4434556 81/108/54/117/57   26.55    4.634       81
+ n_cores load1
+       8  5.33
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 6    1    it5 0.4424554 5/5/5/5/5   1.533    4.634       81       8
+ load1
+  5.33
+ dataset k seed policy        cv      fold_iter time_cv time_fit fit_iter
+     eur 6    1   it10 0.4428332 10/10/10/10/10   2.958    4.634       81
+ n_cores load1
+       8  5.54
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 6    1 rtol1e-6 0.4427251 8/6/7/8/7    2.16    4.634       81       8
+ load1
+  5.54
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+     eur 6    1 rtol1e-5 0.4424554 5/5/5/5/5   1.524    4.634       81       8
+ load1
+  5.74
+== /home/andrea/git/tidygenclust_newspeed/data-raw/radmix/newspeed_algo/cv_policy_timing.R /home/andrea/tgc_newspeed_work/libs/head hgdp 2:8 1 conv,it5,it10,rtol1e-6,rtol1e-5 8 /home/andrea/tgc_newspeed_work/algo/out/cv_timing_hgdp.csv
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 2    1   conv 0.4587558 6/6/6/6/6   7.039     3.24       17       8
+ load1
+  6.09
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 2    1    it5 0.4587556 5/5/5/5/5   5.556     3.24       17       8
+ load1
+  6.24
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 2    1   it10 0.4587558 6/6/6/6/6    6.78     3.24       17       8
+ load1
+  6.38
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 2    1 rtol1e-6 0.4587544 4/4/4/4/5   5.003     3.24       17       8
+ load1
+  6.51
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 2    1 rtol1e-5 0.4587781 2/2/2/2/2   3.069     3.24       17       8
+ load1
+  6.63
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 3    1   conv 0.4372878 7/6/7/7/7   8.609     2.98       13       8
+ load1
+  6.36
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 3    1    it5 0.4372877 5/5/5/5/5   7.022     2.98       13       8
+ load1
+  6.13
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 3    1   it10 0.4372878 7/6/7/7/7   8.371     2.98       13       8
+ load1
+  6.28
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 3    1 rtol1e-6 0.4372877 5/5/5/5/5   6.485     2.98       13       8
+ load1
+  6.63
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 3    1 rtol1e-5 0.4373299 2/2/2/2/2   3.988     2.98       13       8
+ load1
+  6.63
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 4    1   conv 0.4270433 7/7/7/6/7   9.557    4.262       17       8
+ load1
+  6.93
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 4    1    it5 0.4270425 5/5/5/5/5   7.281    4.262       17       8
+ load1
+   7.1
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 4    1   it10 0.4270433 7/7/7/6/7    9.61    4.262       17       8
+ load1
+  6.79
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 4    1 rtol1e-6 0.4270425 5/5/5/5/5   7.589    4.262       17       8
+ load1
+  6.57
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 4    1 rtol1e-5 0.4270747 3/3/3/3/3   5.521    4.262       17       8
+ load1
+  6.68
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 5    1   conv 0.4223874 7/7/7/7/7   11.91    5.999       21       8
+ load1
+  7.21
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 5    1    it5 0.4223917 5/5/5/5/5   8.262    5.999       21       8
+ load1
+  6.89
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 5    1   it10 0.4223874 7/7/7/7/7  11.222    5.999       21       8
+ load1
+  7.06
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 5    1 rtol1e-6 0.4223876 6/6/6/6/6  10.484    5.999       21       8
+ load1
+  7.21
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 5    1 rtol1e-5 0.4223733 4/4/4/4/4   6.971    5.999       21       8
+ load1
+  7.27
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 6    1   conv 0.4206665 7/7/7/7/7  13.402    8.343       25       8
+ load1
+  7.52
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 6    1    it5 0.4206706 5/5/5/5/5   9.956    8.343       25       8
+ load1
+  7.59
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 6    1   it10 0.4206665 7/7/7/7/7  12.772    8.343       25       8
+ load1
+  7.66
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 6    1 rtol1e-6 0.4206669 6/6/6/6/6  11.209    8.343       25       8
+ load1
+  7.73
+ dataset k seed   policy       cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 6    1 rtol1e-5 0.420652 4/4/4/4/4   8.026    8.343       25       8
+ load1
+  7.84
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 7    1   conv 0.4185626 7/7/7/7/7   15.11   22.012       51       8
+ load1
+  7.92
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 7    1    it5 0.4185672 5/5/5/5/5   11.29   22.012       51       8
+ load1
+  7.93
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 7    1   it10 0.4185626 7/7/7/7/7  14.654   22.012       51       8
+ load1
+  7.95
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 7    1 rtol1e-6 0.4185631 6/6/6/6/6  13.688   22.012       51       8
+ load1
+   7.7
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 7    1 rtol1e-5 0.4185257 4/4/4/4/4   9.089   22.012       51       8
+ load1
+  7.72
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 8    1   conv 0.4175074 7/7/7/7/7  17.485   11.063       25       8
+ load1
+   7.4
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 8    1    it5 0.4175114 5/5/5/5/5  12.388   11.063       25       8
+ load1
+  7.53
+ dataset k seed policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 8    1   it10 0.4175074 7/7/7/7/7  17.396   11.063       25       8
+ load1
+  7.64
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 8    1 rtol1e-6 0.4175074 6/6/6/6/6  15.276   11.063       25       8
+ load1
+  7.72
+ dataset k seed   policy        cv fold_iter time_cv time_fit fit_iter n_cores
+    hgdp 8    1 rtol1e-5 0.4174627 4/4/4/4/4  10.333   11.063       25       8
+ load1
+  7.76
