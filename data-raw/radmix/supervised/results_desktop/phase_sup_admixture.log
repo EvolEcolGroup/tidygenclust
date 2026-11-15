@@ -1,0 +1,18 @@
+ 14:56:42 up 9 days,  5:03,  3 users,  load average: 0.84, 1.66, 2.92
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:38.90
+	Maximum resident set size (kbytes): 290948
+case: regions 
+ADMIXTURE: Converged in 12 iterations (157.96 sec) ; loglik -101972841.649892 
+gt_radmix: Converged in 11 iterations. ; loglik -101972837.99166 
+loglik difference (gt_radmix - ADMIXTURE): 3.658232 
+Q of the 383 individuals to estimate: mean |diff| = 7.54e-06 , max |diff| = 5.75e-05 
+Q of the references: max |diff| = 0 
+ 14:59:21 up 9 days,  5:05,  3 users,  load average: 6.66, 3.94, 3.60
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 4:25.17
+	Maximum resident set size (kbytes): 291144
+case: pops 
+ADMIXTURE: Converged in 15 iterations (264.244 sec) ; loglik -101817791.999062 
+gt_radmix: Converged in 14 iterations. ; loglik -101817790.850647 
+loglik difference (gt_radmix - ADMIXTURE): 1.148415 
+Q of the 904 individuals to estimate: mean |diff| = 3.49e-06 , max |diff| = 4.32e-05 
+Q of the references: max |diff| = 0 
