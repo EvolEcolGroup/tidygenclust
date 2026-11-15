@@ -324,14 +324,17 @@ test_that("the fused update of q and log-likelihood match the two passes", {
   )
   seg_geno <- radmix_prepare(radmix_test_gt(seg$genotypes))
   cases <- list(
-    list(geno = radmix_prepare(radmix_test_gt(big$genotypes)), n = 130,
-      m = 150),
+    list(
+      geno = radmix_prepare(radmix_test_gt(big$genotypes)), n = 130, m = 150
+    ),
     list(geno = seg_geno, n = 70, m = 2000),
     list(geno = radmix_set_cv(seg_geno, list(
       mode = "train", fold = 2, n_folds = 5, seed = 3
     )), n = 70, m = 2000),
-    list(geno = radmix_test_gl(radmix_simulate_gl(seg$genotypes, depth = 3)),
-      n = 70, m = 2000)
+    list(
+      geno = radmix_test_gl(radmix_simulate_gl(seg$genotypes, depth = 3)),
+      n = 70, m = 2000
+    )
   )
   for (cs in cases) {
     st <- radmix_ref_start(cs$n, cs$m, 3)
