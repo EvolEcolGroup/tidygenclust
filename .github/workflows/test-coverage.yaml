@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      # one OpenMP thread unless the code asks for more: the counters of
+      # --coverage are shared by all the threads, which slow each other down
+      # (the radmix kernels set their threads with n_cores, default 1)
+      OMP_NUM_THREADS: 1
 
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +43,19 @@ jobs:
 
       - name: Test coverage
         run: |
+          # covr compiles at -O0, where the C++ kernels run many times slower
+          # than in a release build (nothing is inlined): compile at -O1
+          # instead, at the cost of a slightly less exact attribution of the
+          # coverage to the lines of the C++ code
+          loadNamespace("covr")
+          flags <- sub("-O0", "-O1", getOption("covr.flags"), fixed = TRUE)
+          # keep the bounds checks of libstdc++, which GCC >= 15 only turns
+          # on by default at -O0: they catch out-of-bounds indices that the
+          # release builds of R CMD check hide
+          cxx <- startsWith(names(flags), "CXX")
+          flags[cxx] <- paste(flags[cxx], "-D_GLIBCXX_ASSERTIONS")
+          options(covr.flags = flags)
+          print(getOption("covr.flags"))
           cov <- covr::package_coverage(
             quiet = FALSE,
             clean = FALSE,
