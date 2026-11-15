@@ -130,11 +130,14 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
   }
   const unsigned char* fx = n_fixed > 0 ? fixed.data() : nullptr;
   // set the columns of the reference individuals of a q (K x I) to their
-  // fixed values
+  // fixed values (copying K values from the start of the column: the end
+  // of the last column, &q_sup[K * I], would index past the end of q_sup,
+  // which is undefined and aborts a build with _GLIBCXX_ASSERTIONS, the
+  // default of GCC >= 15 at -O0, e.g. under covr)
   auto set_fixed = [&](std::vector<double>& qq) {
     for (size_t i = 0; i < I; i++)
       if (fixed[i])
-        std::copy(&q_sup[K * i], &q_sup[K * (i + 1)], &qq[K * i]);
+        std::copy_n(q_sup.begin() + K * i, K, qq.begin() + K * i);
   };
   if (fx != nullptr) {
     log.add("Supervised analysis: " + std::to_string(n_fixed) +
