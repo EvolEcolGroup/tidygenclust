@@ -1,6 +1,6 @@
 # tidygenclust: handover
 
-Updated 2026-11-15 (laptopX1). For the next session: read this and
+Updated 2026-11-15 (laptopX1), after PR #37. For the next session: read this and
 `summary.md` first. History is in `progress.md`; designs are in the topic
 documents listed in `README.md`.
 
@@ -9,6 +9,7 @@ documents listed in `README.md`.
 | branch | purpose | base | pushed | merged |
 |---|---|---|---|---|
 | `newspeed_port` | the port of `newspeed` + `supervised` onto `dev`, with the decisions of 15 Nov | `dev` a20eb08 | yes | no (PR #36) |
+| `coverage-speed` | covr at `-O1` with libstdc++ bounds checks; robust adamixture thread test | `dev` a20eb08 | yes | no (PR #37); worktree `/media/andrea/annex/tmp/claude/tidygenclust/wt-coverage` |
 | `newspeed` | per-iteration speed-ups, CV refit options, subset start; kits and desktop results | `dev` b5999cc | yes | superseded by `newspeed_port`; archived as `archive/newspeed` (ec96315) |
 | `supervised` | supervised analyses; validation scripts and desktop results | `dev` b5999cc | yes | superseded by `newspeed_port`; archived as `archive/supervised` (fc43f9b) |
 | `newspeed_supervised` | the merge of the two, before #35 | `newspeed` | yes | superseded by `newspeed_port` |
@@ -27,18 +28,28 @@ documents listed in `README.md`.
   max(rtol, 1e-7)`, `MIN_Q_TASKS` = 128); supervised analyses of genotype
   likelihoods, which the port added (tests: the fixed-individual kernel
   test and a supervised fit of hard-call likelihoods against genotypes).
+- **CI:** every check passes, `test-coverage` included since 3192e45
+  (the out-of-bounds fix in `set_fixed()`, `src/radmix_fit.cpp`).
 - **After the merge:** delete `newspeed`, `supervised` and
   `newspeed_supervised` on origin and locally (the tags keep their
   records); update `progress.md` and claude_jobs#3.
 
-### 2. **P2** [claude] Find out why `test-coverage` has failed on `dev` since #34
+### 2. **P2** [review] Review and merge PR #37 (`coverage-speed`)
 
-- **Read first:** the GitHub Actions logs of `test-coverage` on `dev`
-  (`gh run list --branch dev --workflow test-coverage`), and
-  `.github/workflows/`.
-- **Done when:** the cause is known and fixed on a branch with a PR, or
-  reported to Andrea if it is outside the package (e.g. covr and OpenMP or
-  the ADMIXTURE binary).
+- **Branch:** `coverage-speed`, PR #37 into `dev`; all checks pass, and
+  Codecov accepts uploads again (the repository was deactivated on Codecov
+  from 5-12 Nov until Andrea reactivated it on 15 Nov).
+- **What Andrea checks:** covr at `-O1` (coverage 96.77% against 96.76%
+  at `-O0`) with `-D_GLIBCXX_ASSERTIONS` kept: the coverage job is the
+  only CI job with bounds checks, which caught the bug in #36; the
+  rewritten thread test of `test_gt_adamixture.R`.
+- **After the merge:** delete `coverage-speed` and its worktree
+  (`git worktree remove /media/andrea/annex/tmp/claude/tidygenclust/wt-coverage`).
+- **Gotcha:** to reproduce a bounds-check abort locally (GCC 13 here does
+  not enable the checks), install a source copy with `R_MAKEVARS_USER`
+  pointing to `CXXFLAGS = -g -O1 -D_GLIBCXX_ASSERTIONS` (and `CXX17FLAGS`,
+  `CXX20FLAGS`), and run the test file under
+  `R -d gdb --debugger-args="-batch -x cmds.gdb"` with `run ...` and `bt`.
 
 ### 3. **P2** [claude] then [review] `articles_revised`
 
@@ -64,7 +75,7 @@ See "Desktop queue".
 ### 6. **P3** [cleanup] Branches and scratch files
 
 - Origin: `gl`, `simplify`; after task 1, `newspeed`, `supervised`,
-  `newspeed_supervised`.
+  `newspeed_supervised`; after task 2, `coverage-speed` and its worktree.
 - Local: `gl_gl16`, `gl_private`, `radmix-speedups`, `radmix-perf-verify`,
   `kernel-speedups`, `svd-start`; the untracked
   `data-raw/radmix/perf_verification/` (a copy of what the tag
@@ -93,6 +104,24 @@ See "Desktop queue".
   log comment in claude_jobs#3.
 
 ## Backlog
+
+- Where the covr overhead goes: the tests take 25-45 min under covr in CI
+  (noisy runners, one run per setup) against 4.2 min in R CMD check. Time
+  each test file under covr against a plain run on a quiet machine (the
+  `benchmarking` skill), to find out whether the R instrumentation, the
+  gcov counters or a few heavy tests dominate. **Running overnight
+  15-16 Nov on laptopX1** (Andrea's request): systemd user unit
+  `tgc-covr-timing` (`overnight.sh` in
+  `/media/andrea/annex/tmp/claude/tidygenclust/covrtime/`), starts after
+  00:00 once idle, three balanced rounds of covr at -O0 and -O1 (OMP 4 and
+  1), and plain -O0, -O0 --coverage and -O2 builds; no run starts after
+  07:30. Results: `results/summary.md` and `results/status.md` there.
+  Then: choose the coverage flags, apply them to the workflow, and push
+  with the unpushed dev_notes commit on `newspeed_port`.
+- Make PR runs fail on Codecov upload errors:
+  `fail_ci_if_error: ${{ github.event_name != 'pull_request' ||
+  secrets.CODECOV_TOKEN != '' }}` (the current expression gives the token,
+  not `true`, so PRs hid the deactivated repository).
 
 - The vignette's comparison of P as code (tidypopgen PR #211 is merged).
 - P as a matrix (`gt_radmix()`) or a data.frame (`gt_admixture()`):

@@ -5,6 +5,28 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-15 (laptopX1): test-coverage fixed; out-of-bounds index in #36
+
+- **Codecov:** `test-coverage` on `dev` failed only at the upload: Codecov
+  answered "This repository is deactivated" from 12 Nov (last upload 5 Nov),
+  although its API said active. Not the secret (unchanged since June 2025,
+  accepted) nor the org (tidypopgen uploaded on 14 Nov). Andrea deactivated
+  and reactivated the repository on Codecov; uploads work again (PR #37,
+  20:48). PR runs had hidden it: `fail_ci_if_error` is off on PRs.
+- **Bug in #36:** the coverage job aborted in `test_radmix_cv.R`: libstdc++
+  bounds checks (on by default at -O0 with GCC 15, as under covr) caught
+  `&q_sup[K * (i + 1)]` in `set_fixed()` (`radmix_fit.cpp`), one past the
+  end for a last individual that is a reference. Fixed in 3192e45
+  (`std::copy_n`); full suite clean with `-D_GLIBCXX_ASSERTIONS` under gdb.
+- **PR #37** (`coverage-speed`, open): covr at `-O1` plus
+  `-D_GLIBCXX_ASSERTIONS`; and `test_gt_adamixture.R` compares the thread
+  variables before and after the fit (python's copy of the environment
+  restored an `OMP_NUM_THREADS` that R had unset). `OMP_NUM_THREADS: 1` was
+  tried and removed (Andrea chose A+B).
+- **Result:** CI test times under covr are too noisy to judge `-O1`: the same
+  `-O0` setup took 45.6 and 33.8 min, `-O1` 25.4 and 44.3 min; R CMD check
+  runs the same tests in 4.2 min. Coverage 96.77% at `-O1`, 96.76% at `-O0`.
+
 ## 2026-11-15 (laptopX1): newspeed and supervised ported onto dev
 
 - **Done:** rebuilt the package commits of `newspeed` (fused pass, CV bit
