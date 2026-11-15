@@ -262,11 +262,24 @@ test_that("the refits of cross-validation can be shortened", {
     lines <- grep("^CV fold", a$log[[1]], value = TRUE)
     as.integer(sub(".*, ([0-9]+) iterations,.*", "\\1", lines))
   }
-  # by default, the folds are refitted with max_iter and rtol
+  # by default, the folds are refitted with max_iter and a threshold of
+  # 1e-7 (rtol if larger)
   adm_explicit <- gt_radmix(sim_gt,
-    k = 3, seed = 1, crossval = TRUE, cv_max_iter = 1000, cv_rtol = 1e-8
+    k = 3, seed = 1, crossval = TRUE, cv_max_iter = 1000, cv_rtol = 1e-7
   )
   expect_identical(adm_explicit$cv, adm$cv)
+  loose_main <- gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE,
+    rtol = 1e-4
+  )
+  expect_identical(
+    loose_main$cv,
+    gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE, rtol = 1e-4,
+      cv_rtol = 1e-4
+    )$cv
+  )
+  # refits to convergence (cv_rtol = rtol) take at least as many iterations
+  conv <- gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE, cv_rtol = 1e-8)
+  expect_true(all(fold_iter(conv) >= fold_iter(adm)))
   # a single iteration per fold: the main fit is unchanged, the error is not
   short <- gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE, cv_max_iter = 1)
   expect_identical(short$Q, adm$Q)

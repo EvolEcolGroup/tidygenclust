@@ -210,8 +210,9 @@
 #'   averaged over all the masked genotypes of all folds. Where ADMIXTURE does
 #'   not document the details, we made the following choices:
 #'   - each fold is fitted starting from the estimates for the full data, with
-#'     the same convergence criteria (`max_iter` and `rtol`) by default
-#'     (see below for `cv_max_iter` and `cv_rtol`);
+#'     at most `max_iter` iterations and a convergence threshold of 1e-7
+#'     (or `rtol`, if larger) by default (see below for `cv_max_iter` and
+#'     `cv_rtol`);
 #'   - genotypes are assigned to folds by a hash of their position and of a
 #'     seed drawn from the random number generator (reproducible with
 #'     `seed`), so the folds differ from those of ADMIXTURE and the errors
@@ -222,21 +223,25 @@
 #'   `n_folds` additional fits for each run (each usually converging in a few
 #'   iterations).
 #'
-#'   The refits of the folds can be shortened with `cv_max_iter` (at most
-#'   that many iterations per fold; ADAMIXTURE refits each fold with 5) or
-#'   `cv_rtol` (a looser convergence threshold). This saves time, but biases
-#'   the errors downwards: each refit starts from the estimates for the full
-#'   data, which have seen the masked genotypes, and a refit stopped early
-#'   still predicts them too well, the more so at larger `k`. In our tests
-#'   (one seed per value of `k`), on the HGDP (1,043 individuals, 130,943
-#'   loci, `k` = 2, 5 and 8) the refits converged in 6-7 iterations, and 5
-#'   iterations per fold changed the errors by less than 1e-5. On EUR_subset
-#'   (379 individuals, 54,051 loci, `k` = 1-5) they took 7-34 iterations: 5
-#'   iterations saved 60% of the passes over the genotypes of
-#'   cross-validation but lowered the error at `k` = 5 by 4e-4, and
-#'   `cv_rtol = 1e-6` saved 50% and lowered it by 3e-4, while the errors of
-#'   successive values of `k` differed by 1e-3 to 3e-3. Neither changed the
-#'   value of `k` with the lowest error.
+#'   The refits of the folds stop earlier than the fit to the full data
+#'   (`cv_rtol = 1e-7`, against `rtol = 1e-8`), and can be shortened further
+#'   with `cv_max_iter` (at most that many iterations per fold; ADAMIXTURE
+#'   refits each fold with 5) or a larger `cv_rtol`. This saves time, but
+#'   biases the errors downwards: each refit starts from the estimates for
+#'   the full data, which have seen the masked genotypes, and a refit stopped
+#'   early still predicts them too well, the more so at larger `k`. In our
+#'   tests, the default halved the cost of cross-validation on EUR_subset
+#'   (379 individuals, 54,051 loci, `k` = 1-6, 5 seeds), where refits run to
+#'   `rtol` took 24 iterations on average, and lowered the errors by at most
+#'   1.5e-5 up to `k` = 4, and by 1.2e-4 and 2e-4 at `k` = 5 and 6, while
+#'   the errors of successive values of `k` differed by 5e-4 to 3e-3. On the
+#'   HGDP (1,043 individuals, 130,943 loci, `k` = 2-10, 3 seeds), where
+#'   refits converge in about 7 iterations, it saved 11% of the passes and
+#'   changed the errors by less than 1e-6. Shorter refits save more on
+#'   EUR_subset (`cv_rtol = 1e-6`: 74%; `cv_max_iter = 5`: 80%) with larger
+#'   biases (up to 6.7e-4 and 1e-3 at `k` = 6). None of these choices changed
+#'   the value of `k` with the lowest error, for any seed. To refit each fold
+#'   to convergence, set `cv_rtol = rtol`.
 #'
 #'   ## Reproducibility
 #'
@@ -367,9 +372,10 @@
 #'   5, as in ADMIXTURE)
 #' @param cv_max_iter,cv_rtol the maximum number of iterations and the
 #'   convergence threshold of the refit of each fold in cross-validation
-#'   (default to `max_iter` and `rtol`, as for the full data). Smaller
-#'   `cv_max_iter` or larger `cv_rtol` make cross-validation faster but bias
-#'   its errors downwards (see "Cross-validation" in the details).
+#'   (default to `max_iter`, as for the full data, and to 1e-7, or `rtol` if
+#'   it is larger). Smaller `cv_max_iter` or larger `cv_rtol` make
+#'   cross-validation faster but bias its errors downwards (see
+#'   "Cross-validation" in the details).
 #' @param n_cores the number of cores to use (defaults to 1); the results
 #'   do not depend on it
 #' @param verbose boolean; should progress be printed (defaults to `FALSE`)?
@@ -420,7 +426,8 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
                       init_q = NULL, init_p = NULL, fix_q = FALSE,
                       fix_p = FALSE, supervised = NULL,
                       use_imputed = FALSE, crossval = FALSE, n_folds = 5,
-                      cv_max_iter = max_iter, cv_rtol = rtol, n_cores = 1,
+                      cv_max_iter = max_iter, cv_rtol = max(rtol, 1e-7),
+                      n_cores = 1,
                       verbose = FALSE) {
   # This function is a thin wrapper: it checks the arguments, prepares the
   # data once, and then calls radmix_fit() (R/radmix_fit.R, which

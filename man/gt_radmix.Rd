@@ -23,7 +23,7 @@ gt_radmix(
   crossval = FALSE,
   n_folds = 5,
   cv_max_iter = max_iter,
-  cv_rtol = rtol,
+  cv_rtol = max(rtol, 1e-07),
   n_cores = 1,
   verbose = FALSE
 )
@@ -99,9 +99,10 @@ Only for genotypes.}
 
 \item{cv_max_iter, cv_rtol}{the maximum number of iterations and the
 convergence threshold of the refit of each fold in cross-validation
-(default to \code{max_iter} and \code{rtol}, as for the full data). Smaller
-\code{cv_max_iter} or larger \code{cv_rtol} make cross-validation faster but bias
-its errors downwards (see "Cross-validation" in the details).}
+(default to \code{max_iter}, as for the full data, and to 1e-7, or \code{rtol} if
+it is larger). Smaller \code{cv_max_iter} or larger \code{cv_rtol} make
+cross-validation faster but bias its errors downwards (see
+"Cross-validation" in the details).}
 
 \item{n_cores}{the number of cores to use (defaults to 1); the results
 do not depend on it}
@@ -350,8 +351,9 @@ averaged over all the masked genotypes of all folds. Where ADMIXTURE does
 not document the details, we made the following choices:
 \itemize{
 \item each fold is fitted starting from the estimates for the full data, with
-the same convergence criteria (\code{max_iter} and \code{rtol}) by default
-(see below for \code{cv_max_iter} and \code{cv_rtol});
+at most \code{max_iter} iterations and a convergence threshold of 1e-7
+(or \code{rtol}, if larger) by default (see below for \code{cv_max_iter} and
+\code{cv_rtol});
 \item genotypes are assigned to folds by a hash of their position and of a
 seed drawn from the random number generator (reproducible with
 \code{seed}), so the folds differ from those of ADMIXTURE and the errors
@@ -363,21 +365,25 @@ Cross-validation does not change the estimates of Q and P, but requires
 \code{n_folds} additional fits for each run (each usually converging in a few
 iterations).
 
-The refits of the folds can be shortened with \code{cv_max_iter} (at most
-that many iterations per fold; ADAMIXTURE refits each fold with 5) or
-\code{cv_rtol} (a looser convergence threshold). This saves time, but biases
-the errors downwards: each refit starts from the estimates for the full
-data, which have seen the masked genotypes, and a refit stopped early
-still predicts them too well, the more so at larger \code{k}. In our tests
-(one seed per value of \code{k}), on the HGDP (1,043 individuals, 130,943
-loci, \code{k} = 2, 5 and 8) the refits converged in 6-7 iterations, and 5
-iterations per fold changed the errors by less than 1e-5. On EUR_subset
-(379 individuals, 54,051 loci, \code{k} = 1-5) they took 7-34 iterations: 5
-iterations saved 60\% of the passes over the genotypes of
-cross-validation but lowered the error at \code{k} = 5 by 4e-4, and
-\code{cv_rtol = 1e-6} saved 50\% and lowered it by 3e-4, while the errors of
-successive values of \code{k} differed by 1e-3 to 3e-3. Neither changed the
-value of \code{k} with the lowest error.
+The refits of the folds stop earlier than the fit to the full data
+(\code{cv_rtol = 1e-7}, against \code{rtol = 1e-8}), and can be shortened further
+with \code{cv_max_iter} (at most that many iterations per fold; ADAMIXTURE
+refits each fold with 5) or a larger \code{cv_rtol}. This saves time, but
+biases the errors downwards: each refit starts from the estimates for
+the full data, which have seen the masked genotypes, and a refit stopped
+early still predicts them too well, the more so at larger \code{k}. In our
+tests, the default halved the cost of cross-validation on EUR_subset
+(379 individuals, 54,051 loci, \code{k} = 1-6, 5 seeds), where refits run to
+\code{rtol} took 24 iterations on average, and lowered the errors by at most
+1.5e-5 up to \code{k} = 4, and by 1.2e-4 and 2e-4 at \code{k} = 5 and 6, while
+the errors of successive values of \code{k} differed by 5e-4 to 3e-3. On the
+HGDP (1,043 individuals, 130,943 loci, \code{k} = 2-10, 3 seeds), where
+refits converge in about 7 iterations, it saved 11\% of the passes and
+changed the errors by less than 1e-6. Shorter refits save more on
+EUR_subset (\code{cv_rtol = 1e-6}: 74\%; \code{cv_max_iter = 5}: 80\%) with larger
+biases (up to 6.7e-4 and 1e-3 at \code{k} = 6). None of these choices changed
+the value of \code{k} with the lowest error, for any seed. To refit each fold
+to convergence, set \code{cv_rtol = rtol}.
 }
 
 \subsection{Reproducibility}{

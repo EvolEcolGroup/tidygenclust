@@ -184,8 +184,10 @@ Listed so that they are not retried without new evidence.
 - `-O3` saves 2-5% of a fit with identical results, from inlining or loop
   unswitching rather than vectorisation; which loops is not known, and a
   package should not override R's optimisation flags.
-- Cross-validation refits each fold to convergence; ADAMIXTURE polishes
-  each fold with 5 warm-started iterations. Measured on 2026-11-13
+- (Done 2026-11-15: the refits stop at `cv_rtol = 1e-7` by default, see
+  "Cross-validation refits" below.) Cross-validation refitted each fold to
+  convergence; ADAMIXTURE polishes each fold with 5 warm-started
+  iterations. Measured on 2026-11-13
   (`data-raw/radmix/newspeed_algo/`, one seed per K, the trajectory of
   each refit scored after every iteration): on the HGDP (K = 2, 5, 8)
   the refits converge in 6-7 iterations and CV costs 1.6x the passes of

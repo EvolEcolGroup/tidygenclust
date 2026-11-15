@@ -27,9 +27,12 @@
   (`rtol`).
   With `init = "svd"`, runs start from the SVD of the genotypes, as in
   fastmixture and ADAMIXTURE, for a faster single fit of large datasets.
-  The refits of the folds of cross-validation, which run to convergence by
-  default, can be shortened with `cv_max_iter` or `cv_rtol` (faster, but
-  with errors biased downwards, more so at larger K).
+  The refits of the folds of cross-validation stop at a relative change of
+  1e-7 (`cv_rtol`), which halves the cost of cross-validation on data whose
+  refits are slow to converge, with errors lower by at most 2e-4 in our
+  tests and the same K chosen; `cv_max_iter` and a larger `cv_rtol` shorten
+  them further (faster, but with errors biased downwards, more so at larger
+  K), and `cv_rtol = rtol` refits each fold to convergence.
   Its computations were sped up by cheaper decoding of the genotypes and
   likelihood terms and by processing two loci at a time (about 1.3-1.4x),
   and, on x86-64 Linux, by also compiling them for AVX2 and FMA (about 1.6x
