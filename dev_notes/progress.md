@@ -19,6 +19,8 @@ likelihoods), and in `radmix_performance.md`.
   fold tests of `test_radmix_cv.R`, 99eef49); PR #37's test changes
   cherry-picked onto `newspeed_port` (7a3c206, 850185b), so that one branch
   is verified on the desktop; #37 to be closed.
+- **CI** on 0a6848e: every check passes; the coverage job takes 6.5 min
+  (was 25-45), coverage 96.83%.
 
 ## 2026-11-15 (laptopX1): test-coverage fixed; out-of-bounds index in #36
 
