@@ -5,6 +5,21 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-16 (laptopX1): why covr was slow; PR #37 folded into #36
+
+- **Timing** (overnight, one run per set-up, laptop): under covr,
+  `test_radmix_vs_admixture.R` (4-thread fits of EUR_subset) took 45 of the
+  50 min of the suite, against 1 min at -O2. A plain `-O0 --coverage` build
+  is as slow, plain `-O0` takes 9 min: gcov's counters in the threads, not
+  covr nor -O0. `-O1` gains nothing. `OMP_NUM_THREADS` does not limit the
+  tests (they pass `n_cores`). Details: `covr_timing_2026-11.md`.
+- **Decided (Andrea):** skip that file under covr (850185b): the suite takes
+  5 min under covr, coverage unchanged (96.83%); keep covr's default flags
+  (PR #37's `-O1` dropped); tests run on CRAN use at most 2 threads (the
+  fold tests of `test_radmix_cv.R`, 99eef49); PR #37's test changes
+  cherry-picked onto `newspeed_port` (7a3c206, 850185b), so that one branch
+  is verified on the desktop; #37 to be closed.
+
 ## 2026-11-15 (laptopX1): test-coverage fixed; out-of-bounds index in #36
 
 - **Codecov:** `test-coverage` on `dev` failed only at the upload: Codecov

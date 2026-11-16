@@ -33,3 +33,5 @@ Notes for developers and Claude sessions. Start with `summary.md` and
 ## Package-wide
 
 - `simplification_plan.md`: the simplification plan (completed in #34).
+- `covr_timing_2026-11.md`: why covr was slow (gcov counters in
+  multithreaded tests) and what was decided; data in `covr_timing/`.
