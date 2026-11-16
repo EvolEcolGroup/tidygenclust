@@ -5,6 +5,16 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-16 (laptopX1): PR #37 closed; plan before the merge of #36
+
+- PR #37 closed as superseded by #36 (its test change is in #36 unchanged;
+  covr keeps `-O0`, with `test_radmix_vs_admixture.R` skipped under covr).
+- **Decided (Andrea):** before merging #36, time `newspeed_port` against
+  `dev` on the desktop to confirm the speed gain, then run the full HGDP
+  benchmark of `admixture_benchmark.Rmd` (which shows only the `quick` run
+  so far) and update the article on `newspeed_port`. The old P3 timing
+  item (port against `newspeed`) is replaced by the first.
+
 ## 2026-11-16 (manica01): newspeed_port verified on the desktop
 
 - `R CMD check --as-cran` of 3f2a8e4: 0 ERROR, 0 WARNING, 5 known NOTEs;
