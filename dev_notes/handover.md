@@ -1,6 +1,6 @@
 # tidygenclust: handover
 
-Updated 2026-11-16 (laptopX1), after the covr timing. For the next session: read this and
+Updated 2026-11-16 (manica01), after the desktop verification of `newspeed_port`. For the next session: read this and
 `summary.md` first. History is in `progress.md`; designs are in the topic
 documents listed in `README.md`.
 
@@ -19,7 +19,11 @@ documents listed in `README.md`.
 
 ## Next tasks
 
-### 1. **P1** [desktop] then [review] Verify `newspeed_port` on the desktop, then merge PR #36
+### 1. **P1** [review] Merge PR #36
+
+- **Verified on the desktop (16 Nov, manica01):** both checks pass, see
+  the comment on PR #36 and `progress.md`; only `test_gt_adamixture.R` was
+  not run there (python `adamixture` not installed).
 
 - **Branch:** `newspeed_port`, PR #36 into `dev`. It now also holds PR
   #37's test changes (7a3c206, 850185b), so it is the one branch to verify
@@ -82,7 +86,7 @@ See "Desktop queue".
 
 ## Desktop queue
 
-### Verification of `newspeed_port` (P1)
+### Verification of `newspeed_port` (P1): done 16 Nov, see PR #36
 
 - **Set-up:** on manica01, `cd ~/git/tidygenclust && git fetch origin &&
   git checkout newspeed_port && git pull --ff-only`; `R CMD build .`.

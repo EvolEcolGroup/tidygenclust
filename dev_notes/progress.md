@@ -5,6 +5,17 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-16 (manica01): newspeed_port verified on the desktop
+
+- `R CMD check --as-cran` of 3f2a8e4: 0 ERROR, 0 WARNING, 5 known NOTEs;
+  tests FAIL 0, PASS 3517, CPU/elapsed 1.07.
+- `NOT_CRAN=true R CMD check`: 1 NOTE (`.git`, an artefact of building
+  from a worktree); FAIL 0, SKIP 1, PASS 3832, with the ADMIXTURE
+  comparison and fastmixture.
+- Not covered: `test_gt_adamixture.R` (python `adamixture` not installed on
+  manica01). Results: comment on PR #36. PR #36 now waits only for
+  Andrea's review.
+
 ## 2026-11-16 (laptopX1): why covr was slow; PR #37 folded into #36
 
 - **Timing** (overnight, one run per set-up, laptop): under covr,
