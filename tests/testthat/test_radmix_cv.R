@@ -171,7 +171,7 @@ test_that("fold fits are identical with and without the precomputed mask", {
   for (d in cases) {
     hashed <- fit_fold(d, mask = FALSE)
     expect_identical(fit_fold(d, mask = TRUE), hashed)
-    expect_identical(fit_fold(d, mask = TRUE, n_cores = 3), hashed)
+    expect_identical(fit_fold(d, mask = TRUE, n_cores = 2), hashed)
   }
 })
 
@@ -196,7 +196,7 @@ test_that("supervised fold fits are identical with and without the mask", {
   hashed <- fit_fold(mask = FALSE)
   expect_identical(hashed$q[!is.na(labels), ], sup$q[!is.na(labels), ])
   expect_identical(fit_fold(mask = TRUE), hashed)
-  expect_identical(fit_fold(mask = TRUE, n_cores = 3), hashed)
+  expect_identical(fit_fold(mask = TRUE, n_cores = 2), hashed)
 })
 
 test_that("invalid cross-validation arguments are caught", {
