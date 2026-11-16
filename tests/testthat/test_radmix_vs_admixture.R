@@ -32,6 +32,9 @@
 # to regenerate them.
 
 skip_on_cran()
+# under covr, the multithreaded fits of these tests take most of the time of
+# the whole suite (45 of 50 min on a laptop, against 1 min in a release build)
+skip_on_covr()
 fixture_file <- test_path("fixtures", "admixture_eur_reference.rds")
 skip_if_not(file.exists(fixture_file), "ADMIXTURE fixtures not available")
 bed_file <- radmix_eur_subset_bed()
