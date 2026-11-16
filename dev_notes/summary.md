@@ -8,7 +8,7 @@ issue (`scripts/sync_issue.py`).
 
 Native implementation of ADMIXTURE's method in tidygenclust (`gt_radmix()`): port, speed-ups and consolidation.
 
-**Status.** The speed-ups of `newspeed` and the supervised analyses of `supervised` are ported onto `dev` in PR #36 (branch `newspeed_port`, open), which now also holds PR #37's test changes, so that one branch is verified on the desktop before the merge. The coverage job should drop from 25-45 min to about 5-10: one multithreaded test file took 45 of the 50 min under covr (laptop) and is now skipped there, with no loss of coverage. Fits take 0.75-0.85 of the time of the previous code (desktop, measured before the port); handover: `dev_notes/handover.md`.
+**Status.** The speed-ups of `newspeed` and the supervised analyses of `supervised` are ported onto `dev` in PR #36 (branch `newspeed_port`, open), which now also holds PR #37's test changes, so that one branch is verified on the desktop before the merge. The coverage job now takes 6.5 min in CI instead of 25-45: one multithreaded test file took 45 of the 50 min under covr and is now skipped there, with no loss of coverage (96.83%). Fits take 0.75-0.85 of the time of the previous code (desktop, measured before the port); handover: `dev_notes/handover.md`.
 
 The port rebuilt each package commit of the two branches on top of #35,
 which had made the kind of data (genotypes or genotype likelihoods) a

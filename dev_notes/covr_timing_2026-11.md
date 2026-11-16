@@ -53,7 +53,9 @@ ran niced single-core jobs during the `-O0 --coverage` run). Source: commit
 | covr `-O1`, skip | 4.1 (4.9 with the build) | skipped | 4.1 | 5.0 | 96.82% |
 
 In CI, before the change: covr `-O0` took 45.6 and 33.8 min on `dev`
-(14-15 Nov), `-O1` 25.4 and 44.3 min (#37); R CMD check 4.2 min.
+(14-15 Nov), `-O1` 25.4 and 44.3 min (#37); R CMD check 4.2 min. After
+it (#36, 0a6848e, 16 Nov): the test step 3.7 min, the whole job 6.5 min,
+coverage 96.83%.
 
 To reproduce (the scripts have the laptop's paths in `W`): install the
 package into one library per set-up with `R_MAKEVARS_USER` set to
@@ -69,5 +71,3 @@ unattended night is `overnight.sh` (a systemd user unit), the last two runs
   tests fast under covr, so that the file need not be skipped? One covr
   run of that file would tell; not needed while the skip loses no
   coverage.
-- The CI time after the change: expected about 5-10 min (the first run of
-  #36 after the push will tell).

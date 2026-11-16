@@ -29,7 +29,7 @@ documents listed in `README.md`.
   `dev_notes/covr_timing_2026-11.md`.
 - **Checks:** see "Desktop queue": R CMD check as on CRAN, and the full
   suite with `NOT_CRAN=true` (it includes the comparison with ADMIXTURE,
-  which covr now skips); CI on the branch (coverage expected in 5-10 min).
+  which covr now skips). CI passes on 0a6848e (coverage job 6.5 min).
 - **What Andrea checks:** the decisions as applied (`cv_rtol =
   max(rtol, 1e-7)`, `MIN_Q_TASKS` = 128); supervised analyses of genotype
   likelihoods, which the port added; the covr skip of
