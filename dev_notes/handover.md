@@ -164,7 +164,7 @@ stop and report before task 2.
 - Speed leads in `radmix_performance.md` ("Leads not pursued yet"):
   `-march=native` gap, `-O3`, admixer's damped retries, single-precision
   Hessians for K >= 8.
-- Genotype likelihoods (claude_jobs#12): cross-validation, SVD start, the
+- Genotype likelihoods (claude_jobs#3, merged from #12): cross-validation, SVD start, the
   1e-5 bounds, a faster source in tidypopgl.
 - Move the notes still in `data-raw/radmix/` (`Notes_to_do`, `gl/REPORT.md`)
   into `dev_notes/`.
