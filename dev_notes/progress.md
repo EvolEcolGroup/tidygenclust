@@ -5,6 +5,17 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-16 (manica01): the port is faster than `dev`
+
+- Whole fits, `dev` (a20eb08) against `newspeed_port` (2e2f5b4), desktop,
+  idle, 3 alternated rounds: 0.78-0.85 of `dev`'s time on EUR K = 3-4 and
+  HGDP K = 5-10 at 1 and 8 threads, except HGDP K = 10 on 1 thread (0.92:
+  `dev` gained there with #35). Same iterations, log-likelihoods within
+  7.4e-16, thread-invariant. Table in `radmix_performance.md`; data in
+  `radmix_port_timing_2026-11/`.
+- The full HGDP benchmark of `admixture_benchmark.Rmd` runs next, unattended
+  (systemd `tgc-port-bench`, `~/tgc_bench_article/status.md`).
+
 ## 2026-11-16 (laptopX1): PR #37 closed; plan before the merge of #36
 
 - PR #37 closed as superseded by #36 (its test change is in #36 unchanged;

@@ -19,9 +19,10 @@ documents listed in `README.md`.
 
 ## Next tasks
 
-### 1. **P1** [desktop] Time `newspeed_port` against `dev`
+### 1. **P1** [desktop] Time `newspeed_port` against `dev`: done 16 Nov
 
-See "Desktop queue". Done when the gain is confirmed (expected: 0.75-0.85
+0.78-0.85 of `dev`'s time (0.92 at HGDP K = 10, 1 thread); see
+`radmix_performance.md`. Kept below for the record: Done when the gain is confirmed (expected: 0.75-0.85
 of `dev`'s time, as measured before the port; #35's templating may shift
 it) and recorded in `radmix_performance.md`. If the port is not faster,
 stop and report before task 2.

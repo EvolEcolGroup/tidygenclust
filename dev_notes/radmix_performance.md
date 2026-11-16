@@ -102,6 +102,32 @@ do not. The fused pass alone made `update_q` and `update_p`, whose code it
 does not change, 5-10% slower on the laptop, a layout effect that
 disappeared with the inlining.
 
+#### The port onto `dev` (PR #36), against `dev`
+
+Desktop (i9-13900, idle machine after a 15-min idle check, threads pinned:
+1 thread on CPU 2, 8 on the P-cores 0-7; installed `-O2` builds with the
+AVX2 clones), 16 November 2026: `dev` (a20eb08) against `newspeed_port`
+(2e2f5b4), whole fits to convergence (`rtol` 1e-8, seed 1), 3 rounds
+alternated, with the kit of the tag `archive/newspeed`
+(`run_bench.sh`, `CASES=hgdp:5,hgdp:10,eur:3,eur:4 THREADS="1 8"`).
+Medians in seconds (min-max of the repeats within 2%), ratio port / dev:
+
+| data, K | 1 thread: dev | port | ratio | 8 threads: dev | port | ratio |
+|---|---|---|---|---|---|---|
+| EUR, 3 | 6.26 | 5.02 | 0.80 | 0.89 | 0.69 | 0.78 |
+| EUR, 4 | 7.52 | 6.22 | 0.83 | 1.06 | 0.84 | 0.80 |
+| HGDP, 5 | 50.31 | 40.02 | 0.80 | 6.68 | 5.28 | 0.79 |
+| HGDP, 10 | 183.32 | 168.01 | 0.92 | 25.79 | 21.89 | 0.85 |
+
+The same iterations, log-likelihoods within 7.4e-16 (relative), and
+identical results on 1 and 8 threads for both builds. The gain is that of
+`newspeed` (0.75-0.85) except at HGDP K = 10 on 1 thread: there `dev`
+became faster with #35 (183 s against 198 s for b5999cc on 15 Nov) and the
+port is a little slower than `newspeed` (168 against 161 s), so the gain
+shrinks from 0.81 to 0.92. Comparisons across the two days are indicative
+only (separate runs). Summary, fits and the
+driver script: `dev_notes/radmix_port_timing_2026-11/`.
+
 ### Tiles and the OpenMP schedule
 
 Desktop, fits of 8 iterations (medians of 3), against `final`: with
