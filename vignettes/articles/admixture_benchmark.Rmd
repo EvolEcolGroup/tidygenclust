@@ -5,7 +5,7 @@ output:
     toc: true
     toc_depth: 3
 params:
-  results_dir: "data/admixture_benchmark_quick"
+  results_dir: "data/admixture_benchmark"
 vignette: >
   %\VignetteIndexEntry{Benchmarking gt_radmix() against ADMIXTURE, fastmixture and ADAMIXTURE}
   %\VignetteEngine{knitr::rmarkdown}
@@ -32,10 +32,6 @@ knitr::read_chunk("code/admixture_benchmark_radmix.R")
 # or data/admixture_benchmark_quick for the results of a quick run)
 results_dir <- params$results_dir
 ```
-
-> **Note:** the results shown in this article are, for now, those of a
-> small subset of the data (see [The data](#the-data)), to check the
-> benchmark. They will be replaced by those of the full benchmark.
 
 `gt_radmix()` estimates ancestry proportions with the method of ADMIXTURE
 (Alexander et al. 2009), directly from the backing file of a `gen_tibble`.
@@ -259,10 +255,21 @@ local_optima <- agreement %>%
       if_else(crossval, " with cross-validation", "")
     )
   )
-local_optima_text <- if (nrow(local_optima) == 0) {
+# the largest amount by which a run ended above ADMIXTURE
+highest_above <- max(agreement$loglik_diff, na.rm = TRUE)
+local_optima_text <- if (nrow(local_optima) == 0 && highest_above <= 1) {
   paste(
     "Here, all the runs reached the log-likelihood of ADMIXTURE, to within",
     "1."
+  )
+} else if (nrow(local_optima) == 0) {
+  paste0(
+    "Here, no run ended more than 1 below the log-likelihood of ADMIXTURE, ",
+    "and runs of the other programs ended up to ",
+    format_diff(highest_above), " above it: ADMIXTURE stopped short of the ",
+    "maximum that they reached, by its own convergence criterion, with ",
+    "ancestry proportions that differ little from theirs (see the detailed ",
+    "results)."
   )
 } else {
   paste0(

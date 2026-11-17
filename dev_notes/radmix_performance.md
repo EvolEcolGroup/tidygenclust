@@ -4,8 +4,10 @@ What made `gt_radmix()` faster, what was tried and rejected, and what is
 left to try, with the measurements behind each decision. The design of the
 code is described in `dev_notes/admixture_implementation.md`; this file is its
 history. The full reports, scripts and results of the work summarised here
-are archived under the git tag `archive/radmix-perf-verify`; "Full
-records", at the end, explains how to read them.
+are archived under the git tags `archive/radmix-perf-verify` (October and
+early November 2026) and `archive/newspeed` and `archive/supervised` (the
+work of 13-15 November 2026); "Full records", at the end, explains how to
+read them.
 
 Machines: a laptop (Intel i7-10510U, 4 cores, 15 W, AVX2; it throttles by
 about 60% after 10-20 s with 4 busy cores) and a desktop (Intel i9-13900,
@@ -31,6 +33,149 @@ copies of the parameters to 10.
 | 2026-11-02 (#32) | four kernel changes (next table) | fits take 0.57-0.63 of the time on 1 core, 0.52-0.56 on the HGDP at any core count | rounding |
 | 2026-11-02 (#32) | default `rtol` 1e-8 instead of 1e-7 | +7-17% time, closer to the optimum (below) | more iterations |
 | 2026-11-03 | consolidation of the kernels; plain Q-side derivatives | 2-5% faster (desktop, 1 and 4 cores); 9 copies of the parameters instead of 10 | rounding |
+| 2026-11-13 | fused pass: the log-likelihood of a point computed with the next update of Q (`update_q_loglik()`) | 4 passes per accepted iteration instead of 5 (a fit of 8 iterations: 33 passes instead of 41, the start included); fits 0.93-0.95 of the time alone | log-likelihoods by rounding |
+| 2026-11-13 | cross-validation: the hidden genotypes of a fold as a bit mask, built once per fold fit | passes with a fold hidden cost 1.08-1.12x a plain one (were 1.7-1.8x on the desktop); mask 17 MB for the HGDP, 83 MB unpruned | bit-identical |
+| 2026-11-13 | `slice_geno()` and `slice_coef()` forced inline into the AVX2 clones (they were calls to the baseline code) | with the next change, below | rounding (FMA) |
+| 2026-11-13 | cheaper log-likelihood of a slice (scalar fix-up loop skipped for hard calls, arithmetic masks), inlined into the AVX2 clone in the fused pass | all four changes: fits take 0.75-0.85 of the time (desktop, 1-8 threads, EUR K = 3-4, HGDP K = 5-10, unpruned HGDP K = 5) | rounding, at most 3e-15 relative in the log-likelihood, same iterations |
+| 2026-11-15 | `MIN_Q_TASKS` 128 instead of 32 (more Q-side tasks for samples under 8,192 individuals) | fits 3-6% faster on 8 threads, 0-3% on 1 (desktop) | rounding |
+| 2026-11-15 | refits of cross-validation to `cv_rtol = 1e-7` instead of `rtol` | CV passes 0.46 of before on EUR_subset, 0.89 on the HGDP (see "Cross-validation refits") | CV errors biased by at most 2e-4, same K chosen |
+
+The changes of 13 and 15 November were made on the branches `newspeed` and
+`supervised` (from b5999cc), measured on the desktop on 15 November, and
+ported onto `dev` after #35 (genotype likelihoods), which made the kind of
+data a template parameter of the kernels; the timings below are those of
+the branches, before the port.
+
+### The changes of 13 November 2026 (branch `newspeed`)
+
+Laptop first (1 core, the other three busy with other jobs, load 4-11, so
+indicative only), HGDP 1043 x 130,943, K = 5, single passes from the same
+estimates (medians of 2 runs of medians of 3, builds alternated), seconds:
+
+| build | loglik | update_q | update_p | update_q_loglik | accepted iteration |
+|---|---|---|---|---|---|
+| before (b5999cc) | 2.13 | 1.84 | 2.14 | | 10.09 (5 passes) |
+| fused pass | 2.20 | 2.08 | 2.30 | 3.31 | 9.99 (0.99) |
+| + inlining, cheaper log-likelihood, called in baseline code | 1.83 | 1.65 | 1.89 | 2.77 | 8.20 (0.81) |
+| + log-likelihood inlined into the AVX2 clone (the default) | 1.75 | 1.68 | 1.94 | 2.27 | 7.83 (0.78) |
+
+Desktop (i9-13900, idle machine, threads pinned to the P-cores, installed
+`-O2` builds; unattended run of 15 November 2026), builds `base` (b5999cc),
+`fused` (the fused pass alone), `inline` (fused + inlining), `final` (all,
+13f89be) and `final_llnoinl` (the log-likelihood of the fused pass called
+in the baseline code). Single passes, 1 thread, seconds; an iteration is
+2 `update_q` + 2 `update_p` + `loglik` before, `update_q` +
+`update_q_loglik` + 2 `update_p` with the fused pass:
+
+| data, K | base: iteration | fused | inline | final | final_llnoinl |
+|---|---|---|---|---|---|
+| EUR, 4 | 0.304 | 0.277 (0.91) | 0.261 (0.86) | 0.222 (0.73) | 0.241 (0.79) |
+| HGDP, 5 | 2.355 | 2.170 (0.92) | 1.938 (0.82) | 1.772 (0.75) | 1.847 (0.78) |
+| HGDP, 10 | 4.942 | 4.591 (0.93) | 4.091 (0.83) | 3.980 (0.81) | 3.971 (0.80) |
+
+Inlining the log-likelihood into the AVX2 clone makes the fused pass
+10-22% cheaper at K <= 5 (`update_q_loglik` 0.521 against 0.646 s on the
+HGDP) and changes nothing at K = 10, so it is the default
+(`RADMIX_FUSED_LL_NOINLINE` restores the call). Fits of 8 iterations
+(medians of 3, 1, 4 and 8 threads) take 0.93-0.95 of the time with the
+fused pass alone and 0.76-0.80 with all the changes, on the HGDP (K = 5
+and 10) and the unpruned HGDP (K = 5); whole fits to convergence (EUR
+K = 3-4, HGDP K = 5-10, 1-8 threads) 0.75-0.85, with the same iterations
+and log-likelihoods within 3e-15 (relative). Every build gives identical
+results on 1, 4 and 8 threads. Fold fits of cross-validation (HGDP and
+unpruned HGDP, K = 5, 4 iterations): with the hash, 1.7-2.0x the time of
+the same fit without a fold hidden; with the bit mask, 1.08-1.12x.
+
+Decisions (Andrea, 15 November 2026): keep all four changes, accept the
+rounding differences that FMA brings into the clones (at most 3.5e-15 in
+the log-likelihood, the same iterations), inline the log-likelihood into
+the clone, build the bit mask automatically (when it takes less than
+1 GiB), and raise `MIN_Q_TASKS` to 128 (next section).
+
+Lessons: GCC did not inline `slice_geno()` (qp and the decoding of every
+slice) into the AVX2 clones, so a share of every pass ran in SSE2 code
+(check with `objdump -d` that the clones only call `memset()` and `log()`);
+and in the baseline code, `(double) (x > y)`, `std::min()`, `std::max()` and
+`omp simd reduction(max:)` keep a loop from vectorising (a first version of
+the cheaper log-likelihood was 1.5x slower for that), while sums of products
+do not. The fused pass alone made `update_q` and `update_p`, whose code it
+does not change, 5-10% slower on the laptop, a layout effect that
+disappeared with the inlining.
+
+#### The port onto `dev` (PR #36), against `dev`
+
+Desktop (i9-13900, idle machine after a 15-min idle check, threads pinned:
+1 thread on CPU 2, 8 on the P-cores 0-7; installed `-O2` builds with the
+AVX2 clones), 16 November 2026: `dev` (a20eb08) against `newspeed_port`
+(2e2f5b4), whole fits to convergence (`rtol` 1e-8, seed 1), 3 rounds
+alternated, with the kit of the tag `archive/newspeed`
+(`run_bench.sh`, `CASES=hgdp:5,hgdp:10,eur:3,eur:4 THREADS="1 8"`).
+Medians in seconds (min-max of the repeats within 2%), ratio port / dev:
+
+| data, K | 1 thread: dev | port | ratio | 8 threads: dev | port | ratio |
+|---|---|---|---|---|---|---|
+| EUR, 3 | 6.26 | 5.02 | 0.80 | 0.89 | 0.69 | 0.78 |
+| EUR, 4 | 7.52 | 6.22 | 0.83 | 1.06 | 0.84 | 0.80 |
+| HGDP, 5 | 50.31 | 40.02 | 0.80 | 6.68 | 5.28 | 0.79 |
+| HGDP, 10 | 183.32 | 168.01 | 0.92 | 25.79 | 21.89 | 0.85 |
+
+The same iterations, log-likelihoods within 7.4e-16 (relative), and
+identical results on 1 and 8 threads for both builds. The gain is that of
+`newspeed` (0.75-0.85) except at HGDP K = 10 on 1 thread: there `dev`
+became faster with #35 (183 s against 198 s for b5999cc on 15 Nov) and the
+port is a little slower than `newspeed` (168 against 161 s), so the gain
+shrinks from 0.81 to 0.92. Comparisons across the two days are indicative
+only (separate runs). Summary, fits and the
+driver script: `dev_notes/radmix_port_timing_2026-11/`.
+
+### Tiles and the OpenMP schedule
+
+Desktop, fits of 8 iterations (medians of 3), against `final`: with
+`MIN_Q_TASKS` = 128, 0.94-0.97 of the time on 8 threads and 0.97-1.00 on 1
+(HGDP K = 5 and 10, unpruned HGDP K = 5); 64 gained less (0.96-0.98 on 8
+threads); `TILE_J` = 32 changed nothing (0.99-1.02); a guided schedule was
+slower (1.05-1.07 on 8 threads). With 128, the HGDP has 8 segments of loci
+(136 Q-side tasks) instead of 2 (34). The schedule never changes the
+results; `MIN_Q_TASKS` changes them by rounding (4e-16 to 3e-15).
+
+### Supervised analyses (branch `supervised`)
+
+A supervised fit skips the Q-side work of the reference individuals (their
+sums and quadratic programs), so it is faster than an unsupervised one
+with the same data, and it agrees with ADMIXTURE `--supervised` (HGDP
+K = 5, 660 or 139 references: Q of the individuals to estimate within
+6e-5, log-likelihoods 1-4 units higher). On the desktop, at 8 threads, it
+ran about 50 times as fast as ADMIXTURE `--supervised -j8` (HGDP K = 5:
+3.3 s against 158 s with 660 references, 4.9 s against 264 s with 139;
+an unsupervised fit of the same data takes 7.1 s). Its fits do not use the
+fused pass (their Q side does not read the references, so it cannot give
+the log-likelihood).
+
+### Cross-validation refits
+
+Each fold is refitted from the estimates for the full data; ADAMIXTURE
+polishes each fold with 5 warm-started iterations. A refit stopped early
+predicts the held-out genotypes too well (the start has seen them), so the
+error is biased downwards. Desktop (E-cores, the measures are counts, not
+times; `newspeed_algo`, 13 November 2026), the trajectory of each refit
+scored after every iteration, HGDP K = 2-10 with seeds 1-3 and EUR_subset
+K = 1-6 with seeds 1-5; bias = the error minus that of refits converged to
+`rtol` = 1e-8, x 1e-4; passes = the CV passes relative to converged
+refits:
+
+| policy | HGDP bias | HGDP passes | EUR bias, K = 1-4 | EUR bias, K = 5 / 6 | EUR passes | K chosen |
+|---|---|---|---|---|---|---|
+| `cv_rtol` 1e-7 | <= 0.007 | 0.89 | <= 0.15 | -1.2 / -2.0 | 0.46 | unchanged |
+| `cv_rtol` 1e-6 | <= 0.009 | 0.83 | <= 0.62 | -3.4 / -6.7 | 0.26 | unchanged |
+| at most 5 iterations | <= 0.06 | 0.74 | <= 1.4 | -5.7 / -10.3 | 0.20 | unchanged |
+| `cv_rtol` 1e-5 | <= 0.41 | 0.55 | <= 1.4 | -5.7 / -10.2 | 0.19 | unchanged |
+
+On the HGDP, converged refits take about 7 iterations, so every policy is
+harmless but saves little; on EUR_subset they take 24 on average (CV costs
+2.9 times the main fits), which is where the savings are, and where the
+bias grows with K (successive K differ by 5e-4 to 3e-3). With no refit at
+all, EUR would choose K = 6 instead of 2. Decision (Andrea, 15 November
+2026): `cv_rtol = 1e-7` by default (or `rtol`, if larger).
 
 ### The kernel changes of #32
 
@@ -141,6 +286,8 @@ segments = 34 tasks, at most ~95% efficiency on 8 threads; the P side has
 ~2,000 tasks and reaches 98-101%) and from 1-2% of serial work per fit (QP
 solves, quasi-Newton step, R). Beyond 16 threads the 34 Q-side tasks
 (`MIN_Q_TASKS` = 32 in `src/radmix_kernels.cpp`) would limit the Q side.
+(Since 15 November 2026, `MIN_Q_TASKS` = 128: 136 Q-side tasks on the
+HGDP, see "Tiles and the OpenMP schedule".)
 Results are bit-identical for every number of threads and binding. Without
 binding, OpenMP threads drift onto the slower E-cores of this CPU.
 
@@ -173,34 +320,53 @@ Listed so that they are not retried without new evidence.
   to those of random starts, no better exploration of modes), and mixing
   SVD and random starts in one analysis (it would bias the modes found by
   `gt_clumppling()` towards those the ALS favours).
+- A subset start (`init = "subset"`, 13 November 2026, never merged): a
+  random start fitted to a random subset of the loci (rtol 1e-6), P
+  extended to all the loci given its Q, then the fit of all the loci. It
+  took 0.4-0.5 of the passes of a random start on the HGDP (pruned or not:
+  the full fit needs 9-11 iterations after it, whatever the size of the
+  subset), but it moved runs to lower modes (HGDP K = 10: 67,600
+  log-likelihood units below; EUR K = 3: the smaller the subset, the more
+  often a lower mode), and the gain does not grow with the number of loci.
+  Dropped by Andrea on 15 November 2026. admixer's mini-batch warm-up was
+  less effective (HGDP K = 5, 86 passes). Records: `archive/newspeed`,
+  `data-raw/radmix/newspeed_algo/`.
 
 ## Leads not pursued yet
 
 - `-march=native` is 11-16% faster than the multiversioned build (desktop),
   mostly in the log-likelihood (0.59-0.64 of the baseline with
   `-march=native`, 0.86-0.89 multiversioned) and in code outside the cloned
-  kernels. Compiling the whole file for AVX2 makes the log-likelihood faster
-  too, so the lead is how it is cloned (or a vectorisable `log()`).
+  kernels. Partly addressed on 2026-11-13: `slice_geno()` and
+  `slice_coef()` were outside the clones (now inlined into them), and the
+  log-likelihood now mostly runs inside the clone of the fused pass. To
+  check on the desktop: what is left between the multiversioned build and
+  `-march=native`; a vectorisable `log()` would only replace the 8 batched
+  logarithms per 64 genotypes.
 - `-O3` saves 2-5% of a fit with identical results, from inlining or loop
   unswitching rather than vectorisation; which loops is not known, and a
   package should not override R's optimisation flags.
-- Cross-validation refits each fold to convergence (7-11 iterations on
-  HGDP quick); ADAMIXTURE polishes each fold with 5 warm-started
-  iterations. The biggest lever for CV, but it changes the CV errors, and
-  the warm start has seen the held-out genotypes: it needs a statistical
-  check (same K chosen, agreement with ADMIXTURE).
-- A decoded in-memory copy of the genotypes (1 byte or 2 bits each), with
-  the fold mask applied once: passes with a fold hidden would cost the same
-  as plain ones (now 1.5x).
-- The log-likelihood of the quasi-Newton point folded into the next P
-  update, which reads the same genotypes: 4 passes instead of 5 per
-  accepted iteration (admixer measured ~4%).
+- (Done 2026-11-15: the refits of cross-validation stop at
+  `cv_rtol = 1e-7` by default, see "Cross-validation refits".)
+- (Done 2026-11-13, as a bit mask rather than a decoded copy of the
+  genotypes, 1/8 of the memory: passes with a fold hidden cost as plain
+  ones.) A decoded copy (1 byte per genotype) would also make the rows of
+  any subset contiguous (the fast path of the decoding), at the memory of
+  the genotypes (0.7 GB for the unpruned HGDP); not tried.
+- (Done 2026-11-13, folded into the next Q update rather than P, as that
+  pass reads the same (q, p): 4 passes instead of 5 per accepted
+  iteration.)
 - admixer's damped retries of a rejected quasi-Newton step (1.2-4.2x on
   hard data there, nothing elsewhere; ours accepted 16 of 16 steps on HGDP
   quick) and its mini-batch warm-up between EM and the main loop (there,
   K = 5 28.8 to ~20 s, K = 20 126.7 to 54.7 s).
-- More Q-side tasks for many cores (see "Where the time goes"), and tile
-  sizes and the OpenMP schedule, never tuned.
+- (Done 2026-11-15: `MIN_Q_TASKS` = 128, see "Tiles and the OpenMP
+  schedule"; `TILE_J` and the schedule were measured and kept. They can
+  still be set at compile time, `-DRADMIX_MIN_Q_TASKS`, `-DRADMIX_TILE_J`
+  and `-DRADMIX_OMP_SCHEDULE`, for benchmarks.)
+- A fused pass for supervised fits (update every column of Q, then restore
+  the references), which would give them the 4 passes per iteration of
+  unsupervised fits.
 - For K >= 8, single-precision Hessians or BLAS products (admixer: 6-35%).
 
 ## How to measure
@@ -264,6 +430,22 @@ git worktree add ../radmix-perf-archive archive/radmix-perf-verify
 
 On GitHub:
 <https://github.com/EvolEcolGroup/tidygenclust/tree/archive/radmix-perf-verify/data-raw/radmix/perf_verification>.
+
+The work of 13-15 November 2026 is archived in the same way, under two
+tags that keep the branches `newspeed` and `supervised` as they were at
+the end of the desktop run (the package code of both was ported onto
+`dev`, without the subset start):
+
+| tag (commit) | path | content |
+|---|---|---|
+| `archive/newspeed` (ec96315) | `data-raw/radmix/newspeed/` | the kit of the per-iteration speed-ups (builds of the variants, benchmarks, summaries), `REPORT.md` (laptop), `HANDOVER.md` (the desktop protocol and the decisions), `desktop_results/*/summary.md` and the raw CSV files of the desktop run |
+| `archive/newspeed` | `data-raw/radmix/newspeed_algo/` | the CV refit policies and the warm-ups (subset start): scripts, `REPORT.md`, `results_laptop/`, `results_desktop/cv_policies.txt` |
+| `archive/supervised` (fc43f9b) | `data-raw/radmix/supervised/` | the validation against ADMIXTURE `--supervised`, the timings, `REPORT.md`, `results_desktop/` |
+
+```bash
+git fetch origin tag archive/newspeed tag archive/supervised
+git show archive/newspeed:data-raw/radmix/newspeed/HANDOVER.md
+```
 
 Copies of the four reports were also kept in `data-raw/radmix/speedups/`
 on `dev` (commit 3c3fe1b, #32) until 2026-11-03, when this file replaced

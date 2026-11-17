@@ -14,6 +14,9 @@
 #' @param n_folds the number of folds
 #' @param cv_seed seed of the assignment of genotypes to folds (a
 #'   non-negative integer)
+#' @param sup_q the fixed ancestry proportions of the reference individuals
+#'   of a supervised analysis (or `NULL`), passed to `radmix_fit()`: they
+#'   stay fixed in the fit of each fold
 #' @param max_iter,rtol,n_qn,n_cores passed to `radmix_fit()`
 #' @returns a list with elements `cv` (the cross-validation error),
 #'   `fold_cv` (the error of each fold), `fold_n` (the number of genotypes in
@@ -21,8 +24,8 @@
 #'   format used by ADMIXTURE)
 #' @keywords internal
 #' @noRd
-radmix_cv <- function(data, fit, k, n_folds, cv_seed, max_iter = 1000,
-                      rtol = 1e-8, n_qn = 3, n_cores = 1) {
+radmix_cv <- function(data, fit, k, n_folds, cv_seed, sup_q = NULL,
+                      max_iter = 1000, rtol = 1e-8, n_qn = 3, n_cores = 1) {
   # for each fold, the sum of the deviances of its genotypes and their
   # number (a fold can be empty with tiny data, giving a NaN fold error but
   # no harm to the pooled error)
@@ -42,7 +45,7 @@ radmix_cv <- function(data, fit, k, n_folds, cv_seed, max_iter = 1000,
       mode = "train", fold = fold, n_folds = n_folds, seed = cv_seed
     ))
     fold_fit <- radmix_fit(train,
-      k = k, init_q = fit$q, init_p = fit$p,
+      k = k, init_q = fit$q, init_p = fit$p, sup_q = sup_q,
       max_iter = max_iter, rtol = rtol, n_qn = n_qn, n_cores = n_cores
     )
     # Score the predictions of the fold estimates on the masked genotypes:

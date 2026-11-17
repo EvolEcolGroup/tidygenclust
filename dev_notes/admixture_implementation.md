@@ -7,7 +7,8 @@ ADMIXTURE: block relaxation, in which Q and P are updated in turn by
 constrained Newton steps, accelerated by the quasi-Newton scheme of Zhou,
 Alexander and Lange (2011), after a few EM steps that prime a random start.
 It offers the cross-validation of ADMIXTURE to choose K (Alexander and
-Lange 2011) and, as an option, a start from a truncated singular value
+Lange 2011), the supervised analyses of ADMIXTURE (individuals of known
+ancestry) and, as an option, a start from a truncated singular value
 decomposition (SVD) of the genotypes, as in fastmixture and ADAMIXTURE.
 With genotype likelihoods, given by a package that stores them, it fits the
 model of NGSadmix (Skotte, Korneliussen and Albrechtsen 2013) with the same
@@ -320,9 +321,23 @@ is higher than that of `x0`; otherwise the iteration ends at `x2`. The
 comparison is with `x0` rather than with `x2`: a point slightly worse than
 `x2` still makes progress, and tends to pay off in the following
 iterations. It also means that `L(x2)` is only needed when the point is
-rejected, so that an iteration costs five passes over the genotypes (four
-block updates and the log-likelihood of the quasi-Newton point), and six
-only after a rejection; the point is accepted in most iterations.
+rejected; the point is accepted in most iterations.
+
+**Evaluating a point and starting from it in one pass.** The first block
+update of an iteration, the update of Q given `x0 = (q, p)`, forms `qp` for
+every genotype, which is all that the log-likelihood of `x0` needs. So
+whenever the loop evaluates a point from which the next iteration may start
+(the start, the quasi-Newton point, and `x2` after a rejection), it also
+computes the update of Q from that point in the same pass
+(`update_q_loglik()`), and the next iteration starts from it. An iteration
+then costs four passes over the genotypes (three block updates and the
+fused pass at the quasi-Newton point) instead of five, and five instead of
+six after a rejection. The update is identical to that of a separate pass,
+and the log-likelihood differs from that of `loglik()` only by rounding (the
+same terms, added up in another order, still independent of the number of
+threads). The update computed with the last log-likelihood of a fit (at
+convergence) or with a rejected point is wasted; it is not computed after
+the last iteration allowed (`max_iter`), nor when Q is fixed.
 
 ### 7. Convergence
 
@@ -342,7 +357,15 @@ folds (5 by default). For each fold:
    exactly as if they were missing. The fit starts from the estimates for
    the full data (a warm start, as in fastmixture), without EM: they are
    close to the optimum without the fold, so each fold converges in a few
-   iterations. The convergence criteria are those of the main fit.
+   iterations. A refit stops at a relative change of the log-likelihood
+   of 1e-7 (`cv_rtol`, or `rtol` if larger), looser than the main fit's
+   1e-8: the start has seen the held-out genotypes, so a refit stopped
+   early predicts them too well, and its error is biased downwards, but
+   at 1e-7 the bias stays below 2e-4 (EUR_subset, K = 1-6) while the
+   cost of cross-validation halves where refits are slow (decided on
+   15 Nov 2026 from the desktop runs, see `radmix_performance.md`).
+   `cv_max_iter` and a larger `cv_rtol` shorten the refits further, and
+   `cv_rtol = rtol` refits to convergence.
 2. The genotypes of the fold are predicted by `mu = n qp`, through a
    "held-out" view that shows only them.
 3. The binomial deviance of those genotypes is summed:
@@ -352,22 +375,99 @@ folds (5 by default). For each fold:
    with `0 log 0 = 0` (ADMIXTURE gives this formula for diploids).
 
 The error is the deviance averaged over all the held-out genotypes of all the
-folds. The fold of a genotype is not stored: it is computed on the fly from a
-hash (the splitmix64 finaliser) of a seed and the position of the genotype,
-modulo the number of folds. This needs no memory (a stored mask would be as
-large as the genotypes), is thread safe, and gives the same folds for the
-same seed; folds are of roughly equal size, and genotypes that are already
-missing belong to no fold. The seed is drawn from the random number
+folds. The fold of a genotype is computed from a hash (the splitmix64
+finaliser) of a seed and the position of the genotype, modulo the number of
+folds. This is thread safe and gives the same folds for the same seed;
+folds are of roughly equal size, and genotypes that are already missing
+belong to no fold. The fit of a fold evaluates the hash once per genotype,
+before its first pass, and keeps which genotypes are visible as a bit mask
+(one bit per genotype, 1/8 of the size of the genotypes; e.g. 18 MB for the
+HGDP of 1043 x 130,943, 87 MB for 1043 x 642,794), so that its passes read
+one 64-bit word per slice of 64 individuals instead of hashing every
+genotype. Beyond 1 GiB of mask (8.6e9 genotypes), the passes hash instead.
+The results are the same either way; the held-out view, used once per fold,
+always hashes. The seed is drawn from the random number
 generator after the main fit, whose state is then restored. ADMIXTURE's own
 random partition cannot be reproduced (its source code is not available), so
 the errors agree with ADMIXTURE's statistically, not exactly.
+
+### 9. Supervised analyses (optional)
+
+With `supervised` (ADMIXTURE's `--supervised`), some individuals are
+references of known populations, and each of the K ancestral populations is
+one of these populations (K must equal their number, as in ADMIXTURE). The
+ancestry proportions of a reference individual are fixed at the indicator
+of its population, projected onto the feasible set like any other fixed
+value: `1 - (K - 1) 1e-5` for its population and `1e-5` for the others,
+which are the values that ADMIXTURE reports. P and the ancestry of the
+other individuals are estimated by maximum likelihood with the references
+fixed. Each column of Q and P is one population, in the order of first
+appearance of the labels (ADMIXTURE's order for its `.pop` file; checked
+empirically, with labels whose first appearance and alphabetical orders
+differ), or of the levels of a factor; `ref_pops` in the result records it.
+
+`radmix_check_supervised()` (`R/gt_radmix.R`) validates the labels and
+builds an I x K matrix with the fixed values of the references (and NA for
+the others), which `radmix_fit_cpp()` turns into a mask of fixed
+individuals:
+
+- the references are set to their fixed values right after the random
+  start (the values drawn for them are discarded, so the draws of the
+  others do not move), before EM, so that EM estimates P from them;
+- EM and the Q block updates copy their columns instead of updating them
+  (`radmix_kernels.h`, "Fixed individuals"); P is updated from all the
+  individuals;
+- the quasi-Newton step leaves them unchanged (u = v = 0), but its
+  projection could move them by rounding errors, so they are restored
+  exactly after it, as a fixed Q block is;
+- `init_q` gives the start of the other individuals (its rows for the
+  references are replaced by their fixed values), and `init_p` that of P;
+  `fix_q`, `fix_p` and the SVD start (whose clusters come in an arbitrary
+  order) are not available;
+- cross-validation (which ADMIXTURE allows with `--supervised`) keeps the
+  references fixed in the fit of each fold; their held-out genotypes are
+  predicted, and count in the error, like the others.
+
+**Skipping the references.** The ancestry of a reference is never updated,
+so the Q-side passes (EM and the Q block updates) skip it entirely: they
+build the list of the free individuals, transpose only their columns of Q
+(a "compact" transpose), and work on blocks of 64 consecutive entries of
+that list rather than of 64 consecutive individuals. A slice of free
+individuals that are consecutive rows of the backing file takes the fast
+path; otherwise their bytes are read from the column of the locus through
+their rows (and decoded with the same tables), or, with pseudohaploids,
+through the general path. The sums of
+each free individual are the same as without the mask (the same terms,
+added in the same order). Neither the sums nor the quadratic programs of the
+references are computed; the P-side passes and the log-likelihood still read
+every genotype. With references the bulk of the individuals, a supervised
+fit is therefore cheaper per iteration than an unsupervised one (the Q side
+is about half of the work of the block updates).
+
+A supervised fit does not use the fused pass ("Evaluating a point and
+starting from it in one pass"): its Q side does not read the genotypes of
+the references, so it cannot give the log-likelihood, which takes a pass of
+its own; an iteration costs five passes, as before the fused pass.
+
+**Genotype likelihoods.** Supervised analyses also work with genotype
+likelihoods: the free individuals of a slice are read from the source
+through their index, a run of consecutive individuals in one call (as
+without references) and scattered ones one at a time (`slice_gl()`), and
+everything else is the same. The tests compare a supervised fit of the
+likelihoods of hard calls with the same fit of the genotypes
+(`test_gt_radmix.R`), and the Q side with and without fixed individuals
+(`test_radmix_kernels.R`). Added when the branches `newspeed` and
+`supervised` were ported onto `dev` (15 Nov 2026), after #35; there is no
+reference program to compare with (NGSadmix has no supervised mode).
 
 ## How the passes over the genotypes are organised
 
 Every pass reads the whole genotype matrix, so the number of passes and
 their cost determine the run time on large data. A fit makes `n_em_iter`
-EM steps (two passes each), one pass for the starting log-likelihood, and
-five passes per iteration (six after a rejected quasi-Newton step).
+EM steps (two passes each), one pass for the starting log-likelihood (and
+the first update of Q), and four passes per iteration (five after a
+rejected quasi-Newton step), see "Evaluating a point and starting from it
+in one pass" above.
 
 ### Data access
 
@@ -380,12 +480,13 @@ individuals at one locus are adjacent bytes. When the individuals of a slice
 pseudohaploids), their bytes are read directly and decoded with two tables
 giving `g` and `h` (0 for missing); otherwise each genotype goes through the
 row index, the decoding table and the ploidy scale. With a cross-validation
-view, the fold hash runs for every genotype in every pass, so it is kept
-cheap: the remainder by the number of folds uses compile-time constants for
-2 to 10 folds (a multiplication instead of a 64-bit division), and hidden
-genotypes are zeroed by multiplying rather than by a branch, which would be
-mispredicted (they are spread at random). A pass with a fold hidden costs
-about 1.5 times a plain pass.
+view, hidden genotypes are zeroed by multiplying rather than by a branch,
+which would be mispredicted (they are spread at random). The fit of a fold
+reads their visibility from its bit mask (see section 8), one word per
+slice; without the mask, the fold hash runs for every genotype in every
+pass, and is kept cheap (the remainder by the number of folds uses
+compile-time constants for 2 to 10 folds, a multiplication instead of a
+64-bit division), but such a pass costs about 1.5 times a plain pass.
 
 ### Slices and coefficients
 
@@ -646,7 +747,8 @@ The test suite checks:
 - that the results are identical for any number of threads;
 - the estimates, log-likelihoods and cross-validation errors against stored
   results of ADMIXTURE 1.3.0 on the `EUR_subset` data of SnpArrays.jl
-  (`tests/testthat/test_radmix_vs_admixture.R`);
+  (`tests/testthat/test_radmix_vs_admixture.R`), unsupervised (K = 2 to 4)
+  and supervised (K = 3);
 - the log-likelihood, EM step, Newton updates and full path against stored
   results of OpenADMIXTURE.jl, an independent implementation of the same
   model and of a closely related algorithm
@@ -709,9 +811,9 @@ OpenADMIXTURE.jl in many places. The main changes were:
   rejected (and that of the EM steps only when it is reported);
 - the EM step normalises Q by the observed allele copies of each individual,
   which keeps it on the simplex with missing data;
-- pseudohaploid individuals, the cross-validation of ADMIXTURE, the SVD
-  start and the direct reading of the backing file of a `gen_tibble` were
-  added;
+- pseudohaploid individuals, the cross-validation and supervised analyses
+  of ADMIXTURE, the SVD start and the direct reading of the backing file of
+  a `gen_tibble` were added;
 - numerical safeguards were added (section "Numerical safeguards"), and the
   active-set solver stops when it cycles at a vertex;
 - the selection of ancestry informative markers by sparse K-means, which is

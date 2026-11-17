@@ -1,0 +1,9 @@
+"tool","init","seed","n_cores","crossval","seconds","loglik","cv_error","iterations"
+"radmix","random",1,1,FALSE,39.247,-101809867.10563,NA,21
+"radmix","random",1,1,TRUE,102.044,-101809867.10563,0.42238762467736,21
+"radmix","random",1,2,FALSE,20.751,-101809867.10563,NA,21
+"radmix","random",1,2,TRUE,54.031,-101809867.10563,0.42238762467736,21
+"radmix","random",1,4,FALSE,10.442,-101809867.10563,NA,21
+"radmix","random",1,4,TRUE,26.927,-101809867.10563,0.42238762467736,21
+"radmix","random",1,8,FALSE,5.68299999999999,-101809867.10563,NA,21
+"radmix","random",1,8,TRUE,14.743,-101809867.10563,0.42238762467736,21

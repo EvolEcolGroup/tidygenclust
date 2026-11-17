@@ -67,10 +67,17 @@ test_that("loglik handles extreme frequencies and non-integer dosages", {
   expect_equal(ll, radmix_ref_loglik(inp$g, inp$n, st$q, p),
     tolerance = 1e-10
   )
+  # (the same from the pass that also updates q)
+  expect_equal(radmix_update_q_loglik_cpp(inp$geno, st$q, p, 2)$loglik, ll,
+    tolerance = 1e-12
+  )
   # a qp of exactly 0 for an observed alt allele gives -Inf, not NaN
   p[, 1] <- 0
   expect_true(any(inp$g[, 1] > 0, na.rm = TRUE))
   expect_identical(radmix_loglik_cpp(inp$geno, st$q, p, 2), -Inf)
+  expect_identical(
+    radmix_update_q_loglik_cpp(inp$geno, st$q, p, 2)$loglik, -Inf
+  )
   # dosages that are not hard calls use the direct formula
   # (decoding byte 1 as 0.7 instead of 1 turns heterozygotes into
   # non-integer dosages)
@@ -81,6 +88,11 @@ test_that("loglik handles extreme frequencies and non-integer dosages", {
   expect_true(any(g == 0.7, na.rm = TRUE))
   expect_equal(
     radmix_loglik_cpp(geno, st$q, st$p, 2),
+    radmix_ref_loglik(g, inp$n, st$q, st$p),
+    tolerance = 1e-10
+  )
+  expect_equal(
+    radmix_update_q_loglik_cpp(geno, st$q, st$p, 2)$loglik,
     radmix_ref_loglik(g, inp$n, st$q, st$p),
     tolerance = 1e-10
   )
@@ -264,7 +276,9 @@ test_that("kernels are correct when the loci are split into segments", {
   # 70 individuals (2 blocks) and 2000 loci: 7 segments
   expect_identical(radmix_q_segments_cpp(70, 2000), 7L)
   # many individuals, or few loci, use a single pass
-  expect_identical(radmix_q_segments_cpp(5000, 2000), 1L)
+  expect_identical(radmix_q_segments_cpp(10000, 2000), 1L)
+  # the HGDP (1043 individuals, 17 blocks): 8 segments, for 136 tasks
+  expect_identical(radmix_q_segments_cpp(1043, 130943), 8L)
   expect_identical(radmix_q_segments_cpp(70, 300), 1L)
   seg <- radmix_simulate_admixed(
     n = 70, m = 2000, k = 3, missing = 0.03, seed = 8
@@ -296,6 +310,127 @@ test_that("kernels are correct when the loci are split into segments", {
     expect_identical(kernel(inp$geno, st$q, st$p, 3), res1)
     expect_identical(kernel(inp$geno, st$q, st$p, 4), res1)
   }
+})
+
+# The fitting loop evaluates a point and computes the first update of the
+# next iteration in one pass (update_q_loglik() in src/radmix_kernels.cpp)
+test_that("the fused update of q and log-likelihood match the two passes", {
+  # one dataset with a single segment of loci and one with several (and
+  # missing genotypes), a cross-validation view with a fold hidden, and
+  # genotype likelihoods (with several segments)
+  big <- radmix_simulate_admixed(n = 130, m = 150, k = 3, seed = 6)
+  seg <- radmix_simulate_admixed(
+    n = 70, m = 2000, k = 3, missing = 0.03, seed = 8
+  )
+  seg_geno <- radmix_prepare(radmix_test_gt(seg$genotypes))
+  cases <- list(
+    list(
+      geno = radmix_prepare(radmix_test_gt(big$genotypes)), n = 130, m = 150
+    ),
+    list(geno = seg_geno, n = 70, m = 2000),
+    list(geno = radmix_set_cv(seg_geno, list(
+      mode = "train", fold = 2, n_folds = 5, seed = 3
+    )), n = 70, m = 2000),
+    list(
+      geno = radmix_test_gl(radmix_simulate_gl(seg$genotypes, depth = 3)),
+      n = 70, m = 2000
+    )
+  )
+  for (cs in cases) {
+    st <- radmix_ref_start(cs$n, cs$m, 3)
+    fused <- radmix_update_q_loglik_cpp(cs$geno, st$q, st$p, 1)
+    # the same update, and the same log-likelihood up to rounding (the terms
+    # are added up in another order)
+    expect_identical(fused$q, radmix_update_q_cpp(cs$geno, st$q, st$p, 1))
+    expect_equal(fused$loglik, radmix_loglik_cpp(cs$geno, st$q, st$p, 1),
+      tolerance = 1e-12
+    )
+    # identical for any number of threads
+    expect_identical(radmix_update_q_loglik_cpp(cs$geno, st$q, st$p, 3), fused)
+    expect_identical(radmix_update_q_loglik_cpp(cs$geno, st$q, st$p, 4), fused)
+  }
+})
+
+test_that("the Q side keeps fixed individuals and updates the others", {
+  # (supervised analyses) 130 individuals (3 blocks), and 70 individuals x
+  # 2000 loci (7 segments); the fixed individuals form a run and are also
+  # scattered, so the free individuals of a slice are sometimes
+  # consecutive (read directly from the backing file) and sometimes not
+  for (dims in list(c(130, 150), c(70, 2000))) {
+    n <- dims[1]
+    sim_f <- radmix_simulate_admixed(
+      n = n, m = dims[2], k = 3, missing = 0.03, seed = 9
+    )
+    inp <- radmix_ref_inputs(radmix_test_gt(sim_f$genotypes))
+    st <- radmix_ref_start(n, dims[2], 3)
+    fixed <- rep(FALSE, n)
+    fixed[c(1:40, seq(45, n, by = 3))] <- TRUE
+    # the fixed columns are copied, the others updated as without a mask
+    # (the same sums, accumulated in the same order)
+    q_all <- radmix_update_q_cpp(inp$geno, st$q, st$p, 1)
+    q_sup <- radmix_update_q_cpp(inp$geno, st$q, st$p, 1, fixed)
+    expect_identical(q_sup[, fixed], st$q[, fixed])
+    expect_equal(q_sup[, !fixed], q_all[, !fixed], tolerance = 1e-12)
+    # the same for EM, whose P block uses every individual
+    em_all <- radmix_em_cpp(inp$geno, st$q, st$p, 1)
+    em_sup <- radmix_em_cpp(inp$geno, st$q, st$p, 1, fixed)
+    expect_identical(em_sup$q[, fixed], st$q[, fixed])
+    expect_equal(em_sup$q[, !fixed], em_all$q[, !fixed], tolerance = 1e-12)
+    expect_identical(em_sup$p, em_all$p)
+    # results do not depend on the number of cores
+    expect_identical(
+      radmix_update_q_cpp(inp$geno, st$q, st$p, 3, fixed), q_sup
+    )
+    expect_identical(radmix_em_cpp(inp$geno, st$q, st$p, 3, fixed), em_sup)
+    # nothing to update when every individual is fixed
+    expect_identical(
+      radmix_update_q_cpp(inp$geno, st$q, st$p, 2, rep(TRUE, n)), st$q
+    )
+    # with the training view of cross-validation (the free individuals read
+    # through their indices are hidden by the same folds)
+    train <- radmix_set_cv(inp$geno, cv = list(
+      mode = "train", fold = 2, n_folds = 5, seed = 3
+    ))
+    expect_equal(
+      radmix_update_q_cpp(train, st$q, st$p, 1, fixed)[, !fixed],
+      radmix_update_q_cpp(train, st$q, st$p, 1)[, !fixed],
+      tolerance = 1e-12
+    )
+    # with genotype likelihoods (the source fills a run of free individuals
+    # in one call, and scattered ones one at a time)
+    gl_dat <- radmix_test_gl(radmix_simulate_gl(sim_f$genotypes, depth = 3))
+    expect_equal(
+      radmix_update_q_cpp(gl_dat, st$q, st$p, 1, fixed)[, !fixed],
+      radmix_update_q_cpp(gl_dat, st$q, st$p, 1)[, !fixed],
+      tolerance = 1e-12
+    )
+    em_gl <- radmix_em_cpp(gl_dat, st$q, st$p, 1, fixed)
+    expect_identical(em_gl$q[, fixed], st$q[, fixed])
+    expect_equal(em_gl$q[, !fixed],
+      radmix_em_cpp(gl_dat, st$q, st$p, 1)$q[, !fixed],
+      tolerance = 1e-12
+    )
+  }
+  # with pseudohaploids (decoded individual by individual), the free
+  # individuals are read through the general paths
+  hap <- radmix_simulate_admixed(n = 130, m = 150, k = 3, seed = 9)$genotypes
+  hap[1:15, ] <- 2 * (hap[1:15, ] >= 1)
+  inp <- radmix_ref_inputs(
+    tidypopgen::gt_pseudohaploid(radmix_test_gt(hap))
+  )
+  expect_true(any(inp$n == 1))
+  st <- radmix_ref_start(130, 150, 3)
+  fixed <- rep(FALSE, 130)
+  fixed[c(1:40, seq(45, 130, by = 3))] <- TRUE
+  expect_equal(
+    radmix_update_q_cpp(inp$geno, st$q, st$p, 1, fixed)[, !fixed],
+    radmix_update_q_cpp(inp$geno, st$q, st$p, 1)[, !fixed],
+    tolerance = 1e-12
+  )
+  expect_error(
+    radmix_update_q_cpp(inp$geno, st$q, st$p, 1, fixed[-1]),
+    "'fixed' must have one value per individual"
+  )
 })
 
 test_that("empty inputs give errors rather than crashes", {

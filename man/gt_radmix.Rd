@@ -18,9 +18,12 @@ gt_radmix(
   init_p = NULL,
   fix_q = FALSE,
   fix_p = FALSE,
+  supervised = NULL,
   use_imputed = FALSE,
   crossval = FALSE,
   n_folds = 5,
+  cv_max_iter = max_iter,
+  cv_rtol = max(rtol, 1e-07),
   n_cores = 1,
   verbose = FALSE
 )
@@ -77,6 +80,13 @@ in the order of the loci of \code{x}}
 \item{fix_q, fix_p}{booleans; if \code{TRUE}, Q (respectively P) is kept at the
 value given in \code{init_q} (respectively \code{init_p})}
 
+\item{supervised}{optional vector (character or factor) with one element
+per individual of \code{x}, for a supervised analysis (as ADMIXTURE's
+\code{--supervised}): the population of each reference individual, whose
+ancestry is then fixed, and \code{NA} for the individuals to estimate. \code{k}
+must be a single value, equal to the number of populations. See
+"Supervised analyses" in the details.}
+
 \item{use_imputed}{boolean; if \code{TRUE}, imputed genotypes are used as if
 they were observed; otherwise they are treated as missing (the default).
 Only for genotypes.}
@@ -86,6 +96,13 @@ Only for genotypes.}
 
 \item{n_folds}{the number of folds used for cross-validation (defaults to
 5, as in ADMIXTURE)}
+
+\item{cv_max_iter, cv_rtol}{the maximum number of iterations and the
+convergence threshold of the refit of each fold in cross-validation
+(default to \code{max_iter}, as for the full data, and to 1e-7, or \code{rtol} if
+it is larger). Smaller \code{cv_max_iter} or larger \code{cv_rtol} make
+cross-validation faster but bias its errors downwards (see
+"Cross-validation" in the details).}
 
 \item{n_cores}{the number of cores to use (defaults to 1); the results
 do not depend on it}
@@ -109,6 +126,8 @@ proportions
 \item \code{cv} the cross-validation error of each run (if \code{crossval} is \code{TRUE})
 \item \code{id} the id column of \code{x}
 \item \code{group} the group column of \code{x} (if \code{x} is grouped)
+\item \code{ref_pops} the reference population of each column of Q and P (only for
+a supervised analysis)
 \item \code{algorithm} "radmix"
 }
 }
@@ -122,10 +141,11 @@ and P, each solved as a constrained quadratic program, accelerated by the
 quasi-Newton scheme of Zhou, Alexander and Lange (2011). It also offers
 the cross-validation of ADMIXTURE to choose K (Alexander and Lange 2011),
 a start from a truncated singular value decomposition (SVD) of the
-genotypes, and support for pseudohaploid data. With genotype likelihoods
-(given by another package, see \code{\link[=gt_radmix_data]{gt_radmix_data()}}), it fits the model of
-NGSadmix (Skotte et al. 2013), the ADMIXTURE model for low-depth
-sequencing data, with the same algorithm. If you use this function,
+genotypes, supervised analyses with individuals of known ancestry, and
+support for pseudohaploid data. With genotype likelihoods (given by
+another package, see \code{\link[=gt_radmix_data]{gt_radmix_data()}}), it fits the model of NGSadmix
+(Skotte et al. 2013), the ADMIXTURE model for low-depth sequencing data,
+with the same algorithm. If you use this function,
 please cite Alexander et al. (2009) for the method, and, if you use
 cross-validation, Alexander and Lange (2011); with genotype likelihoods,
 also cite Skotte et al. (2013).
@@ -228,6 +248,52 @@ allele frequency below 0.05 (its option \code{-minMaf}), \code{gt_radmix()} uses
 all the loci of \code{x}: select them beforehand if needed.
 }
 
+\subsection{Supervised analyses}{
+
+As with ADMIXTURE's \code{--supervised} option, the ancestry of some
+individuals can be given rather than estimated: \code{supervised} gives the
+population of each of these reference individuals (and \code{NA} for the
+individuals to estimate), and each population is one of the \code{k}
+ancestral populations, so \code{k} must equal the number of populations in
+\code{supervised}. The ancestry proportions of each reference individual
+are fixed at 1 for its population and 0 for the others (moved inside
+the feasible set like every estimate, i.e. 1 - (k - 1) 1e-5 and 1e-5,
+as reported by ADMIXTURE); the allele frequencies of the ancestral
+populations (P) are estimated from all the individuals, and the ancestry
+of the other individuals is estimated given them. Each column of Q and
+P is one reference population: in the order of the levels of
+\code{supervised} if it is a factor, or of their first appearance otherwise
+(the order used by ADMIXTURE for the populations of its \code{.pop} file).
+The populations are listed in the element \code{ref_pops} of the result (the
+columns of Q keep the names \code{.Q1}, \code{.Q2}, ..., which tidypopgen's
+methods expect).
+
+The fit is the same as in an unsupervised analysis (random start, EM
+priming, block updates and quasi-Newton steps), with the reference
+individuals fixed from the start; their ancestry proportions are never
+updated, and the passes over the genotypes skip the work that only
+serves them, so a supervised fit with many reference individuals is
+faster than an unsupervised one. Cross-validation (\code{crossval = TRUE})
+is available, as in ADMIXTURE: the reference individuals stay fixed in
+the fit of each fold, and their genotypes belong to the folds and are
+predicted like the others (ADMIXTURE does not document this detail).
+\code{init_q} (whose rows for the reference individuals are ignored) and
+\code{init_p} can give starting values; \code{fix_q}, \code{fix_p} and \code{init = "svd"}
+cannot be combined with \code{supervised}. Supervised analyses are also
+available for genotype likelihoods (without cross-validation).
+
+When the reference individuals are many, starting P from the allele
+frequencies of the reference populations, as fastmixture does in its
+supervised mode, can save iterations: pass them as \code{init_p} (the
+frequency of the alternate allele, e.g. from
+\code{\link[tidypopgen:loci_alt_freq]{tidypopgen::loci_alt_freq()}} on the individuals of each population,
+in the order of the columns), with \code{n_em_iter = 0} (the individuals to
+estimate then start from random values). On the HGDP data (K = 5, 660
+of 1043 individuals as references), this took 7 iterations instead of
+11 and 5 EM steps, to the same log-likelihood; with fewer references
+(\code{EUR_subset}, 102 of 379), it made no difference.
+}
+
 \subsection{Starting values from the SVD}{
 
 With \code{init = "svd"}, each run starts from the principal components of
@@ -285,7 +351,9 @@ averaged over all the masked genotypes of all folds. Where ADMIXTURE does
 not document the details, we made the following choices:
 \itemize{
 \item each fold is fitted starting from the estimates for the full data, with
-the same convergence criteria (\code{max_iter} and \code{rtol});
+at most \code{max_iter} iterations and a convergence threshold of 1e-7
+(or \code{rtol}, if larger) by default (see below for \code{cv_max_iter} and
+\code{cv_rtol});
 \item genotypes are assigned to folds by a hash of their position and of a
 seed drawn from the random number generator (reproducible with
 \code{seed}), so the folds differ from those of ADMIXTURE and the errors
@@ -296,6 +364,26 @@ agree with ADMIXTURE's closely but not exactly;
 Cross-validation does not change the estimates of Q and P, but requires
 \code{n_folds} additional fits for each run (each usually converging in a few
 iterations).
+
+The refits of the folds stop earlier than the fit to the full data
+(\code{cv_rtol = 1e-7}, against \code{rtol = 1e-8}), and can be shortened further
+with \code{cv_max_iter} (at most that many iterations per fold; ADAMIXTURE
+refits each fold with 5) or a larger \code{cv_rtol}. This saves time, but
+biases the errors downwards: each refit starts from the estimates for
+the full data, which have seen the masked genotypes, and a refit stopped
+early still predicts them too well, the more so at larger \code{k}. In our
+tests, the default halved the cost of cross-validation on EUR_subset
+(379 individuals, 54,051 loci, \code{k} = 1-6, 5 seeds), where refits run to
+\code{rtol} took 24 iterations on average, and lowered the errors by at most
+1.5e-5 up to \code{k} = 4, and by 1.2e-4 and 2e-4 at \code{k} = 5 and 6, while
+the errors of successive values of \code{k} differed by 5e-4 to 3e-3. On the
+HGDP (1,043 individuals, 130,943 loci, \code{k} = 2-10, 3 seeds), where
+refits converge in about 7 iterations, it saved 11\% of the passes and
+changed the errors by less than 1e-6. Shorter refits save more on
+EUR_subset (\code{cv_rtol = 1e-6}: 74\%; \code{cv_max_iter = 5}: 80\%) with larger
+biases (up to 6.7e-4 and 1e-3 at \code{k} = 6). None of these choices changed
+the value of \code{k} with the lowest error, for any seed. To refit each fold
+to convergence, set \code{cv_rtol = rtol}.
 }
 
 \subsection{Reproducibility}{
@@ -334,9 +422,15 @@ checks that the errors agree with those of ADMIXTURE on \code{EUR_subset};
 \item ADMIXTURE treats the autosomal genotypes of every individual as
 diploid, whereas \code{gt_radmix()} counts a single allele per locus for
 pseudohaploid individuals (see above);
-\item bootstrap standard errors and supervised analyses with individuals of
-known ancestry, available in ADMIXTURE, are not implemented (a fixed
-reference panel can be used with \code{init_p} and \code{fix_p}).
+\item supervised analyses (\code{supervised}) follow ADMIXTURE's \code{--supervised}
+option: the same fixed ancestry of the reference individuals, the
+same order of the populations, and the same requirement that \code{k}
+equals their number; \code{supervised} gives the populations as a vector
+(with \code{NA} for the individuals to estimate) instead of a \code{.pop} file
+(with \code{-}). The test suite checks the estimates against those of
+ADMIXTURE on \code{EUR_subset};
+\item bootstrap standard errors, available in ADMIXTURE, are not
+implemented.
 }
 }
 }
@@ -353,6 +447,15 @@ adm$Q[[1]]
 # choose k by cross-validation
 adm_cv <- gt_radmix(pop_a, k = 1:3, seed = 1, crossval = TRUE)
 adm_cv$cv
+
+# supervised analysis: the first two individuals are references of
+# population "A" and the next two of population "B"; the ancestry of the
+# others is estimated
+pops <- rep(NA, nrow(pop_a))
+pops[1:4] <- c("A", "A", "B", "B")
+adm_sup <- gt_radmix(pop_a, k = 2, seed = 1, supervised = pops)
+adm_sup$ref_pops
+adm_sup$Q[[1]]
 }
 \references{
 Alexander DH, Novembre J, Lange K (2009) Fast model-based
