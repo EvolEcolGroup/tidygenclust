@@ -19,7 +19,8 @@ Notes for developers and Claude sessions. Start with `summary.md` and
 - `radmix_performance.md`: what made it faster, what was tried and
   rejected, the leads left, and where the full records are archived
   (tags `archive/radmix-perf-verify`, `archive/newspeed`,
-  `archive/supervised`).
+  `archive/supervised`); the timing of the port against `dev` (16 Nov
+  2026) is in `radmix_port_timing_2026-11/`.
 - `../data-raw/radmix/README.md`: the test fixtures (ADMIXTURE,
   OpenADMIXTURE.jl, NGSadmix) and how to regenerate them.
 - `../data-raw/radmix/gl/REPORT.md`: the validation and benchmarks of
