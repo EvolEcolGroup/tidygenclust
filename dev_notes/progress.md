@@ -5,6 +5,16 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-17 (manica01): PR #36 merged; branches deleted
+
+- Andrea merged PR #36 into `dev` (47f5780).
+- Deleted on origin: `newspeed`, `supervised` (records in the tags
+  `archive/newspeed`, `archive/supervised`), `newspeed_supervised`,
+  `coverage-speed`; locally on manica01 also `newspeed_port`, `adamixture`,
+  `rewrite`, `openadmixture`, `rclump`, and the worktrees of the old
+  branches. Kept: `articles_revised`, `hgdp_plots`, `windows` (not merged).
+- `tgc-desktop-checks.timer` disabled.
+
 ## 2026-11-16 (manica01): full HGDP benchmark in the article
 
 - `admixture_benchmark.Rmd` now reads `data/admixture_benchmark` (full
