@@ -1,6 +1,6 @@
 # tidygenclust: handover
 
-Updated 2026-11-16 (laptopX1, evening): PR #37 closed; plan before the merge of #36 revised by Andrea (timing against `dev`, then the full HGDP benchmark of the article). For the next session: read this and
+Updated 2026-11-16 (manica01, night): the port is timed against `dev` and the benchmark article shows the full HGDP run; PR #36 waits only for review. For the next session: read this and
 `summary.md` first. History is in `progress.md`; designs are in the topic
 documents listed in `README.md`.
 
@@ -19,32 +19,11 @@ documents listed in `README.md`.
 
 ## Next tasks
 
-### 1. **P1** [desktop] Time `newspeed_port` against `dev`: done 16 Nov
+### 1. **P1** [review] Merge PR #36
 
-0.78-0.85 of `dev`'s time (0.92 at HGDP K = 10, 1 thread); see
-`radmix_performance.md`. Kept below for the record: Done when the gain is confirmed (expected: 0.75-0.85
-of `dev`'s time, as measured before the port; #35's templating may shift
-it) and recorded in `radmix_performance.md`. If the port is not faster,
-stop and report before task 2.
-
-### 2. **P1** [desktop] Full HGDP benchmark of the article
-
-- **Branch:** `newspeed_port`, installed with `R CMD INSTALL` (-O2), not
-  `load_all()`.
-- **What:** `vignettes/articles/admixture_benchmark.Rmd` shows only the
-  results of a `quick` run (`params$results_dir` is
-  `data/admixture_benchmark_quick`, and line 38 warns they are
-  provisional). Run the full benchmark (see "Desktop queue"), commit
-  `vignettes/articles/data/admixture_benchmark/` (Q, logs, timings; not
-  `data/hgdp/runs`), set `results_dir` to `data/admixture_benchmark`,
-  remove the provisional note, and check the text against the new numbers.
-- **Done when:** the article renders with the full results (`TMPDIR` on
-  the annex drive on the laptop) and is pushed to `newspeed_port`.
-
-### 3. **P1** [review] Merge PR #36
-
-- **After tasks 1 and 2.** Verified on the desktop (16 Nov, manica01):
-  both R CMD checks pass, see the comment on PR #36; only
+- **Ready:** the port is 0.78-0.92 of `dev`'s time
+  (`radmix_performance.md`), the benchmark article shows the full HGDP
+  run (5eb3c73), and both R CMD checks pass on the desktop (16 Nov), see the comment on PR #36; only
   `test_gt_adamixture.R` was not run there (python `adamixture` not
   installed).
 - **Read first:** the PR description; `dev_notes/radmix_performance.md`
@@ -68,14 +47,14 @@ stop and report before task 2.
   counters): skip them there (`skip_on_covr()`). Tests that run on CRAN use
   at most 2 threads.
 
-### 4. **P2** [claude] then [review] `articles_revised`
+### 2. **P2** [claude] then [review] `articles_revised`
 
 - **Branch:** `articles_revised`; rebase or merge `dev` into it and resolve
   the conflict in `vignettes/articles/pseudohaploids.Rmd`.
 - **Check:** render the article (`TMPDIR` on the annex drive).
 - **Done when:** a PR into `dev` is open for Andrea's review.
 
-### 5. **P3** [claude] A fused pass for supervised fits
+### 3. **P3** [claude] A fused pass for supervised fits
 
 - **Where:** `update_q_impl()` in `src/radmix_kernels.cpp` and the
   `speculate` logic of `radmix_fit_cpp()` (`src/radmix_fit.cpp`).
@@ -85,68 +64,22 @@ stop and report before task 2.
 - **Done when:** supervised fits take 4 passes per accepted iteration, with
   tests that their estimates are unchanged (to rounding).
 
-### 6. **P3** [cleanup] Branches and scratch files
+### 4. **P3** [cleanup] Branches and scratch files
 
-- Origin: `gl`, `simplify`; after task 3, `newspeed`, `supervised`,
+- Origin: `gl`, `simplify`; after task 1, `newspeed`, `supervised`,
   `newspeed_supervised`, `coverage-speed` and its worktree.
 - Local: `gl_gl16`, `gl_private`, `radmix-speedups`, `radmix-perf-verify`,
   `kernel-speedups`, `svd-start`; the untracked
   `data-raw/radmix/perf_verification/` (a copy of what the tag
   `archive/radmix-perf-verify` holds).
 - manica01: `systemctl --user disable --now tgc-desktop-checks.timer`, and
-  delete `~/tgc_newspeed_work` once the timing check (task 1) is done.
+  delete `~/tgc_newspeed_work` and `~/tgc_bench_article` (the builds and raw
+  outputs of the 15 and 16 Nov runs; the summaries are in the repository).
 
 ## Desktop queue
 
-### Verification of `newspeed_port`: done 16 Nov, see PR #36
-
-- **Set-up:** on manica01, `cd ~/git/tidygenclust && git fetch origin &&
-  git checkout newspeed_port && git pull --ff-only`; `R CMD build .`.
-- **Run:** `R CMD check --as-cran tidygenclust_*.tar.gz` (CRAN mode), then
-  `NOT_CRAN=true R CMD check tidygenclust_*.tar.gz` (all tests, against the
-  installed -O2 build; needs the internet for EUR_subset, and python for
-  the ADAMIXTURE, fastmixture and clumppling tests). Not timing-sensitive;
-  about 10 min each, 2-4 cores (on the E-cores: `taskset -c 8-23`).
-- **Done when:** no ERROR or WARNING, and the NOTEs are the known ones;
-  the CPU/elapsed ratio of the tests in CRAN mode below 2.5.
-- **Report:** a comment on PR #36 with the results, and a progress entry.
-
-### 1. Timing of the port against `dev` (P1)
-
-- **Branch and set-up:** on manica01, `~/tgc_newspeed_work` still has the
-  builds and the cached data of the run of 15 Nov. The kit is in the tag:
-  `git worktree add ../tgc_kit archive/newspeed`, then run from that
-  worktree, which builds any commit given as `label=commit`.
-- **Run:** `MAKEFLAGS=-j8 PIN=0-7 bash $K/build_variants.sh
-  dev=a20eb08 port=newspeed_port`, then `MAX_ITER=8
-  CASES=hgdp:5,hgdp:10 THREADS="1 8" ROUNDS=3 bash $K/run_bench.sh
-  $TGC_WORK/results/port dev final port` (`K=data-raw/radmix/newspeed`,
-  `TGC_WORK=$HOME/tgc_newspeed_work`; 8 P-cores, about 30 min,
-  timing-sensitive: idle machine, warn the other sessions).
-- **Results:** `$TGC_WORK/results/port/summary.md`; expected: `port` close
-  to `final` (0.76-0.80 of `dev`'s time before #35) apart from
-  `MIN_Q_TASKS` (3-6% at 8 threads).
-- **Report:** a table in `radmix_performance.md`, a progress entry, and a
-  log comment in claude_jobs#3.
-
-### 2. Full HGDP benchmark of `admixture_benchmark.Rmd` (P1, after 1)
-
-- **Set-up:** on manica01, `newspeed_port` installed with `R CMD INSTALL`;
-  ADMIXTURE, fastmixture and ADAMIXTURE in the `ctidygenclust` conda
-  environment; OpenADMIXTURE.jl via `data-raw/radmix/setup_julia_env.sh`.
-  Check first that every program runs (`bash code/admixture_benchmark_cli.sh
-  quick` and `Rscript code/admixture_benchmark_radmix.R quick`).
-- **Run:** from `vignettes/articles`, as the article says ("Running the
-  benchmark again"): `Rscript code/admixture_benchmark_data.R` (if
-  `data/hgdp/hgdp_bench.bed` is missing), then `taskset -c 0-7 bash
-  code/admixture_benchmark_cli.sh` and `taskset -c 0-7 Rscript
-  code/admixture_benchmark_radmix.R`. 1, 2, 4 and 8 cores, with and
-  without CV, plus 5 seeds of each start; timing-sensitive: idle machine,
-  warn the other sessions. Run time not yet known: estimate it from the
-  ADMIXTURE runs at 1 core (the slowest) before scheduling.
-- **Results:** `vignettes/articles/data/admixture_benchmark/`.
-- **Report:** commit the results to `newspeed_port` with the article
-  switched to them, a progress entry, and a log comment in claude_jobs#3.
+Empty. The driver of the last unattended run (port timing and the full
+article benchmark, 16 Nov) is `dev_notes/radmix_port_timing_2026-11/run_desktop.sh`.
 
 ## Backlog
 

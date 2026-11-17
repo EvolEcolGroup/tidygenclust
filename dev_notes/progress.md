@@ -5,6 +5,17 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-16 (manica01): full HGDP benchmark in the article
+
+- `admixture_benchmark.Rmd` now reads `data/admixture_benchmark` (full
+  HGDP, 1043 x 130,943, K = 5; desktop P-cores, `newspeed_port` 2e2f5b4 at
+  -O2), and its provisional note is gone (5eb3c73). The runs took 2.4 h.
+- `gt_radmix()` from the command line: 39.8 s on 1 core, 6.6 s on 8
+  (ADMIXTURE 326 / 360 s, fastmixture 455 / 69 s, ADAMIXTURE 75 / 10.7 s,
+  OpenADMIXTURE.jl 220 / 50 s). ADMIXTURE ends 9.6 below the others in
+  log-likelihood; the article's sentence on local optima now says so.
+- ADMIXTURE's `-j` does not speed it up here (as in the quick run).
+
 ## 2026-11-16 (manica01): the port is faster than `dev`
 
 - Whole fits, `dev` (a20eb08) against `newspeed_port` (2e2f5b4), desktop,
