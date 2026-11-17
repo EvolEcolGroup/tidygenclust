@@ -8,10 +8,11 @@ and P, each solved as a constrained quadratic program, accelerated by the
 quasi-Newton scheme of Zhou, Alexander and Lange (2011). It also offers
 the cross-validation of ADMIXTURE to choose K (Alexander and Lange 2011),
 a start from a truncated singular value decomposition (SVD) of the
-genotypes, and support for pseudohaploid data. With genotype likelihoods
-(given by another package, see gt_radmix_data()), it fits the model of
-NGSadmix (Skotte et al. 2013), the ADMIXTURE model for low-depth
-sequencing data, with the same algorithm. If you use this function,
+genotypes, supervised analyses with individuals of known ancestry, and
+support for pseudohaploid data. With genotype likelihoods (given by
+another package, see gt_radmix_data()), it fits the model of NGSadmix
+(Skotte et al. 2013), the ADMIXTURE model for low-depth sequencing data,
+with the same algorithm. If you use this function,
 please cite Alexander et al. (2009) for the method, and, if you use
 cross-validation, Alexander and Lange (2011); with genotype likelihoods,
 also cite Skotte et al. (2013)."><meta property="og:image" content="/logo.png"><!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha256-nvJJv9wWKEm88qvoQl9ekL2J+k/RWIsaSScxxlsrv8k=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/config/TeX-AMS-MML_HTMLorMML.js" integrity="sha256-84DKXVJXs0/F8OTMzX4UR909+jtl4G7SPypPavF+GfA=" crossorigin="anonymous"></script><!--[if lt IE 9]>
@@ -89,10 +90,11 @@ and P, each solved as a constrained quadratic program, accelerated by the
 quasi-Newton scheme of Zhou, Alexander and Lange (2011). It also offers
 the cross-validation of ADMIXTURE to choose K (Alexander and Lange 2011),
 a start from a truncated singular value decomposition (SVD) of the
-genotypes, and support for pseudohaploid data. With genotype likelihoods
-(given by another package, see <code><a href="gt_radmix_data.html">gt_radmix_data()</a></code>), it fits the model of
-NGSadmix (Skotte et al. 2013), the ADMIXTURE model for low-depth
-sequencing data, with the same algorithm. If you use this function,
+genotypes, supervised analyses with individuals of known ancestry, and
+support for pseudohaploid data. With genotype likelihoods (given by
+another package, see <code><a href="gt_radmix_data.html">gt_radmix_data()</a></code>), it fits the model of NGSadmix
+(Skotte et al. 2013), the ADMIXTURE model for low-depth sequencing data,
+with the same algorithm. If you use this function,
 please cite Alexander et al. (2009) for the method, and, if you use
 cross-validation, Alexander and Lange (2011); with genotype likelihoods,
 also cite Skotte et al. (2013).</p>
@@ -113,9 +115,12 @@ also cite Skotte et al. (2013).</p>
 <span>  init_p <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  fix_q <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  fix_p <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  supervised <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  use_imputed <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  crossval <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  n_folds <span class="op">=</span> <span class="fl">5</span>,</span>
+<span>  cv_max_iter <span class="op">=</span> <span class="va">max_iter</span>,</span>
+<span>  cv_rtol <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">rtol</span>, <span class="fl">1e-07</span><span class="op">)</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -200,6 +205,15 @@ in the order of the loci of <code>x</code></p></dd>
 value given in <code>init_q</code> (respectively <code>init_p</code>)</p></dd>
 
 
+<dt id="arg-supervised">supervised<a class="anchor" aria-label="anchor" href="#arg-supervised"></a></dt>
+<dd><p>optional vector (character or factor) with one element
+per individual of <code>x</code>, for a supervised analysis (as ADMIXTURE's
+<code>--supervised</code>): the population of each reference individual, whose
+ancestry is then fixed, and <code>NA</code> for the individuals to estimate. <code>k</code>
+must be a single value, equal to the number of populations. See
+"Supervised analyses" in the details.</p></dd>
+
+
 <dt id="arg-use-imputed">use_imputed<a class="anchor" aria-label="anchor" href="#arg-use-imputed"></a></dt>
 <dd><p>boolean; if <code>TRUE</code>, imputed genotypes are used as if
 they were observed; otherwise they are treated as missing (the default).
@@ -214,6 +228,15 @@ Only for genotypes.</p></dd>
 <dt id="arg-n-folds">n_folds<a class="anchor" aria-label="anchor" href="#arg-n-folds"></a></dt>
 <dd><p>the number of folds used for cross-validation (defaults to
 5, as in ADMIXTURE)</p></dd>
+
+
+<dt id="arg-cv-max-iter-cv-rtol">cv_max_iter, cv_rtol<a class="anchor" aria-label="anchor" href="#arg-cv-max-iter-cv-rtol"></a></dt>
+<dd><p>the maximum number of iterations and the
+convergence threshold of the refit of each fold in cross-validation
+(default to <code>max_iter</code>, as for the full data, and to 1e-7, or <code>rtol</code> if
+it is larger). Smaller <code>cv_max_iter</code> or larger <code>cv_rtol</code> make
+cross-validation faster but bias its errors downwards (see
+"Cross-validation" in the details).</p></dd>
 
 
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
@@ -241,6 +264,8 @@ proportions</p></li>
 <li><p><code>cv</code> the cross-validation error of each run (if <code>crossval</code> is <code>TRUE</code>)</p></li>
 <li><p><code>id</code> the id column of <code>x</code></p></li>
 <li><p><code>group</code> the group column of <code>x</code> (if <code>x</code> is grouped)</p></li>
+<li><p><code>ref_pops</code> the reference population of each column of Q and P (only for
+a supervised analysis)</p></li>
 <li><p><code>algorithm</code> "radmix"</p></li>
 </ul></div>
     <div id="details">
@@ -336,6 +361,52 @@ all the loci of <code>x</code>: select them beforehand if needed.</p>
 </div>
 
 <div class="section">
+<h3 id="supervised-analyses">Supervised analyses<a class="anchor" aria-label="anchor" href="#supervised-analyses"></a></h3>
+
+
+<p>As with ADMIXTURE's <code>--supervised</code> option, the ancestry of some
+individuals can be given rather than estimated: <code>supervised</code> gives the
+population of each of these reference individuals (and <code>NA</code> for the
+individuals to estimate), and each population is one of the <code>k</code>
+ancestral populations, so <code>k</code> must equal the number of populations in
+<code>supervised</code>. The ancestry proportions of each reference individual
+are fixed at 1 for its population and 0 for the others (moved inside
+the feasible set like every estimate, i.e. 1 - (k - 1) 1e-5 and 1e-5,
+as reported by ADMIXTURE); the allele frequencies of the ancestral
+populations (P) are estimated from all the individuals, and the ancestry
+of the other individuals is estimated given them. Each column of Q and
+P is one reference population: in the order of the levels of
+<code>supervised</code> if it is a factor, or of their first appearance otherwise
+(the order used by ADMIXTURE for the populations of its <code>.pop</code> file).
+The populations are listed in the element <code>ref_pops</code> of the result (the
+columns of Q keep the names <code>.Q1</code>, <code>.Q2</code>, ..., which tidypopgen's
+methods expect).</p>
+<p>The fit is the same as in an unsupervised analysis (random start, EM
+priming, block updates and quasi-Newton steps), with the reference
+individuals fixed from the start; their ancestry proportions are never
+updated, and the passes over the genotypes skip the work that only
+serves them, so a supervised fit with many reference individuals is
+faster than an unsupervised one. Cross-validation (<code>crossval = TRUE</code>)
+is available, as in ADMIXTURE: the reference individuals stay fixed in
+the fit of each fold, and their genotypes belong to the folds and are
+predicted like the others (ADMIXTURE does not document this detail).
+<code>init_q</code> (whose rows for the reference individuals are ignored) and
+<code>init_p</code> can give starting values; <code>fix_q</code>, <code>fix_p</code> and <code>init = "svd"</code>
+cannot be combined with <code>supervised</code>. Supervised analyses are also
+available for genotype likelihoods (without cross-validation).</p>
+<p>When the reference individuals are many, starting P from the allele
+frequencies of the reference populations, as fastmixture does in its
+supervised mode, can save iterations: pass them as <code>init_p</code> (the
+frequency of the alternate allele, e.g. from
+<code><a href="https://evolecolgroup.github.io/tidypopgen/reference/loci_alt_freq.html" class="external-link">tidypopgen::loci_alt_freq()</a></code> on the individuals of each population,
+in the order of the columns), with <code>n_em_iter = 0</code> (the individuals to
+estimate then start from random values). On the HGDP data (K = 5, 660
+of 1043 individuals as references), this took 7 iterations instead of
+11 and 5 EM steps, to the same log-likelihood; with fewer references
+(<code>EUR_subset</code>, 102 of 379), it made no difference.</p>
+</div>
+
+<div class="section">
 <h3 id="starting-values-from-the-svd">Starting values from the SVD<a class="anchor" aria-label="anchor" href="#starting-values-from-the-svd"></a></h3>
 
 
@@ -388,7 +459,9 @@ the binomial deviance
 $$d(g, \mu) = g \log(g / \mu) + (n - g) \log((n - g) / (n - \mu))$$
 averaged over all the masked genotypes of all folds. Where ADMIXTURE does
 not document the details, we made the following choices:</p><ul><li><p>each fold is fitted starting from the estimates for the full data, with
-the same convergence criteria (<code>max_iter</code> and <code>rtol</code>);</p></li>
+at most <code>max_iter</code> iterations and a convergence threshold of 1e-7
+(or <code>rtol</code>, if larger) by default (see below for <code>cv_max_iter</code> and
+<code>cv_rtol</code>);</p></li>
 <li><p>genotypes are assigned to folds by a hash of their position and of a
 seed drawn from the random number generator (reproducible with
 <code>seed</code>), so the folds differ from those of ADMIXTURE and the errors
@@ -397,6 +470,25 @@ agree with ADMIXTURE's closely but not exactly;</p></li>
 </ul><p>Cross-validation does not change the estimates of Q and P, but requires
 <code>n_folds</code> additional fits for each run (each usually converging in a few
 iterations).</p>
+<p>The refits of the folds stop earlier than the fit to the full data
+(<code>cv_rtol = 1e-7</code>, against <code>rtol = 1e-8</code>), and can be shortened further
+with <code>cv_max_iter</code> (at most that many iterations per fold; ADAMIXTURE
+refits each fold with 5) or a larger <code>cv_rtol</code>. This saves time, but
+biases the errors downwards: each refit starts from the estimates for
+the full data, which have seen the masked genotypes, and a refit stopped
+early still predicts them too well, the more so at larger <code>k</code>. In our
+tests, the default halved the cost of cross-validation on EUR_subset
+(379 individuals, 54,051 loci, <code>k</code> = 1-6, 5 seeds), where refits run to
+<code>rtol</code> took 24 iterations on average, and lowered the errors by at most
+1.5e-5 up to <code>k</code> = 4, and by 1.2e-4 and 2e-4 at <code>k</code> = 5 and 6, while
+the errors of successive values of <code>k</code> differed by 5e-4 to 3e-3. On the
+HGDP (1,043 individuals, 130,943 loci, <code>k</code> = 2-10, 3 seeds), where
+refits converge in about 7 iterations, it saved 11% of the passes and
+changed the errors by less than 1e-6. Shorter refits save more on
+EUR_subset (<code>cv_rtol = 1e-6</code>: 74%; <code>cv_max_iter = 5</code>: 80%) with larger
+biases (up to 6.7e-4 and 1e-3 at <code>k</code> = 6). None of these choices changed
+the value of <code>k</code> with the lowest error, for any seed. To refit each fold
+to convergence, set <code>cv_rtol = rtol</code>.</p>
 </div>
 
 <div class="section">
@@ -436,9 +528,15 @@ checks that the errors agree with those of ADMIXTURE on <code>EUR_subset</code>;
 <li><p>ADMIXTURE treats the autosomal genotypes of every individual as
 diploid, whereas <code>gt_radmix()</code> counts a single allele per locus for
 pseudohaploid individuals (see above);</p></li>
-<li><p>bootstrap standard errors and supervised analyses with individuals of
-known ancestry, available in ADMIXTURE, are not implemented (a fixed
-reference panel can be used with <code>init_p</code> and <code>fix_p</code>).</p></li>
+<li><p>supervised analyses (<code>supervised</code>) follow ADMIXTURE's <code>--supervised</code>
+option: the same fixed ancestry of the reference individuals, the
+same order of the populations, and the same requirement that <code>k</code>
+equals their number; <code>supervised</code> gives the populations as a vector
+(with <code>NA</code> for the individuals to estimate) instead of a <code>.pop</code> file
+(with <code>-</code>). The test suite checks the estimates against those of
+ADMIXTURE on <code>EUR_subset</code>;</p></li>
+<li><p>bootstrap standard errors, available in ADMIXTURE, are not
+implemented.</p></li>
 </ul></div>
 
     </div>
@@ -492,6 +590,24 @@ admixture proportions from next generation sequencing data. Genetics,
 <span class="r-in"><span><span class="va">adm_cv</span> <span class="op">&lt;-</span> <span class="fu">gt_radmix</span><span class="op">(</span><span class="va">pop_a</span>, k <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, seed <span class="op">=</span> <span class="fl">1</span>, crossval <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">adm_cv</span><span class="op">$</span><span class="va">cv</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.8224648 1.1840311 0.7096221</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># supervised analysis: the first two individuals are references of</span></span></span>
+<span class="r-in"><span><span class="co"># population "A" and the next two of population "B"; the ancestry of the</span></span></span>
+<span class="r-in"><span><span class="co"># others is estimated</span></span></span>
+<span class="r-in"><span><span class="va">pops</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">pop_a</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">pops</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"B"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">adm_sup</span> <span class="op">&lt;-</span> <span class="fu">gt_radmix</span><span class="op">(</span><span class="va">pop_a</span>, k <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">1</span>, supervised <span class="op">=</span> <span class="va">pops</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">adm_sup</span><span class="op">$</span><span class="va">ref_pops</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "A" "B"</span>
+<span class="r-in"><span><span class="va">adm_sup</span><span class="op">$</span><span class="va">Q</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>          .Q1     .Q2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 0.99999 0.00001</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.99999 0.00001</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 0.00001 0.99999</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [4,] 0.00001 0.99999</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [5,] 0.00001 0.99999</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> attr(,"class")</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "q_matrix" "matrix"   "array"   </span>
 </code></pre></div>
     </div>
   </div>
