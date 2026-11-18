@@ -423,11 +423,17 @@ test_that("gt_radmix() fits genotype likelihoods given by another package", {
   expect_identical(sup_ll$ref_pops, c("A", "B"))
   expect_equal(sup_ll$Q[[1]], sup_gt$Q[[1]], tolerance = 1e-5)
   expect_equal(sup_ll$P[[1]], sup_gt$P[[1]], tolerance = 1e-5)
-  # options that need hard calls
-  expect_error(
-    gt_radmix(test_gl, k = 2, crossval = TRUE),
-    "'crossval' is not available for genotype likelihoods"
+  # cross-validation gives the errors of the genotypes (the same folds,
+  # and deviances equal for hard calls; the refits run to convergence, as
+  # the paths of the two fits differ by rounding)
+  cv_ll <- gt_radmix(test_gl,
+    k = 2, seed = 1, rtol = 1e-12, crossval = TRUE, cv_rtol = 1e-12
   )
+  cv_gt <- gt_radmix(test_gt,
+    k = 2, seed = 1, rtol = 1e-12, crossval = TRUE, cv_rtol = 1e-12
+  )
+  expect_equal(cv_ll$cv, cv_gt$cv, tolerance = 1e-7)
+  # options that need hard calls
   expect_error(
     gt_radmix(test_gl, k = 2, init = "svd"),
     "not available for genotype likelihoods"

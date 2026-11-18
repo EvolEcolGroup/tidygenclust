@@ -56,8 +56,8 @@ that of 0 copies, and whether each individual has data, and it is
 called from several threads, so it must not call R. The file
 \code{src/radmix_gl_source.cpp} of tidygenclust's sources is an example,
 used by its tests. \code{P} then gives the frequency of \code{allele2}.
-Cross-validation, starts from the SVD and imputed genotypes are not
-available for genotype likelihoods: \code{gt_radmix()} checks them itself,
+Starts from the SVD and imputed genotypes are not available for
+genotype likelihoods: \code{gt_radmix()} checks them itself,
 and calls a method with \code{x} alone (\code{use_imputed} is only given to the
 method for a \code{gen_tibble}, when it is \code{TRUE}).
 

@@ -111,9 +111,10 @@
 #'   the Newton steps use the curvature of the expected log-likelihood of the
 #'   genotypes (that of the EM algorithm), which keeps every quadratic
 #'   program convex. The quasi-Newton steps are accepted on the
-#'   log-likelihood above. Cross-validation (`crossval`), starts from the SVD
-#'   (`init = "svd"`) and `use_imputed` are not available for genotype
-#'   likelihoods. Unlike NGSadmix, which by default drops loci with a minor
+#'   log-likelihood above. Cross-validation (`crossval`) is available (see
+#'   "Cross-validation"); starts from the SVD (`init = "svd"`) and
+#'   `use_imputed` are not available for genotype likelihoods. Unlike
+#'   NGSadmix, which by default drops loci with a minor
 #'   allele frequency below 0.05 (its option `-minMaf`), `gt_radmix()` uses
 #'   all the loci of `x`: select them beforehand if needed.
 #'
@@ -149,7 +150,7 @@
 #'   `init_q` (whose rows for the reference individuals are ignored) and
 #'   `init_p` can give starting values; `fix_q`, `fix_p` and `init = "svd"`
 #'   cannot be combined with `supervised`. Supervised analyses are also
-#'   available for genotype likelihoods (without cross-validation).
+#'   available for genotype likelihoods.
 #'
 #'   When the reference individuals are many, starting P from the allele
 #'   frequencies of the reference populations, as fastmixture does in its
@@ -223,6 +224,21 @@
 #'     `seed`), so the folds differ from those of ADMIXTURE and the errors
 #'     agree with ADMIXTURE's closely but not exactly;
 #'   - pseudohaploid individuals use \eqn{n = 1}.
+#'
+#'   With genotype likelihoods, the folds are drawn over the individuals and
+#'   loci with data, in the same way, and the error of a masked individual
+#'   and locus is the deviance of its likelihoods,
+#'   \deqn{d = \log \max_x f(x) - \log f(x_{ij}),}{
+#'   d = log max_x f(x) - log f(x_ij),}
+#'   where \eqn{f(x) = \sum_{g} P(D_{ij} | g) P(g | x)}{
+#'   f(x) = sum_g P(D_ij | g) P(g | x)} is the likelihood of its data given a
+#'   frequency \eqn{x} of `allele2` (see "Genotype likelihoods"), maximised
+#'   over \eqn{x} in \eqn{[0, 1]}, and \eqn{x_{ij}}{x_ij} is the prediction
+#'   of the refitted model. For the likelihoods of a hard call, this is the
+#'   binomial deviance above (with \eqn{n = 2}); with uncertain genotypes,
+#'   the errors are smaller, as the data say less about each genotype, so
+#'   they can be compared across values of `k` but not with those of
+#'   genotypes.
 #'
 #'   Cross-validation does not change the estimates of Q and P, but requires
 #'   `n_folds` additional fits for each run (each usually converging in a few
@@ -567,18 +583,12 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
       call. = FALSE
     )
   }
-  # genotype likelihoods: the deviance of cross-validation and the SVD of
-  # the genotypes need hard calls, so neither is available yet; imputed
-  # genotypes mean nothing for them (a method that ignored `use_imputed`
-  # is caught here)
+  # genotype likelihoods: the SVD start needs the genotypes, so it is not
+  # available yet; imputed genotypes mean nothing for them (a method that
+  # ignored `use_imputed` is caught here)
   if (identical(data$kind, "gl_source")) {
     if (use_imputed) {
       stop("'use_imputed' is not available for genotype likelihoods",
-        call. = FALSE
-      )
-    }
-    if (crossval) {
-      stop("'crossval' is not available for genotype likelihoods",
         call. = FALSE
       )
     }

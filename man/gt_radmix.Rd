@@ -246,9 +246,10 @@ the log-likelihood of genotype likelihoods is not concave in each block,
 the Newton steps use the curvature of the expected log-likelihood of the
 genotypes (that of the EM algorithm), which keeps every quadratic
 program convex. The quasi-Newton steps are accepted on the
-log-likelihood above. Cross-validation (\code{crossval}), starts from the SVD
-(\code{init = "svd"}) and \code{use_imputed} are not available for genotype
-likelihoods. Unlike NGSadmix, which by default drops loci with a minor
+log-likelihood above. Cross-validation (\code{crossval}) is available (see
+"Cross-validation"); starts from the SVD (\code{init = "svd"}) and
+\code{use_imputed} are not available for genotype likelihoods. Unlike
+NGSadmix, which by default drops loci with a minor
 allele frequency below 0.05 (its option \code{-minMaf}), \code{gt_radmix()} uses
 all the loci of \code{x}: select them beforehand if needed.
 }
@@ -285,7 +286,7 @@ predicted like the others (ADMIXTURE does not document this detail).
 \code{init_q} (whose rows for the reference individuals are ignored) and
 \code{init_p} can give starting values; \code{fix_q}, \code{fix_p} and \code{init = "svd"}
 cannot be combined with \code{supervised}. Supervised analyses are also
-available for genotype likelihoods (without cross-validation).
+available for genotype likelihoods.
 
 When the reference individuals are many, starting P from the allele
 frequencies of the reference populations, as fastmixture does in its
@@ -365,6 +366,21 @@ seed drawn from the random number generator (reproducible with
 agree with ADMIXTURE's closely but not exactly;
 \item pseudohaploid individuals use \eqn{n = 1}.
 }
+
+With genotype likelihoods, the folds are drawn over the individuals and
+loci with data, in the same way, and the error of a masked individual
+and locus is the deviance of its likelihoods,
+\deqn{d = \log \max_x f(x) - \log f(x_{ij}),}{
+  d = log max_x f(x) - log f(x_ij),}
+where \eqn{f(x) = \sum_{g} P(D_{ij} | g) P(g | x)}{
+  f(x) = sum_g P(D_ij | g) P(g | x)} is the likelihood of its data given a
+frequency \eqn{x} of \code{allele2} (see "Genotype likelihoods"), maximised
+over \eqn{x} in \eqn{[0, 1]}, and \eqn{x_{ij}}{x_ij} is the prediction
+of the refitted model. For the likelihoods of a hard call, this is the
+binomial deviance above (with \eqn{n = 2}); with uncertain genotypes,
+the errors are smaller, as the data say less about each genotype, so
+they can be compared across values of \code{k} but not with those of
+genotypes.
 
 Cross-validation does not change the estimates of Q and P, but requires
 \code{n_folds} additional fits for each run (each usually converging in a few

@@ -77,14 +77,13 @@ double radmix_loglik_cpp(List data, NumericMatrix q, NumericMatrix p,
 
 // Binomial deviance of the visible genotypes, for cross-validation (data
 // then carries a held-out mask); returns c(deviance, number of genotypes).
+// For genotype likelihoods, the deviance of their maximum against the
+// prediction (see deviance() in radmix_kernels.cpp), and the number of
+// visible individuals and loci with data.
 // [[Rcpp::export]]
 NumericVector radmix_deviance_cpp(List data, NumericMatrix q,
                                   NumericMatrix p, int n_cores) {
   const GenoView geno(data);
-  // (the deviance of hard calls has no meaning for genotype likelihoods,
-  // whose views cannot hold a held-out mask anyway)
-  if (geno.is_gl())
-    stop("The deviance is not available for genotype likelihoods.");
   const int K = check_dims(geno, q, p, n_cores);
   double dev, count;
   deviance(geno, q.begin(), p.begin(), K, n_cores, &dev, &count);

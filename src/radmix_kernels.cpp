@@ -275,6 +275,12 @@ struct Slice {
 // slice_geno()), entry ii of the slice is individual idx[ii]: the source
 // fills a run of consecutive individuals in one call, as without idx, and
 // scattered ones one at a time.
+//
+// With a cross-validation mask (a training or held-out view), an individual
+// whose likelihoods at this locus are hidden gets obs = 0, as one without
+// data: the folds are those of genotypes (cv_visible(), or one word of the
+// bit mask per slice), so the likelihoods of hard calls give the same fits
+// and deviances as the genotypes.
 static inline void slice_gl(const GenoView& geno, size_t j, size_t i0,
                             size_t ni, Slice& s,
                             const size_t* idx = nullptr) {
@@ -285,6 +291,20 @@ static inline void slice_gl(const GenoView& geno, size_t j, size_t i0,
     for (size_t ii = 0; ii < ni; ii++)
       geno.gl_slice(idx[ii], 1, j, s.e1.data() + ii, s.e2.data() + ii,
                     s.obs.data() + ii);
+  }
+  if (geno.cv_masked()) {
+    double* __restrict ob = s.obs.data();
+    if (idx == nullptr && geno.cv_bits()) {
+      // (i0 is a multiple of TILE_I = 64 without idx, see slice_geno())
+      const uint64_t w = geno.cv_word(i0, j);
+      for (size_t ii = 0; ii < ni; ii++)
+        ob[ii] *= (double) ((w >> ii) & 1);
+    } else {
+      for (size_t ii = 0; ii < ni; ii++) {
+        const size_t i = idx == nullptr ? i0 + ii : idx[ii];
+        ob[ii] *= geno.cv_visible(i, j) ? 1.0 : 0.0;
+      }
+    }
   }
   const double* __restrict qp = s.qp.data();
   const double* __restrict e1 = s.e1.data();
@@ -1211,12 +1231,31 @@ double loglik(const GenoView& geno, const double* q, const double* p, int K,
 // fold are visible. *dev receives the sum of the deviances and *count the
 // number of visible genotypes, so that the error can be averaged over all
 // the held-out genotypes of all the folds.
+//
+// With genotype likelihoods, the genotypes are not observed, and the error
+// of an individual with data at a locus is
+//   d = log max_x f(x) - log f(qp),
+//   f(x) = (1 - x)^2 + 2 e1 x (1 - x) + e2 x^2,
+// the log-likelihood ratio of the best frequency of allele2 for that
+// individual and locus alone (the "saturated" model, as g / n for a
+// genotype) against the prediction qp (see deviance_gl()). For the
+// likelihoods of a hard call, this is the deviance of the genotype above:
+// f is (1 - x)^2, 2 x (1 - x) or x^2 (up to a constant factor), whose
+// maxima are at x = 0, 1/2 and 1. *count is then the number of visible
+// individuals and loci with data.
+static void deviance_gl(const GenoView& geno, const double* q,
+                        const double* p, int K, int n_cores, double* total);
+
 void deviance(const GenoView& geno, const double* q, const double* p, int K,
               int n_cores, double* dev, double* count) {
   // total[0]: the sum of the deviances, total[1]: the number of genotypes
   double total[2];
-  // (genotypes only: the deviance is not available for genotype
-  // likelihoods, see radmix_deviance_cpp())
+  if (geno.is_gl()) {
+    deviance_gl(geno, q, p, K, n_cores, total);
+    *dev = total[0];
+    *count = total[1];
+    return;
+  }
   sum_slices<2, false>(geno, q, p, K, n_cores, total,
                        [](size_t ni, Slice& s, double* acc) {
     // (a plain scalar loop: cross-validation computes the deviance once per
@@ -1236,6 +1275,35 @@ void deviance(const GenoView& geno, const double* q, const double* p, int K,
   });
   *dev = total[0];
   *count = total[1];
+}
+
+// The deviance of genotype likelihoods (see deviance()). f is a quadratic
+// in x, a x^2 + b x + 1 with a = 1 - 2 e1 + e2 and b = 2 e1 - 2, so its
+// maximum on [0, 1] is at an end (f(0) = 1, f(1) = e2) or, if f is concave
+// (a < 0) with its vertex inside (0, 1), at the vertex x* = -b / (2 a),
+// where f(x*) = 1 - b^2 / (4 a) (a sum of positive terms, as a < 0). f > 0
+// on [0, 1], as the likelihoods of a source are positive.
+static void deviance_gl(const GenoView& geno, const double* q,
+                        const double* p, int K, int n_cores, double* total) {
+  sum_slices<2, true>(geno, q, p, K, n_cores, total,
+                      [](size_t ni, Slice& s, double* acc) {
+    // (a plain scalar loop, as for genotypes)
+    for (size_t ii = 0; ii < ni; ii++) {
+      // an individual without data, or hidden by the mask
+      if (!(s.obs[ii] > 0)) continue;
+      const double e1 = s.e1[ii], e2 = s.e2[ii], x = s.qp[ii];
+      const double y = 1.0 - x;
+      const double a = 1.0 - 2.0 * e1 + e2, b = 2.0 * e1 - 2.0;
+      double f_max = std::max(1.0, e2);
+      if (a < 0) {
+        const double xs = -b / (2.0 * a);
+        if (xs > 0 && xs < 1) f_max = std::max(f_max, 1.0 - b * b / (4.0 * a));
+      }
+      const double f_x = y * y + 2.0 * e1 * x * y + e2 * x * x;
+      acc[0] += std::log(f_max / f_x);
+      acc[1] += 1.0;
+    }
+  });
 }
 
 // One EM step (the algorithm of FRAPPE, Tang et al. 2005), updating both

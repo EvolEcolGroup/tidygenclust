@@ -124,7 +124,10 @@ void update_p(const GenoView& geno, const double* q, const double* p, int K,
 
 // The binomial deviance of the visible genotypes (*dev) and their number
 // (*count), the prediction error of cross-validation, computed with a
-// held-out view of the genotypes (see radmix_geno_access.h).
+// held-out view of the genotypes (see radmix_geno_access.h). With genotype
+// likelihoods, the deviance of the best frequency of allele2 for each
+// visible individual and locus with data against qp (see deviance() in
+// radmix_kernels.cpp).
 void deviance(const GenoView& geno, const double* q, const double* p, int K,
               int n_cores, double* dev, double* count);
 
