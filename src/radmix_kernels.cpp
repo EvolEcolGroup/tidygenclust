@@ -281,9 +281,9 @@ struct Slice {
 // data: the folds are those of genotypes (cv_visible(), or one word of the
 // bit mask per slice), so the likelihoods of hard calls give the same fits
 // and deviances as the genotypes.
-static inline void slice_gl(const GenoView& geno, size_t j, size_t i0,
-                            size_t ni, Slice& s,
-                            const size_t* idx = nullptr) {
+static RADMIX_INLINE void slice_gl(const GenoView& geno, size_t j,
+                                   size_t i0, size_t ni, Slice& s,
+                                   const size_t* idx = nullptr) {
   if (idx == nullptr || idx[ni - 1] - idx[0] == ni - 1) {
     geno.gl_slice(idx == nullptr ? i0 : idx[0], ni, j, s.e1.data(),
                   s.e2.data(), s.obs.data());
@@ -616,7 +616,7 @@ static RADMIX_INLINE double loglik_slice_impl(size_t ni, Slice& s) {
 // multiplied in batches before taking logarithms, as in
 // loglik_slice(); smaller ones take the direct formula. Uses s.a as scratch
 // (all TILE_I entries). ni is at most TILE_I.
-static double loglik_gl_slice(size_t ni, Slice& s) {
+static RADMIX_INLINE double loglik_gl_slice(size_t ni, Slice& s) {
   const double* __restrict qp = s.qp.data();
   const double* __restrict e1 = s.e1.data();
   const double* __restrict e2 = s.e2.data();
