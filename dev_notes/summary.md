@@ -47,12 +47,3 @@ Backlog (P3, in `handover.md`): `-fprofile-update=single` under covr, the vignet
 **Done**
 - Extensions of `gt_radmix()`: fused pass for supervised fits, cross-validation and SVD starts for likelihoods, faster likelihood fits (with tidypopgl's source): branch `radmix_extensions`, 18 Nov 2026 (not merged).
 - Code derived from other software labelled in `gt_radmix()`, `gt_fastmixture()` and `gt_clumppling()`, licences completed in `COPYRIGHTS` and `cph` roles (ADAMIXTURE, cp-algorithms and ggpubr were uncredited); text for the paper in `dev_notes/paper_methods_text.md`: merged into `dev` (4c8464d), Andrea, 18 Nov 2026.
-- PR #36 merged (47f5780); branches `newspeed`, `supervised`, `newspeed_supervised`, `coverage-speed`, `newspeed_port` and older merged ones deleted (tags `archive/newspeed`, `archive/supervised` keep the first two): 17 Nov 2026.
-- Full HGDP benchmark of `admixture_benchmark.Rmd` with `newspeed_port`; article switched to it: `5eb3c73`, 16 Nov 2026.
-- Timing of `newspeed_port` against `dev`: 0.78-0.85 of `dev`'s time (0.92 at HGDP K = 10, 1 thread), same iterations and log-likelihoods; `aa5795e`, `radmix_performance.md`, 16 Nov 2026.
-- PR #37 closed, superseded by #36: Andrea, 16 Nov 2026.
-- Desktop verification of `newspeed_port` (3f2a8e4): CRAN mode 0 ERROR/WARNING, all tests pass; PR #36 comment, 16 Nov 2026.
-- Decisions on the newspeed defaults and the supervised API: Andrea, 15 Nov 2026.
-- Port of `newspeed_supervised` onto `dev`: PR #36, 15 Nov 2026.
-- Why covr was slow: gcov counters in one multithreaded test file, now skipped under covr; covr's flags unchanged (#37's `-O1` dropped); CRAN tests on 2 threads at most. Andrea, 16 Nov 2026; `covr_timing_2026-11.md`.
-- Genotype likelihoods in `gt_radmix()` (the NGSadmix model with radmix's algorithm): in `dev`, #35, 14 Nov 2026; claude_jobs#12 merged into this issue, 16 Nov 2026.
