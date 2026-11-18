@@ -1,6 +1,6 @@
 # tidygenclust: handover
 
-Updated 2026-11-17 (manica01): PR #36 merged into `dev` (47f5780) and the superseded branches deleted.
+Updated 2026-11-18 (manica01): attribution of the derived code of `gt_radmix()` and `gt_clumppling()` merged into `dev`; text for the paper in `paper_methods_text.md`.
 `summary.md` first. History is in `progress.md`; designs are in the topic
 documents listed in `README.md`.
 

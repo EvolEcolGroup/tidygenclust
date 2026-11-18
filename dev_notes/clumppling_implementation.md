@@ -1,4 +1,4 @@
-# data-raw/clumppling
+# Implementation of `gt_clumppling()`
 
 `gt_clumppling()` implements the method of clumppling (Liu, Kopelman and
 Rosenberg 2024). Its R and C++ code is a port, with the modifications listed
@@ -24,11 +24,13 @@ versions of `tidygenclust`, kept here); function names follow the python ones
   problem (each cluster of Q is matched to one cluster of P, each cluster of P
   receives at least one) is solved exactly as a linear assignment problem,
   with extra "free" columns when Q has more clusters than P, using the
-  Hungarian algorithm.
+  Hungarian algorithm (adapted from the implementation of cp-algorithms,
+  CC BY-SA 4.0; see "Origins of the code").
 - **Mode detection** (`src/clumppling_louvain.cpp`,
   `R/clumppling_community.R`). The default `louvain` method is a C++ port of
   python-louvain, which clumppling uses through cdlib. Markov clustering (and
-  the `custom` example of clumppling) is a port of cdlib's implementation.
+  the `custom` example of clumppling) is a port of the markov_clustering
+  package, which cdlib calls (with cdlib's defaults).
   `leiden`, `infomap`, `label_propagation` and `walktrap` use the `igraph`
   package, with the same choice of weighted or unweighted graph as cdlib. The
   Tracy-Widom test for community structure (`test_comm`) uses the critical
@@ -143,6 +145,28 @@ The results are in `validate_vs_python.csv`: in all 60 scenarios, the modes,
 their statistics, the costs across K and the aligned modes are the same; in
 two of them, a mode had several identical replicates, and the two
 implementations chose different (identical) representatives.
+
+## Origins of the code
+
+Audited on 18 Nov 2026 against clumppling 2.0.10, python-louvain 0.16,
+markov_clustering 0.0.6.dev0, cdlib 0.4.1 and ggpubr 1.0.0. Each file says
+at its top where its code comes from, `inst/COPYRIGHTS` lists the files and
+reproduces the licences, and the copyright holders have the `cph` role in
+DESCRIPTION. The text for the paper is in `paper_methods_text.md`.
+
+| Code | Derived from | Licence |
+|---|---|---|
+| `R/gt_clumppling.R`, `R/clumppling_*.R`, the alignment functions of `src/clumppling_assignment.cpp` | port of clumppling (`core.py`, `utils.py`, `parseInput/`, `detectMode/utils.py`), including the critical values of the Tracy-Widom test | MIT (Xiran Liu; no copyright notice in the repository) |
+| `clumppling_lsap()` (`src/clumppling_assignment.cpp`) | the O(n^3) Hungarian algorithm "developed by Andrey Lopatin", cp-algorithms (translated from e-maxx.ru) | CC BY-SA 4.0, compatible with GPLv3 |
+| `src/clumppling_louvain.cpp` | port of `best_partition()` and the functions it calls (python-louvain) | BSD 3-clause, (c) 2009-2018 Thomas Aynaud |
+| `clumppling_mcl()` (`R/clumppling_community.R`) | port of `run_mcl()` and `get_clusters()` (markov_clustering); defaults of cdlib (BSD 2-clause, no code used) | MIT, (c) 2017 Guy Allard |
+| `.get_legend()` (`R/plot_modes.R`) | copy of ggpubr's internal `.get_legend()` | GPL (>= 2), Alboukadel Kassambara |
+| example data (`inst/extdata/*_admix.rds`, `capeverde_pops`) | the example data of clumppling (Verdu et al. 2017; Rosenberg et al. 2001) | MIT |
+
+Written for tidygenclust: the plots (`R/autoplot_gt_clumppling.R`,
+`R/plot_modes.R`, which follow the design of clumppling's figures but not
+its code), `R/tidy_clumppling.R`, and the reduction of the integer linear
+programs to assignment problems.
 
 ## References
 

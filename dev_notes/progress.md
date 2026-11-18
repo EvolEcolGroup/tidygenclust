@@ -5,6 +5,41 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-18 (manica01): attribution merged into `dev`
+
+- Andrea approved the new `cph` roles (Ko and Lange restored; Ioannidis
+  Lab, Meisner, Lopatin, Kassambara) and asked to merge: `code_attribution`
+  (4c8464d attribution, d41248d `radmix_cv.R` comment, then these notes)
+  fast-forwarded into `dev` and pushed; the branch is deleted.
+
+## 2026-11-18 (manica01): provenance of the clumppling code; text for the paper
+
+- Same audit for `gt_clumppling()` (branch renamed `code_attribution`,
+  still uncommitted): the Hungarian solver is adapted from cp-algorithms
+  (Andrey Lopatin, CC BY-SA 4.0, compatible with GPLv3) and `.get_legend()`
+  is copied from ggpubr (GPL >= 2); neither was credited. Both added to
+  `COPYRIGHTS` and DESCRIPTION (`cph`); file headers now name the source
+  functions and licences of the clumppling, python-louvain and
+  markov_clustering ports (comments only; builds). Fixed "anative" in
+  `?gt_clumppling`.
+- `radmix_methods_text.md` became `paper_methods_text.md`, with a short
+  paragraph on `gt_clumppling()` (Andrea asked for one short paragraph).
+
+## 2026-11-18 (manica01): provenance of the radmix code; text for the paper
+
+- Branch `radmix_attribution` (from `dev` 54ce6cd, not committed yet):
+  audited the code of `gt_radmix()` against OpenADMIXTURE.jl (401ac5c),
+  ADAMIXTURE 1.8.9 and fastmixture 1.3.0. Translated from OpenADMIXTURE.jl
+  (MIT): the QP solver, the projections, the quasi-Newton step, the
+  structure of the fitting loop; adapted from ADAMIXTURE (BSD-3): the ALS
+  of the SVD start; derived from fastmixture (GPL-3.0-only):
+  `py_rfastmixture.py`. The kernels are original.
+- Gaps fixed: ADAMIXTURE and fastmixture were missing from `COPYRIGHTS`
+  and DESCRIPTION; Ko and Lange (dropped as `cph` in #33) restored; each
+  derived file now names its source, licence and changes (comments only;
+  builds). Also a stale comment in `radmix_cv.R`.
+- New `paper_methods_text.md`: two paragraphs for the paper.
+
 ## 2026-11-17 (manica01): PR #36 merged; branches deleted
 
 - Andrea merged PR #36 into `dev` (47f5780).

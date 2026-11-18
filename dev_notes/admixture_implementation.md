@@ -819,9 +819,32 @@ OpenADMIXTURE.jl in many places. The main changes were:
 - the selection of ancestry informative markers by sparse K-means, which is
   a central part of OpenADMIXTURE, and its GPU support were not ported.
 
-The part that remains closest to the original is the active-set solver of
-the quadratic programs, which follows K. Lange's sweep-operator code in
-OpenADMIXTURE.jl; its MIT licence is reproduced in `inst/COPYRIGHTS`.
+What remains derived from other software was audited on 18 Nov 2026
+against the sources (OpenADMIXTURE.jl at the commit above, ADAMIXTURE
+1.8.9, fastmixture 1.3.0). Each file says so at its top, with what was
+changed, and `inst/COPYRIGHTS` lists the files and reproduces the licences;
+the copyright holders have the `cph` role in DESCRIPTION (Ko and Lange had
+been dropped in #33 and were restored then).
+
+| Code | Derived from | Licence |
+|---|---|---|
+| `sweep()`, `create_tableau()`, `qp_solve_column()` (`radmix_qp_sweep.cpp`) | translations of `sweep!()`, `create_tableau!()`, `quadratic_program!()` (OpenADMIXTURE.jl `src/qp.jl`, K. Lange's code modified by S. Ko) | MIT |
+| `project_q()`, `project_p()` (`radmix_projections.cpp`) | translations of `project_q!()`, `project_p!()` (`src/projections.jl`) | MIT |
+| `SecantPairs::store()`, `qn_step()` (`radmix_quasi_newton.cpp`) | `update_UV!()`, `update_QN!()` (`src/quasi_newton.jl`), computation rewritten | MIT |
+| the fitting loop (`radmix_fit.cpp`) | structure of `init_em!()`, `admixture_qn!()` (`src/algorithms_outer.jl`) | MIT |
+| the ALS of the SVD start (`radmix_als.cpp`, inputs in `radmix_svd_start()`) | adapted from `ALS()` of ADAMIXTURE 1.8.9 (`adamixture/model/als.py`) | BSD 3-clause, (c) 2024 Ioannidis Lab |
+| `inst/python/py_rfastmixture.py` (`gt_fastmixture()`) | modified copy of fastmixture's `main.py` and `fastmixture.py` (1.3.0) | GPL-3.0-only (so this file cannot go to a later GPL) |
+| the finaliser in `GenoView::fold()` | splitmix64, S. Vigna's implementation | public domain (CC0) |
+
+Written for tidygenclust, with no code from elsewhere: the kernels
+(`radmix_kernels.cpp`, the first version of which was ported from
+`src/algorithms_inner.jl` and `src/loops.jl` and then replaced), the
+genotype view and cross-validation, supervised analyses, genotype
+likelihoods (formulas of NGSadmix, no code), the SVD factors
+(`radmix_svd_factors()`), and `py_radamixture.py` (glue code that calls
+ADAMIXTURE's API). Two paragraphs describing the algorithm for the paper,
+and how it compares with ADMIXTURE, fastmixture, ADAMIXTURE and
+OpenADMIXTURE.jl, are in `paper_methods_text.md`.
 
 ## References
 

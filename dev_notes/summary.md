@@ -1,6 +1,6 @@
 # tidygenclust: summary
 
-Updated 2026-11-16 (laptopX1, evening). One section: the package's issue in
+Updated 2026-11-18 (manica01). One section: the package's issue in
 dramanica/claude_jobs, with the single list of its tasks. Its first
 paragraph, status and next steps are copied into the issue
 (`scripts/sync_issue.py` of the dev-notes skill).
@@ -39,6 +39,7 @@ pass and supervised analyses to genotype likelihoods.
 Backlog (P3, in `handover.md`): `-fprofile-update=single` under covr, the vignette's P comparison as code, P as a matrix or a data.frame (decide), bootstrap standard errors, the remaining speed leads.
 
 **Done**
+- Code derived from other software labelled in `gt_radmix()`, `gt_fastmixture()` and `gt_clumppling()`, licences completed in `COPYRIGHTS` and `cph` roles (ADAMIXTURE, cp-algorithms and ggpubr were uncredited); text for the paper in `dev_notes/paper_methods_text.md`: merged into `dev` (4c8464d), Andrea, 18 Nov 2026.
 - PR #36 merged (47f5780); branches `newspeed`, `supervised`, `newspeed_supervised`, `coverage-speed`, `newspeed_port` and older merged ones deleted (tags `archive/newspeed`, `archive/supervised` keep the first two): 17 Nov 2026.
 - Full HGDP benchmark of `admixture_benchmark.Rmd` with `newspeed_port`; article switched to it: `5eb3c73`, 16 Nov 2026.
 - Timing of `newspeed_port` against `dev`: 0.78-0.85 of `dev`'s time (0.92 at HGDP K = 10, 1 thread), same iterations and log-likelihoods; `aa5795e`, `radmix_performance.md`, 16 Nov 2026.

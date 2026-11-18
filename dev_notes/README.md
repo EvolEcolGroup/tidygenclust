@@ -29,10 +29,14 @@ Notes for developers and Claude sessions. Start with `summary.md` and
 
 ## `gt_clumppling()`
 
-- `clumppling_implementation.md`: the native port of clumppling.
+- `clumppling_implementation.md`: the native port of clumppling, its
+  validation, and the origins of its code (licences).
 
 ## Package-wide
 
+- `paper_methods_text.md`: text for the paper on how `gt_radmix()` and
+  `gt_clumppling()` work and compare with the programs they replace, with
+  the sources of each statement and a sentence crediting the ported code.
 - `simplification_plan.md`: the simplification plan (completed in #34).
 - `covr_timing_2026-11.md`: why covr was slow (gcov counters in
   multithreaded tests) and what was decided; data in `covr_timing/`.
