@@ -332,7 +332,7 @@ rbind(
 )
 #>             max_abs_difference correlation
 #> gt_radmix          0.004659000   0.9999983
-#> fastmixture        0.005003755   0.9999981
+#> fastmixture        0.005003737   0.9999981
 #> ADAMIXTURE         0.005059710   0.9999980
 ```
 
