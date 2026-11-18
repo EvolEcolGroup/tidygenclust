@@ -240,17 +240,18 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
   // quasi-Newton point, whose update is replaced by that of x2), where the
   // pass costs a little more than the log-likelihood alone; it is not
   // computed when the iteration limit is reached, nor when q is fixed (there
-  // is no update of q to compute), nor in a supervised analysis (fx): its
-  // Q-side passes skip the reference individuals, so they cannot give the
-  // log-likelihood, which a separate pass then computes.
+  // is no update of q to compute). In a supervised analysis (fx), the pass
+  // updates the individuals to estimate and computes the log-likelihood of
+  // the genotypes of the references alone (update_q_loglik() with fx), so
+  // that each genotype is still read once.
   bool q1_ready = false;
   double ll_new;
   if (!ISNAN(ll_after_em)) {
     // (the last EM step of a verbose fit has already computed it)
     ll_new = ll_after_em;
-  } else if (!fix_q && fx == nullptr && max_iter > 0) {
+  } else if (!fix_q && max_iter > 0) {
     ll_new = update_q_loglik(geno, q.data(), p.data(), k, q1.data(),
-                             n_cores);
+                             n_cores, fx);
     q1_ready = true;
   } else {
     ll_new = loglik(geno, q.data(), p.data(), k, n_cores);
@@ -292,9 +293,8 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     double ll_qn = R_NegInf;
     // whether to compute the next first update of q along with the
     // log-likelihood of the point that the iteration ends at (see above):
-    // not after the last iteration allowed, nor with q fixed, nor with
-    // reference individuals
-    const bool speculate = !fix_q && fx == nullptr && iter < max_iter;
+    // not after the last iteration allowed, nor with q fixed
+    const bool speculate = !fix_q && iter < max_iter;
     if (qn_step(pairs.U.data(), pairs.V.data(), nq + np, n_used, q.data(),
                 p.data(), q1.data(), p1.data(), k, I, J, q.data(), p.data(),
                 n_cores)) {
@@ -308,7 +308,7 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
       // quasi-Newton step, so it can receive the update of the point)
       if (speculate) {
         ll_qn = update_q_loglik(geno, q.data(), p.data(), k, q1.data(),
-                                n_cores);
+                                n_cores, fx);
       } else {
         ll_qn = loglik(geno, q.data(), p.data(), k, n_cores);
       }
@@ -329,7 +329,7 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     } else {
       if (speculate) {
         ll_basic = update_q_loglik(geno, q2.data(), p2.data(), k, q1.data(),
-                                   n_cores);
+                                   n_cores, fx);
       } else {
         ll_basic = loglik(geno, q2.data(), p2.data(), k, n_cores);
       }

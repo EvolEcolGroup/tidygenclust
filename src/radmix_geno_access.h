@@ -93,9 +93,10 @@
 // copies of allele2 for a block of individuals: they turn them into the
 // expected allele counts given the current estimates (slice_geno() in
 // radmix_kernels.cpp). get() and slice_bytes() are for genotypes only.
-// Cross-validation is not available for genotype likelihoods (the deviance
-// of held-out genotypes assumes hard calls), so a view of genotype
-// likelihoods only accepts the mode CV_NONE.
+// Cross-validation masks work as for genotypes: the folds are drawn over
+// the same (i, j), and a hidden individual and locus is treated as one
+// without data (slice_gl() multiplies its indicator of data by
+// cv_visible()); the deviance of held-out likelihoods is in deviance().
 
 #include <bigstatsr/BMAcc.h>
 #include <tidygenclust/radmix_gl_source.h>
@@ -211,9 +212,6 @@ public:
     // fold() (hash % _n_folds) free of a division by zero in any mode
     _n_folds = (uint64_t) (n_folds > 0 ? n_folds : 1);
     _cv_seed = (uint64_t) cv_seed;
-    if (_gl && cv_mode != CV_NONE)
-      Rcpp::stop("Cross-validation is not available for genotype "
-                 "likelihoods.");
     const size_t n = _n_indiv;
     // Fast path for decoding a block of genotypes (see slice_bytes()). It
     // needs the same decoding for every individual, i.e. a uniform number of

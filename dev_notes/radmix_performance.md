@@ -38,6 +38,8 @@ copies of the parameters to 10.
 | 2026-11-13 | `slice_geno()` and `slice_coef()` forced inline into the AVX2 clones (they were calls to the baseline code) | with the next change, below | rounding (FMA) |
 | 2026-11-13 | cheaper log-likelihood of a slice (scalar fix-up loop skipped for hard calls, arithmetic masks), inlined into the AVX2 clone in the fused pass | all four changes: fits take 0.75-0.85 of the time (desktop, 1-8 threads, EUR K = 3-4, HGDP K = 5-10, unpruned HGDP K = 5) | rounding, at most 3e-15 relative in the log-likelihood, same iterations |
 | 2026-11-15 | `MIN_Q_TASKS` 128 instead of 32 (more Q-side tasks for samples under 8,192 individuals) | fits 3-6% faster on 8 threads, 0-3% on 1 (desktop) | rounding |
+| 2026-11-18 | fused pass for supervised fits: the free individuals' Q side with their log-likelihood, plus a log-likelihood-only Q-side pass over the references | 4 passes per accepted iteration instead of 5; fits 0.88-0.89 of the time (desktop, HGDP K = 5, 139 or 660 references, 1 and 8 threads) | Q and P bit-identical, log-likelihood within 6e-16 |
+| 2026-11-18 | genotype likelihoods: `slice_gl()` and `loglik_gl_slice()` forced inline into the AVX2 clones (they were calls to baseline code, 17% of a fit) | fits on likelihoods 0.96 of the time; 0.80 (1 thread) and 0.83 (8 threads) with tidypopgl's faster source (its branch `radmix_source_speed`) | genotypes bit-identical; likelihoods by rounding (FMA), same iterations |
 | 2026-11-15 | refits of cross-validation to `cv_rtol = 1e-7` instead of `rtol` | CV passes 0.46 of before on EUR_subset, 0.89 on the HGDP (see "Cross-validation refits") | CV errors biased by at most 2e-4, same K chosen |
 
 The changes of 13 and 15 November were made on the branches `newspeed` and
@@ -147,9 +149,69 @@ K = 5, 660 or 139 references: Q of the individuals to estimate within
 6e-5, log-likelihoods 1-4 units higher). On the desktop, at 8 threads, it
 ran about 50 times as fast as ADMIXTURE `--supervised -j8` (HGDP K = 5:
 3.3 s against 158 s with 660 references, 4.9 s against 264 s with 139;
-an unsupervised fit of the same data takes 7.1 s). Its fits do not use the
-fused pass (their Q side does not read the references, so it cannot give
-the log-likelihood).
+an unsupervised fit of the same data takes 7.1 s). Its fits did not use the
+fused pass then (their Q side does not read the references); they do since
+18 November (next section).
+
+### The fused pass of supervised fits (branch `radmix_extensions`)
+
+Desktop (i9-13900, quiet machine, other sessions holding their jobs;
+installed `-O2` builds with the AVX2 clones; 1 thread on CPU 2, 8 threads
+on the P-cores 0-7), 18 November 2026: `dev` (00deb4f), `new` (ec7ff9a:
+the fused pass split between free individuals and references) and `allB`
+(`dev` with the fused pass over every individual and the references
+restored after it, `radmix_extensions_2026-11/allB.patch`). Whole fits of
+the HGDP (1043 x 130,943), K = 5, seed 1, builds alternated (3 rounds on 1
+thread, 5 on 8); medians in seconds (min-max within 3%), ratio to `dev`:
+
+| case | 1 thread: dev | new | allB | 8 threads: dev | new | allB |
+|---|---|---|---|---|---|---|
+| pops (139 references) | 31.54 | 28.02 (0.89) | 28.09 (0.89) | 4.26 | 3.77 (0.88) | 3.78 (0.89) |
+| regions (660 references) | 21.89 | 19.25 (0.88) | 21.98 (1.00) | 2.96 | 2.63 (0.89) | 2.96 (1.00) |
+| unsupervised (control) | | | | 5.51 | 5.56 (1.01) | |
+
+The same iterations (14 and 11; 1 and 5 rejected quasi-Newton steps), Q
+and P bit-identical between `dev` and `new`, log-likelihoods within
+6e-16 (relative); `allB` differs by rounding (1e-14 in P), as its Q-side
+segments are those of all the individuals. The gain is larger than the
+reading saved (the free individuals' genotypes, read once instead of twice
+per iteration) suggests with 660 references: the separate log-likelihood
+pass (`loglik()`) runs in baseline code, while the log-likelihood of the
+fused pass runs in the AVX2 clone of `accum_q_block()`. `allB` pays for the
+sums and quadratic programs of the references, so it gains only when they
+are few. Scripts, times and summary:
+`radmix_extensions_2026-11/` (`run_sup_timing.sh`, `sup_timing.csv`,
+`sup_timing_summary.txt`).
+
+### Genotype likelihoods: the inlined helpers and tidypopgl's source
+
+Desktop (quiet machine, installed `-O2` builds, 1 thread on CPU 2 and 8 on
+the P-cores; 3 and 5 rounds, builds alternated), 18 November 2026:
+simulated likelihoods in a `gl_tibble` (400 individuals x 100,000 loci,
+K = 3, depth 4; `radmix_extensions_2026-11/make_gl_data.R`), fits with
+K = 3 and seed 1 (14 iterations in every build). tidygenclust `ext`
+(7561833) and `inl` (with `slice_gl()` and `loglik_gl_slice()` forced
+inline); tidypopgl's source `base` (a87e576) and the variants of its branch
+`radmix_source_speed` (see its `dev_notes/gl16_storage.md`). Fits, median
+seconds (min-max within 3%), ratio to `ext` + `base`:
+
+| tidygenclust + source | 1 thread | ratio | 8 threads | ratio |
+|---|---|---|---|---|
+| ext + base | 9.58 | 1.00 | 1.28 | 1.00 |
+| inl + base | 9.16 | 0.96 | 1.22 | 0.96 |
+| ext + avx | 8.25 | 0.86 | 1.10 | 0.86 |
+| inl + tab (runs, one table lookup per code, branchless) | 8.40 | 0.88 | 1.15 | 0.90 |
+| inl + avx (tab with AVX2 gathers for runs) | 7.62 | 0.80 | 1.05 | 0.83 |
+
+The same iterations and log-likelihoods (to 14 digits); genotype fits are
+bit-identical with and without the inlining (HGDP K = 5, 8 threads, same
+time). Before, `perf` found 23% of a fit in tidypopgl's source, 9.6% in
+`slice_gl()` and 7% in `loglik_gl_slice()`, both in baseline code.
+tidygenclust's in-memory example source (three doubles per individual and
+locus) is slower than tidypopgl's gl16 one in most passes (1.2-1.6x on 1
+thread, 2-3x on 8: memory traffic), so the compact codes pay for their
+decoding. Scripts and times: `radmix_extensions_2026-11/` (`run_gl_timing2.sh`,
+`time_gl_passes.R`, `gl_timing2.csv`).
 
 ### Cross-validation refits
 
@@ -364,9 +426,8 @@ Listed so that they are not retried without new evidence.
   schedule"; `TILE_J` and the schedule were measured and kept. They can
   still be set at compile time, `-DRADMIX_MIN_Q_TASKS`, `-DRADMIX_TILE_J`
   and `-DRADMIX_OMP_SCHEDULE`, for benchmarks.)
-- A fused pass for supervised fits (update every column of Q, then restore
-  the references), which would give them the 4 passes per iteration of
-  unsupervised fits.
+- (Done 2026-11-18: the fused pass of supervised fits, split between the
+  free individuals and the references, see above.)
 - For K >= 8, single-precision Hessians or BLAS products (admixer: 6-35%).
 
 ## How to measure

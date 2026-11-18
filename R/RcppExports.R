@@ -49,8 +49,8 @@ radmix_update_q_cpp <- function(data, q, p, n_cores, fixed = NULL) {
     .Call(`_tidygenclust_radmix_update_q_cpp`, data, q, p, n_cores, fixed)
 }
 
-radmix_update_q_loglik_cpp <- function(data, q, p, n_cores) {
-    .Call(`_tidygenclust_radmix_update_q_loglik_cpp`, data, q, p, n_cores)
+radmix_update_q_loglik_cpp <- function(data, q, p, n_cores, fixed = NULL) {
+    .Call(`_tidygenclust_radmix_update_q_loglik_cpp`, data, q, p, n_cores, fixed)
 }
 
 radmix_update_p_cpp <- function(data, q, p, n_cores) {
@@ -83,5 +83,13 @@ radmix_fit_cpp <- function(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol
 
 radmix_gl_dense_source_cpp <- function(e1, e2, obs) {
     .Call(`_tidygenclust_radmix_gl_dense_source_cpp`, e1, e2, obs)
+}
+
+radmix_gl_freq_cpp <- function(data, n_cores, tol = 1e-6, max_iter = 100L) {
+    .Call(`_tidygenclust_radmix_gl_freq_cpp`, data, n_cores, tol, max_iter)
+}
+
+radmix_gl_dosage_prod_cpp <- function(data, f, b, transpose, n_cores) {
+    .Call(`_tidygenclust_radmix_gl_dosage_prod_cpp`, data, f, b, transpose, n_cores)
 }
 

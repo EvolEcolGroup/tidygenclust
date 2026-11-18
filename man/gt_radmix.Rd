@@ -14,6 +14,7 @@ gt_radmix(
   n_em_iter = 5,
   n_qn = 3,
   init = c("random", "svd"),
+  svd_power = 3,
   init_q = NULL,
   init_p = NULL,
   fix_q = FALSE,
@@ -62,7 +63,13 @@ in ADMIXTURE; or \code{"svd"}, from a truncated SVD of the
 genotypes, which needs fewer iterations but is not suited to exploring
 the modes of the likelihood with several runs (see "Starting values
 from the SVD" in the details). \code{"svd"} cannot be combined with \code{init_q}
-or \code{init_p}, nor used with genotype likelihoods.}
+or \code{init_p}.}
+
+\item{svd_power}{the number of power iterations of the randomised SVD of
+genotype likelihoods used by \code{init = "svd"} (defaults to 3; see
+"Starting values from the SVD" in the details). Not used with
+genotypes, whose truncated SVD is computed by
+\code{\link[tidypopgen:gt_pca_partialSVD]{tidypopgen::gt_pca_partialSVD()}}}
 
 \item{init_q}{optional matrix (individuals x k) of starting ancestry
 proportions; only allowed with a single value of \code{k}}
@@ -246,11 +253,19 @@ the log-likelihood of genotype likelihoods is not concave in each block,
 the Newton steps use the curvature of the expected log-likelihood of the
 genotypes (that of the EM algorithm), which keeps every quadratic
 program convex. The quasi-Newton steps are accepted on the
-log-likelihood above. Cross-validation (\code{crossval}), starts from the SVD
-(\code{init = "svd"}) and \code{use_imputed} are not available for genotype
-likelihoods. Unlike NGSadmix, which by default drops loci with a minor
-allele frequency below 0.05 (its option \code{-minMaf}), \code{gt_radmix()} uses
-all the loci of \code{x}: select them beforehand if needed.
+log-likelihood above. Cross-validation (\code{crossval}) is available (see
+"Cross-validation"), and so are starts from the SVD (\code{init = "svd"}):
+the SVD is then that of the posterior dosages of the genotypes (their
+expected numbers of copies of \code{allele2}) under Hardy-Weinberg
+proportions with the allele frequencies estimated from the likelihoods
+(emMAF, Kim et al. 2011), as in the first step of PCAngsd (Meisner and
+Albrechtsen 2018), computed by a randomised SVD (Halko et al. 2011)
+whose products are passes over the likelihoods; individuals without
+data at a locus get the mean dosage. \code{use_imputed} is not available
+for genotype likelihoods. Unlike NGSadmix, which by default drops loci
+with a minor allele frequency below 0.05 (its option \code{-minMaf}),
+\code{gt_radmix()} uses all the loci of \code{x}: select them beforehand if
+needed.
 }
 
 \subsection{Supervised analyses}{
@@ -285,7 +300,7 @@ predicted like the others (ADMIXTURE does not document this detail).
 \code{init_q} (whose rows for the reference individuals are ignored) and
 \code{init_p} can give starting values; \code{fix_q}, \code{fix_p} and \code{init = "svd"}
 cannot be combined with \code{supervised}. Supervised analyses are also
-available for genotype likelihoods (without cross-validation).
+available for genotype likelihoods.
 
 When the reference individuals are many, starting P from the allele
 frequencies of the reference populations, as fastmixture does in its
@@ -324,7 +339,13 @@ The SVD cannot use missing genotypes, so they must be imputed first
 (e.g. with \code{\link[tidypopgen:gt_impute_simple]{tidypopgen::gt_impute_simple()}}); the imputed genotypes are
 only used for the SVD, and the fit ignores them (unless
 \code{use_imputed = TRUE}). The SVD also needs more individuals and loci than
-\code{max(k) + 5}.
+\code{max(k) + 5}. With genotype likelihoods, the SVD is that of the
+posterior dosages (see "Genotype likelihoods"), and needs no imputation;
+its random test matrix is drawn after setting the first value of
+\code{seed}, and its number of power iterations is \code{svd_power} (3 by
+default, enough for the leading components, those of the structure;
+each further iteration makes the trailing components more accurate at
+the cost of two more passes over the likelihoods).
 
 Fits from the SVD need fewer iterations (often less than half as many as
 from random starts in our tests), and usually reach a good fit (though,
@@ -365,6 +386,21 @@ seed drawn from the random number generator (reproducible with
 agree with ADMIXTURE's closely but not exactly;
 \item pseudohaploid individuals use \eqn{n = 1}.
 }
+
+With genotype likelihoods, the folds are drawn over the individuals and
+loci with data, in the same way, and the error of a masked individual
+and locus is the deviance of its likelihoods,
+\deqn{d = \log \max_x f(x) - \log f(x_{ij}),}{
+  d = log max_x f(x) - log f(x_ij),}
+where \eqn{f(x) = \sum_{g} P(D_{ij} | g) P(g | x)}{
+  f(x) = sum_g P(D_ij | g) P(g | x)} is the likelihood of its data given a
+frequency \eqn{x} of \code{allele2} (see "Genotype likelihoods"), maximised
+over \eqn{x} in \eqn{[0, 1]}, and \eqn{x_{ij}}{x_ij} is the prediction
+of the refitted model. For the likelihoods of a hard call, this is the
+binomial deviance above (with \eqn{n = 2}); with uncertain genotypes,
+the errors are smaller, as the data say less about each genotype, so
+they can be compared across values of \code{k} but not with those of
+genotypes.
 
 Cross-validation does not change the estimates of Q and P, but requires
 \code{n_folds} additional fits for each run (each usually converging in a few
@@ -498,4 +534,18 @@ doi: https://doi.org/10.24072/pcjournal.503
 Skotte L, Korneliussen TS, Albrechtsen A (2013) Estimating individual
 admixture proportions from next generation sequencing data. Genetics,
 195(3), 693-702.
+
+Kim SY, Lohmueller KE, Albrechtsen A, Li Y, Korneliussen T, Tian G,
+Grarup N, Jiang T, Andersen G, Witte D, Jorgensen T, Hansen T,
+Pedersen O, Wang J, Nielsen R (2011) Estimation of allele frequency and
+association mapping using next-generation sequencing data. BMC
+Bioinformatics, 12, 231.
+
+Meisner J, Albrechtsen A (2018) Inferring population structure and
+admixture proportions in low-depth NGS data. Genetics, 210(2),
+719-731.
+
+Halko N, Martinsson PG, Tropp JA (2011) Finding structure with
+randomness: probabilistic algorithms for constructing approximate
+matrix decompositions. SIAM Review, 53(2), 217-288.
 }

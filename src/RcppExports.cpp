@@ -173,8 +173,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // radmix_update_q_loglik_cpp
-List radmix_update_q_loglik_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
-RcppExport SEXP _tidygenclust_radmix_update_q_loglik_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
+List radmix_update_q_loglik_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores, Nullable<LogicalVector> fixed);
+RcppExport SEXP _tidygenclust_radmix_update_q_loglik_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP, SEXP fixedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -182,7 +182,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericMatrix >::type q(qSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type p(pSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(radmix_update_q_loglik_cpp(data, q, p, n_cores));
+    Rcpp::traits::input_parameter< Nullable<LogicalVector> >::type fixed(fixedSEXP);
+    rcpp_result_gen = Rcpp::wrap(radmix_update_q_loglik_cpp(data, q, p, n_cores, fixed));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -302,6 +303,35 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// radmix_gl_freq_cpp
+NumericVector radmix_gl_freq_cpp(List data, int n_cores, double tol, int max_iter);
+RcppExport SEXP _tidygenclust_radmix_gl_freq_cpp(SEXP dataSEXP, SEXP n_coresSEXP, SEXP tolSEXP, SEXP max_iterSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
+    rcpp_result_gen = Rcpp::wrap(radmix_gl_freq_cpp(data, n_cores, tol, max_iter));
+    return rcpp_result_gen;
+END_RCPP
+}
+// radmix_gl_dosage_prod_cpp
+NumericMatrix radmix_gl_dosage_prod_cpp(List data, NumericVector f, NumericMatrix b, bool transpose, int n_cores);
+RcppExport SEXP _tidygenclust_radmix_gl_dosage_prod_cpp(SEXP dataSEXP, SEXP fSEXP, SEXP bSEXP, SEXP transposeSEXP, SEXP n_coresSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type f(fSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type b(bSEXP);
+    Rcpp::traits::input_parameter< bool >::type transpose(transposeSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    rcpp_result_gen = Rcpp::wrap(radmix_gl_dosage_prod_cpp(data, f, b, transpose, n_cores));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_tidygenclust_clumppling_lsap_cpp", (DL_FUNC) &_tidygenclust_clumppling_lsap_cpp, 1},
@@ -316,7 +346,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_tidygenclust_radmix_grad_q_cpp", (DL_FUNC) &_tidygenclust_radmix_grad_q_cpp, 4},
     {"_tidygenclust_radmix_grad_p_cpp", (DL_FUNC) &_tidygenclust_radmix_grad_p_cpp, 4},
     {"_tidygenclust_radmix_update_q_cpp", (DL_FUNC) &_tidygenclust_radmix_update_q_cpp, 5},
-    {"_tidygenclust_radmix_update_q_loglik_cpp", (DL_FUNC) &_tidygenclust_radmix_update_q_loglik_cpp, 4},
+    {"_tidygenclust_radmix_update_q_loglik_cpp", (DL_FUNC) &_tidygenclust_radmix_update_q_loglik_cpp, 5},
     {"_tidygenclust_radmix_update_p_cpp", (DL_FUNC) &_tidygenclust_radmix_update_p_cpp, 4},
     {"_tidygenclust_radmix_q_segments_cpp", (DL_FUNC) &_tidygenclust_radmix_q_segments_cpp, 2},
     {"_tidygenclust_radmix_qp_solve_cpp", (DL_FUNC) &_tidygenclust_radmix_qp_solve_cpp, 4},
@@ -325,6 +355,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_tidygenclust_radmix_decode_cpp", (DL_FUNC) &_tidygenclust_radmix_decode_cpp, 1},
     {"_tidygenclust_radmix_fit_cpp", (DL_FUNC) &_tidygenclust_radmix_fit_cpp, 13},
     {"_tidygenclust_radmix_gl_dense_source_cpp", (DL_FUNC) &_tidygenclust_radmix_gl_dense_source_cpp, 3},
+    {"_tidygenclust_radmix_gl_freq_cpp", (DL_FUNC) &_tidygenclust_radmix_gl_freq_cpp, 4},
+    {"_tidygenclust_radmix_gl_dosage_prod_cpp", (DL_FUNC) &_tidygenclust_radmix_gl_dosage_prod_cpp, 5},
     {NULL, NULL, 0}
 };
 

@@ -423,15 +423,18 @@ test_that("gt_radmix() fits genotype likelihoods given by another package", {
   expect_identical(sup_ll$ref_pops, c("A", "B"))
   expect_equal(sup_ll$Q[[1]], sup_gt$Q[[1]], tolerance = 1e-5)
   expect_equal(sup_ll$P[[1]], sup_gt$P[[1]], tolerance = 1e-5)
-  # options that need hard calls
-  expect_error(
-    gt_radmix(test_gl, k = 2, crossval = TRUE),
-    "'crossval' is not available for genotype likelihoods"
+  # cross-validation gives the errors of the genotypes (the same folds,
+  # and deviances equal for hard calls; the refits run to convergence, as
+  # the paths of the two fits differ by rounding)
+  cv_ll <- gt_radmix(test_gl,
+    k = 2, seed = 1, rtol = 1e-12, crossval = TRUE, cv_rtol = 1e-12
   )
-  expect_error(
-    gt_radmix(test_gl, k = 2, init = "svd"),
-    "not available for genotype likelihoods"
+  cv_gt <- gt_radmix(test_gt,
+    k = 2, seed = 1, rtol = 1e-12, crossval = TRUE, cv_rtol = 1e-12
   )
+  expect_equal(cv_ll$cv, cv_gt$cv, tolerance = 1e-7)
+  # imputed genotypes mean nothing for likelihoods (the SVD start is tested
+  # in test_radmix_svd.R)
   expect_error(
     gt_radmix(test_gl, k = 2, use_imputed = TRUE),
     "'use_imputed' is not available for genotype likelihoods"
@@ -479,6 +482,11 @@ test_that("supervised analyses fix the ancestry of the references", {
   expect_equal(q[sup_is_ref, ], q_fixed, tolerance = 1e-12)
   sup <- radmix_check_supervised(sup_labels, nrow(sim_gt), 3)
   expect_identical(q[sup_is_ref, ], sup$q[sup_is_ref, ])
+  # the log-likelihood is that of all the individuals, references included
+  # (the fused pass computes that of the references separately)
+  expect_equal(adm$loglik, radmix_loglik_cpp(
+    radmix_prepare(sim_gt), t(q), t(adm$P[[1]]), 1
+  ), tolerance = 1e-12)
   # the others recover their simulated ancestry, whose columns are matched
   # to the populations by their labels (no relabelling of the clusters)
   truth <- sim$q[, match(adm$ref_pops, sup_names)]

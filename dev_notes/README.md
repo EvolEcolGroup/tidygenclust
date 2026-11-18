@@ -21,6 +21,11 @@ Notes for developers and Claude sessions. Start with `summary.md` and
   (tags `archive/radmix-perf-verify`, `archive/newspeed`,
   `archive/supervised`); the timing of the port against `dev` (16 Nov
   2026) is in `radmix_port_timing_2026-11/`.
+- `radmix_extensions_2026-11/`: the scripts and results of the extensions
+  of 18 Nov 2026 (branch `radmix_extensions`): supervised fused pass
+  timings, cross-validation of likelihoods choosing K, SVD starts of
+  likelihoods, and the timings of tidypopgl's sources with the inlined
+  likelihood helpers.
 - `../data-raw/radmix/README.md`: the test fixtures (ADMIXTURE,
   OpenADMIXTURE.jl, NGSadmix) and how to regenerate them.
 - `../data-raw/radmix/gl/REPORT.md`: the validation and benchmarks of

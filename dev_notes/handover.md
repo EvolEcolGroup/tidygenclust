@@ -1,6 +1,8 @@
 # tidygenclust: handover
 
-Updated 2026-11-18 (manica01): attribution of the derived code of `gt_radmix()` and `gt_clumppling()` merged into `dev`; text for the paper in `paper_methods_text.md`.
+Updated 2026-11-18 (manica01, overnight): branch `radmix_extensions` (fused
+pass for supervised fits, cross-validation and SVD starts for genotype
+likelihoods, inlined likelihood helpers), pushed for review.
 `summary.md` first. History is in `progress.md`; designs are in the topic
 documents listed in `README.md`.
 
@@ -8,6 +10,7 @@ documents listed in `README.md`.
 
 | branch | purpose | base | pushed | merged |
 |---|---|---|---|---|
+| `radmix_extensions` | fused pass for supervised fits; cross-validation and SVD starts for genotype likelihoods; likelihood helpers inlined into the AVX2 clones (7 commits + notes) | `dev` 00deb4f | yes | no: Andrea's review |
 | `articles_revised` | revision of the pseudohaploid article (2 commits) | `dev` (old) | yes | no: conflict in `pseudohaploids.Rmd` |
 | `hgdp_plots`, `windows` (origin) | not part of the radmix work; commits not in `dev` | | yes | no: ask Andrea before touching |
 | laptopX1 local: `coverage-speed` (worktree `/media/andrea/annex/tmp/claude/tidygenclust/wt-coverage`), `newspeed`, `supervised`, `newspeed_supervised`, `newspeed_port`, `gl_gl16`, `gl_private`, `radmix-speedups`, `radmix-perf-verify`, `kernel-speedups`, `svd-start` | merged or superseded; origin copies deleted | | | to delete |
@@ -19,24 +22,42 @@ local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
 
 ## Next tasks
 
-### 1. **P2** [claude] then [review] `articles_revised`
+### 1. **P2** [review] `radmix_extensions`, then tidypopgl's `radmix_source_speed`
+
+- **Branch:** `radmix_extensions` (from `dev` 00deb4f, pushed; PR #38). Commits: ec7ff9a fused pass for supervised fits; ecc0841
+  cross-validation for likelihoods; 4ed9ceb SVD start for likelihoods;
+  7561833 NEWS; 9b05912 tests made obsolete by the two; 9659e51 inlined
+  likelihood helpers; then the notes; 014eb30 `svd_power` argument
+  (18 Nov, laptopX1, at Andrea's request). PR #38 into `dev`.
+- **Read first:** `admixture_implementation.md` ("The fused pass of
+  supervised fits", "Cross-validation", "The SVD start" under "Genotype
+  likelihoods"), `radmix_performance.md` (the two sections of 18 Nov),
+  `radmix_extensions_2026-11/` (scripts and results).
+- **Checked:** full suite with `NOT_CRAN=true` on an `-O2` build (22 files,
+  3874 expectations, after the fixes of 9b05912), `R CMD check --as-cran`
+  (see `progress.md`); tidypopgl's suite passes with this branch.
+- **Questions for the review:** the CV error of likelihoods is not
+  comparable with that of genotypes (documented). The power iterations of
+  the likelihood SVD (3 by default) are now set with `svd_power`.
+- **Then:** merge tidypopgl's `radmix_source_speed` (independent; see its
+  handover), and update tidypopgl's vignette sentence that cross-validation
+  is not available for likelihoods.
+
+### 2. **P2** [claude] then [review] `articles_revised`
 
 - **Branch:** `articles_revised`; rebase or merge `dev` into it and resolve
   the conflict in `vignettes/articles/pseudohaploids.Rmd`.
-- **Check:** render the article (`TMPDIR` on the annex drive).
+- **Check:** render the article (`TMPDIR` in a work folder).
 - **Done when:** a PR into `dev` is open for Andrea's review.
 
-### 2. **P3** [claude] A fused pass for supervised fits
+### 3. **P3** [decide] The bounds of the estimates with genotype likelihoods
 
-- **Where:** `update_q_impl()` in `src/radmix_kernels.cpp` and the
-  `speculate` logic of `radmix_fit_cpp()` (`src/radmix_fit.cpp`).
-- **Idea:** run the full Q side (every individual), which gives L(q, p),
-  then restore the columns of the references; it reads the references'
-  genotypes again, so it pays only when they are few.
-- **Done when:** supervised fits take 4 passes per accepted iteration, with
-  tests that their estimates are unchanged (to rounding).
+- Keep `[1e-5, 1 - 1e-5]` (ADMIXTURE's) or use NGSadmix's `1e-9`? With
+  1e-5 the log-likelihood is about 1e-6 (relative) below NGSadmix's on data
+  with many estimates at the bounds (`data-raw/radmix/gl/REPORT.md`).
+  Recommendation: keep 1e-5 (one set of bounds for both kinds of data).
 
-### 3. **P3** [cleanup] Branches and scratch files
+### 4. **P3** [cleanup] Branches and scratch files
 
 - laptopX1: the local branches in "Branches" (`git branch -D`), the
   worktree (`git worktree remove
@@ -45,9 +66,11 @@ local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
   `archive/radmix-perf-verify` holds).
 - manica01: delete `~/tgc_newspeed_work` (2.2 GB of builds and cached
   data), `~/tgc_bench_article` (logs of the 16 Nov run; summaries are in
-  `dev_notes/radmix_port_timing_2026-11/`) and the untracked
+  `dev_notes/radmix_port_timing_2026-11/`), the untracked
   `vignettes/articles/data/hgdp/runs` (4 GB of raw outputs of the article
-  run; the article's data are committed). `tgc-desktop-checks.timer` is
+  run; the article's data are committed), and `~/tgc_supfused_work` (the
+  builds and simulated data of 18 Nov; the scripts and results are in
+  `dev_notes/radmix_extensions_2026-11/`). `tgc-desktop-checks.timer` is
   disabled (17 Nov).
 
 ## Desktop queue
@@ -71,7 +94,9 @@ article benchmark, 16 Nov) is `dev_notes/radmix_port_timing_2026-11/run_desktop.
 - Speed leads in `radmix_performance.md` ("Leads not pursued yet"):
   `-march=native` gap, `-O3`, admixer's damped retries, single-precision
   Hessians for K >= 8.
-- Genotype likelihoods (claude_jobs#3, merged from #12): cross-validation, SVD start, the
-  1e-5 bounds, a faster source in tidypopgl.
+- Genotype likelihoods: an EM-based PCA (PCAngsd's iterations) for the
+  SVD start; `loglik()` of
+  likelihoods runs in baseline code (only used after a rejected
+  quasi-Newton step, by verbose EM priming and by the SVD start).
 - Move the notes still in `data-raw/radmix/` (`Notes_to_do`, `gl/REPORT.md`)
   into `dev_notes/`.

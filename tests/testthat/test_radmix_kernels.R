@@ -382,9 +382,29 @@ test_that("the Q side keeps fixed individuals and updates the others", {
       radmix_update_q_cpp(inp$geno, st$q, st$p, 3, fixed), q_sup
     )
     expect_identical(radmix_em_cpp(inp$geno, st$q, st$p, 3, fixed), em_sup)
-    # nothing to update when every individual is fixed
+    # the fused pass of supervised fits gives the same update, and the
+    # log-likelihood of all the individuals (the free ones from their Q
+    # side, the fixed ones from a pass over their genotypes alone)
+    ll <- radmix_loglik_cpp(inp$geno, st$q, st$p, 1)
+    fused <- radmix_update_q_loglik_cpp(inp$geno, st$q, st$p, 1, fixed)
+    expect_identical(fused$q, q_sup)
+    expect_equal(fused$loglik, ll, tolerance = 1e-12)
+    expect_identical(
+      radmix_update_q_loglik_cpp(inp$geno, st$q, st$p, 3, fixed), fused
+    )
+    # nothing to update when every individual is fixed, and no individual
+    # fixed is the same as no mask
     expect_identical(
       radmix_update_q_cpp(inp$geno, st$q, st$p, 2, rep(TRUE, n)), st$q
+    )
+    fused_all <- radmix_update_q_loglik_cpp(
+      inp$geno, st$q, st$p, 2, rep(TRUE, n)
+    )
+    expect_identical(fused_all$q, st$q)
+    expect_equal(fused_all$loglik, ll, tolerance = 1e-12)
+    expect_identical(
+      radmix_update_q_loglik_cpp(inp$geno, st$q, st$p, 2, rep(FALSE, n)),
+      radmix_update_q_loglik_cpp(inp$geno, st$q, st$p, 2)
     )
     # with the training view of cross-validation (the free individuals read
     # through their indices are hidden by the same folds)
@@ -396,12 +416,24 @@ test_that("the Q side keeps fixed individuals and updates the others", {
       radmix_update_q_cpp(train, st$q, st$p, 1)[, !fixed],
       tolerance = 1e-12
     )
+    expect_equal(
+      radmix_update_q_loglik_cpp(train, st$q, st$p, 1, fixed)$loglik,
+      radmix_loglik_cpp(train, st$q, st$p, 1),
+      tolerance = 1e-12
+    )
     # with genotype likelihoods (the source fills a run of free individuals
     # in one call, and scattered ones one at a time)
     gl_dat <- radmix_test_gl(radmix_simulate_gl(sim_f$genotypes, depth = 3))
     expect_equal(
       radmix_update_q_cpp(gl_dat, st$q, st$p, 1, fixed)[, !fixed],
       radmix_update_q_cpp(gl_dat, st$q, st$p, 1)[, !fixed],
+      tolerance = 1e-12
+    )
+    fused_gl <- radmix_update_q_loglik_cpp(gl_dat, st$q, st$p, 1, fixed)
+    expect_identical(
+      fused_gl$q, radmix_update_q_cpp(gl_dat, st$q, st$p, 1, fixed)
+    )
+    expect_equal(fused_gl$loglik, radmix_loglik_cpp(gl_dat, st$q, st$p, 1),
       tolerance = 1e-12
     )
     em_gl <- radmix_em_cpp(gl_dat, st$q, st$p, 1, fixed)
@@ -558,21 +590,8 @@ test_that("genotype likelihoods of hard calls give the results of genotypes", {
 test_that("invalid datasets of genotype likelihoods are errors", {
   gl_dat <- radmix_test_gl(radmix_simulate_gl(sim$genotypes))
   st <- radmix_ref_start(60, 200, 3)
-  # cross-validation, the deviance and decoding into genotypes are only for
-  # genotypes
-  expect_error(
-    radmix_loglik_cpp(
-      radmix_set_cv(gl_dat, list(
-        mode = "train", fold = 1, n_folds = 5, seed = 1
-      )),
-      st$q, st$p, 1
-    ),
-    "Cross-validation is not available"
-  )
-  expect_error(
-    radmix_deviance_cpp(gl_dat, st$q, st$p, 1),
-    "deviance is not available"
-  )
+  # decoding into genotypes is only for genotypes (cross-validation and the
+  # deviance of likelihoods are tested in test_radmix_cv.R)
   expect_error(radmix_decode(gl_dat), "cannot be decoded")
   # lists that do not follow the interface of a source (see
   # inst/include/tidygenclust/radmix_gl_source.h)

@@ -72,6 +72,70 @@ radmix_svd_factors <- function(x, rank, n_cores = 1) {
   )
 }
 
+#' The factors of a truncated SVD of genotype likelihoods, for the starts of
+#' gt_radmix(init = "svd")
+#'
+#' The counterpart of `radmix_svd_factors()` for genotype likelihoods (a
+#' source given by a method of [gt_radmix_data()]): the genotypes are not
+#' observed, so the SVD is that of their posterior dosages (expected
+#' numbers of copies of `allele2`) under Hardy-Weinberg proportions with the
+#' frequency f of `allele2` at each locus, estimated from the likelihoods by
+#' EM (emMAF, Kim et al. 2011), centred by 2 f and scaled by
+#' sqrt(2 f (1 - f)), as in the first step of PCAngsd (Meisner and
+#' Albrechtsen 2018); an individual without data at a locus gets the mean
+#' dosage, 2 f (src/radmix_gl_svd.cpp). For the likelihoods of hard calls
+#' without missing genotypes, the dosages are the genotypes, and the SVD is
+#' that of `radmix_svd_factors()`.
+#'
+#' The dosages are never stored: the truncated SVD is a randomised SVD
+#' (Halko, Martinsson and Tropp 2011, algorithm 4.4) with `rank + 10`
+#' vectors and `n_power` power iterations, whose products with the dosages
+#' are passes over the likelihoods (2 n_power + 2 passes, plus one for the
+#' frequencies). Its random test matrix is drawn from R's generator.
+#' @param data the list of kind `"gl_source"` given by [gt_radmix_data()]
+#' @param rank the number of components
+#' @param n_cores the number of threads of the passes over the likelihoods
+#' @param n_power the number of power iterations
+#' @returns a list with elements `z` (loci x rank), `u` (individuals x
+#'   rank) and `f` (the frequency of `allele2` at each locus), as
+#'   `radmix_svd_factors()`
+#' @references Halko N, Martinsson PG, Tropp JA (2011) Finding structure
+#'   with randomness: probabilistic algorithms for constructing approximate
+#'   matrix decompositions. SIAM Review 53: 217-288.
+#'
+#'   Kim SY, Lohmueller KE, Albrechtsen A, et al. (2011) Estimation of allele
+#'   frequency and association mapping using next-generation sequencing
+#'   data. BMC Bioinformatics 12: 231.
+#'
+#'   Meisner J, Albrechtsen A (2018) Inferring population structure and
+#'   admixture proportions in low-depth NGS data. Genetics 210: 719-731.
+#' @keywords internal
+#' @noRd
+radmix_gl_svd_factors <- function(data, rank, n_cores = 1, n_power = 3) {
+  f <- radmix_gl_freq_cpp(data, n_cores)
+  n_vec <- rank + 10
+  # the range of the dosages: Y = X Omega, refined by power iterations
+  # (each product orthonormalised first, for numerical stability)
+  omega <- matrix(stats::rnorm(data$n_loci * n_vec), data$n_loci, n_vec)
+  y <- radmix_gl_dosage_prod_cpp(data, f, omega, FALSE, n_cores)
+  for (it in seq_len(n_power)) {
+    z <- radmix_gl_dosage_prod_cpp(data, f, qr.Q(qr(y)), TRUE, n_cores)
+    y <- radmix_gl_dosage_prod_cpp(data, f, qr.Q(qr(z)), FALSE, n_cores)
+  }
+  qy <- qr.Q(qr(y))
+  # X ~ Qy Qy' X = Qy B', with B = X' Qy (loci x n_vec), whose SVD
+  # B = W D V' gives X ~ (Qy V) D W'
+  b <- radmix_gl_dosage_prod_cpp(data, f, qy, TRUE, n_cores)
+  sv <- svd(b, nu = rank, nv = rank)
+  scale <- sqrt(2 * f * (1 - f))
+  scale[scale == 0] <- 1
+  list(
+    z = unname(sweep(sv$u, 2, sv$d[seq_len(rank)], "*") * scale),
+    u = unname(qy %*% sv$v),
+    f = f
+  )
+}
+
 #' A start for gt_radmix(init = "svd")
 #'
 #' Fits `n_starts` ALS solutions (`radmix_als_cpp()`, src/radmix_als.cpp)
