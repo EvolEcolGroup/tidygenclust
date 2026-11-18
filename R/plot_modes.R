@@ -176,8 +176,8 @@ mode_edges <- function(object, n_col) {
 # Return the legend of a plot as a grob (or NULL if the plot has no legend).
 # Copied, with comments added, from the unexported function .get_legend() of
 # the R package ggpubr (https://CRAN.R-project.org/package=ggpubr), by
-# Alboukadel Kassambara, distributed under the GPL (>= 2); see
-# inst/COPYRIGHTS.
+# Alboukadel Kassambara, distributed under the GPL (>= 2) (see the file
+# COPYRIGHTS in inst/).
 # @param p a ggplot
 # @param position an optional position (e.g. "bottom") to reposition the
 #   legend before extracting it
