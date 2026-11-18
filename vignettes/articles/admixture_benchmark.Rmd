@@ -1,5 +1,5 @@
 ---
-title: "Benchmarking gt_radmix() against ADMIXTURE, fastmixture and ADAMIXTURE"
+title: "Benchmarking gt_radmix()"
 output:
   rmarkdown::html_vignette:
     toc: true
@@ -7,7 +7,7 @@ output:
 params:
   results_dir: "data/admixture_benchmark"
 vignette: >
-  %\VignetteIndexEntry{Benchmarking gt_radmix() against ADMIXTURE, fastmixture and ADAMIXTURE}
+  %\VignetteIndexEntry{Benchmarking gt_radmix()}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -42,6 +42,10 @@ with four programs that fit the same model: ADMIXTURE itself, fastmixture
 (Santander et al. 2024), ADAMIXTURE (Saurina-i-Ricos et al. 2026), and
 OpenADMIXTURE.jl (Ko et al. 2023), a Julia implementation of the algorithm
 of ADMIXTURE (run without its selection of ancestry informative markers).
+Note that OpenADMIXTURE.jl and ADAMIXTURE also include implementations 
+using the GPU, which can scale to Biobank datasets, but are not included in this comparison. Here we just compare the CPU implementations of the programs, which are all multithreaded. Thus, for very large datasets, some of the programs can perform
+better than these benchmarks suggest.
+
 The comparison uses the Human Genome Diversity Project (HGDP), and has two
 parts:
 
