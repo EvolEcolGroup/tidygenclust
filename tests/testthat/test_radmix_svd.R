@@ -170,3 +170,88 @@ test_that("SVD fits report their progress as messages", {
     "Computing the SVD"
   )
 })
+
+# Genotype likelihoods (through the example source, see radmix_test_gl()):
+# the SVD of the posterior dosages (src/radmix_gl_svd.cpp and
+# radmix_gl_svd_factors())
+test_that("the SVD start works with genotype likelihoods", {
+  # likelihoods with missing data, and their reference in R: the emMAF
+  # frequencies and the standardised posterior dosages
+  set.seed(3)
+  ll <- radmix_simulate_gl(svd_sim$genotypes, depth = 2)
+  ll[cbind(1:5, 1:5, 1)] <- 0
+  ll[cbind(1:5, 1:5, 2)] <- 0
+  ll[cbind(1:5, 1:5, 3)] <- 0
+  gl_dat <- radmix_test_gl(ll)
+  expect_true(any(!gl_dat$obs))
+  dosage <- function(f) {
+    fm <- matrix(f, nrow(gl_dat$e1), length(f), byrow = TRUE)
+    w1 <- 2 * gl_dat$e1 * fm * (1 - fm)
+    w2 <- gl_dat$e2 * fm^2
+    (w1 + 2 * w2) / ((1 - fm)^2 + w1 + w2)
+  }
+  f <- rep(0.25, ncol(gl_dat$e1))
+  for (it in 1:100) {
+    f <- colSums(dosage(f) * gl_dat$obs) / (2 * colSums(gl_dat$obs))
+  }
+  freq <- radmix_gl_freq_cpp(gl_dat, 1, tol = 1e-12, max_iter = 1000)
+  expect_equal(freq, f, tolerance = 1e-8)
+  expect_identical(radmix_gl_freq_cpp(gl_dat, 2, 1e-12, 1000), freq)
+  fm <- matrix(freq, nrow(gl_dat$e1), length(freq), byrow = TRUE)
+  x <- (dosage(freq) - 2 * fm) / sqrt(2 * fm * (1 - fm)) * gl_dat$obs
+  b <- matrix(stats::rnorm(300 * 4), 300, 4)
+  expect_equal(radmix_gl_dosage_prod_cpp(gl_dat, freq, b, FALSE, 1), x %*% b)
+  b2 <- matrix(stats::rnorm(60 * 4), 60, 4)
+  expect_equal(radmix_gl_dosage_prod_cpp(gl_dat, freq, b2, TRUE, 1),
+               t(x) %*% b2)
+  expect_identical(
+    radmix_gl_dosage_prod_cpp(gl_dat, freq, b2, TRUE, 3),
+    radmix_gl_dosage_prod_cpp(gl_dat, freq, b2, TRUE, 1)
+  )
+  # the randomised SVD gives the leading components of the dosages (those
+  # of the structure, K - 1 = 2; the others are noise, with small gaps
+  # between their singular values), and nearly the best approximation of
+  # rank 5
+  fac <- radmix_gl_svd_factors(gl_dat, rank = 5)
+  sv <- svd(x, nu = 5, nv = 5)
+  fac8 <- radmix_gl_svd_factors(gl_dat, rank = 5, n_power = 8)
+  expect_equal(abs(fac8$u[, 1:2]), abs(sv$u[, 1:2]), tolerance = 1e-5)
+  fm_t <- t(matrix(freq, nrow(x), ncol(x), byrow = TRUE))
+  scale <- sqrt(2 * fm_t * (1 - fm_t))
+  x5 <- t(fac$z %*% t(fac$u) / scale)
+  best5 <- sv$u %*% diag(sv$d[1:5]) %*% t(sv$v)
+  expect_lt(sum((x - x5)^2), 1.01 * sum((x - best5)^2))
+  # (the frequencies, to the default tolerance of their EM)
+  expect_equal(fac$f, freq, tolerance = 1e-5)
+  # the likelihoods of hard calls without missing data give the start of
+  # the genotypes, and fits from it reach the same maximum
+  hard_ll <- array(-Inf, c(dim(svd_sim$genotypes), 3))
+  for (gg in 0:2) hard_ll[, , gg + 1][svd_sim$genotypes == gg] <- 0
+  test_gl <- svd_gt
+  class(test_gl) <- c("test_svd_likelihoods", class(test_gl))
+  local_mocked_s3_method(
+    "gt_radmix_data", "test_svd_likelihoods",
+    function(x, ...) radmix_test_gl(hard_ll)
+  )
+  fac_gl <- radmix_gl_svd_factors(radmix_test_gl(hard_ll),
+    rank = 5, n_power = 8
+  )
+  fac_gt <- radmix_svd_factors(svd_gt, rank = 5)
+  expect_equal(fac_gl$f, fac_gt$f, tolerance = 1e-8, ignore_attr = TRUE)
+  expect_equal(abs(fac_gl$u[, 1:2]), abs(fac_gt$u[, 1:2]), tolerance = 1e-5)
+  # (a stringent rtol, as the log-likelihoods differ by a constant, which
+  # changes the relative changes that the convergence criterion tests)
+  adm_gl <- gt_radmix(test_gl, k = 3, seed = 1, init = "svd", rtol = 1e-12)
+  adm_gt <- gt_radmix(svd_gt, k = 3, seed = 1, init = "svd", rtol = 1e-12)
+  expect_true(adm_gl$converged)
+  expect_match(adm_gl$log[[1]][1], "^SVD start")
+  expect_equal(adm_gl$loglik, adm_gt$loglik + sum(svd_sim$genotypes == 1) *
+                 log(2), tolerance = 1e-6)
+  # reproducible with the same seed, whatever the number of cores
+  expect_identical(
+    gt_radmix(test_gl,
+      k = 3, seed = 1, init = "svd", rtol = 1e-12, n_cores = 2
+    )$Q,
+    adm_gl$Q
+  )
+})

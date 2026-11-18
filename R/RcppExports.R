@@ -85,3 +85,11 @@ radmix_gl_dense_source_cpp <- function(e1, e2, obs) {
     .Call(`_tidygenclust_radmix_gl_dense_source_cpp`, e1, e2, obs)
 }
 
+radmix_gl_freq_cpp <- function(data, n_cores, tol = 1e-6, max_iter = 100L) {
+    .Call(`_tidygenclust_radmix_gl_freq_cpp`, data, n_cores, tol, max_iter)
+}
+
+radmix_gl_dosage_prod_cpp <- function(data, f, b, transpose, n_cores) {
+    .Call(`_tidygenclust_radmix_gl_dosage_prod_cpp`, data, f, b, transpose, n_cores)
+}
+

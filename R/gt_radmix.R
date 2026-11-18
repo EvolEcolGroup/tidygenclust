@@ -112,11 +112,18 @@
 #'   genotypes (that of the EM algorithm), which keeps every quadratic
 #'   program convex. The quasi-Newton steps are accepted on the
 #'   log-likelihood above. Cross-validation (`crossval`) is available (see
-#'   "Cross-validation"); starts from the SVD (`init = "svd"`) and
-#'   `use_imputed` are not available for genotype likelihoods. Unlike
-#'   NGSadmix, which by default drops loci with a minor
-#'   allele frequency below 0.05 (its option `-minMaf`), `gt_radmix()` uses
-#'   all the loci of `x`: select them beforehand if needed.
+#'   "Cross-validation"), and so are starts from the SVD (`init = "svd"`):
+#'   the SVD is then that of the posterior dosages of the genotypes (their
+#'   expected numbers of copies of `allele2`) under Hardy-Weinberg
+#'   proportions with the allele frequencies estimated from the likelihoods
+#'   (emMAF, Kim et al. 2011), as in the first step of PCAngsd (Meisner and
+#'   Albrechtsen 2018), computed by a randomised SVD (Halko et al. 2011)
+#'   whose products are passes over the likelihoods; individuals without
+#'   data at a locus get the mean dosage. `use_imputed` is not available
+#'   for genotype likelihoods. Unlike NGSadmix, which by default drops loci
+#'   with a minor allele frequency below 0.05 (its option `-minMaf`),
+#'   `gt_radmix()` uses all the loci of `x`: select them beforehand if
+#'   needed.
 #'
 #'   ## Supervised analyses
 #'
@@ -186,7 +193,10 @@
 #'   (e.g. with [tidypopgen::gt_impute_simple()]); the imputed genotypes are
 #'   only used for the SVD, and the fit ignores them (unless
 #'   `use_imputed = TRUE`). The SVD also needs more individuals and loci than
-#'   `max(k) + 5`.
+#'   `max(k) + 5`. With genotype likelihoods, the SVD is that of the
+#'   posterior dosages (see "Genotype likelihoods"), and needs no imputation;
+#'   its random test matrix is drawn after setting the first value of
+#'   `seed`.
 #'
 #'   Fits from the SVD need fewer iterations (often less than half as many as
 #'   from random starts in our tests), and usually reach a good fit (though,
@@ -343,6 +353,20 @@
 #'   Skotte L, Korneliussen TS, Albrechtsen A (2013) Estimating individual
 #'   admixture proportions from next generation sequencing data. Genetics,
 #'   195(3), 693-702.
+#'
+#'   Kim SY, Lohmueller KE, Albrechtsen A, Li Y, Korneliussen T, Tian G,
+#'   Grarup N, Jiang T, Andersen G, Witte D, Jorgensen T, Hansen T,
+#'   Pedersen O, Wang J, Nielsen R (2011) Estimation of allele frequency and
+#'   association mapping using next-generation sequencing data. BMC
+#'   Bioinformatics, 12, 231.
+#'
+#'   Meisner J, Albrechtsen A (2018) Inferring population structure and
+#'   admixture proportions in low-depth NGS data. Genetics, 210(2),
+#'   719-731.
+#'
+#'   Halko N, Martinsson PG, Tropp JA (2011) Finding structure with
+#'   randomness: probabilistic algorithms for constructing approximate
+#'   matrix decompositions. SIAM Review, 53(2), 217-288.
 #'
 #' @param x a [`tidypopgen::gen_tibble`], or genotype likelihoods from
 #'   another package (see "Genotype likelihoods" in the details), possibly
@@ -583,17 +607,11 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
       call. = FALSE
     )
   }
-  # genotype likelihoods: the SVD start needs the genotypes, so it is not
-  # available yet; imputed genotypes mean nothing for them (a method that
-  # ignored `use_imputed` is caught here)
+  # genotype likelihoods: imputed genotypes mean nothing for them (a method
+  # that ignored `use_imputed` is caught here)
   if (identical(data$kind, "gl_source")) {
     if (use_imputed) {
       stop("'use_imputed' is not available for genotype likelihoods",
-        call. = FALSE
-      )
-    }
-    if (init == "svd") {
-      stop("'init = \"svd\"' is not available for genotype likelihoods",
         call. = FALSE
       )
     }
@@ -671,10 +689,23 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   if (init == "svd") {
     if (verbose) {
       message(
-        "Computing the SVD of the genotypes (", svd_rank, " components)"
+        "Computing the SVD of the ",
+        if (identical(data$kind, "gl_source")) "posterior dosages" else
+          "genotypes",
+        " (", svd_rank, " components)"
       )
     }
-    svd_factors <- radmix_svd_factors(x, rank = svd_rank, n_cores = n_cores)
+    if (identical(data$kind, "gl_source")) {
+      # (the randomised SVD of genotype likelihoods draws its test matrix
+      # from the generator, so that it depends on the first seed; the
+      # runs set their own seeds below)
+      if (!is.null(seed)) set.seed(seed[1])
+      svd_factors <- radmix_gl_svd_factors(data,
+        rank = svd_rank, n_cores = n_cores
+      )
+    } else {
+      svd_factors <- radmix_svd_factors(x, rank = svd_rank, n_cores = n_cores)
+    }
   }
 
   # Run the fits, one per combination of k and run, filling in the elements

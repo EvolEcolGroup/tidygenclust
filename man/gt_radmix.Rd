@@ -247,11 +247,18 @@ the Newton steps use the curvature of the expected log-likelihood of the
 genotypes (that of the EM algorithm), which keeps every quadratic
 program convex. The quasi-Newton steps are accepted on the
 log-likelihood above. Cross-validation (\code{crossval}) is available (see
-"Cross-validation"); starts from the SVD (\code{init = "svd"}) and
-\code{use_imputed} are not available for genotype likelihoods. Unlike
-NGSadmix, which by default drops loci with a minor
-allele frequency below 0.05 (its option \code{-minMaf}), \code{gt_radmix()} uses
-all the loci of \code{x}: select them beforehand if needed.
+"Cross-validation"), and so are starts from the SVD (\code{init = "svd"}):
+the SVD is then that of the posterior dosages of the genotypes (their
+expected numbers of copies of \code{allele2}) under Hardy-Weinberg
+proportions with the allele frequencies estimated from the likelihoods
+(emMAF, Kim et al. 2011), as in the first step of PCAngsd (Meisner and
+Albrechtsen 2018), computed by a randomised SVD (Halko et al. 2011)
+whose products are passes over the likelihoods; individuals without
+data at a locus get the mean dosage. \code{use_imputed} is not available
+for genotype likelihoods. Unlike NGSadmix, which by default drops loci
+with a minor allele frequency below 0.05 (its option \code{-minMaf}),
+\code{gt_radmix()} uses all the loci of \code{x}: select them beforehand if
+needed.
 }
 
 \subsection{Supervised analyses}{
@@ -325,7 +332,10 @@ The SVD cannot use missing genotypes, so they must be imputed first
 (e.g. with \code{\link[tidypopgen:gt_impute_simple]{tidypopgen::gt_impute_simple()}}); the imputed genotypes are
 only used for the SVD, and the fit ignores them (unless
 \code{use_imputed = TRUE}). The SVD also needs more individuals and loci than
-\code{max(k) + 5}.
+\code{max(k) + 5}. With genotype likelihoods, the SVD is that of the
+posterior dosages (see "Genotype likelihoods"), and needs no imputation;
+its random test matrix is drawn after setting the first value of
+\code{seed}.
 
 Fits from the SVD need fewer iterations (often less than half as many as
 from random starts in our tests), and usually reach a good fit (though,
@@ -514,4 +524,18 @@ doi: https://doi.org/10.24072/pcjournal.503
 Skotte L, Korneliussen TS, Albrechtsen A (2013) Estimating individual
 admixture proportions from next generation sequencing data. Genetics,
 195(3), 693-702.
+
+Kim SY, Lohmueller KE, Albrechtsen A, Li Y, Korneliussen T, Tian G,
+Grarup N, Jiang T, Andersen G, Witte D, Jorgensen T, Hansen T,
+Pedersen O, Wang J, Nielsen R (2011) Estimation of allele frequency and
+association mapping using next-generation sequencing data. BMC
+Bioinformatics, 12, 231.
+
+Meisner J, Albrechtsen A (2018) Inferring population structure and
+admixture proportions in low-depth NGS data. Genetics, 210(2),
+719-731.
+
+Halko N, Martinsson PG, Tropp JA (2011) Finding structure with
+randomness: probabilistic algorithms for constructing approximate
+matrix decompositions. SIAM Review, 53(2), 217-288.
 }
