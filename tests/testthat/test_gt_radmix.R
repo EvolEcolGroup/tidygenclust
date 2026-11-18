@@ -386,10 +386,7 @@ test_that("gt_radmix() fits genotype likelihoods given by another package", {
   class(test_gl) <- c("test_likelihoods", class(test_gl))
   local_mocked_s3_method(
     "gt_radmix_data", "test_likelihoods",
-    function(x, use_imputed = FALSE, ...) {
-      if (use_imputed) stop("'use_imputed' cannot be TRUE", call. = FALSE)
-      radmix_test_gl(hard_ll)
-    }
+    function(x, ...) radmix_test_gl(hard_ll)
   )
   # (the log-likelihoods differ by a constant, which changes the relative
   # changes that the convergence criterion tests, hence a stringent rtol for
@@ -435,7 +432,10 @@ test_that("gt_radmix() fits genotype likelihoods given by another package", {
     gt_radmix(test_gl, k = 2, init = "svd"),
     "not available for genotype likelihoods"
   )
-  expect_error(gt_radmix(test_gl, k = 2, use_imputed = TRUE), "use_imputed")
+  expect_error(
+    gt_radmix(test_gl, k = 2, use_imputed = TRUE),
+    "'use_imputed' is not available for genotype likelihoods"
+  )
   # a method that gives data for other individuals than those of x
   local_mocked_s3_method(
     "gt_radmix_data", "test_likelihoods",

@@ -1,4 +1,4 @@
-#' The data of gt_radmix(), and how other packages provide theirs
+#' Provide the data of gt_radmix() for a class (for package developers)
 #'
 #' [gt_radmix()] reads the data of `x` through `gt_radmix_data()`, a generic
 #' with a method for a [`tidypopgen::gen_tibble`]. Packages that store their
@@ -29,28 +29,28 @@
 #'   called from several threads, so it must not call R. The file
 #'   `src/radmix_gl_source.cpp` of tidygenclust's sources is an example,
 #'   used by its tests. `P` then gives the frequency of `allele2`.
-#'   Cross-validation and starts from the SVD are not available for
-#'   genotype likelihoods, and imputed values are meaningless for them, so a
-#'   method should stop if `use_imputed` is `TRUE`.
+#'   Cross-validation, starts from the SVD and imputed genotypes are not
+#'   available for genotype likelihoods: `gt_radmix()` checks them itself,
+#'   and calls a method with `x` alone (`use_imputed` is only given to the
+#'   method for a `gen_tibble`, when it is `TRUE`).
 #'
 #'   The list for a `gen_tibble` is internal to tidygenclust, and may
 #'   change.
 #'
 #' @param x the object given to [gt_radmix()]
-#' @param use_imputed boolean; whether imputed genotypes should be used, as
-#'   in [gt_radmix()]
 #' @param ... further arguments for methods
 #' @returns a list (see the details)
 #' @seealso [gt_radmix()], whose details describe the model of genotype
 #'   likelihoods
+#' @keywords internal
 #' @export
-gt_radmix_data <- function(x, use_imputed = FALSE, ...) {
+gt_radmix_data <- function(x, ...) {
   UseMethod("gt_radmix_data")
 }
 
 #' @rdname gt_radmix_data
 #' @export
-gt_radmix_data.default <- function(x, use_imputed = FALSE, ...) {
+gt_radmix_data.default <- function(x, ...) {
   stop(
     "'x' should be a gen_tibble, or an object for which a package provides ",
     "a method of gt_radmix_data()",
@@ -59,6 +59,8 @@ gt_radmix_data.default <- function(x, use_imputed = FALSE, ...) {
 }
 
 #' @rdname gt_radmix_data
+#' @param use_imputed boolean; for a `gen_tibble`, whether imputed genotypes
+#'   should be used, as in [gt_radmix()]
 #' @export
 gt_radmix_data.gen_tbl <- function(x, use_imputed = FALSE, ...) {
   radmix_prepare(x, use_imputed = use_imputed)

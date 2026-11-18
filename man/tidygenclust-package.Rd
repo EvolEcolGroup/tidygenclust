@@ -30,6 +30,7 @@ Authors:
 
 Other contributors:
 \itemize{
+  \item Joan Saurina [contributor]
   \item Seyoon Ko (Copyright holder of OpenADMIXTURE.jl, from which parts of the C++ code of gt_radmix() are ported (see inst/COPYRIGHTS)) [copyright holder]
   \item Kenneth Lange (Copyright holder of OpenADMIXTURE.jl, from which parts of the C++ code of gt_radmix() are ported (see inst/COPYRIGHTS)) [copyright holder]
   \item Ioannidis Lab (Copyright holder of ADAMIXTURE, from which the alternating least squares of gt_radmix() are adapted (see inst/COPYRIGHTS)) [copyright holder]

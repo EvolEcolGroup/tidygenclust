@@ -548,7 +548,14 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   # ploidy of each individual of a gen_tibble (R/radmix_data.R), or the
   # source of genotype likelihoods given by the method of another package.
   # This is done once and shared by all runs.
-  data <- gt_radmix_data(x, use_imputed = use_imputed)
+  # `use_imputed` only concerns a gen_tibble, so it is given to the method
+  # only when it is TRUE: the methods of other packages take `x` alone
+  # (and genotype likelihoods with `use_imputed` are rejected below).
+  data <- if (use_imputed) {
+    gt_radmix_data(x, use_imputed = TRUE)
+  } else {
+    gt_radmix_data(x)
+  }
   # the method of another package must give the individuals and loci of x,
   # which label the rows of Q and of P
   n_loci_x <- nrow(tidypopgen::show_loci(x))
@@ -561,8 +568,15 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
     )
   }
   # genotype likelihoods: the deviance of cross-validation and the SVD of
-  # the genotypes need hard calls, so neither is available yet
+  # the genotypes need hard calls, so neither is available yet; imputed
+  # genotypes mean nothing for them (a method that ignored `use_imputed`
+  # is caught here)
   if (identical(data$kind, "gl_source")) {
+    if (use_imputed) {
+      stop("'use_imputed' is not available for genotype likelihoods",
+        call. = FALSE
+      )
+    }
     if (crossval) {
       stop("'crossval' is not available for genotype likelihoods",
         call. = FALSE

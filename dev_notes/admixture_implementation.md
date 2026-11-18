@@ -657,6 +657,11 @@ function that fills the likelihoods `e1` and `e2` and the indicator of data
 context that the function reads, the numbers of individuals and loci, and
 anything that must stay alive while the source is used (e.g. the
 file-backed matrix that the context points into).
+The generic takes `x` alone: `use_imputed` is an argument of the
+`gen_tbl` method only, given only when it is `TRUE`, and `gt_radmix()`
+itself rejects it (with cross-validation and the SVD start) for a
+`"gl_source"`. The generic is exported but `@keywords internal`, so it is
+not in the pkgdown reference index.
 - The interface (version 1) is a single typedef, in
   `inst/include/tidygenclust/radmix_gl_source.h`, which such a package
   copies or takes with `LinkingTo`. `GenoView` checks

@@ -4,21 +4,21 @@
 \alias{gt_radmix_data}
 \alias{gt_radmix_data.default}
 \alias{gt_radmix_data.gen_tbl}
-\title{The data of gt_radmix(), and how other packages provide theirs}
+\title{Provide the data of gt_radmix() for a class (for package developers)}
 \usage{
-gt_radmix_data(x, use_imputed = FALSE, ...)
+gt_radmix_data(x, ...)
 
-\method{gt_radmix_data}{default}(x, use_imputed = FALSE, ...)
+\method{gt_radmix_data}{default}(x, ...)
 
 \method{gt_radmix_data}{gen_tbl}(x, use_imputed = FALSE, ...)
 }
 \arguments{
 \item{x}{the object given to \code{\link[=gt_radmix]{gt_radmix()}}}
 
-\item{use_imputed}{boolean; whether imputed genotypes should be used, as
-in \code{\link[=gt_radmix]{gt_radmix()}}}
-
 \item{...}{further arguments for methods}
+
+\item{use_imputed}{boolean; for a \code{gen_tibble}, whether imputed genotypes
+should be used, as in \code{\link[=gt_radmix]{gt_radmix()}}}
 }
 \value{
 a list (see the details)
@@ -56,9 +56,10 @@ that of 0 copies, and whether each individual has data, and it is
 called from several threads, so it must not call R. The file
 \code{src/radmix_gl_source.cpp} of tidygenclust's sources is an example,
 used by its tests. \code{P} then gives the frequency of \code{allele2}.
-Cross-validation and starts from the SVD are not available for
-genotype likelihoods, and imputed values are meaningless for them, so a
-method should stop if \code{use_imputed} is \code{TRUE}.
+Cross-validation, starts from the SVD and imputed genotypes are not
+available for genotype likelihoods: \code{gt_radmix()} checks them itself,
+and calls a method with \code{x} alone (\code{use_imputed} is only given to the
+method for a \code{gen_tibble}, when it is \code{TRUE}).
 
 The list for a \code{gen_tibble} is internal to tidygenclust, and may
 change.
@@ -67,3 +68,4 @@ change.
 \code{\link[=gt_radmix]{gt_radmix()}}, whose details describe the model of genotype
 likelihoods
 }
+\keyword{internal}
