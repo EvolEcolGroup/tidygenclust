@@ -5,6 +5,14 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-18 (laptopX1): PR #38 merged
+
+- CI of PR #38 green on all platforms; squash-merged into `dev` (df747aa)
+  at Andrea's request.
+- 17 local branches without origin and the `coverage-speed` worktree
+  deleted on laptopX1 (Andrea's request); tips saved in
+  `/media/andrea/annex/tmp/claude/tidygenclust/deleted_branches_2026-11-18.txt`.
+
 ## 2026-11-18 (laptopX1): `svd_power`, PR #38
 
 - At Andrea's request, new `gt_radmix()` argument `svd_power` (default 3)

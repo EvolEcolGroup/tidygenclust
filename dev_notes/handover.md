@@ -1,8 +1,8 @@
 # tidygenclust: handover
 
-Updated 2026-11-18 (manica01, overnight): branch `radmix_extensions` (fused
-pass for supervised fits, cross-validation and SVD starts for genotype
-likelihoods, inlined likelihood helpers), pushed for review.
+Updated 2026-11-18 (laptopX1): PR #38 (`radmix_extensions`: fused pass for
+supervised fits, cross-validation and SVD starts for genotype likelihoods,
+`svd_power`, inlined likelihood helpers) squash-merged into `dev` (df747aa).
 `summary.md` first. History is in `progress.md`; designs are in the topic
 documents listed in `README.md`.
 
@@ -10,11 +10,13 @@ documents listed in `README.md`.
 
 | branch | purpose | base | pushed | merged |
 |---|---|---|---|---|
-| `radmix_extensions` | fused pass for supervised fits; cross-validation and SVD starts for genotype likelihoods; likelihood helpers inlined into the AVX2 clones (7 commits + notes) | `dev` 00deb4f | yes | no: Andrea's review |
+| `radmix_extensions` | squash-merged as #38 (df747aa) | | yes | yes: delete (local, origin) |
 | `articles_revised` | revision of the pseudohaploid article (2 commits) | `dev` (old) | yes | no: conflict in `pseudohaploids.Rmd` |
 | `hgdp_plots`, `windows` (origin) | not part of the radmix work; commits not in `dev` | | yes | no: ask Andrea before touching |
-| laptopX1 local: `coverage-speed` (worktree `/media/andrea/annex/tmp/claude/tidygenclust/wt-coverage`), `newspeed`, `supervised`, `newspeed_supervised`, `newspeed_port`, `gl_gl16`, `gl_private`, `radmix-speedups`, `radmix-perf-verify`, `kernel-speedups`, `svd-start` | merged or superseded; origin copies deleted | | | to delete |
 
+Deleted 18 Nov (laptopX1): 17 local branches without origin and the
+`coverage-speed` worktree; tips in
+`/media/andrea/annex/tmp/claude/tidygenclust/deleted_branches_2026-11-18.txt`.
 Deleted 17 Nov (origin and manica01): `newspeed`, `supervised` (tags
 `archive/newspeed` ec96315, `archive/supervised` fc43f9b),
 `newspeed_supervised`, `coverage-speed`, `newspeed_port` (#36), and the
@@ -22,26 +24,12 @@ local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
 
 ## Next tasks
 
-### 1. **P2** [review] `radmix_extensions`, then tidypopgl's `radmix_source_speed`
+### 1. **P2** [review] tidypopgl's `radmix_source_speed`
 
-- **Branch:** `radmix_extensions` (from `dev` 00deb4f, pushed; PR #38). Commits: ec7ff9a fused pass for supervised fits; ecc0841
-  cross-validation for likelihoods; 4ed9ceb SVD start for likelihoods;
-  7561833 NEWS; 9b05912 tests made obsolete by the two; 9659e51 inlined
-  likelihood helpers; then the notes; 014eb30 `svd_power` argument
-  (18 Nov, laptopX1, at Andrea's request). PR #38 into `dev`.
-- **Read first:** `admixture_implementation.md` ("The fused pass of
-  supervised fits", "Cross-validation", "The SVD start" under "Genotype
-  likelihoods"), `radmix_performance.md` (the two sections of 18 Nov),
-  `radmix_extensions_2026-11/` (scripts and results).
-- **Checked:** full suite with `NOT_CRAN=true` on an `-O2` build (22 files,
-  3874 expectations, after the fixes of 9b05912), `R CMD check --as-cran`
-  (see `progress.md`); tidypopgl's suite passes with this branch.
-- **Questions for the review:** the CV error of likelihoods is not
-  comparable with that of genotypes (documented). The power iterations of
-  the likelihood SVD (3 by default) are now set with `svd_power`.
-- **Then:** merge tidypopgl's `radmix_source_speed` (independent; see its
-  handover), and update tidypopgl's vignette sentence that cross-validation
-  is not available for likelihoods.
+- tidygenclust's side is merged (#38, df747aa). Merge tidypopgl's
+  `radmix_source_speed` (see its handover), and update tidypopgl's
+  vignette sentence that cross-validation is not available for
+  likelihoods.
 
 ### 2. **P2** [claude] then [review] `articles_revised`
 
@@ -59,9 +47,9 @@ local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
 
 ### 4. **P3** [cleanup] Branches and scratch files
 
-- laptopX1: the local branches in "Branches" (`git branch -D`), the
-  worktree (`git worktree remove
-  /media/andrea/annex/tmp/claude/tidygenclust/wt-coverage`), and the
+- `radmix_extensions` (merged as #38): `git branch -D` on each machine,
+  `git push origin --delete radmix_extensions`.
+- laptopX1: the
   untracked `data-raw/radmix/perf_verification/` (a copy of what the tag
   `archive/radmix-perf-verify` holds).
 - manica01: delete `~/tgc_newspeed_work` (2.2 GB of builds and cached

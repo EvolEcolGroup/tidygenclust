@@ -9,12 +9,12 @@ paragraph, status and next steps are copied into the issue
 
 tidygenclust: `gt_radmix()`, the native implementation of ADMIXTURE's method (port, speed-ups, consolidation), and its extension to genotype likelihoods. Earlier log of the likelihoods: dramanica/claude_jobs#12.
 
-**Status.** Branch `radmix_extensions` (PR #38, not merged; overnight session of 18 Nov, plus `svd_power`) adds a fused pass for supervised fits (fits 0.88-0.89 of the time, the same estimates), cross-validation and SVD starts for genotype likelihoods, and inlined likelihood helpers; with tidypopgl's faster source (its branch `radmix_source_speed`), fits of likelihoods take 0.80-0.83 of the time. Tests and `R CMD check` pass; both branches wait for review. Handover: `dev_notes/handover.md`.
+**Status.** PR #38 (`radmix_extensions`, squash-merged into `dev` as df747aa on 18 Nov, CI green) added a fused pass for supervised fits (fits 0.88-0.89 of the time, the same estimates), cross-validation and SVD starts for genotype likelihoods, and inlined likelihood helpers; with tidypopgl's faster source (its branch `radmix_source_speed`), fits of likelihoods take 0.80-0.83 of the time. tidypopgl's `radmix_source_speed` waits for review. Handover: `dev_notes/handover.md`.
 
 `dev` holds PR #36 (merged 17 Nov: the speed-ups of `newspeed`, supervised
 analyses, the benchmark article with the full HGDP run) and genotype
 likelihoods (#35, 14 Nov), used by tidypopgl's `gl_workflow`, which
-dropped NGSadmix. On `radmix_extensions`:
+dropped NGSadmix. PR #38 added:
 - **Supervised fits** evaluate each point and start the next iteration in
   one pass, as unsupervised fits do: the free individuals' Q side gives
   their update and log-likelihood, and a log-likelihood-only pass the
@@ -37,13 +37,14 @@ The designs are in `admixture_implementation.md`, the timings in
 `radmix_performance.md` and `radmix_extensions_2026-11/`.
 
 **Next steps**
-- [ ] **P2** [review] PR #38 `radmix_extensions` (tidygenclust), then tidypopgl's `radmix_source_speed`: merge both; then update tidypopgl's vignette (it says cross-validation is not available for likelihoods).
+- [ ] **P2** [review] tidypopgl's `radmix_source_speed`: merge it; then update tidypopgl's vignette (it says cross-validation is not available for likelihoods).
 - [ ] **P2** [claude] then [review] `articles_revised`: resolve its conflict in `pseudohaploids.Rmd`, then review and merge.
 - [ ] **P3** [decide] Keep the 1e-5 bounds for likelihoods, or use NGSadmix's 1e-9? With 1e-5, the log-likelihood is about 1e-6 below NGSadmix's. Recommendation: keep 1e-5.
-- [ ] **P3** [cleanup] On laptopX1, delete the stale local branches and the `coverage-speed` worktree, and the untracked `data-raw/radmix/perf_verification/`; on manica01, delete `~/tgc_newspeed_work`, `~/tgc_bench_article`, `~/tgc_supfused_work` and `vignettes/articles/data/hgdp/runs` (about 7 GB of builds and raw outputs).
+- [ ] **P3** [cleanup] On laptopX1, delete the untracked `data-raw/radmix/perf_verification/`; on manica01, delete the merged `radmix_extensions` (local and origin); delete `~/tgc_newspeed_work`, `~/tgc_bench_article`, `~/tgc_supfused_work` and `vignettes/articles/data/hgdp/runs` (about 7 GB of builds and raw outputs).
 
 Backlog (P3, in `handover.md`): `-fprofile-update=single` under covr, the vignette's P comparison as code, P as a matrix or a data.frame (decide), bootstrap standard errors, the remaining speed leads, an EM-based PCA for the SVD start of likelihoods.
 
 **Done**
-- Extensions of `gt_radmix()`: fused pass for supervised fits, cross-validation and SVD starts for likelihoods, faster likelihood fits (with tidypopgl's source): branch `radmix_extensions`, 18 Nov 2026 (not merged).
+- Extensions of `gt_radmix()`: fused pass for supervised fits, cross-validation and SVD starts for likelihoods, `svd_power`: PR #38 squash-merged into `dev` (df747aa), Andrea, 18 Nov 2026.
+- laptopX1: 17 local branches without origin and the `coverage-speed` worktree deleted (tips in `/media/andrea/annex/tmp/claude/tidygenclust/deleted_branches_2026-11-18.txt`), 18 Nov 2026.
 - Code derived from other software labelled in `gt_radmix()`, `gt_fastmixture()` and `gt_clumppling()`, licences completed in `COPYRIGHTS` and `cph` roles (ADAMIXTURE, cp-algorithms and ggpubr were uncredited); text for the paper in `dev_notes/paper_methods_text.md`: merged into `dev` (4c8464d), Andrea, 18 Nov 2026.
