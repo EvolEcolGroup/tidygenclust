@@ -173,8 +173,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // radmix_update_q_loglik_cpp
-List radmix_update_q_loglik_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores);
-RcppExport SEXP _tidygenclust_radmix_update_q_loglik_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP) {
+List radmix_update_q_loglik_cpp(List data, NumericMatrix q, NumericMatrix p, int n_cores, Nullable<LogicalVector> fixed);
+RcppExport SEXP _tidygenclust_radmix_update_q_loglik_cpp(SEXP dataSEXP, SEXP qSEXP, SEXP pSEXP, SEXP n_coresSEXP, SEXP fixedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -182,7 +182,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericMatrix >::type q(qSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type p(pSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(radmix_update_q_loglik_cpp(data, q, p, n_cores));
+    Rcpp::traits::input_parameter< Nullable<LogicalVector> >::type fixed(fixedSEXP);
+    rcpp_result_gen = Rcpp::wrap(radmix_update_q_loglik_cpp(data, q, p, n_cores, fixed));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -316,7 +317,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_tidygenclust_radmix_grad_q_cpp", (DL_FUNC) &_tidygenclust_radmix_grad_q_cpp, 4},
     {"_tidygenclust_radmix_grad_p_cpp", (DL_FUNC) &_tidygenclust_radmix_grad_p_cpp, 4},
     {"_tidygenclust_radmix_update_q_cpp", (DL_FUNC) &_tidygenclust_radmix_update_q_cpp, 5},
-    {"_tidygenclust_radmix_update_q_loglik_cpp", (DL_FUNC) &_tidygenclust_radmix_update_q_loglik_cpp, 4},
+    {"_tidygenclust_radmix_update_q_loglik_cpp", (DL_FUNC) &_tidygenclust_radmix_update_q_loglik_cpp, 5},
     {"_tidygenclust_radmix_update_p_cpp", (DL_FUNC) &_tidygenclust_radmix_update_p_cpp, 4},
     {"_tidygenclust_radmix_q_segments_cpp", (DL_FUNC) &_tidygenclust_radmix_q_segments_cpp, 2},
     {"_tidygenclust_radmix_qp_solve_cpp", (DL_FUNC) &_tidygenclust_radmix_qp_solve_cpp, 4},

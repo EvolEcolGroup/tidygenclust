@@ -111,8 +111,11 @@ void update_q(const GenoView& geno, const double* q, const double* p, int K,
 // same time). q_new is identical to that of update_q(), and the
 // log-likelihood equals that of loglik() up to rounding (the same terms,
 // added up in another order); neither depends on the number of threads.
+// With fixed individuals, their genotypes are read only for the
+// log-likelihood (no sums or quadratic programs), still once each.
 double update_q_loglik(const GenoView& geno, const double* q,
-                       const double* p, int K, double* q_new, int n_cores);
+                       const double* p, int K, double* q_new, int n_cores,
+                       const unsigned char* fixed = nullptr);
 
 // The block update of p given q (p_new, K x J): the same, within the box
 // [0, 1], then clamped to [1e-5, 1 - 1e-5].

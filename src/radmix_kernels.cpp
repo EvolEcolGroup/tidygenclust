@@ -668,6 +668,10 @@ static RADMIX_INLINE double loglik_slice_q(size_t ni, Slice& s) {
 // - EM: grad_k = sum_j a p_kj + b (1 - p_kj) (grad, K x ni; hess unused),
 //   the expected number of allele copies of individual i from population
 //   k, divided by q_ki (see em()).
+// - LOGLIK without NEWTON: the log-likelihood alone, with no sums (grad,
+//   hess, gT and hT are not used): the slices only need qp and the
+//   genotypes (slice_geno()). Used for the reference individuals of a
+//   supervised fit, whose columns of q are not updated (update_q_impl()).
 // Outputs are overwritten. qT is the transposed q (I x K), p is K x J, and
 // i1 - i0 must be at most TILE_I. s holds two slices (one per locus of a
 // step); gT (K vectors of TILE_I values) and hT (K (K + 1) / 2 vectors of
@@ -691,9 +695,20 @@ static double accum_q_block(const GenoView& geno, const double* qT,
                             size_t j0, size_t j1, double* grad,
                             double* hess, Slice* s, double* gT, double* hT,
                             const size_t* free_idx, size_t ldq) {
-  // (EM steps use s.a and s.b, which loglik_slice() overwrites)
-  static_assert(NEWTON || !LOGLIK, "LOGLIK requires NEWTON");
   const size_t ni = i1 - i0, KK = (size_t) K * K;
+  // the log-likelihood alone (see above): qp and the genotypes of each
+  // slice, and its log-likelihood, in the order of the loci as below (EM
+  // steps, which use s.a and s.b, cannot also compute it, as loglik_slice()
+  // overwrites them)
+  if (!NEWTON && LOGLIK) {
+    const size_t* fi = free_idx == nullptr ? nullptr : free_idx + i0;
+    double ll = 0.0;
+    for (size_t j = j0; j < j1; j++) {
+      slice_geno<GL>(geno, qT, p + K * j, K, j, i0, i1, s[0], fi, ldq);
+      ll += loglik_slice_q<GL>(ni, s[0]);
+    }
+    return ll;
+  }
   // the number of entries (k, k2) with k2 >= k of a symmetric K x K matrix
   const size_t n_pair = (size_t) K * (K + 1) / 2;
   // (the whole vectors are zeroed, including the tail beyond ni, which is
@@ -855,22 +870,29 @@ size_t q_segments(size_t I, size_t J) {
 // are added up at the end in task order, which depends only on the
 // dimensions of the data, so *ll does not depend on the number of threads.
 // It equals loglik() up to rounding (the terms are the same, added up in
-// another order). Without LOGLIK, ll is not used.
+// another order). Without LOGLIK, ll is not used. With a list of
+// individuals, LOGLIK gives the log-likelihood of their genotypes alone,
+// which is only part of L(q, p) (update_q_impl() adds up those of the free
+// and of the fixed individuals).
+//
+// LOGLIK without NEWTON computes the log-likelihood alone (see
+// accum_q_block()), with the same tasks: there are no sums, and finish() is
+// not called.
 template <bool NEWTON, bool LOGLIK, class Finish>
 static void q_side(const GenoView& geno, const double* qT, const double* p,
                    int K, int n_cores, double* ll, Finish finish,
                    const size_t* free_idx = nullptr, size_t n_free = 0) {
-  // I: the number of individuals processed (all of them, or the free ones),
-  // which is also the number of rows of qT. (With free individuals only,
-  // LOGLIK would give the log-likelihood of their genotypes alone, which is
-  // not L(q, p): the callers never ask for it, see update_q_impl().)
+  // whether the pass computes sums (anything but the log-likelihood alone)
+  const bool SUMS = NEWTON || !LOGLIK;
+  // I: the number of individuals processed (all of them, or those of the
+  // list), which is also the number of rows of qT
   const size_t I = free_idx == nullptr ? geno.nrow() : n_free;
   const size_t J = geno.ncol(), KK = (size_t) K * K;
   const size_t n_pair = (size_t) K * (K + 1) / 2;
   const size_t nbi = n_blocks(I, TILE_I), n_seg = q_segments(I, J);
   // the partial sums of individual i in segment seg start at
   // K (seg I + i) (and KK (seg I + i) for the Hessians)
-  std::vector<double> grad_part(n_seg > 1 ? n_seg * K * I : 0);
+  std::vector<double> grad_part(n_seg > 1 && SUMS ? n_seg * K * I : 0);
   std::vector<double> hess_part(n_seg > 1 && NEWTON ? n_seg * KK * I : 0);
   // with LOGLIK, the log-likelihood of each task, at index seg * nbi + bl
   // (one segment: bl)
@@ -883,8 +905,10 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
   // thread-local buffers: two slices, the accumulators, and the sums of one
   // block of individuals
   Slice s[2];
-  std::vector<double> gT(K * TILE_I), hT(NEWTON ? n_pair * TILE_I : 0);
-  std::vector<double> grad(K * TILE_I), hess(NEWTON ? KK * TILE_I : 0);
+  std::vector<double> gT(SUMS ? K * TILE_I : 0);
+  std::vector<double> hT(NEWTON ? n_pair * TILE_I : 0);
+  std::vector<double> grad(SUMS ? K * TILE_I : 0);
+  std::vector<double> hess(NEWTON ? KK * TILE_I : 0);
   if (n_seg > 1) {
     // tasks t = seg * nbi + bl: blocks vary fastest, so threads that start
     // together read the same columns of the backing file
@@ -896,7 +920,8 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
       // n_seg contiguous, nearly equal ranges of loci
       const size_t j0 = J * seg / n_seg, j1 = J * (seg + 1) / n_seg;
       const double ll_task = accum(
-        geno, qT, p, K, i0, i1, j0, j1, &grad_part[K * (seg * I + i0)],
+        geno, qT, p, K, i0, i1, j0, j1,
+        SUMS ? &grad_part[K * (seg * I + i0)] : NULL,
         NEWTON ? &hess_part[KK * (seg * I + i0)] : NULL, s, gT.data(),
         NEWTON ? hT.data() : NULL, free_idx, I);
       if (LOGLIK) ll_part[t] = ll_task;
@@ -915,7 +940,7 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
         NEWTON ? hess.data() : NULL, s, gT.data(),
         NEWTON ? hT.data() : NULL, free_idx, I);
       if (LOGLIK) ll_part[bl] = ll_task;
-    } else {
+    } else if (SUMS) {
       // add up the partial sums of the segments, always in segment order
       for (size_t i = i0; i < i1; i++) {
         double* g = &grad[K * (i - i0)];
@@ -935,7 +960,7 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
         }
       }
     }
-    finish(i0, i1, grad.data(), hess.data());
+    if (SUMS) finish(i0, i1, grad.data(), hess.data());
   }
 }
   // the log-likelihood, adding up the tasks in order (outside the parallel
@@ -1383,9 +1408,12 @@ static inline void newton_column(const double* H, const double* grad,
 // LOGLIK, *ll also receives L(q, p) (see q_side()); the update is the same
 // either way. With a mask of fixed individuals (a supervised analysis),
 // their columns are copied, and neither their sums nor their quadratic
-// programs are computed; the Q side then does not read the genotypes of the
-// fixed individuals, so it cannot give L(q, p), and LOGLIK requires fixed =
-// NULL.
+// programs are computed. With LOGLIK, a second Q-side pass over the fixed
+// individuals alone then computes the log-likelihood of their genotypes
+// (q_side() without NEWTON), which is added to that of the free ones: each
+// genotype is still read once, and the update and the log-likelihood cost
+// what a pass of update_q_loglik() without fixed individuals costs, less
+// the sums and quadratic programs of the fixed individuals.
 template <bool LOGLIK>
 static void update_q_impl(const GenoView& geno, const double* q,
                           const double* p, int K, double* q_new,
@@ -1404,24 +1432,41 @@ static void update_q_impl(const GenoView& geno, const double* q,
     });
     return;
   }
-  if (LOGLIK) Rcpp::stop("update_q_loglik() does not take fixed individuals");
   // with fixed individuals: copy their columns, and update the free ones
   // only (positions f in the list of free individuals, individuals
   // free_idx[f] of the data), from the compact transpose of their columns
   std::vector<size_t> free_idx = free_individuals(fixed, q, K, I, q_new);
-  if (free_idx.empty()) return;
-  std::vector<double> qT =
-    transpose_subset(q, K, free_idx.data(), free_idx.size());
-  q_side<true, false>(geno, qT.data(), p, K, n_cores, NULL,
-                      [&](size_t i0, size_t i1, const double* g,
-                          const double* H) {
-    QPWork work(K);
-    for (size_t f = i0; f < i1; f++) {
-      const size_t i = free_idx[f];
-      newton_column(H + KK * (f - i0), g + K * (f - i0), q + K * i, K, true,
-                    q_new + K * i, work);
-    }
-  }, free_idx.data(), free_idx.size());
+  // (the log-likelihoods of the genotypes of the free and of the fixed
+  // individuals, each independent of the number of threads)
+  double ll_free = 0.0, ll_fixed = 0.0;
+  if (!free_idx.empty()) {
+    std::vector<double> qT =
+      transpose_subset(q, K, free_idx.data(), free_idx.size());
+    q_side<true, LOGLIK>(geno, qT.data(), p, K, n_cores, &ll_free,
+                         [&](size_t i0, size_t i1, const double* g,
+                             const double* H) {
+      QPWork work(K);
+      for (size_t f = i0; f < i1; f++) {
+        const size_t i = free_idx[f];
+        newton_column(H + KK * (f - i0), g + K * (f - i0), q + K * i, K,
+                      true, q_new + K * i, work);
+      }
+    }, free_idx.data(), free_idx.size());
+  }
+  if (!LOGLIK) return;
+  // the log-likelihood of the genotypes of the fixed individuals, from the
+  // compact transpose of their columns
+  std::vector<size_t> fixed_idx;
+  for (size_t i = 0; i < I; i++)
+    if (fixed[i]) fixed_idx.push_back(i);
+  if (!fixed_idx.empty()) {
+    std::vector<double> qT =
+      transpose_subset(q, K, fixed_idx.data(), fixed_idx.size());
+    q_side<false, true>(geno, qT.data(), p, K, n_cores, &ll_fixed,
+                        [](size_t, size_t, const double*, const double*) {},
+                        fixed_idx.data(), fixed_idx.size());
+  }
+  *ll = ll_free + ll_fixed;
 }
 
 void update_q(const GenoView& geno, const double* q, const double* p, int K,
@@ -1432,9 +1477,10 @@ void update_q(const GenoView& geno, const double* q, const double* p, int K,
 // The block update of q and the log-likelihood of (q, p), in one pass (see
 // radmix_kernels.h).
 double update_q_loglik(const GenoView& geno, const double* q,
-                       const double* p, int K, double* q_new, int n_cores) {
+                       const double* p, int K, double* q_new, int n_cores,
+                       const unsigned char* fixed) {
   double ll;
-  update_q_impl<true>(geno, q, p, K, q_new, n_cores, &ll, nullptr);
+  update_q_impl<true>(geno, q, p, K, q_new, n_cores, &ll, fixed);
   return ll;
 }
 

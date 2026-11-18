@@ -156,15 +156,21 @@ NumericMatrix radmix_update_q_cpp(List data, NumericMatrix q,
 }
 
 // Block update of q and log-likelihood of (q, p) in one pass; returns
-// list(q = the new K x I matrix, loglik).
+// list(q = the new K x I matrix, loglik). The individuals marked TRUE in the
+// optional `fixed` keep their column of q (the log-likelihood is still that
+// of all the individuals).
 // [[Rcpp::export]]
 List radmix_update_q_loglik_cpp(List data, NumericMatrix q,
-                                NumericMatrix p, int n_cores) {
+                                NumericMatrix p, int n_cores,
+                                Nullable<LogicalVector> fixed =
+                                  R_NilValue) {
   const GenoView geno(data);
   const int K = check_dims(geno, q, p, n_cores);
+  std::vector<unsigned char> mask;
+  const unsigned char* fx = fixed_mask(geno, fixed, mask);
   NumericMatrix q_new(K, q.ncol());
   const double ll = update_q_loglik(geno, q.begin(), p.begin(), K,
-                                    q_new.begin(), n_cores);
+                                    q_new.begin(), n_cores, fx);
   return List::create(_["q"] = q_new, _["loglik"] = ll);
 }
 

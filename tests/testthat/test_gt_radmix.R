@@ -479,6 +479,11 @@ test_that("supervised analyses fix the ancestry of the references", {
   expect_equal(q[sup_is_ref, ], q_fixed, tolerance = 1e-12)
   sup <- radmix_check_supervised(sup_labels, nrow(sim_gt), 3)
   expect_identical(q[sup_is_ref, ], sup$q[sup_is_ref, ])
+  # the log-likelihood is that of all the individuals, references included
+  # (the fused pass computes that of the references separately)
+  expect_equal(adm$loglik, radmix_loglik_cpp(
+    radmix_prepare(sim_gt), t(q), t(adm$P[[1]]), 1
+  ), tolerance = 1e-12)
   # the others recover their simulated ancestry, whose columns are matched
   # to the populations by their labels (no relabelling of the clusters)
   truth <- sim$q[, match(adm$ref_pops, sup_names)]
