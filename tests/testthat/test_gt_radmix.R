@@ -433,11 +433,8 @@ test_that("gt_radmix() fits genotype likelihoods given by another package", {
     k = 2, seed = 1, rtol = 1e-12, crossval = TRUE, cv_rtol = 1e-12
   )
   expect_equal(cv_ll$cv, cv_gt$cv, tolerance = 1e-7)
-  # options that need hard calls
-  expect_error(
-    gt_radmix(test_gl, k = 2, init = "svd"),
-    "not available for genotype likelihoods"
-  )
+  # imputed genotypes mean nothing for likelihoods (the SVD start is tested
+  # in test_radmix_svd.R)
   expect_error(
     gt_radmix(test_gl, k = 2, use_imputed = TRUE),
     "'use_imputed' is not available for genotype likelihoods"

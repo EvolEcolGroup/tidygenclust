@@ -590,21 +590,8 @@ test_that("genotype likelihoods of hard calls give the results of genotypes", {
 test_that("invalid datasets of genotype likelihoods are errors", {
   gl_dat <- radmix_test_gl(radmix_simulate_gl(sim$genotypes))
   st <- radmix_ref_start(60, 200, 3)
-  # cross-validation, the deviance and decoding into genotypes are only for
-  # genotypes
-  expect_error(
-    radmix_loglik_cpp(
-      radmix_set_cv(gl_dat, list(
-        mode = "train", fold = 1, n_folds = 5, seed = 1
-      )),
-      st$q, st$p, 1
-    ),
-    "Cross-validation is not available"
-  )
-  expect_error(
-    radmix_deviance_cpp(gl_dat, st$q, st$p, 1),
-    "deviance is not available"
-  )
+  # decoding into genotypes is only for genotypes (cross-validation and the
+  # deviance of likelihoods are tested in test_radmix_cv.R)
   expect_error(radmix_decode(gl_dat), "cannot be decoded")
   # lists that do not follow the interface of a source (see
   # inst/include/tidygenclust/radmix_gl_source.h)
