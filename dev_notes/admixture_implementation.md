@@ -780,7 +780,8 @@ below 1e-6), as in the first step of PCAngsd. An individual without data
 gets the mean dosage (`X_ij = 0`), so no imputation is needed. X is never
 stored: `radmix_gl_svd_factors()` (`R/radmix_svd.R`) runs a randomised
 SVD (Halko, Martinsson and Tropp 2011, algorithm 4.4: `rank + 10` vectors,
-3 power iterations) whose products with blocks of vectors
+`svd_power` power iterations, 3 by default; an argument of `gt_radmix()`
+since 18 Nov 2026, at Andrea's request) whose products with blocks of vectors
 (`radmix_gl_dosage_prod_cpp()`, `src/radmix_gl_svd.cpp`) are passes over
 the source: 8 passes, plus one for the frequencies. The factors are those
 of `radmix_svd_factors()`, and the ALS starts are unchanged. The test

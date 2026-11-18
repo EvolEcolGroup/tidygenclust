@@ -28,7 +28,9 @@ local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
   opened). Commits: ec7ff9a fused pass for supervised fits; ecc0841
   cross-validation for likelihoods; 4ed9ceb SVD start for likelihoods;
   7561833 NEWS; 9b05912 tests made obsolete by the two; 9659e51 inlined
-  likelihood helpers; then the notes.
+  likelihood helpers; then the notes; 014eb30 `svd_power` argument
+  (18 Nov, laptopX1, at Andrea's request). PR into `dev`: see
+  `progress.md`.
 - **Read first:** `admixture_implementation.md` ("The fused pass of
   supervised fits", "Cross-validation", "The SVD start" under "Genotype
   likelihoods"), `radmix_performance.md` (the two sections of 18 Nov),
@@ -36,10 +38,9 @@ local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
 - **Checked:** full suite with `NOT_CRAN=true` on an `-O2` build (22 files,
   3874 expectations, after the fixes of 9b05912), `R CMD check --as-cran`
   (see `progress.md`); tidypopgl's suite passes with this branch.
-- **Questions for the review:** the SVD start of likelihoods uses 3 power
-  iterations (`n_power`, internal), enough for the structure components
-  but not for the noise ones (k + 5 components are used); the CV error of
-  likelihoods is not comparable with that of genotypes (documented).
+- **Questions for the review:** the CV error of likelihoods is not
+  comparable with that of genotypes (documented). The power iterations of
+  the likelihood SVD (3 by default) are now set with `svd_power`.
 - **Then:** merge tidypopgl's `radmix_source_speed` (independent; see its
   handover), and update tidypopgl's vignette sentence that cross-validation
   is not available for likelihoods.
