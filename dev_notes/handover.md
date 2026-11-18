@@ -24,13 +24,11 @@ local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
 
 ### 1. **P2** [review] `radmix_extensions`, then tidypopgl's `radmix_source_speed`
 
-- **Branch:** `radmix_extensions` (from `dev` 00deb4f, pushed; no PR
-  opened). Commits: ec7ff9a fused pass for supervised fits; ecc0841
+- **Branch:** `radmix_extensions` (from `dev` 00deb4f, pushed; PR #38). Commits: ec7ff9a fused pass for supervised fits; ecc0841
   cross-validation for likelihoods; 4ed9ceb SVD start for likelihoods;
   7561833 NEWS; 9b05912 tests made obsolete by the two; 9659e51 inlined
   likelihood helpers; then the notes; 014eb30 `svd_power` argument
-  (18 Nov, laptopX1, at Andrea's request). PR into `dev`: see
-  `progress.md`.
+  (18 Nov, laptopX1, at Andrea's request). PR #38 into `dev`.
 - **Read first:** `admixture_implementation.md` ("The fused pass of
   supervised fits", "Cross-validation", "The SVD start" under "Genotype
   likelihoods"), `radmix_performance.md` (the two sections of 18 Nov),

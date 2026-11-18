@@ -5,6 +5,14 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-18 (laptopX1): `svd_power`, PR #38
+
+- At Andrea's request, new `gt_radmix()` argument `svd_power` (default 3)
+  for the power iterations of the randomised SVD of likelihoods (014eb30,
+  branch `radmix_extensions`); stale `@param init` sentence fixed.
+- `test_radmix_svd.R`, `test_gt_radmix.R`, `test_radmix_cv.R` pass (-O2).
+- PR #38 (`radmix_extensions` into `dev`) opened for Andrea's review.
+
 ## 2026-11-18 (manica01, overnight): extensions of `gt_radmix()` (branch `radmix_extensions`)
 
 - Unattended evening/night session (claude_jobs#3, P3 "Extensions"),

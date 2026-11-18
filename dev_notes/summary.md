@@ -9,7 +9,7 @@ paragraph, status and next steps are copied into the issue
 
 tidygenclust: `gt_radmix()`, the native implementation of ADMIXTURE's method (port, speed-ups, consolidation), and its extension to genotype likelihoods. Earlier log of the likelihoods: dramanica/claude_jobs#12.
 
-**Status.** Branch `radmix_extensions` (pushed, not merged; overnight session of 18 Nov) adds a fused pass for supervised fits (fits 0.88-0.89 of the time, the same estimates), cross-validation and SVD starts for genotype likelihoods, and inlined likelihood helpers; with tidypopgl's faster source (its branch `radmix_source_speed`), fits of likelihoods take 0.80-0.83 of the time. Tests and `R CMD check` pass; both branches wait for review. Handover: `dev_notes/handover.md`.
+**Status.** Branch `radmix_extensions` (PR #38, not merged; overnight session of 18 Nov, plus `svd_power`) adds a fused pass for supervised fits (fits 0.88-0.89 of the time, the same estimates), cross-validation and SVD starts for genotype likelihoods, and inlined likelihood helpers; with tidypopgl's faster source (its branch `radmix_source_speed`), fits of likelihoods take 0.80-0.83 of the time. Tests and `R CMD check` pass; both branches wait for review. Handover: `dev_notes/handover.md`.
 
 `dev` holds PR #36 (merged 17 Nov: the speed-ups of `newspeed`, supervised
 analyses, the benchmark article with the full HGDP run) and genotype
@@ -37,7 +37,7 @@ The designs are in `admixture_implementation.md`, the timings in
 `radmix_performance.md` and `radmix_extensions_2026-11/`.
 
 **Next steps**
-- [ ] **P2** [review] `radmix_extensions` (tidygenclust), then tidypopgl's `radmix_source_speed`: merge both; then update tidypopgl's vignette (it says cross-validation is not available for likelihoods).
+- [ ] **P2** [review] PR #38 `radmix_extensions` (tidygenclust), then tidypopgl's `radmix_source_speed`: merge both; then update tidypopgl's vignette (it says cross-validation is not available for likelihoods).
 - [ ] **P2** [claude] then [review] `articles_revised`: resolve its conflict in `pseudohaploids.Rmd`, then review and merge.
 - [ ] **P3** [decide] Keep the 1e-5 bounds for likelihoods, or use NGSadmix's 1e-9? With 1e-5, the log-likelihood is about 1e-6 below NGSadmix's. Recommendation: keep 1e-5.
 - [ ] **P3** [cleanup] On laptopX1, delete the stale local branches and the `coverage-speed` worktree, and the untracked `data-raw/radmix/perf_verification/`; on manica01, delete `~/tgc_newspeed_work`, `~/tgc_bench_article`, `~/tgc_supfused_work` and `vignettes/articles/data/hgdp/runs` (about 7 GB of builds and raw outputs).
