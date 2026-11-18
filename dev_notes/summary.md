@@ -1,6 +1,6 @@
 # tidygenclust: summary
 
-Updated 2026-11-18 (manica01). One section: the package's issue in
+Updated 2026-11-18 (manica01, overnight). One section: the package's issue in
 dramanica/claude_jobs, with the single list of its tasks. Its first
 paragraph, status and next steps are copied into the issue
 (`scripts/sync_issue.py` of the dev-notes skill).
@@ -9,36 +9,43 @@ paragraph, status and next steps are copied into the issue
 
 tidygenclust: `gt_radmix()`, the native implementation of ADMIXTURE's method (port, speed-ups, consolidation), and its extension to genotype likelihoods. Earlier log of the likelihoods: dramanica/claude_jobs#12.
 
-**Status.** PR #36 is merged into `dev` (47f5780, 17 Nov): the speed-ups of `newspeed` (fits take 0.78-0.85 of the previous time, 0.92 at HGDP K = 10 on 1 thread), supervised analyses, and the benchmark article with the full HGDP run; the superseded branches are deleted. `gt_radmix()` on genotype likelihoods is in `dev` (#35, 14 Nov) and used by tidypopgl's `gl_workflow`, which dropped NGSadmix. Handover: `dev_notes/handover.md`.
+**Status.** Branch `radmix_extensions` (pushed, not merged; overnight session of 18 Nov) adds a fused pass for supervised fits (fits 0.88-0.89 of the time, the same estimates), cross-validation and SVD starts for genotype likelihoods, and inlined likelihood helpers; with tidypopgl's faster source (its branch `radmix_source_speed`), fits of likelihoods take 0.80-0.83 of the time. Tests and `R CMD check` pass; both branches wait for review. Handover: `dev_notes/handover.md`.
 
-The port rebuilt each package commit of the two branches on top of #35,
-which had made the kind of data (genotypes or genotype likelihoods) a
-template parameter of the kernels, and applied the resolutions of the merge
-`newspeed_supervised`. The fused pass and the supervised index also work on
-genotype likelihoods (the NGSadmix fixture test passes); supervised
-analyses of genotype likelihoods are new in the port, tested against the
-same fits on hard-call genotypes. Decisions applied: refits of
-cross-validation to `cv_rtol = 1e-7`, `MIN_Q_TASKS` = 128, no subset start;
-FMA rounding, the inlined log-likelihood and the automatic bit mask kept;
-the supervised API as built. The kits, reports and desktop results stay on
-the old branches, archived under the tags `archive/newspeed` and
-`archive/supervised`; their conclusions are in `radmix_performance.md`.
+`dev` holds PR #36 (merged 17 Nov: the speed-ups of `newspeed`, supervised
+analyses, the benchmark article with the full HGDP run) and genotype
+likelihoods (#35, 14 Nov), used by tidypopgl's `gl_workflow`, which
+dropped NGSadmix. On `radmix_extensions`:
+- **Supervised fits** evaluate each point and start the next iteration in
+  one pass, as unsupervised fits do: the free individuals' Q side gives
+  their update and log-likelihood, and a log-likelihood-only pass the
+  references'. HGDP K = 5 (139 or 660 references): 0.88-0.89 of the time on
+  1 and 8 threads, Q and P bit-identical.
+- **Cross-validation of likelihoods:** the deviance
+  `log max_x f(x) - log f(qp)` of each held-out individual and locus
+  (ADMIXTURE's deviance for hard calls); it chose the simulated K in 12 of
+  12 cases (depths 1-4 and genotypes).
+- **SVD start of likelihoods:** a randomised SVD of the posterior dosages
+  under emMAF frequencies, computed by passes over the source; at K = 5 on
+  simulated data it converged 2.6-4x faster than random starts for two
+  seeds of three, to higher maxima.
+- **Speed of likelihood fits:** `slice_gl()` and `loglik_gl_slice()` now
+  run in the AVX2 clones (they were 17% of a fit in baseline code), and
+  tidypopgl's source decodes with one table lookup and AVX2 gathers (it
+  was 23% of a fit).
 
-The design is in `admixture_implementation.md` ("Genotype likelihoods"),
-the validation and benchmarks in `data-raw/radmix/gl/REPORT.md`: the same
-log-likelihood as NGSadmix to 1e-9 on its fixture, 35-45 times faster on
-simulated data. PR #36 (`newspeed_port`) extends the fused
-pass and supervised analyses to genotype likelihoods.
+The designs are in `admixture_implementation.md`, the timings in
+`radmix_performance.md` and `radmix_extensions_2026-11/`.
 
 **Next steps**
+- [ ] **P2** [review] `radmix_extensions` (tidygenclust), then tidypopgl's `radmix_source_speed`: merge both; then update tidypopgl's vignette (it says cross-validation is not available for likelihoods).
 - [ ] **P2** [claude] then [review] `articles_revised`: resolve its conflict in `pseudohaploids.Rmd`, then review and merge.
-- [ ] **P3** [claude] Extensions of `gt_radmix()`: a fused pass for supervised fits (update every column of Q, then restore the references: 4 passes per iteration instead of 5); for likelihoods, cross-validation (deviance) and an SVD start (both stop with an error for now); optional, a faster source in tidypopgl (adjacent individuals read without the index).
-- [ ] **P3** [decide] Keep the 1e-5 bounds for likelihoods, or use NGSadmix's 1e-9? With 1e-5, the log-likelihood is about 1e-6 below NGSadmix's.
-- [ ] **P3** [cleanup] On laptopX1, delete the stale local branches and the `coverage-speed` worktree, and the untracked `data-raw/radmix/perf_verification/`; on manica01, delete `~/tgc_newspeed_work`, `~/tgc_bench_article` and `vignettes/articles/data/hgdp/runs` (6 GB of builds and raw outputs).
+- [ ] **P3** [decide] Keep the 1e-5 bounds for likelihoods, or use NGSadmix's 1e-9? With 1e-5, the log-likelihood is about 1e-6 below NGSadmix's. Recommendation: keep 1e-5.
+- [ ] **P3** [cleanup] On laptopX1, delete the stale local branches and the `coverage-speed` worktree, and the untracked `data-raw/radmix/perf_verification/`; on manica01, delete `~/tgc_newspeed_work`, `~/tgc_bench_article`, `~/tgc_supfused_work` and `vignettes/articles/data/hgdp/runs` (about 7 GB of builds and raw outputs).
 
-Backlog (P3, in `handover.md`): `-fprofile-update=single` under covr, the vignette's P comparison as code, P as a matrix or a data.frame (decide), bootstrap standard errors, the remaining speed leads.
+Backlog (P3, in `handover.md`): `-fprofile-update=single` under covr, the vignette's P comparison as code, P as a matrix or a data.frame (decide), bootstrap standard errors, the remaining speed leads, an EM-based PCA for the SVD start of likelihoods.
 
 **Done**
+- Extensions of `gt_radmix()`: fused pass for supervised fits, cross-validation and SVD starts for likelihoods, faster likelihood fits (with tidypopgl's source): branch `radmix_extensions`, 18 Nov 2026 (not merged).
 - Code derived from other software labelled in `gt_radmix()`, `gt_fastmixture()` and `gt_clumppling()`, licences completed in `COPYRIGHTS` and `cph` roles (ADAMIXTURE, cp-algorithms and ggpubr were uncredited); text for the paper in `dev_notes/paper_methods_text.md`: merged into `dev` (4c8464d), Andrea, 18 Nov 2026.
 - PR #36 merged (47f5780); branches `newspeed`, `supervised`, `newspeed_supervised`, `coverage-speed`, `newspeed_port` and older merged ones deleted (tags `archive/newspeed`, `archive/supervised` keep the first two): 17 Nov 2026.
 - Full HGDP benchmark of `admixture_benchmark.Rmd` with `newspeed_port`; article switched to it: `5eb3c73`, 16 Nov 2026.

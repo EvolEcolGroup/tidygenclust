@@ -1,0 +1,26 @@
+         case n_cores build n median_s min_s max_s ratio iterations rejected
+         pops       8   dev 5     4.26  4.05  4.29 1.000         14        1
+         pops       8   new 5     3.77  3.68  3.86 0.884         14        1
+         pops       8  allB 5     3.78  3.63  3.85 0.887         14        1
+      regions       8   dev 5     2.96  2.85  2.98 1.000         11        5
+      regions       8   new 5     2.63  2.54  2.67 0.890         11        5
+      regions       8  allB 5     2.96  2.94  3.20 1.001         11        5
+ unsupervised       8   dev 5     5.51  5.45  5.57 1.000         21        0
+ unsupervised       8   new 5     5.56  5.45  5.60 1.009         21        0
+         pops       1   dev 3    31.54 31.36 31.79 1.000         14        1
+         pops       1   new 3    28.02 27.83 28.18 0.889         14        1
+         pops       1  allB 3    28.09 28.00 28.78 0.891         14        1
+      regions       1   dev 3    21.89 21.87 21.90 1.000         11        5
+      regions       1   new 3    19.25 19.24 19.27 0.880         11        5
+      regions       1  allB 3    21.98 21.88 22.27 1.005         11        5
+
+Agreement with dev (largest absolute differences):
+pops_1_1_lib_dev.rds         new   Q 0.00e+00  P 0.00e+00  loglik 4.47e-08 (relative 4.4e-16)
+pops_1_1_lib_dev.rds         allB  Q 5.55e-16  P 1.19e-14  loglik 4.47e-08 (relative 4.4e-16)
+pops_8_1_lib_dev.rds         new   Q 0.00e+00  P 0.00e+00  loglik 4.47e-08 (relative 4.4e-16)
+pops_8_1_lib_dev.rds         allB  Q 5.55e-16  P 1.19e-14  loglik 4.47e-08 (relative 4.4e-16)
+regions_1_1_lib_dev.rds      new   Q 0.00e+00  P 0.00e+00  loglik -5.96e-08 (relative -5.8e-16)
+regions_1_1_lib_dev.rds      allB  Q 2.22e-16  P 6.85e-16  loglik -1.49e-08 (relative -1.5e-16)
+regions_8_1_lib_dev.rds      new   Q 0.00e+00  P 0.00e+00  loglik -5.96e-08 (relative -5.8e-16)
+regions_8_1_lib_dev.rds      allB  Q 2.22e-16  P 6.85e-16  loglik -1.49e-08 (relative -1.5e-16)
+unsupervised_8_1_lib_dev.rds new   Q 0.00e+00  P 0.00e+00  loglik 0.00e+00 (relative 0.0e+00)

@@ -5,6 +5,25 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-18 (manica01, overnight): extensions of `gt_radmix()` (branch `radmix_extensions`)
+
+- Unattended evening/night session (claude_jobs#3, P3 "Extensions"),
+  branch `radmix_extensions` from `dev` 00deb4f, pushed, not merged:
+  fused pass for supervised fits (ec7ff9a; fits 0.88-0.89 of the time,
+  HGDP K = 5, 139 or 660 references, 1 and 8 threads, Q and P
+  bit-identical); cross-validation (ecc0841) and SVD starts (4ed9ceb) for
+  genotype likelihoods; obsolete test expectations removed (9b05912);
+  `slice_gl()` and `loglik_gl_slice()` inlined into the AVX2 clones (9659e51).
+- tidypopgl branch `radmix_source_speed` (pushed): a faster source; with
+  both, likelihood fits take 0.80 (1 thread) and 0.83 (8) of the time.
+- CV of likelihoods chose the simulated K in 12/12 cases; SVD starts of
+  likelihoods converged faster and higher at K = 5.
+- Checks: full suite NOT_CRAN (22 files, 3871 expectations), `R CMD check
+  --as-cran` (0 errors, 0 warnings, 3 environment notes); tidypopgl's suite
+  passes with the branch (44 files, 7119).
+- Notes: `admixture_implementation.md`, `radmix_performance.md`,
+  `radmix_extensions_2026-11/`.
+
 ## 2026-11-18 (manica01): attribution merged into `dev`
 
 - Andrea approved the new `cph` roles (Ko and Lange restored; Ioannidis

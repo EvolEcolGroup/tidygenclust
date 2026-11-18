@@ -34,6 +34,7 @@ implemented, and ends with the origins of the code.
 | `src/radmix_quasi_newton.cpp` | The quasi-Newton step |
 | `src/radmix_projections.cpp` | Projections onto the simplex (Q) and the box (P) |
 | `src/radmix_als.cpp` | Alternating least squares on the factors of the SVD (`init = "svd"`) |
+| `src/radmix_gl_svd.cpp` | For the SVD start of genotype likelihoods: the emMAF allele frequencies and the products of the posterior dosages with blocks of vectors |
 | `src/radmix_geno_access.h` | Read-only view of the genotypes in the backing file, with the cross-validation masks, or of a source of genotype likelihoods |
 | `inst/include/tidygenclust/radmix_gl_source.h` | The C interface of a source of genotype likelihoods, for the packages that store them (`src/radmix_gl_source.cpp` is an example, used by the tests) |
 | `src/radmix_exports.cpp` | The R interface of the building blocks (used by the tests, and by R for the log-likelihood, the deviance and the projections) |
@@ -444,10 +445,26 @@ every genotype. With references the bulk of the individuals, a supervised
 fit is therefore cheaper per iteration than an unsupervised one (the Q side
 is about half of the work of the block updates).
 
-A supervised fit does not use the fused pass ("Evaluating a point and
-starting from it in one pass"): its Q side does not read the genotypes of
-the references, so it cannot give the log-likelihood, which takes a pass of
-its own; an iteration costs five passes, as before the fused pass.
+**The fused pass of supervised fits.** A supervised fit uses the fused
+pass ("Evaluating a point and starting from it in one pass") too, split in
+two Q-side passes over disjoint individuals, so that each genotype is still
+read once: the free individuals get their Newton update and the
+log-likelihood of their genotypes (`q_side()` with NEWTON and LOGLIK over
+the list of free individuals), and the references only the log-likelihood
+of theirs (`q_side()` with LOGLIK alone, over the list of references:
+`accum_q_block()` then computes qp, the genotypes and the log-likelihood of
+each slice, and no sums), and the two are added (`update_q_loglik()` with
+the mask). An accepted iteration then costs 4 passes instead of 5 (2 of
+them over the free individuals only), with the same estimates (Q and P
+bit-identical to the separate passes) and the log-likelihoods up to
+rounding. Fits take 0.88-0.89 of the time on the HGDP, with 139 or 660
+references, on 1 and 8 threads (`radmix_performance.md`). The alternative,
+the fused pass over every individual followed by restoring the references
+(their Newton updates computed and discarded), gained as much with 139
+references but nothing with 660, as it pays for the sums of the
+references. Added on 18 Nov 2026 (branch `radmix_extensions`); before, a
+supervised fit computed the log-likelihood with a pass of its own (5 passes
+per iteration).
 
 **Genotype likelihoods.** Supervised analyses also work with genotype
 likelihoods: the free individuals of a slice are read from the source
@@ -659,9 +676,8 @@ anything that must stay alive while the source is used (e.g. the
 file-backed matrix that the context points into).
 The generic takes `x` alone: `use_imputed` is an argument of the
 `gen_tbl` method only, given only when it is `TRUE`, and `gt_radmix()`
-itself rejects it (with cross-validation and the SVD start) for a
-`"gl_source"`. The generic is exported but `@keywords internal`, so it is
-not in the pkgdown reference index.
+itself rejects it for a `"gl_source"`. The generic is exported but
+`@keywords internal`, so it is not in the pkgdown reference index.
 - The interface (version 1) is a single typedef, in
   `inst/include/tidygenclust/radmix_gl_source.h`, which such a package
   copies or takes with `LinkingTo`. `GenoView` checks
@@ -690,7 +706,12 @@ inlining the decoding made the passes over likelihoods about 50% slower (it
 competes for registers with the accumulators); reading the same codes
 through a source was then as fast as, or slightly faster than, the
 decoding in tidygenclust. `slice_gl()` then computes the expected
-counts in a loop that vectorises (inline, in the AVX2 versions too).
+counts in a loop that vectorises. It and `loglik_gl_slice()` are forced
+inline (`RADMIX_INLINE`), so that they are compiled into the AVX2 clones
+of the accumulation functions: GCC had kept them as calls to their
+baseline versions, which took 17% of the cycles of a fit on likelihoods
+(perf, 18 Nov 2026); inlined, fits take 0.96 of the time with tidypopgl's
+current source, and 0.92 with its faster one (`radmix_performance.md`).
 
 The cost of a pass over likelihoods depends on the source (how much it
 reads per individual and locus, and how it decodes it); the expected counts
@@ -708,18 +729,82 @@ NGSadmix, on the same likelihoods and with 4 threads, is about 40 times
 slower (153 iterations of its accelerated EM, against 16). The measurements
 are in `data-raw/radmix/gl/REPORT.md`.
 
-### What is not available yet
+### Cross-validation
 
-- **Cross-validation**: the deviance of held-out genotypes assumes hard
-  calls. Its natural counterpart for likelihoods is
-  `log max_x f(x) - log f(qp)` (`f` is a quadratic in `x`, so its maximum on
-  `[0, 1]` is in closed form), which equals ADMIXTURE's deviance when the
-  likelihoods are hard calls. The view refuses cross-validation masks, and
-  `gt_radmix()` stops.
-- **The SVD start**: it needs the SVD of the genotypes. With likelihoods, it
-  could use the posterior dosages under the allele frequencies of emMAF
-  (as PCAngsd does, computable from the source), or an EM-based PCA of the
-  likelihoods; `gt_radmix()` stops.
+Cross-validation masks work as for genotypes (added 18 Nov 2026, branch
+`radmix_extensions`): the folds are drawn over the same (i, j) (the hash, or
+the bit mask of a training view), and `slice_gl()` multiplies the indicator
+of data of a hidden individual and locus by 0, so that it counts as one
+without data in every pass. The error of a held-out individual and locus
+with data is
+
+```
+d = log max_x f(x) - log f(qp),   f(x) = (1 - x)^2 + 2 e1 x (1 - x) + e2 x^2,
+```
+
+the log-likelihood ratio of the best frequency of allele2 for that datum
+alone (the "saturated" model, as g / n for a genotype) against the
+prediction (`deviance_gl()`). `f` is a quadratic, `a x^2 + b x + 1` with
+`a = 1 - 2 e1 + e2` and `b = 2 e1 - 2`, so its maximum on [0, 1] is at an
+end (`1` or `e2`) or, when `a < 0` and the vertex `-b / (2 a)` is inside,
+`1 - b^2 / (4 a)` (no cancellation, as `a < 0`). For the likelihoods of a
+hard call this is ADMIXTURE's binomial deviance (maxima at x = 0, 1/2 and
+1), which the tests check, together with the uncertain case against a
+numerical maximisation in R; with uncertain genotypes, errors are smaller
+than those of hard calls (less information per datum), so they compare
+values of K, not data types. The count is the number of visible
+individuals and loci with data.
+
+Does it choose K? On simulated data (200 individuals x 20,000 loci, K = 3
+admixed, 1% missing; likelihoods from reads at mean depths 1, 2 and 4 with
+an error rate of 0.01; seeds 1-3), the CV error over K = 1-5 is lowest at
+K = 3 in all 12 cases (genotypes and the three depths), with a margin over
+K = 4 of 1.1-4.1% for likelihoods and 2.4-3.4% for genotypes (desktop,
+E-cores, 18 Nov 2026; `radmix_extensions_2026-11/cv_choose_k.R` and
+`cv_choose_k.csv`).
+
+### The SVD start
+
+`init = "svd"` works with genotype likelihoods (added 18 Nov 2026, branch
+`radmix_extensions`): the SVD is that of the standardised posterior
+dosages,
+
+```
+X_ij = (E[g_ij | D_ij, f_j] - 2 f_j) / sqrt(2 f_j (1 - f_j)),
+E[g | D, f] = (w1 + 2 w2) / (w0 + w1 + w2)   (slice_gl()'s g with qp = f),
+```
+
+with `f_j` the frequency of allele2 estimated by EM from the likelihoods
+(emMAF, Kim et al. 2011; `radmix_gl_freq_cpp()`, from 0.25, to a change
+below 1e-6), as in the first step of PCAngsd. An individual without data
+gets the mean dosage (`X_ij = 0`), so no imputation is needed. X is never
+stored: `radmix_gl_svd_factors()` (`R/radmix_svd.R`) runs a randomised
+SVD (Halko, Martinsson and Tropp 2011, algorithm 4.4: `rank + 10` vectors,
+3 power iterations) whose products with blocks of vectors
+(`radmix_gl_dosage_prod_cpp()`, `src/radmix_gl_svd.cpp`) are passes over
+the source: 8 passes, plus one for the frequencies. The factors are those
+of `radmix_svd_factors()`, and the ALS starts are unchanged. The test
+matrix is drawn after `set.seed(seed[1])`, so that starts are reproducible.
+
+Accuracy: the leading (structure) components converge fast, the noise
+components (k + 5 are used, k - 1 of them structure) slowly, as their
+singular values are close (60 x 300 test data at depth 2: subspace error
+of the first 2 components 0.0025 with 3 power iterations, 9e-5 with 5, and
+0.2-0.5 for components 3-5). For hard calls the factors are those of the
+genotypes (to 1e-5 with 8 power iterations), and fits from them reach the
+same maximum. Not done: an EM-based PCA of the likelihoods (PCAngsd's
+iterations), which would refine the dosages with the individual allele
+frequencies.
+
+Is it worth it? On simulated likelihoods (400 x 100,000, K = 3 simulated,
+depth 4; desktop, 8 threads, 18 Nov 2026; tidypopgl's faster source),
+against random starts with seeds 1-3: at K = 3 the SVD start costs about
+0.7 s more (1.7-1.9 s against 1.0-1.2 s for a fit; 12-13 iterations
+against 14-15), and reaches the same maximum (0.1-0.5 units higher); at
+K = 5, where random starts take 137-246 iterations (15-29 s), the SVD
+start takes 27-125 (5-16 s) and reaches higher maxima, by 5,000 to 12,000
+units (`radmix_extensions_2026-11/svd_eval.R`, `svd_eval.csv`). As for
+genotypes, it pays for fits that are slow from random starts.
 
 ## Numerical safeguards
 
