@@ -1,3 +1,6 @@
+# The pipeline of clumppling, ported from clumppling 2.0.10 (Xiran Liu, MIT
+# licence; see inst/COPYRIGHTS).
+
 #' Run the clumppling pipeline
 #'
 #' The native equivalent of `clumppling_run()` in

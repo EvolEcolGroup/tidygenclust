@@ -1,9 +1,25 @@
 // The quadratic program of the Newton step of one column (see
 // radmix_qp_sweep.h for the problem), solved exactly by an active-set
 // method based on the sweep operator (Jennrich and Sampson 1978; Lange,
-// "Numerical Analysis for Statisticians"). The solver follows K. Lange's
-// sweep-operator code as implemented in OpenADMIXTURE.jl (MIT licence, see
-// inst/COPYRIGHTS).
+// "Numerical Analysis for Statisticians").
+//
+// Origin of the code
+// ------------------
+// sweep(), create_tableau() and qp_solve_column() are C++ translations of
+// sweep!(), create_tableau!() and quadratic_program!() in src/qp.jl of
+// OpenADMIXTURE.jl (https://github.com/OpenMendel/OpenADMIXTURE.jl, commit
+// 401ac5c4056f0f6f2a7ea6ffc3af69c2b1e56fdc), code "originally written by
+// Dr. Kenneth Lange" and "modified by Dr. Seyoon Ko" (as its header says).
+//   Copyright (c) 2022 Seyoon Ko <kos@ucla.edu>, Kenneth Lange
+//   <klange@ucla.edu> and contributors
+// Distributed under the MIT licence, whose full text is in inst/COPYRIGHTS.
+// The tolerances (1e-5, 1e-8, 1e-10), the tableau and the active-set loop
+// are theirs. Changed in tidygenclust: the shift mu of the tableau of q is
+// trace(H) / K^2 (the original uses a Gerschgorin bound), the tableau holds
+// the gradient rather than its negative, the bounds are the scalars 0 and
+// 1, the 4K-parameter variant of the original (p_double) is not ported,
+// a fixed parameter whose pivot has vanished is not swept in again, and
+// the loop stops when the active set cycles at a vertex of the simplex.
 //
 // Why a small dense solver: K, the number of ancestral populations, is
 // small (typically below 20), while each block update solves one problem per

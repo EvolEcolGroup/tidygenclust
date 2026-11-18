@@ -1,5 +1,9 @@
 # Plot the modes of a gt_clumppling object over a multipartite graph (the
-# 'modes' type of autoplot()).
+# 'modes' type of autoplot()). The figure follows the design of the
+# multipartite graph of clumppling (plot_graph() in clumppling/plot.py), but
+# is drawn with ggplot2 and patchwork by code written for tidygenclust; only
+# .get_legend(), at the end of this file, is taken from another package
+# (ggpubr).
 #
 # The modes are arranged on a grid, with one row per value of K (in the order
 # of object$K_range) and one column per mode rank (M1, M2, ...), so that the
@@ -169,8 +173,11 @@ mode_edges <- function(object, n_col) {
   )
 }
 
-# Return the legend of a plot as a grob (or NULL if the plot has no legend),
-# adapted from the unexported function of ggpubr.
+# Return the legend of a plot as a grob (or NULL if the plot has no legend).
+# Copied, with comments added, from the unexported function .get_legend() of
+# the R package ggpubr (https://CRAN.R-project.org/package=ggpubr), by
+# Alboukadel Kassambara, distributed under the GPL (>= 2); see
+# inst/COPYRIGHTS.
 # @param p a ggplot
 # @param position an optional position (e.g. "bottom") to reposition the
 #   legend before extracting it

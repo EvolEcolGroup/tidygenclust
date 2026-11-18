@@ -28,6 +28,25 @@
 // column indices are 0-based in C++ and converted to 1-based only when
 // results are returned to R. When the optimum is not unique (ties), the
 // solution can differ from the one found by GLPK, but has the same cost.
+//
+// Origin of the code
+// ------------------
+// - clumppling_lsap() is adapted from the O(n^3) implementation of the
+//   Hungarian algorithm "developed by Andrey Lopatin", in the article
+//   "Hungarian algorithm for solving the assignment problem" of
+//   cp-algorithms (https://cp-algorithms.com/graph/hungarian-algorithm.html,
+//   translated from https://e-maxx.ru/algo/assignment_hungary), Copyright
+//   (c) 2014-2025 cp-algorithms contributors, licensed under CC BY-SA 4.0
+//   (https://creativecommons.org/licenses/by-sa/4.0/), which allows
+//   adaptations to be distributed under the GPL version 3 (see
+//   inst/COPYRIGHTS). Changed: the costs are doubles in a flat row-major
+//   vector, the result is the column of each row (0-based), the
+//   potentials are not used for the cost, and non-finite costs give an
+//   R error.
+// - The other functions are ports of align_ILP(), align_ILP_diff1(),
+//   align_within_k(), reverse_alignment_same_K() and cost_membership() of
+//   clumppling 2.0.10 (Xiran Liu, MIT licence, see inst/COPYRIGHTS), with
+//   the integer linear program replaced by the assignment problem above.
 
 #include <Rcpp.h>
 #include <cmath>

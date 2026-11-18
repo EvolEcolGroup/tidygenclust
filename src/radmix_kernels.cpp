@@ -4,6 +4,16 @@
 // for the model, the notation and the layout of q and p, and
 // dev_notes/admixture_implementation.md for the algorithm as a whole.
 //
+// Origin of the code: the first version of these passes was ported from
+// src/algorithms_inner.jl and src/loops.jl of OpenADMIXTURE.jl (MIT
+// licence, see inst/COPYRIGHTS). They have since been rewritten for
+// tidygenclust: the derivatives (OpenADMIXTURE.jl differentiates a
+// homogeneous form of the log-likelihood with respect to q), the data
+// access, the layout of the work, the accumulation, the log-likelihood,
+// the deviance and genotype likelihoods below are new. The quadratic
+// programs and the projections that they call are still translations of
+// OpenADMIXTURE.jl (radmix_qp_sweep.cpp, radmix_projections.cpp).
+//
 // Per-genotype quantities
 // -----------------------
 // For individual i and locus j, write g = g_ij (copies of the alternate

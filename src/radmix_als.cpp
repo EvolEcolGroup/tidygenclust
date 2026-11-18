@@ -3,6 +3,27 @@
 // truncated SVD, following ADAMIXTURE (model/als.py) and, more loosely,
 // fastmixture (factorALS() in fastmixture/utils.py).
 //
+// Origin of the code
+// ------------------
+// radmix_als_cpp(), q_step(), p_step() and map_q_col() are a C++ adaptation
+// of ALS() in adamixture/model/als.py of ADAMIXTURE, version 1.8.9
+// (https://github.com/AI-sandbox/ADAMIXTURE), and radmix_svd_start() in
+// R/radmix_svd.R prepares its inputs as that function does.
+//   Copyright (c) 2024, Ioannidis Lab
+// Distributed under the BSD 3-clause licence, whose full text (with its
+// conditions and disclaimer) is in inst/COPYRIGHTS. Taken from ADAMIXTURE:
+// the factors augmented with the allele frequencies and a column of ones,
+// the weights 1 / max(f (1 - f), 1e-3) normalised to mean one, the order of
+// the steps (P from Q extrapolated with momentum 0.8, then the weighted Q),
+// the clipping and normalisation of Q (its mapQ) and of P, and the stopping
+// rule on the root mean square change of Q. Changed in tidygenclust: the
+// bounded least squares are solved directly or by coordinate descent
+// (solve_rows(); ADAMIXTURE uses block principal pivoting), the first Q is
+// the bounded Q step from 1 / K (ADAMIXTURE takes an unconstrained
+// solution), and the final Q is projected onto the feasible set of the fit.
+// fastmixture (GPL-3) gave the idea of an ALS start; none of its code is
+// used here.
+//
 // The factorisation
 // -----------------
 // Under the ADMIXTURE model, the expected frequency of the alternate allele

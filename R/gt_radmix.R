@@ -24,9 +24,14 @@
 #' likelihoods, which the package that stores them gives to `gt_radmix()`
 #' through a method of [gt_radmix_data()]. Computation is in C++, multithreaded
 #' with OpenMP. The C++ code started as a port of the Julia package
-#' [OpenADMIXTURE.jl](https://github.com/OpenMendel/OpenADMIXTURE.jl), and
-#' has since been extensively rewritten (see the file `COPYRIGHTS` of the
-#' package, `system.file("COPYRIGHTS", package = "tidygenclust")`).
+#' [OpenADMIXTURE.jl](https://github.com/OpenMendel/OpenADMIXTURE.jl)
+#' (Ko et al. 2023), and has since been extensively rewritten; its solver
+#' of the quadratic programs, its projections, its quasi-Newton step and the
+#' structure of its fitting loop are still derived from OpenADMIXTURE.jl,
+#' and the alternating least squares of `init = "svd"` are adapted from
+#' [ADAMIXTURE](https://github.com/AI-sandbox/ADAMIXTURE) (see the file
+#' `COPYRIGHTS` of the package,
+#' `system.file("COPYRIGHTS", package = "tidygenclust")`).
 #'
 #' @details Missing genotypes are ignored in the likelihood. Pseudohaploid
 #'   individuals (see [tidypopgen::gt_pseudohaploid()]) contribute a single
@@ -304,6 +309,11 @@
 #'
 #'   Lange K (2010) Numerical Analysis for Statisticians, 2nd edition.
 #'   Springer, New York.
+#'
+#'   Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH, Sobel EM,
+#'   Zhou H, Lange KL (2023) Unsupervised discovery of ancestry-informative
+#'   markers and genetic admixture proportions in biobank-scale datasets.
+#'   The American Journal of Human Genetics, 110(2), 314-325.
 #'
 #'   Saurina-i-Ricos J, Mas Montserrat D, Ioannidis AG (2026) ADAMIXTURE:
 #'   adaptive first-order optimization for biobank-scale genetic clustering.

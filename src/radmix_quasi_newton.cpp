@@ -20,6 +20,16 @@
 // Results do not depend on the number of threads: the long inner products
 // are split into chunks of fixed size, whose partial sums are added up in
 // chunk order.
+//
+// Origin of the code: SecantPairs::store() and qn_step() implement
+// update_UV!() and update_QN!() in src/quasi_newton.jl of OpenADMIXTURE.jl
+// (https://github.com/OpenMendel/OpenADMIXTURE.jl, commit
+// 401ac5c4056f0f6f2a7ea6ffc3af69c2b1e56fdc; Copyright (c) 2022 Seyoon Ko,
+// Kenneth Lange and contributors, MIT licence, see inst/COPYRIGHTS): the
+// same secant pairs, kept in a circular buffer, and the same formula. The
+// computation is rewritten: deterministic chunked sums in one pass, an LU
+// solve that rejects singular systems (the original inverts U'(U - V)),
+// the point written over x0, and the projection inside the step.
 
 #include <RcppArmadillo.h>
 #include <algorithm>

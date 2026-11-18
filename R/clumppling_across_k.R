@@ -1,5 +1,7 @@
 # Alignment of modes across different values of K for the native clumppling
 # port (align_across_k() and reorderQ_across_k() in clumppling/core.py).
+# Ported from clumppling 2.0.10 (Xiran Liu, MIT licence; see
+# inst/COPYRIGHTS).
 #
 # Conventions: modes are named "K<K>M<m>" (e.g. "K3M2"), and a pair of modes
 # is labelled "<mode P>-<mode Q>", where P is the mode with fewer (or as

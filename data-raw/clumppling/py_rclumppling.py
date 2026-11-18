@@ -1,6 +1,7 @@
 # this is derived from https://github.com/PopGenClustering/Clumppling/blob/main/clumppling/__main__.py
 # @author of the original file Xiran Liu
 # modified by Andrea Manica for use with tidygenclust
+# clumppling is distributed under the MIT licence (see inst/COPYRIGHTS).
 #
 # Previous versions of tidygenclust used this module to run clumppling; it is
 # now only used to compute the reference results for the tests of the native

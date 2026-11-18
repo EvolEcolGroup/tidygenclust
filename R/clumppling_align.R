@@ -1,6 +1,8 @@
 # Helpers to align and compare membership matrices for the native clumppling
 # port (clumppling/core.py and clumppling/utils.py). The optimal alignments
 # themselves are computed in C++ (src/clumppling_assignment.cpp).
+# Ported from clumppling 2.0.10 (Xiran Liu, MIT licence; see
+# inst/COPYRIGHTS).
 
 #' Align all replicates with the same K
 #'

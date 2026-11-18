@@ -20,7 +20,12 @@ Its core functionality is provided by native R and C++ code:
   multithreaded C++ implementation of the algorithm of ADMIXTURE (block
   relaxation with quasi-Newton acceleration), which works directly on a
   `gen_tibble`, supports pseudohaploid data, and includes the
-  cross-validation of ADMIXTURE to choose K (Alexander & Lange 2011);
+  cross-validation of ADMIXTURE to choose K (Alexander & Lange 2011). Its
+  code started as a port of
+  [OpenADMIXTURE.jl](https://github.com/OpenMendel/OpenADMIXTURE.jl)
+  (Ko et al. 2023) and has since been extensively rewritten; its optional
+  SVD start adapts the alternating least squares of
+  [ADAMIXTURE](https://github.com/AI-sandbox/ADAMIXTURE);
 - `gt_clumppling()` to align multiple clustering runs within and across K
   with the method of clumppling (Liu, Kopelman & Rosenberg 2024), ported to
   R and C++, with modifications, from the python package
@@ -75,6 +80,11 @@ ancestry in unrelated individuals. Genome Research, 19(9), 1655-1664.
 
 Alexander DH, Lange K (2011) Enhancements to the ADMIXTURE algorithm for
 individual ancestry estimation. BMC Bioinformatics, 12, 246.
+
+Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH, Sobel EM, Zhou H,
+Lange KL (2023) Unsupervised discovery of ancestry-informative markers and
+genetic admixture proportions in biobank-scale datasets. The American
+Journal of Human Genetics, 110(2), 314-325.
 
 Liu X, Kopelman NM, Rosenberg NA (2024) Clumppling: cluster matching and
 permutation program with integer linear programming. Bioinformatics, 40(1),

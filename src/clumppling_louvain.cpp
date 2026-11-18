@@ -1,9 +1,17 @@
 // Louvain community detection for the native clumppling port.
 //
 // clumppling detects modes with cdlib's louvain(), which calls
-// best_partition() from python-louvain (Thomas Aynaud, BSD-3-Clause,
-// https://github.com/taynaud/python-louvain; see inst/COPYRIGHTS). This is a
-// C++ port of that implementation: the same local moving phase (nodes and
+// best_partition() from python-louvain, version 0.16
+// (https://github.com/taynaud/python-louvain):
+//   Copyright (c) 2009-2018, Thomas Aynaud <thomas.aynaud@lip6.fr>
+//   All rights reserved.
+// python-louvain is distributed under the BSD 3-clause licence, whose full
+// text (with its conditions and disclaimer) is in inst/COPYRIGHTS. This file
+// is a C++ port of best_partition(), generate_dendrogram(),
+// partition_at_level(), induced_graph(), __one_level() (with __neighcom(),
+// __insert() and __remove()), __modularity(), __randomize() and
+// __renumber() of community/community_louvain.py, and of the Status class
+// of community/community_status.py: the same local moving phase (nodes and
 // candidate communities are visited in random order, a node only moves for a
 // strictly positive gain, a level stops when modularity improves by less than
 // 1e-7), the same aggregation into an induced graph, and the partition at the

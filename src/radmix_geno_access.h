@@ -397,7 +397,11 @@ public:
     // multiplied by a different large odd constant (the splitmix64
     // increment and a 64-bit prime of xxHash), so that (i, j) and (j, i)
     // give different values; the + 1 keeps row 0 and column 0 from
-    // dropping out of the sum. All arithmetic wraps modulo 2^64.
+    // dropping out of the sum. All arithmetic wraps modulo 2^64. The three
+    // lines of the finaliser (shifts and multipliers) are those of
+    // splitmix64 (Steele, Lea and Flood 2014) as written by S. Vigna in
+    // https://prng.di.unimi.it/splitmix64.c, which is in the public domain
+    // (CC0).
     uint64_t z = _cv_seed + 0x9E3779B97F4A7C15ULL * ((uint64_t) i + 1) +
       0xC2B2AE3D27D4EB4FULL * ((uint64_t) j + 1);
     z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;

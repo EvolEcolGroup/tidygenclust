@@ -30,9 +30,15 @@ Authors:
 
 Other contributors:
 \itemize{
+  \item Seyoon Ko (Copyright holder of OpenADMIXTURE.jl, from which parts of the C++ code of gt_radmix() are ported (see inst/COPYRIGHTS)) [copyright holder]
+  \item Kenneth Lange (Copyright holder of OpenADMIXTURE.jl, from which parts of the C++ code of gt_radmix() are ported (see inst/COPYRIGHTS)) [copyright holder]
+  \item Ioannidis Lab (Copyright holder of ADAMIXTURE, from which the alternating least squares of gt_radmix() are adapted (see inst/COPYRIGHTS)) [copyright holder]
+  \item Jonas Meisner (Author of fastmixture, from which the python code of gt_fastmixture() is derived (see inst/COPYRIGHTS)) [copyright holder]
   \item Xiran Liu (Author of clumppling, from which the code of gt_clumppling() is ported (see inst/COPYRIGHTS)) [copyright holder]
   \item Thomas Aynaud (Copyright holder of python-louvain, from which the Louvain method of gt_clumppling() is ported (see inst/COPYRIGHTS)) [copyright holder]
   \item Guy Allard (Copyright holder of markov_clustering, from which the Markov clustering of gt_clumppling() is ported (see inst/COPYRIGHTS)) [copyright holder]
+  \item Andrey Lopatin (Author of the implementation of the Hungarian algorithm of cp-algorithms (CC BY-SA 4.0), from which the assignment solver of gt_clumppling() is adapted (see inst/COPYRIGHTS)) [copyright holder]
+  \item Alboukadel Kassambara (Author of ggpubr, from which a helper of the plots of gt_clumppling() is copied (see inst/COPYRIGHTS)) [copyright holder]
 }
 
 }

@@ -1,4 +1,17 @@
 // Projections onto the feasible sets of q and p (see radmix_projections.h).
+//
+// Origin of the code: project_q() and project_p() are C++ translations of
+// project_q!() and project_p!() in src/projections.jl of OpenADMIXTURE.jl
+// (https://github.com/OpenMendel/OpenADMIXTURE.jl, commit
+// 401ac5c4056f0f6f2a7ea6ffc3af69c2b1e56fdc).
+//   Copyright (c) 2022 Seyoon Ko <kos@ucla.edu>, Kenneth Lange
+//   <klange@ucla.edu> and contributors
+// Distributed under the MIT licence, whose full text is in inst/COPYRIGHTS.
+// project_q() keeps the shift by eps and the threshold scan of the
+// original (the sort-and-threshold projection onto a simplex, Held, Wolfe
+// and Crowder 1974; Duchi et al. 2008); changed in tidygenclust: it sorts a
+// copy with std::sort (the original sorts an index with its own
+// quicksort), and both functions reset non-finite values (see below).
 #include "radmix_projections.h"
 #include <algorithm>
 #include <cmath>

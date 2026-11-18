@@ -157,9 +157,14 @@ intermediate PLINK file is written; the same holds for genotype
 likelihoods, which the package that stores them gives to \code{gt_radmix()}
 through a method of \code{\link[=gt_radmix_data]{gt_radmix_data()}}. Computation is in C++, multithreaded
 with OpenMP. The C++ code started as a port of the Julia package
-\href{https://github.com/OpenMendel/OpenADMIXTURE.jl}{OpenADMIXTURE.jl}, and
-has since been extensively rewritten (see the file \code{COPYRIGHTS} of the
-package, \code{system.file("COPYRIGHTS", package = "tidygenclust")}).
+\href{https://github.com/OpenMendel/OpenADMIXTURE.jl}{OpenADMIXTURE.jl}
+(Ko et al. 2023), and has since been extensively rewritten; its solver
+of the quadratic programs, its projections, its quasi-Newton step and the
+structure of its fitting loop are still derived from OpenADMIXTURE.jl,
+and the alternating least squares of \code{init = "svd"} are adapted from
+\href{https://github.com/AI-sandbox/ADAMIXTURE}{ADAMIXTURE} (see the file
+\code{COPYRIGHTS} of the package,
+\code{system.file("COPYRIGHTS", package = "tidygenclust")}).
 
 Missing genotypes are ignored in the likelihood. Pseudohaploid
 individuals (see \code{\link[tidypopgen:gt_pseudohaploid]{tidypopgen::gt_pseudohaploid()}}) contribute a single
@@ -475,6 +480,11 @@ Epidemiology, 28(4), 289-301.
 
 Lange K (2010) Numerical Analysis for Statisticians, 2nd edition.
 Springer, New York.
+
+Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH, Sobel EM,
+Zhou H, Lange KL (2023) Unsupervised discovery of ancestry-informative
+markers and genetic admixture proportions in biobank-scale datasets.
+The American Journal of Human Genetics, 110(2), 314-325.
 
 Saurina-i-Ricos J, Mas Montserrat D, Ioannidis AG (2026) ADAMIXTURE:
 adaptive first-order optimization for biobank-scale genetic clustering.

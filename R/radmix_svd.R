@@ -79,6 +79,12 @@ radmix_svd_factors <- function(x, rank, n_cores = 1) {
 #' frequencies drawn from R's random number generator, and returns the one
 #' with the highest log-likelihood (one pass over the genotypes each). R's
 #' BLAS is set to one thread while the ALS runs, and restored afterwards.
+#'
+#' The inputs of the ALS (the factors scaled by 0.5 and augmented with the
+#' allele frequencies and a column of ones, and the weights of the loci)
+#' are prepared as in ALS() of ADAMIXTURE 1.8.9 (adamixture/model/als.py,
+#' Copyright (c) 2024, Ioannidis Lab, BSD 3-clause licence), from which the
+#' ALS itself is adapted (see src/radmix_als.cpp and inst/COPYRIGHTS).
 #' @param data the output of `radmix_prepare()`
 #' @param factors the output of `radmix_svd_factors()`, with at least K + 5
 #'   components

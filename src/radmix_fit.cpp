@@ -11,6 +11,21 @@
 // matrices returned to R, built at the end). Between passes over the
 // genotypes, on the main thread, the loop reports progress (FitLog) and
 // checks for user interrupts; nothing inside the passes calls R.
+//
+// Origin of the code: the loop follows init_em!() and admixture_qn!() in
+// src/algorithms_outer.jl of OpenADMIXTURE.jl
+// (https://github.com/OpenMendel/OpenADMIXTURE.jl, commit
+// 401ac5c4056f0f6f2a7ea6ffc3af69c2b1e56fdc; Copyright (c) 2022 Seyoon Ko,
+// Kenneth Lange and contributors, MIT licence, see inst/COPYRIGHTS), from
+// which it was first ported: uniform random start with Q normalised,
+// EM priming (5 steps by default) unless both blocks are given, starting
+// values that replace their block after EM, two sweeps of block updates,
+// a quasi-Newton step from the last n_qn (3) secant pairs, accepted if it
+// improves on the log-likelihood of x0 (otherwise x2), and a stopping rule
+// on the relative change of the log-likelihood. Written for tidygenclust:
+// the fused pass (update_q_loglik(), below), the log-likelihood of x2 only
+// after a rejection, the fixed set of swapped buffers, supervised analyses,
+// the log and the interrupts.
 
 #include <Rcpp.h>
 #include <algorithm>
