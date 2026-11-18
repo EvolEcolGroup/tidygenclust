@@ -40,7 +40,9 @@ radmix_cv <- function(data, fit, k, n_folds, cv_seed, sup_q = NULL,
     # "warm start", as in fastmixture): they are close to the optimum without
     # the fold, so each fold converges in a few iterations, and we skip the EM
     # priming (both init_q and init_p are given). The convergence criteria
-    # are the same as for the full data.
+    # are cv_max_iter and cv_rtol of gt_radmix(), by default the same
+    # maximum number of iterations as for the full data and a looser
+    # threshold (1e-7, or rtol if it is larger).
     train <- radmix_set_cv(data, cv = list(
       mode = "train", fold = fold, n_folds = n_folds, seed = cv_seed
     ))
