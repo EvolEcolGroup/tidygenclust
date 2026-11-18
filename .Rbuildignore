@@ -9,3 +9,6 @@ codecov.yml
 ^\.claude$
 ^dev_notes$
 ^vignettes/articles$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

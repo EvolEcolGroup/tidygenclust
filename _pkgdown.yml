@@ -1,0 +1,43 @@
+url: https://evolecolgroup.github.io/tidygenclust/
+
+template:
+  bootstrap: 5
+
+reference:
+- title: ADMIXTURE and clumppling
+  desc: >
+    Native estimation of ancestry proportions with the ADMIXTURE method, and
+    alignment of runs across K with clumppling, with their plotting
+    functions.
+- contents:
+  - gt_radmix
+  - gt_clumppling
+  - subset_gt_clumppling
+  - tidy.gt_clumppling
+  - autoplot.gt_clumppling
+
+- title: External tools
+  desc: >
+    Optional tools, installed in the conda environment `ctidygenclust`
+    (Linux only).
+- subtitle: Managing the tools
+- contents:
+  - tgc_tools_install
+  - tgc_tools_version
+- subtitle: fastmixture
+- contents:
+  - tgc_fastmixture_install
+  - gt_fastmixture
+- subtitle: ADAMIXTURE
+- contents:
+  - tgc_adamixture_install
+  - gt_adamixture
+- subtitle: ADMIXTURE
+  desc: >
+    The ADMIXTURE binary is run by `tidypopgen::gt_admixture()`.
+- contents:
+  - tgc_admixture_install
+
+- title: Example data
+- contents:
+  - capeverde_pops
