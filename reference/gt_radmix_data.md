@@ -73,9 +73,8 @@ gives the likelihoods of 1 and 2 copies of `allele2` relative to that of
 0 copies, and whether each individual has data, and it is called from
 several threads, so it must not call R. The file
 `src/radmix_gl_source.cpp` of tidygenclust's sources is an example, used
-by its tests. `P` then gives the frequency of `allele2`.
-Cross-validation, starts from the SVD and imputed genotypes are not
-available for genotype likelihoods:
+by its tests. `P` then gives the frequency of `allele2`. Starts from the
+SVD and imputed genotypes are not available for genotype likelihoods:
 [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_radmix.md)
 checks them itself, and calls a method with `x` alone (`use_imputed` is
 only given to the method for a `gen_tibble`, when it is `TRUE`).

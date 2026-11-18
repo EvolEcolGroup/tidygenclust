@@ -111,8 +111,8 @@ that of 0 copies, and whether each individual has data, and it is
 called from several threads, so it must not call R. The file
 <code>src/radmix_gl_source.cpp</code> of tidygenclust's sources is an example,
 used by its tests. <code>P</code> then gives the frequency of <code>allele2</code>.
-Cross-validation, starts from the SVD and imputed genotypes are not
-available for genotype likelihoods: <code><a href="gt_radmix.html">gt_radmix()</a></code> checks them itself,
+Starts from the SVD and imputed genotypes are not available for
+genotype likelihoods: <code><a href="gt_radmix.html">gt_radmix()</a></code> checks them itself,
 and calls a method with <code>x</code> alone (<code>use_imputed</code> is only given to the
 method for a <code>gen_tibble</code>, when it is <code>TRUE</code>).</p>
 <p>The list for a <code>gen_tibble</code> is internal to tidygenclust, and may

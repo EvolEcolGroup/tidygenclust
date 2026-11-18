@@ -11,8 +11,10 @@
   which gives the kernels a C function that reads its likelihoods (see
   `inst/include/tidygenclust/radmix_gl_source.h`), so tidygenclust does
   not depend on it. `P` then gives the frequency of `allele2`.
-  Cross-validation, starts from the SVD and `use_imputed` are not
-  available for genotype likelihoods yet.
+  Cross-validation (with the deviance of the held-out likelihoods) and
+  starts from the SVD (of the posterior dosages under the emMAF allele
+  frequencies, with `svd_power` power iterations) are available;
+  `use_imputed` is not.
 - New
   [`gt_adamixture()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_adamixture.md):
   ancestry estimation with the python package ADAMIXTURE
