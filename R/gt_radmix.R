@@ -196,7 +196,10 @@
 #'   `max(k) + 5`. With genotype likelihoods, the SVD is that of the
 #'   posterior dosages (see "Genotype likelihoods"), and needs no imputation;
 #'   its random test matrix is drawn after setting the first value of
-#'   `seed`.
+#'   `seed`, and its number of power iterations is `svd_power` (3 by
+#'   default, enough for the leading components, those of the structure;
+#'   each further iteration makes the trailing components more accurate at
+#'   the cost of two more passes over the likelihoods).
 #'
 #'   Fits from the SVD need fewer iterations (often less than half as many as
 #'   from random starts in our tests), and usually reach a good fit (though,
@@ -393,7 +396,12 @@
 #'   genotypes, which needs fewer iterations but is not suited to exploring
 #'   the modes of the likelihood with several runs (see "Starting values
 #'   from the SVD" in the details). `"svd"` cannot be combined with `init_q`
-#'   or `init_p`, nor used with genotype likelihoods.
+#'   or `init_p`.
+#' @param svd_power the number of power iterations of the randomised SVD of
+#'   genotype likelihoods used by `init = "svd"` (defaults to 3; see
+#'   "Starting values from the SVD" in the details). Not used with
+#'   genotypes, whose truncated SVD is computed by
+#'   [tidypopgen::gt_pca_partialSVD()]
 #' @param init_q optional matrix (individuals x k) of starting ancestry
 #'   proportions; only allowed with a single value of `k`
 #' @param init_p optional matrix (loci x k) of starting allele frequencies
@@ -472,7 +480,7 @@
 #' adm_sup$Q[[1]]
 gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
                       rtol = 1e-8, n_em_iter = 5, n_qn = 3,
-                      init = c("random", "svd"),
+                      init = c("random", "svd"), svd_power = 3,
                       init_q = NULL, init_p = NULL, fix_q = FALSE,
                       fix_p = FALSE, supervised = NULL,
                       use_imputed = FALSE, crossval = FALSE, n_folds = 5,
@@ -498,6 +506,7 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
   check_count(max_iter, "max_iter", min = 0)
   check_count(n_em_iter, "n_em_iter", min = 0)
   check_count(n_qn, "n_qn")
+  check_count(svd_power, "svd_power", min = 0)
   check_count(n_cores, "n_cores")
   check_count(n_folds, "n_folds", min = 2,
     message = "'n_folds' should be an integer of at least 2"
@@ -701,7 +710,7 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
       # runs set their own seeds below)
       if (!is.null(seed)) set.seed(seed[1])
       svd_factors <- radmix_gl_svd_factors(data,
-        rank = svd_rank, n_cores = n_cores
+        rank = svd_rank, n_cores = n_cores, n_power = svd_power
       )
     } else {
       svd_factors <- radmix_svd_factors(x, rank = svd_rank, n_cores = n_cores)

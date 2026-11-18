@@ -14,6 +14,7 @@ gt_radmix(
   n_em_iter = 5,
   n_qn = 3,
   init = c("random", "svd"),
+  svd_power = 3,
   init_q = NULL,
   init_p = NULL,
   fix_q = FALSE,
@@ -62,7 +63,13 @@ in ADMIXTURE; or \code{"svd"}, from a truncated SVD of the
 genotypes, which needs fewer iterations but is not suited to exploring
 the modes of the likelihood with several runs (see "Starting values
 from the SVD" in the details). \code{"svd"} cannot be combined with \code{init_q}
-or \code{init_p}, nor used with genotype likelihoods.}
+or \code{init_p}.}
+
+\item{svd_power}{the number of power iterations of the randomised SVD of
+genotype likelihoods used by \code{init = "svd"} (defaults to 3; see
+"Starting values from the SVD" in the details). Not used with
+genotypes, whose truncated SVD is computed by
+\code{\link[tidypopgen:gt_pca_partialSVD]{tidypopgen::gt_pca_partialSVD()}}}
 
 \item{init_q}{optional matrix (individuals x k) of starting ancestry
 proportions; only allowed with a single value of \code{k}}
@@ -335,7 +342,10 @@ only used for the SVD, and the fit ignores them (unless
 \code{max(k) + 5}. With genotype likelihoods, the SVD is that of the
 posterior dosages (see "Genotype likelihoods"), and needs no imputation;
 its random test matrix is drawn after setting the first value of
-\code{seed}.
+\code{seed}, and its number of power iterations is \code{svd_power} (3 by
+default, enough for the leading components, those of the structure;
+each further iteration makes the trailing components more accurate at
+the cost of two more passes over the likelihoods).
 
 Fits from the SVD need fewer iterations (often less than half as many as
 from random starts in our tests), and usually reach a good fit (though,

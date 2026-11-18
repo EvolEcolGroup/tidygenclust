@@ -247,6 +247,18 @@ test_that("the SVD start works with genotype likelihoods", {
   expect_match(adm_gl$log[[1]][1], "^SVD start")
   expect_equal(adm_gl$loglik, adm_gt$loglik + sum(svd_sim$genotypes == 1) *
                  log(2), tolerance = 1e-6)
+  # more power iterations give the same maximum; svd_power must be a
+  # count
+  adm_gl8 <- gt_radmix(test_gl,
+    k = 3, seed = 1, init = "svd", rtol = 1e-12, svd_power = 8
+  )
+  expect_equal(adm_gl8$loglik, adm_gl$loglik, tolerance = 1e-6)
+  for (bad in list(-1, 1.5, NA_real_, "3")) {
+    expect_error(
+      gt_radmix(test_gl, k = 3, init = "svd", svd_power = bad),
+      "'svd_power' should be an integer of at least 0"
+    )
+  }
   # reproducible with the same seed, whatever the number of cores
   expect_identical(
     gt_radmix(test_gl,
