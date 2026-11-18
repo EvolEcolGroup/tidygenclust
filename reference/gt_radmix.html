@@ -276,9 +276,14 @@ intermediate PLINK file is written; the same holds for genotype
 likelihoods, which the package that stores them gives to <code>gt_radmix()</code>
 through a method of <code><a href="gt_radmix_data.html">gt_radmix_data()</a></code>. Computation is in C++, multithreaded
 with OpenMP. The C++ code started as a port of the Julia package
-<a href="https://github.com/OpenMendel/OpenADMIXTURE.jl" class="external-link">OpenADMIXTURE.jl</a>, and
-has since been extensively rewritten (see the file <code>COPYRIGHTS</code> of the
-package, <code>system.file("COPYRIGHTS", package = "tidygenclust")</code>).</p>
+<a href="https://github.com/OpenMendel/OpenADMIXTURE.jl" class="external-link">OpenADMIXTURE.jl</a>
+(Ko et al. 2023), and has since been extensively rewritten; its solver
+of the quadratic programs, its projections, its quasi-Newton step and the
+structure of its fitting loop are still derived from OpenADMIXTURE.jl,
+and the alternating least squares of <code>init = "svd"</code> are adapted from
+<a href="https://github.com/AI-sandbox/ADAMIXTURE" class="external-link">ADAMIXTURE</a> (see the file
+<code>COPYRIGHTS</code> of the package,
+<code>system.file("COPYRIGHTS", package = "tidygenclust")</code>).</p>
 <p>Missing genotypes are ignored in the likelihood. Pseudohaploid
 individuals (see <code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_pseudohaploid.html" class="external-link">tidypopgen::gt_pseudohaploid()</a></code>) contribute a single
 allele per locus. Only diploid and pseudohaploid <code>gen_tibble</code>s are
@@ -555,6 +560,10 @@ admixture: analytical and study design considerations. Genetic
 Epidemiology, 28(4), 289-301.</p>
 <p>Lange K (2010) Numerical Analysis for Statisticians, 2nd edition.
 Springer, New York.</p>
+<p>Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH, Sobel EM,
+Zhou H, Lange KL (2023) Unsupervised discovery of ancestry-informative
+markers and genetic admixture proportions in biobank-scale datasets.
+The American Journal of Human Genetics, 110(2), 314-325.</p>
 <p>Saurina-i-Ricos J, Mas Montserrat D, Ioannidis AG (2026) ADAMIXTURE:
 adaptive first-order optimization for biobank-scale genetic clustering.
 Bioinformatics, 42(Supplement_1). doi:

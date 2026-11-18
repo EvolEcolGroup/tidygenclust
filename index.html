@@ -92,7 +92,7 @@
 <p>Its core functionality is provided by native R and C++ code:</p>
 <ul>
 <li>
-<code><a href="reference/gt_radmix.html">gt_radmix()</a></code> to estimate ancestry proportions with the method of ADMIXTURE (Alexander et al. 2009). It is a heavily optimized, multithreaded C++ implementation of the algorithm of ADMIXTURE (block relaxation with quasi-Newton acceleration), which works directly on a <code>gen_tibble</code>, supports pseudohaploid data, and includes the cross-validation of ADMIXTURE to choose K (Alexander &amp; Lange 2011);</li>
+<code><a href="reference/gt_radmix.html">gt_radmix()</a></code> to estimate ancestry proportions with the method of ADMIXTURE (Alexander et al. 2009). It is a heavily optimized, multithreaded C++ implementation of the algorithm of ADMIXTURE (block relaxation with quasi-Newton acceleration), which works directly on a <code>gen_tibble</code>, supports pseudohaploid data, and includes the cross-validation of ADMIXTURE to choose K (Alexander &amp; Lange 2011). Its code started as a port of <a href="https://github.com/OpenMendel/OpenADMIXTURE.jl" class="external-link">OpenADMIXTURE.jl</a> (Ko et al. 2023) and has since been extensively rewritten; its optional SVD start adapts the alternating least squares of <a href="https://github.com/AI-sandbox/ADAMIXTURE" class="external-link">ADAMIXTURE</a>;</li>
 <li>
 <code><a href="reference/gt_clumppling.html">gt_clumppling()</a></code> to align multiple clustering runs within and across K with the method of clumppling (Liu, Kopelman &amp; Rosenberg 2024), ported to R and C++, with modifications, from the python package <a href="https://github.com/PopGenClustering/Clumppling" class="external-link">clumppling</a>.</li>
 </ul>
@@ -122,6 +122,7 @@
 </h2>
 <p>Alexander DH, Novembre J, Lange K (2009) Fast model-based estimation of ancestry in unrelated individuals. Genome Research, 19(9), 1655-1664.</p>
 <p>Alexander DH, Lange K (2011) Enhancements to the ADMIXTURE algorithm for individual ancestry estimation. BMC Bioinformatics, 12, 246.</p>
+<p>Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH, Sobel EM, Zhou H, Lange KL (2023) Unsupervised discovery of ancestry-informative markers and genetic admixture proportions in biobank-scale datasets. The American Journal of Human Genetics, 110(2), 314-325.</p>
 <p>Liu X, Kopelman NM, Rosenberg NA (2024) Clumppling: cluster matching and permutation program with integer linear programming. Bioinformatics, 40(1), btad751.</p>
 </div>
 </div>
