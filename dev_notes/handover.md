@@ -2,8 +2,9 @@
 
 Updated 2026-11-19 (manica01): version 0.1.5.9006 on `dev` (d889f63), the
 first with #38's cross-validation and SVD starts for likelihoods, which
-tidypopgl now requires (its PR #47); `radmix_extensions` deleted on origin
-and manica01. `summary.md` first. History is in `progress.md`; designs are in the topic
+tidypopgl's `gl_workflow` requires since its PR #47 (merged, 201f29f);
+`radmix_extensions` deleted on origin and manica01.
+`summary.md` first. History is in `progress.md`; designs are in the topic
 documents listed in `README.md`.
 
 ## Branches
@@ -24,35 +25,21 @@ local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
 
 ## Next tasks
 
-### 1. **P2** [review] tidypopgl's PR #47 (`radmix_source_speed` into `gl_workflow`)
-
-- tidypopgl's `gl_workflow` works with tidygenclust `dev` except one test:
-  its CI (PR #46) fails since #38, as `test_gt_radmix_data.R` still expects
-  `gt_radmix(crossval = TRUE)` to stop on likelihoods.
-- PR EvolEcolGroup/tidypopgl#47 fixes it: the faster source, `Imports:
-  tidygenclust (>= 0.1.5.9006)`, a test that cross-validation through the
-  source gives the genotypes' error, and the vignette choosing `k` by
-  cross-validation. Full suite passed on manica01 (19 Nov); CI on the PR
-  started on all three platforms (its AVX2 file had only been built on
-  the desktop).
-- **Done when:** CI passes and Andrea merges #47 into `gl_workflow`
-  (tidypopgl's handover has the rest).
-
-### 2. **P2** [claude] then [review] `articles_revised`
+### 1. **P2** [claude] then [review] `articles_revised`
 
 - **Branch:** `articles_revised`; rebase or merge `dev` into it and resolve
   the conflict in `vignettes/articles/pseudohaploids.Rmd`.
 - **Check:** render the article (`TMPDIR` in a work folder).
 - **Done when:** a PR into `dev` is open for Andrea's review.
 
-### 3. **P3** [decide] The bounds of the estimates with genotype likelihoods
+### 2. **P3** [decide] The bounds of the estimates with genotype likelihoods
 
 - Keep `[1e-5, 1 - 1e-5]` (ADMIXTURE's) or use NGSadmix's `1e-9`? With
   1e-5 the log-likelihood is about 1e-6 (relative) below NGSadmix's on data
   with many estimates at the bounds (`data-raw/radmix/gl/REPORT.md`).
   Recommendation: keep 1e-5 (one set of bounds for both kinds of data).
 
-### 4. **P3** [cleanup] Branches and scratch files
+### 3. **P3** [cleanup] Branches and scratch files
 
 - laptopX1: the local `radmix_extensions` (`git branch -D`; merged as
   #38, gone from origin and manica01), and the

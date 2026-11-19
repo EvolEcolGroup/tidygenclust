@@ -5,6 +5,13 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-19 (manica01): tidypopgl's PR #47 merged
+
+- Andrea squash-merged tidypopgl's #47 into `gl_workflow` (201f29f):
+  `gl_workflow` now requires tidygenclust 0.1.5.9006. Its squash message
+  held `[skip ci]`, so tidypopgl's notes commit (25d7b4b, without it) runs
+  the CI of tidypopgl's #46 on the merged code.
+
 ## 2026-11-19 (manica01): tidypopgl's `gl_workflow` with `dev`; version 0.1.5.9006
 
 - tidypopgl's `gl_workflow` works with `dev` (b14fdeb) on all three CI

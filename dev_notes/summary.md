@@ -1,6 +1,6 @@
 # tidygenclust: summary
 
-Updated 2026-11-19 (manica01). One section: the package's issue in
+Updated 2026-11-19 (manica01, wrap-up). One section: the package's issue in
 dramanica/claude_jobs, with the single list of its tasks. Its first
 paragraph, status and next steps are copied into the issue
 (`scripts/sync_issue.py` of the dev-notes skill).
@@ -9,7 +9,7 @@ paragraph, status and next steps are copied into the issue
 
 tidygenclust: `gt_radmix()`, the native implementation of ADMIXTURE's method (port, speed-ups, consolidation), and its extension to genotype likelihoods. Earlier log of the likelihoods: dramanica/claude_jobs#12.
 
-**Status.** PR #38 (`radmix_extensions`, squash-merged into `dev` as df747aa on 18 Nov, CI green) added a fused pass for supervised fits (fits 0.88-0.89 of the time, the same estimates), cross-validation and SVD starts for genotype likelihoods, and inlined likelihood helpers; with tidypopgl's faster source (its branch `radmix_source_speed`), fits of likelihoods take 0.80-0.83 of the time. `dev` is now 0.1.5.9006, which tidypopgl requires in its PR #47 (the faster source, cross-validation in its vignette, and the fix of `gl_workflow`'s CI, broken by #38). Handover: `dev_notes/handover.md`.
+**Status.** PR #38 (`radmix_extensions`, squash-merged into `dev` as df747aa on 18 Nov, CI green) added a fused pass for supervised fits (fits 0.88-0.89 of the time, the same estimates), cross-validation and SVD starts for genotype likelihoods, and inlined likelihood helpers; with tidypopgl's faster source (its branch `radmix_source_speed`), fits of likelihoods take 0.80-0.83 of the time. `dev` is now 0.1.5.9006, which tidypopgl's `gl_workflow` requires since its PR #47 (merged 19 Nov: the faster source, cross-validation in its vignette, and the fix of its CI, broken by #38). Handover: `dev_notes/handover.md`.
 
 `dev` holds PR #36 (merged 17 Nov: the speed-ups of `newspeed`, supervised
 analyses, the benchmark article with the full HGDP run) and genotype
@@ -37,7 +37,6 @@ The designs are in `admixture_implementation.md`, the timings in
 `radmix_performance.md` and `radmix_extensions_2026-11/`.
 
 **Next steps**
-- [ ] **P2** [review] tidypopgl's PR #47 (`radmix_source_speed` into `gl_workflow`): merge it once its CI passes; it also fixes the CI of tidypopgl's #46.
 - [ ] **P2** [claude] then [review] `articles_revised`: resolve its conflict in `pseudohaploids.Rmd`, then review and merge.
 - [ ] **P3** [decide] Keep the 1e-5 bounds for likelihoods, or use NGSadmix's 1e-9? With 1e-5, the log-likelihood is about 1e-6 below NGSadmix's. Recommendation: keep 1e-5.
 - [ ] **P3** [cleanup] On laptopX1, delete the untracked `data-raw/radmix/perf_verification/` and the local `radmix_extensions` (merged as #38; gone from origin and manica01); on manica01, delete `~/tgc_newspeed_work`, `~/tgc_bench_article`, `~/tgc_supfused_work` and `vignettes/articles/data/hgdp/runs` (about 7 GB of builds and raw outputs).
@@ -45,5 +44,6 @@ The designs are in `admixture_implementation.md`, the timings in
 Backlog (P3, in `handover.md`): `-fprofile-update=single` under covr, the vignette's P comparison as code, P as a matrix or a data.frame (decide), bootstrap standard errors, the remaining speed leads, an EM-based PCA for the SVD start of likelihoods.
 
 **Done**
+- tidypopgl's PR #47 (`radmix_source_speed`: faster source, requires 0.1.5.9006, cross-validation in its vignette) squash-merged into `gl_workflow` (201f29f). Andrea, 19 Nov 2026.
 - Version 0.1.5.9006 on `dev` (d889f63), the first with #38's cross-validation and SVD starts for likelihoods; required by tidypopgl's PR #47. Andrea, 19 Nov 2026.
 - `radmix_extensions` (merged as #38) deleted on origin and manica01. Andrea, 19 Nov 2026.
