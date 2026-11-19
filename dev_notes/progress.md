@@ -5,6 +5,19 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-19 (manica01): tidypopgl's `gl_workflow` with `dev`; version 0.1.5.9006
+
+- tidypopgl's `gl_workflow` works with `dev` (b14fdeb) on all three CI
+  platforms except one test, which still expected `gt_radmix(crossval =
+  TRUE)` to stop on likelihoods (#38 made it work).
+- `dev` bumped to 0.1.5.9006 (d889f63), so that tidypopgl can require the
+  version with cross-validation and SVD starts for likelihoods (Andrea).
+- tidypopgl PR #47 (`radmix_source_speed` into `gl_workflow`): requires
+  0.1.5.9006, tests cross-validation through its source, and its vignette
+  chooses `k` by cross-validation; full suite passed on manica01, CI on
+  the PR running.
+- `radmix_extensions` deleted on origin and manica01 (Andrea).
+
 ## 2026-11-18 (laptopX1): PR #38 merged
 
 - CI of PR #38 green on all platforms; squash-merged into `dev` (df747aa)

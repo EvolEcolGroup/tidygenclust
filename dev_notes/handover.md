@@ -1,16 +1,16 @@
 # tidygenclust: handover
 
-Updated 2026-11-18 (laptopX1): PR #38 (`radmix_extensions`: fused pass for
-supervised fits, cross-validation and SVD starts for genotype likelihoods,
-`svd_power`, inlined likelihood helpers) squash-merged into `dev` (df747aa).
-`summary.md` first. History is in `progress.md`; designs are in the topic
+Updated 2026-11-19 (manica01): version 0.1.5.9006 on `dev` (d889f63), the
+first with #38's cross-validation and SVD starts for likelihoods, which
+tidypopgl now requires (its PR #47); `radmix_extensions` deleted on origin
+and manica01. `summary.md` first. History is in `progress.md`; designs are in the topic
 documents listed in `README.md`.
 
 ## Branches
 
 | branch | purpose | base | pushed | merged |
 |---|---|---|---|---|
-| `radmix_extensions` | squash-merged as #38 (df747aa) | | yes | yes: delete (local, origin) |
+| laptopX1 local: `radmix_extensions` | squash-merged as #38 (df747aa); deleted on origin and manica01 (19 Nov) | | | yes: `git branch -D` |
 | `articles_revised` | revision of the pseudohaploid article (2 commits) | `dev` (old) | yes | no: conflict in `pseudohaploids.Rmd` |
 | `hgdp_plots`, `windows` (origin) | not part of the radmix work; commits not in `dev` | | yes | no: ask Andrea before touching |
 
@@ -24,12 +24,19 @@ local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
 
 ## Next tasks
 
-### 1. **P2** [review] tidypopgl's `radmix_source_speed`
+### 1. **P2** [review] tidypopgl's PR #47 (`radmix_source_speed` into `gl_workflow`)
 
-- tidygenclust's side is merged (#38, df747aa). Merge tidypopgl's
-  `radmix_source_speed` (see its handover), and update tidypopgl's
-  vignette sentence that cross-validation is not available for
-  likelihoods.
+- tidypopgl's `gl_workflow` works with tidygenclust `dev` except one test:
+  its CI (PR #46) fails since #38, as `test_gt_radmix_data.R` still expects
+  `gt_radmix(crossval = TRUE)` to stop on likelihoods.
+- PR EvolEcolGroup/tidypopgl#47 fixes it: the faster source, `Imports:
+  tidygenclust (>= 0.1.5.9006)`, a test that cross-validation through the
+  source gives the genotypes' error, and the vignette choosing `k` by
+  cross-validation. Full suite passed on manica01 (19 Nov); CI on the PR
+  started on all three platforms (its AVX2 file had only been built on
+  the desktop).
+- **Done when:** CI passes and Andrea merges #47 into `gl_workflow`
+  (tidypopgl's handover has the rest).
 
 ### 2. **P2** [claude] then [review] `articles_revised`
 
@@ -47,9 +54,8 @@ local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
 
 ### 4. **P3** [cleanup] Branches and scratch files
 
-- `radmix_extensions` (merged as #38): `git branch -D` on each machine,
-  `git push origin --delete radmix_extensions`.
-- laptopX1: the
+- laptopX1: the local `radmix_extensions` (`git branch -D`; merged as
+  #38, gone from origin and manica01), and the
   untracked `data-raw/radmix/perf_verification/` (a copy of what the tag
   `archive/radmix-perf-verify` holds).
 - manica01: delete `~/tgc_newspeed_work` (2.2 GB of builds and cached
