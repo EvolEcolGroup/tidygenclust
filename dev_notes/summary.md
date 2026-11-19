@@ -45,6 +45,5 @@ The designs are in `admixture_implementation.md`, the timings in
 Backlog (P3, in `handover.md`): `-fprofile-update=single` under covr, the vignette's P comparison as code, P as a matrix or a data.frame (decide), bootstrap standard errors, the remaining speed leads, an EM-based PCA for the SVD start of likelihoods.
 
 **Done**
-- Extensions of `gt_radmix()`: fused pass for supervised fits, cross-validation and SVD starts for likelihoods, `svd_power`: PR #38 squash-merged into `dev` (df747aa), Andrea, 18 Nov 2026.
-- laptopX1: 17 local branches without origin and the `coverage-speed` worktree deleted (tips in `/media/andrea/annex/tmp/claude/tidygenclust/deleted_branches_2026-11-18.txt`), 18 Nov 2026.
-- Code derived from other software labelled in `gt_radmix()`, `gt_fastmixture()` and `gt_clumppling()`, licences completed in `COPYRIGHTS` and `cph` roles (ADAMIXTURE, cp-algorithms and ggpubr were uncredited); text for the paper in `dev_notes/paper_methods_text.md`: merged into `dev` (4c8464d), Andrea, 18 Nov 2026.
+- Version 0.1.5.9006 on `dev` (d889f63), the first with #38's cross-validation and SVD starts for likelihoods; required by tidypopgl's PR #47. Andrea, 19 Nov 2026.
+- `radmix_extensions` (merged as #38) deleted on origin and manica01. Andrea, 19 Nov 2026.
