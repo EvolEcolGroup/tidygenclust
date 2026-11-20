@@ -5,6 +5,20 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-20 (manica01): the website shows main at the root, dev at /dev/
+
+- Since 9989231 (31 Oct) the pkgdown workflow also built pushes to `dev`
+  into the root of `gh-pages`, so the landing page showed `dev`.
+- ac79eb4 (`dev`): the workflow sets `PKGDOWN_DEV_MODE` from the branch
+  (`dev` -> `/dev/`; main and releases -> root); `_pkgdown.yml` uses
+  `development: mode: auto` for local builds. f600f3f: README links to
+  the `/dev/` site.
+- `gh-pages` root restored to main's last build (efec401, tree of 56c5d2a
+  from main 0fc9c8b, 17 Oct) (Andrea). Main gets the new settings when
+  `dev` is merged; until then its builds still go to the root, as wanted.
+- Checked live: root 0.1.5 (no dev-only articles), `/dev/` 0.1.5.9006
+  with `noindex` (deploy 4981fef touched only `dev/`).
+
 ## 2026-11-19 (manica01): tidypopgl's PR #47 merged
 
 - Andrea squash-merged tidypopgl's #47 into `gl_workflow` (201f29f):
