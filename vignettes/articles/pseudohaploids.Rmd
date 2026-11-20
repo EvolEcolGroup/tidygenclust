@@ -29,7 +29,7 @@ results_dir <- params$results_dir
 
 Diploid genotypes cannot be called reliably from low-coverage data, which includes most ancient genomes. A common workaround is to sample a single allele at random at each site, so that the individual is treated as “pseudohaploid”. `tidypopgen` encodes each pseudohaploid call as a homozygous genotype (0 or 2), and `tidypopgen::gt_pseudohaploid()` marks the individuals with no heterozygous genotypes as pseudohaploids (with a ploidy of 1). `gt_radmix()`estimates ancestry proportions with the ADMIXTURE method (Alexander et al. 2009), using a modified version of the OpenADMIXTURE algorithm (Ko et al. 2023), to which we added ADMIXTURE’s cross-validation procedure. For pseudohaploid individuals, it counts a single copy of the allele at each genotype.
 
-If the pseudohaploid individuals are not declared as such, each genotype is treated as a true diploid call. This happens in programs such as OpenADMIXTURE.jl, and ADMIXTURE, which assume assume diploid genotypes for autosomes. Using simulated data, we show below the consequences of this approach. In summary, we show that:
+If the pseudohaploid individuals are not declared as such, each genotype is treated as a true diploid call. This happens in programs such as ADMIXTURE, which assume diploid genotypes for autosomes. Using simulated data, we show below the consequences of this approach. In summary, we show that:
 
 - the log-likelihood of every pseudohaploid is doubled. Likelihood-based criteria for choosing K (such as the Akaike information criterion,
   AIC) tend to favour an increasing number of clusters, whereas cross-validation generally identifies the correct K;
@@ -63,8 +63,8 @@ from a few populations:
 1. For each of `n_loci` independent loci, the
    frequency of the alternate allele is drawn from a uniform distribution
    between 0.05 and 0.95 in a common ancestral population.
-2. Each population drifts from the ancestral population: the frequency of
-   each locus is drawn from the Balding-Nichols model (Balding & Nichols
+2. Each population drifts from the ancestral population: the alternative allele frequency of
+   each locus is drawn independently for each population from the Balding-Nichols model (Balding & Nichols
    1995), a beta distribution with the ancestral frequency `p` as its mean
    and a variance of `fst * p * (1 - p)`. The larger `fst` is, the more the
    populations differ.
