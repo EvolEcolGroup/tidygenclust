@@ -73,6 +73,11 @@ section of the website of the package:
 can bias the results of clustering (and how `gt_radmix()` can handle 
 pseudohaploids correctly).
 
+The [website](https://evolecolgroup.github.io/tidygenclust/) documents the
+version on the `main` branch; the documentation of the development version,
+on the `dev` branch, is at
+<https://evolecolgroup.github.io/tidygenclust/dev/>.
+
 ## References
 
 Alexander DH, Novembre J, Lange K (2009) Fast model-based estimation of
