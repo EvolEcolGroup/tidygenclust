@@ -5,6 +5,18 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-20 (laptopX1): bounds of likelihoods decided; clean-up
+
+- Andrea decided to keep `[1e-5, 1 - 1e-5]` for estimates from genotype
+  likelihoods, as for genotypes, not NGSadmix's 1e-9 (recorded in
+  `admixture_implementation.md`, "Genotype likelihoods").
+- Deleted on laptopX1: the local `radmix_extensions` (ae6bb5c, the head of
+  #38) and the untracked `data-raw/radmix/perf_verification/`; its
+  `svd_vs_random_q_hgdp.rds` (97 KB, not in the archive tag) moved to
+  `/media/andrea/annex/tmp/claude/tidygenclust/kept/`.
+- Deleted on manica01: `~/tgc_newspeed_work`, `~/tgc_bench_article`,
+  `~/tgc_supfused_work`, `vignettes/articles/data/hgdp/runs` (about 6.4 GB).
+
 ## 2026-11-20 (manica01): the website shows main at the root, dev at /dev/
 
 - Since 9989231 (31 Oct) the pkgdown workflow also built pushes to `dev`

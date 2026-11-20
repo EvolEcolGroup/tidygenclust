@@ -1,6 +1,6 @@
 # tidygenclust: summary
 
-Updated 2026-11-19 (manica01, wrap-up). One section: the package's issue in
+Updated 2026-11-20 (laptopX1). One section: the package's issue in
 dramanica/claude_jobs, with the single list of its tasks. Its first
 paragraph, status and next steps are copied into the issue
 (`scripts/sync_issue.py` of the dev-notes skill).
@@ -38,12 +38,12 @@ The designs are in `admixture_implementation.md`, the timings in
 
 **Next steps**
 - [ ] **P2** [claude] then [review] `articles_revised`: resolve its conflict in `pseudohaploids.Rmd`, then review and merge.
-- [ ] **P3** [decide] Keep the 1e-5 bounds for likelihoods, or use NGSadmix's 1e-9? With 1e-5, the log-likelihood is about 1e-6 below NGSadmix's. Recommendation: keep 1e-5.
-- [ ] **P3** [cleanup] On laptopX1, delete the untracked `data-raw/radmix/perf_verification/` and the local `radmix_extensions` (merged as #38; gone from origin and manica01); on manica01, delete `~/tgc_newspeed_work`, `~/tgc_bench_article`, `~/tgc_supfused_work` and `vignettes/articles/data/hgdp/runs` (about 7 GB of builds and raw outputs).
 
 Backlog (P3, in `handover.md`): `-fprofile-update=single` under covr, the vignette's P comparison as code, P as a matrix or a data.frame (decide), bootstrap standard errors, the remaining speed leads, an EM-based PCA for the SVD start of likelihoods.
 
 **Done**
+- Bounds of likelihood estimates: keep `[1e-5, 1 - 1e-5]`, as for genotypes, not NGSadmix's 1e-9 (`admixture_implementation.md`). Andrea, 20 Nov 2026.
+- Clean-up: local `radmix_extensions` and untracked `data-raw/radmix/perf_verification/` deleted on laptopX1; `~/tgc_newspeed_work`, `~/tgc_bench_article`, `~/tgc_supfused_work` and `vignettes/articles/data/hgdp/runs` (about 6.4 GB) deleted on manica01. 20 Nov 2026.
 - tidypopgl's PR #47 (`radmix_source_speed`: faster source, requires 0.1.5.9006, cross-validation in its vignette) squash-merged into `gl_workflow` (201f29f). Andrea, 19 Nov 2026.
 - Version 0.1.5.9006 on `dev` (d889f63), the first with #38's cross-validation and SVD starts for likelihoods; required by tidypopgl's PR #47. Andrea, 19 Nov 2026.
 - `radmix_extensions` (merged as #38) deleted on origin and manica01. Andrea, 19 Nov 2026.

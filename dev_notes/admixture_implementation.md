@@ -614,6 +614,12 @@ f(x) = (1 - x)^2 + 2 e1 x (1 - x) + e2 x^2,
 where `(1, e1, e2)` are the likelihoods of 0, 1 and 2 copies of
 `allele2`, up to a constant factor per individual and locus.
 
+**Bounds (decided 2026-11-20, Andrea).** Estimates from likelihoods are
+kept within the same `[1e-5, 1 - 1e-5]` as those from genotypes, not
+NGSadmix's `1e-9`: one set of bounds for both kinds of data. The cost is a
+log-likelihood about 1e-6 (relative) below NGSadmix's on data with many
+estimates at the bounds (`data-raw/radmix/gl/REPORT.md`).
+
 ### The same algorithm, with expected allele counts
 
 Every pass of the algorithm is built from the counts `g` and `h` of the two
