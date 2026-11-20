@@ -3,6 +3,9 @@ url: https://evolecolgroup.github.io/tidygenclust/
 template:
   bootstrap: 5
 
+development:
+  mode: auto
+
 reference:
 - title: ADMIXTURE and clumppling
   desc: >
