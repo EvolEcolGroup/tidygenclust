@@ -319,7 +319,7 @@ q_all %>%
   )
 ```
 
-When undeclared, the pseudohaploids make the diploids of their population appear four to five times more admixed than when they are declared. The pseudohaploids themselves, and the other population, are unaffected. There is no bias when a population is made up only of pseudohaploids (the third scenario), as there are no diploids in it to appear admixed.
+When undeclared, the pseudohaploids make the diploids of their population appear four to five times more admixed than when they are declared. The pseudohaploids themselves, and the other population, are almost unaffected. There is no bias when one population is made up only of pseudohaploids (the third scenario), as there are no diploids in it to appear admixed.
 
 Even when the pseudohaploids are declared, the individuals of population A get a little more ancestry from the other cluster than those of B do. As explained below, this is not due to the pseudohaploids.
 
