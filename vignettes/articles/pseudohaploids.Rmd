@@ -438,7 +438,7 @@ Adding a cluster always increases the log-likelihood, as the extra
 parameters can fit some of the noise of the sample. Criteria based on the
 log-likelihood, such as AIC, only add a cluster if the increase is large
 enough. AIC is `-2 log-likelihood + 2 x (number of parameters)`. Each
-cluster adds the allele frequencies of every locus and an ancestry
+additional cluster adds one allele frequency per locus and an ancestry
 proportion for every individual, so a cluster lowers AIC if it increases
 the log-likelihood by more than the number of loci plus the number of
 individuals:
@@ -492,7 +492,7 @@ ggplot(loglik_gain, aes(x = k, y = gain, colour = treatment)) +
 ```
 
 Each point is a replicate, and the dashed line is the increase that a
-cluster needs to lower AIC. The second cluster, which separates the two
+cluster needs to lower AIC. The second cluster (K=2), which separates the two
 populations, increases the log-likelihood far above the line with both
 treatments. Further clusters only fit noise. Declared, they gain little
 more than half of what AIC requires; undeclared, the noise of the
@@ -722,7 +722,7 @@ q_all %>%
 ```
 
 Each point is a replicate, and the lines join the means. The dashed line
-marks K - 1 clusters, all but one of the K clusters. Undeclared, in every
+marks K - 1 clusters, i.e. all clusters but one. Undeclared, in every
 replicate, the pseudohaploid population is spread over almost all the
 clusters but one, and the diploid population stays in that one; declared,
 the two populations share the ghost clusters from K = 4. An analysis with undeclared
@@ -730,6 +730,8 @@ pseudohaploids would suggest structure among the ancient samples, and
 none in the modern ones, when neither has any.
 
 # Recommendations
+
+Based on these results, we recommend the following:
 
 - Declare pseudohaploids with `gt_pseudohaploid()` before running
   `gt_radmix()`, and check the result with `indiv_ploidy()`. A
