@@ -40,7 +40,7 @@ results_dir <- params$results_dir
 `gt_radmix()` estimates ancestry proportions with the method of ADMIXTURE
 (Alexander et al. 2009), directly from the backing file of a `gen_tibble`.
 It uses a modified version of the algorithm of OpenADMIXTURE (Ko et al.
-2023), whose C++ code was initially ported from OpenADMIXTURE.jl, and subsequently
+2023). Its C++ code was initially ported from OpenADMIXTURE.jl, and subsequently
 modified and optimised for performance whilst keeping the same outputs. We also
 implemented the cross-validation of ADMIXTURE, which is not part of
 OpenADMIXTURE. This article compares `gt_radmix()` with four programs that fit the
@@ -48,18 +48,17 @@ same model: ADMIXTURE itself, fastmixture (Santander et al. 2024), ADAMIXTURE
 (Saurina-i-Ricos et al. 2026), and OpenADMIXTURE.jl, the Julia
 implementation of OpenADMIXTURE (without its selection of ancestry
 informative markers). The comparison uses the Human
-Genome Diversity Project (HGDP), and has two parts:
+Genome Diversity Project (HGDP) and has two parts:
 
 - [Random starts](#random-starts): all the programs start from random
   values (ADMIXTURE and OpenADMIXTURE.jl have no other start, and
-  fastmixture and ADAMIXTURE are run with their option to do so). It checks
+  fastmixture and ADAMIXTURE are run with their option to do so). This part checks
   that the programs find the same ancestry proportions, and measures how
   long each takes on different numbers of cores, with and without
   cross-validation (which OpenADMIXTURE.jl does not have).
 - [SVD and random starts](#svd-and-random-starts): `gt_radmix()`,
   fastmixture and ADAMIXTURE can also start from a truncated singular value
-  decomposition (SVD) of the genotypes, which fastmixture and ADAMIXTURE do
-  by default (`gt_radmix()` does so with `init = "svd"`). Each of them is run
+  decomposition (SVD) of the genotypes, which is the default for fastmixture and ADAMIXTURE (`gt_radmix()` does so with `init = "svd"`). Each of them is run
   from both starts, with several seeds, to compare their times and the
   log-likelihoods they reach.
 
@@ -69,7 +68,7 @@ process that starts the program, reads the data and saves the results.
 Julia session, in which the package is already loaded (see
 [How long do they take?](#how-long-do-they-take)).
 
-The [results](#results) come first. The second part,
+The [results](#results) come first. A final section,
 [How the benchmark was run](#how-the-benchmark-was-run), describes the data
 and the runs, with their code, and how to run the benchmark again.
 
@@ -353,9 +352,9 @@ for K = `r k` ancestral populations (see [The data](#the-data)):
 - From random starts, from the command line, on `r min_cores` core, without
   cross-validation,
   `gt_radmix()` took `r format_seconds(time_of("radmix_cli"))` s,
-  ADMIXTURE `r format_seconds(time_of("admixture"))` s, fastmixture
-  `r format_seconds(time_of("fastmixture"))` s, ADAMIXTURE
-  `r format_seconds(time_of("adamixture"))` s and OpenADMIXTURE.jl
+  ADMIXTURE - `r format_seconds(time_of("admixture"))` s, fastmixture
+ -  `r format_seconds(time_of("fastmixture"))` s, ADAMIXTURE - 
+  `r format_seconds(time_of("adamixture"))` s and OpenADMIXTURE.jl - 
   `r format_seconds(time_of("openadmixture_cli"))` s; on `r max_cores`
   cores, they took `r format_seconds(time_of("radmix_cli", max_cores))` s,
   `r format_seconds(time_of("admixture", max_cores))` s,
@@ -382,12 +381,12 @@ for K = `r k` ancestral populations (see [The data](#the-data)):
   `r format_diff(agreement_of("fastmixture", "diff_ref"))`,
   `r format_diff(agreement_of("adamixture", "diff_ref"))` and
   `r format_diff(agreement_of("openadmixture", "diff_ref"))` respectively.
-- Across numbers of cores, with and without cross-validation,
+- Across runs of the same program with different numbers of cores, with and without cross-validation,
   `gt_radmix()` gives `r runs_differ_by("radmix")`, ADMIXTURE
   `r runs_differ_by("admixture")`, fastmixture
-  `r runs_differ_by("fastmixture")`, ADAMIXTURE
+  `r runs_differ_by("fastmixture")`, ADAMIXTURE - 
   `r runs_differ_by("adamixture")`, and OpenADMIXTURE.jl (without
-  cross-validation) `r runs_differ_by("openadmixture")`.
+  cross-validation) - `r runs_differ_by("openadmixture")`.
 - With `r n_seeds` seeds on `r starts_cores` cores (median times from the
   command line), `gt_radmix()` took `r starts_text("radmix")`; fastmixture
   `r starts_text("fastmixture")`; and ADAMIXTURE
