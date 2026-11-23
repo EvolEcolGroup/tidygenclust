@@ -99,7 +99,8 @@ they were observed; otherwise they are treated as missing (the default).
 Only for genotypes.}
 
 \item{crossval}{boolean; should the cross-validation error be computed
-(defaults to \code{FALSE})? See the details. Only for genotypes.}
+(defaults to \code{FALSE})? See the details (for genotype likelihoods, the
+error is the deviance of the held-out likelihoods).}
 
 \item{n_folds}{the number of folds used for cross-validation (defaults to
 5, as in ADMIXTURE)}

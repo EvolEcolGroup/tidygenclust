@@ -425,7 +425,8 @@
 #'   they were observed; otherwise they are treated as missing (the default).
 #'   Only for genotypes.
 #' @param crossval boolean; should the cross-validation error be computed
-#'   (defaults to `FALSE`)? See the details. Only for genotypes.
+#'   (defaults to `FALSE`)? See the details (for genotype likelihoods, the
+#'   error is the deviance of the held-out likelihoods).
 #' @param n_folds the number of folds used for cross-validation (defaults to
 #'   5, as in ADMIXTURE)
 #' @param cv_max_iter,cv_rtol the maximum number of iterations and the
