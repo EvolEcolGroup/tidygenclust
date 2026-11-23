@@ -43,7 +43,7 @@ with four programs that fit the same model: ADMIXTURE itself, fastmixture
 OpenADMIXTURE.jl (Ko et al. 2023), a Julia implementation of the algorithm
 of ADMIXTURE (run without its selection of ancestry informative markers).
 Note that OpenADMIXTURE.jl and ADAMIXTURE also include implementations 
-using the GPU, which can scale to Biobank datasets, but are not included in this comparison. Here we just compare the CPU implementations of the programs, which are all multithreaded. Thus, for very large datasets, some of the programs can perform
+using the GPU, which can scale to Biobank datasets, but are not included in this comparison. Here we just compare the CPU implementations of the programs, which are all multithreaded. In addition, ADAMIXTURE stores genotypes in a 2-bit packed encoding to reduce memory usage in standard runs (peak resident memory is now also recorded by `admixture_benchmark_cli.sh` for future benchmark runs). Thus, for very large datasets, some of the programs can perform
 better than these benchmarks suggest.
 
 The comparison uses the Human Genome Diversity Project (HGDP), and has two
@@ -904,8 +904,8 @@ Each program is run on `r cores_text` cores (with `-j` in ADMIXTURE,
 OpenADMIXTURE.jl), with and without cross-validation (with `--cv` in
 ADMIXTURE, fastmixture and ADAMIXTURE, and `crossval` in `gt_radmix()`;
 OpenADMIXTURE.jl has none), from random values or from an SVD of the
-genotypes (with `--random-init` in fastmixture, `--init em` or
-`--init als` in ADAMIXTURE, and `init` in `gt_radmix()`), with these
+genotypes (with `--random-init` in fastmixture, `--init random` or
+`--init svd` in ADAMIXTURE, and `init` in `gt_radmix()`), with these
 functions:
 
 ```{bash cli-functions, eval = FALSE}
@@ -981,8 +981,10 @@ mini-batches of the loci. An iteration of ADMIXTURE, ADAMIXTURE,
 block-wise Newton steps. From random values, ADMIXTURE, ADAMIXTURE,
 `gt_radmix()` and OpenADMIXTURE.jl first refine them with a few EM steps.
 From an SVD, fastmixture, ADAMIXTURE and `gt_radmix()` start from the
-solution of alternating least squares on its factors (`gt_radmix()` keeps
-the best of three such solutions).
+solution of alternating least squares on its factors; the ALS step of
+`gt_radmix()` is adapted from ADAMIXTURE (`src/radmix_als.cpp`, see
+`inst/COPYRIGHTS`), and both ADAMIXTURE and `gt_radmix()` keep the best of
+three such solutions by log-likelihood.
 
 ## From the results to the tables and plots
 
