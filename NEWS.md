@@ -1,4 +1,7 @@
 # tidygenclust (development version)
+* `gt_radmix(init = "svd")` computes the SVD of diploid data with
+  tidypopgen's `gt_pca()`: missing genotypes no longer need imputing, and it
+  is faster without an optimised BLAS (needs tidypopgen >= 1.0.0.9011)
 * `gt_radmix(init = "svd")` uses about 1 GB less memory (the blocks of
   bigstatsr's SVD are smaller)
 * `gt_radmix()` is 6-14% faster per iteration from K = 8, with the same
