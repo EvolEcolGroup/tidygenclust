@@ -165,8 +165,90 @@ namespace radmix {
 #ifndef RADMIX_OMP_SCHEDULE
 #define RADMIX_OMP_SCHEDULE dynamic
 #endif
+#ifndef RADMIX_HESS_BLOCK_MIN_K
+#define RADMIX_HESS_BLOCK_MIN_K 8
+#endif
 static const size_t TILE_I = 64;
 static const size_t TILE_J = RADMIX_TILE_J;
+
+// Register blocking of the Q-side Hessians, from K = HESS_BLOCK_MIN_K. The
+// sums hT[i, (k, k2)] += d2_ij p_kj p_k2j over the loci (K (K + 1) / 2 per
+// individual, against K for the gradients: 54-56% of a pass at K = 10)
+// keep their accumulators in memory, so each step of the loop below loads
+// three values and stores one for two multiply-adds. Blocked, the d2 of
+// HB_L loci (HB_L x TILE_I) and the products of their frequencies (HB_L x
+// n_pair, padded to a multiple of HB_P pairs) are buffered first; then, for
+// each group of HB_P pairs and of 8 individuals, HB_P x 8 accumulators
+// (eight AVX2 registers) are summed over the HB_L loci before being added
+// to hT, so each multiply-add loads about a quarter of a value. It is the
+// same loops in another order (unroll and jam), in portable C++ (no
+// intrinsics: the compiler vectorises the innermost loops for the baseline
+// and the AVX2 clones alike), and it adds the same products in another
+// order, so results change by rounding only (still identical for any
+// number of threads). On the desktop (8 threads, HGDP), a pass took
+// 0.86-0.94 of the time at K = 8-12, with identical iterations and
+// estimates within 3e-12; at K = 3 and 5 it gained nothing, so smaller K
+// keep the loop below. (In single precision, the blocked sums were no
+// faster per iteration than in double precision, and changed the paths of
+// the fits, so they are kept in double precision.)
+static const int HESS_BLOCK_MIN_K = RADMIX_HESS_BLOCK_MIN_K;
+static const int HB_L = 16;
+static const int HB_P = 4;
+static const int HB_V = 8;
+// the number of pairs (k, k2) of the buffers, padded to a multiple of HB_P
+static inline size_t hess_pairs_pad(size_t n_pair) {
+  return (n_pair + HB_P - 1) / HB_P * HB_P;
+}
+
+// The Hessian sums of nl buffered loci (see above): d2b (nl x TILE_I, zero
+// beyond the first ni individuals) and ppb (nl x npair_pad, zero beyond
+// n_pair), added into hT (n_pair x TILE_I).
+static RADMIX_INLINE void hess_block(const double* __restrict d2b,
+                                     const double* __restrict ppb, int nl,
+                                     size_t n_pair, size_t npair_pad,
+                                     size_t ni, double* __restrict hT) {
+  const size_t ni_pad = (ni + HB_V - 1) / HB_V * HB_V;
+  for (size_t pr = 0; pr < n_pair; pr += HB_P) {
+    const size_t npr = std::min((size_t) HB_P, n_pair - pr);
+    for (size_t ii0 = 0; ii0 < ni_pad; ii0 += HB_V) {
+      double acc[HB_P][HB_V];
+#pragma GCC unroll 4
+      for (int q = 0; q < HB_P; q++)
+#pragma omp simd
+        for (int v = 0; v < HB_V; v++) acc[q][v] = 0;
+      for (int l = 0; l < nl; l++) {
+        const double* x = d2b + (size_t) l * TILE_I + ii0;
+        const double* c = ppb + (size_t) l * npair_pad + pr;
+#pragma GCC unroll 4
+        for (int q = 0; q < HB_P; q++) {
+          const double cq = c[q];
+#pragma omp simd
+          for (int v = 0; v < HB_V; v++) acc[q][v] += x[v] * cq;
+        }
+      }
+      for (size_t q = 0; q < npr; q++) {
+        double* h = hT + TILE_I * (pr + q) + ii0;
+#pragma omp simd
+        for (int v = 0; v < HB_V; v++) h[v] += acc[q][v];
+      }
+    }
+  }
+}
+
+// Buffer the d2 of one locus (ni values, then zeros) and the products of
+// its frequencies (n_pair values, then zeros) as row l of d2b and ppb.
+static RADMIX_INLINE void hess_buffer(const double* d2, const double* pj,
+                                      int K, size_t ni, int l, double* d2b,
+                                      double* ppb, size_t npair_pad) {
+  double* x = d2b + (size_t) l * TILE_I;
+  for (size_t ii = 0; ii < ni; ii++) x[ii] = d2[ii];
+  for (size_t ii = ni; ii < TILE_I; ii++) x[ii] = 0;
+  double* c = ppb + (size_t) l * npair_pad;
+  size_t pr = 0;
+  for (int k = 0; k < K; k++)
+    for (int k2 = k; k2 < K; k2++) c[pr++] = pj[k] * pj[k2];
+  for (; pr < npair_pad; pr++) c[pr] = 0;
+}
 static_assert(TILE_J % 2 == 0, "TILE_J must be even");
 // (the bit mask of a training view gives one 64-bit word per slice, see
 // slice_geno())
@@ -740,13 +822,16 @@ static RADMIX_INLINE double loglik_slice_q(size_t ni, Slice& s) {
 // tail of each vector unused. They are copied into the output layout once,
 // at the end. Each step of the loop over the loci reads and writes every
 // accumulator once for two loci (see "Layout of the work" at the top).
-template <bool NEWTON, bool GL, bool LOGLIK>
+// BLOCK (with NEWTON): the Hessian sums are register-blocked (see
+// HESS_BLOCK_MIN_K), with the buffers in hB (HB_L x (TILE_I + npair_pad)
+// doubles).
+template <bool NEWTON, bool GL, bool LOGLIK, bool BLOCK>
 RADMIX_MULTIVERSION
 static double accum_q_block(const GenoView& geno, const double* qT,
                             const double* p, int K, size_t i0, size_t i1,
                             size_t j0, size_t j1, double* grad,
                             double* hess, Slice* s, double* gT, double* hT,
-                            const size_t* free_idx, size_t ldq) {
+                            double* hB, const size_t* free_idx, size_t ldq) {
   const size_t ni = i1 - i0, KK = (size_t) K * K;
   // the log-likelihood alone (see above): qp and the genotypes of each
   // slice, and its log-likelihood, in the order of the loci as below (EM
@@ -767,6 +852,11 @@ static double accum_q_block(const GenoView& geno, const double* qT,
   // never read)
   std::fill(gT, gT + K * TILE_I, 0.0);
   if (NEWTON) std::fill(hT, hT + n_pair * TILE_I, 0.0);
+  // the buffers of the blocked Hessians, and the number of loci in them
+  const size_t npair_pad = hess_pairs_pad(n_pair);
+  double* d2b = hB;
+  double* ppb = BLOCK ? hB + HB_L * TILE_I : nullptr;
+  int nl = 0;
   // the coefficients of the two loci of each step (s[0] for locus j, s[1]
   // for locus j + 1); a and b are used by EM, d1 and d2 by Newton
   const double* __restrict a1 = s[0].a.data();
@@ -810,16 +900,28 @@ static double accum_q_block(const GenoView& geno, const double* qT,
         for (size_t ii = 0; ii < ni; ii++)
           gk[ii] += d11[ii] * pk + d12[ii] * pk2;
       }
-      // Hessian: hT[, (k, k2)] += d2 p_kj p_k2j for k2 >= k; the products
-      // of the frequencies do not depend on the individual, so they are
-      // formed outside the loop over individuals
-      double* __restrict hk = hT;
-      for (int k = 0; k < K; k++) {
-        for (int k2 = k; k2 < K; k2++, hk += TILE_I) {
-          const double c1 = pj[k] * pj[k2], c2 = pj2[k] * pj2[k2];
+      // Hessian: hT[, (k, k2)] += d2 p_kj p_k2j for k2 >= k
+      if (BLOCK) {
+        // buffer the two loci (the padding locus has d2 = 0), and add up
+        // the buffered loci every HB_L loci and at the end
+        hess_buffer(d21, pj, K, ni, nl, d2b, ppb, npair_pad);
+        hess_buffer(d22, pj2, K, ni, nl + 1, d2b, ppb, npair_pad);
+        nl += 2;
+        if (nl == HB_L || j + 2 >= j1) {
+          hess_block(d2b, ppb, nl, n_pair, npair_pad, ni, hT);
+          nl = 0;
+        }
+      } else {
+        // the products of the frequencies do not depend on the
+        // individual, so they are formed outside the loop over individuals
+        double* __restrict hk = hT;
+        for (int k = 0; k < K; k++) {
+          for (int k2 = k; k2 < K; k2++, hk += TILE_I) {
+            const double c1 = pj[k] * pj[k2], c2 = pj2[k] * pj2[k2];
 #pragma omp simd
-          for (size_t ii = 0; ii < ni; ii++)
-            hk[ii] += d21[ii] * c1 + d22[ii] * c2;
+            for (size_t ii = 0; ii < ni; ii++)
+              hk[ii] += d21[ii] * c1 + d22[ii] * c2;
+          }
         }
       }
     } else {
@@ -950,8 +1052,13 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
   // (one segment: bl)
   std::vector<double> ll_part(LOGLIK ? n_seg * nbi : 0);
   // the accumulation function for the kind of data (see slice_gl())
-  const auto accum = geno.is_gl() ? accum_q_block<NEWTON, true, LOGLIK> :
-    accum_q_block<NEWTON, false, LOGLIK>;
+  // (with the blocked Hessians from HESS_BLOCK_MIN_K)
+  const bool block = NEWTON && K >= HESS_BLOCK_MIN_K;
+  const auto accum = geno.is_gl() ?
+    (block ? accum_q_block<NEWTON, true, LOGLIK, true> :
+     accum_q_block<NEWTON, true, LOGLIK, false>) :
+    (block ? accum_q_block<NEWTON, false, LOGLIK, true> :
+     accum_q_block<NEWTON, false, LOGLIK, false>);
 #pragma omp parallel num_threads(n_cores)
 {
   // thread-local buffers: two slices, the accumulators, and the sums of one
@@ -959,6 +1066,8 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
   Slice s[2];
   std::vector<double> gT(SUMS ? K * TILE_I : 0);
   std::vector<double> hT(NEWTON ? n_pair * TILE_I : 0);
+  std::vector<double> hB(
+    block ? HB_L * (TILE_I + hess_pairs_pad(n_pair)) : 0);
   std::vector<double> grad(SUMS ? K * TILE_I : 0);
   std::vector<double> hess(NEWTON ? KK * TILE_I : 0);
   if (n_seg > 1) {
@@ -975,7 +1084,7 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
         geno, qT, p, K, i0, i1, j0, j1,
         SUMS ? &grad_part[K * (seg * I + i0)] : NULL,
         NEWTON ? &hess_part[KK * (seg * I + i0)] : NULL, s, gT.data(),
-        NEWTON ? hT.data() : NULL, free_idx, I);
+        NEWTON ? hT.data() : NULL, block ? hB.data() : NULL, free_idx, I);
       if (LOGLIK) ll_part[t] = ll_task;
     }
     // (the implicit barrier at the end of the loop above guarantees that
@@ -990,7 +1099,7 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
       const double ll_task = accum(
         geno, qT, p, K, i0, i1, 0, J, grad.data(),
         NEWTON ? hess.data() : NULL, s, gT.data(),
-        NEWTON ? hT.data() : NULL, free_idx, I);
+        NEWTON ? hT.data() : NULL, block ? hB.data() : NULL, free_idx, I);
       if (LOGLIK) ll_part[bl] = ll_task;
     } else if (SUMS) {
       // add up the partial sums of the segments, always in segment order

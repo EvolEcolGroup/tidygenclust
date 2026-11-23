@@ -40,6 +40,23 @@ test_that("kernels handle tiles at the edges and tiny data", {
   radmix_expect_ref_match(inp, k = 2)
 })
 
+test_that("blocked Hessians (K >= 8) match the reference", {
+  # 70 individuals (a partial second tile) and 301 loci (more than the 16
+  # loci of a block, a partial last block and an odd last pair of loci)
+  big <- radmix_simulate_admixed(n = 70, m = 301, k = 3, seed = 7)
+  inp <- radmix_ref_inputs(radmix_test_gt(big$genotypes))
+  for (k in c(8, 9)) {
+    st <- radmix_ref_start(70, 301, k)
+    ref_q <- radmix_ref_grad_q(inp$g, inp$n, st$q, st$p)
+    gq <- radmix_grad_q_cpp(inp$geno, st$q, st$p, 1)
+    expect_equal(gq, ref_q, tolerance = 1e-10)
+    # each Hessian is symmetric, and the results do not depend on the
+    # number of threads
+    expect_identical(gq$hess[, , 5], t(gq$hess[, , 5]))
+    expect_identical(radmix_grad_q_cpp(inp$geno, st$q, st$p, 3), gq)
+  }
+})
+
 test_that("loglik handles extreme frequencies and non-integer dosages", {
   # the last two loci only carry the reference and only the alternate
   # allele, so that there are loci with exact frequencies of 0 and 1 below
