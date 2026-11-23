@@ -3,8 +3,8 @@
   missing genotypes no longer need imputing (also for pseudohaploids), it
   uses about 1 GB less memory, and it is faster without an optimised BLAS
   (needs tidypopgen >= 1.0.0.9015)
-* `gt_radmix()` is 6-14% faster per iteration from K = 8, with the same
-  results up to rounding
+* `gt_radmix()` is 6-24% faster per iteration from K = 7 (more at larger
+  K), with the same results up to rounding
 * `gt_radmix()` reports in its log the largest change of the estimates at
   each iteration, and the new `step_tol` can require it to be small before
   stopping; a decrease of the log-likelihood no longer counts as

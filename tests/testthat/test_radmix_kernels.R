@@ -40,20 +40,30 @@ test_that("kernels handle tiles at the edges and tiny data", {
   radmix_expect_ref_match(inp, k = 2)
 })
 
-test_that("blocked Hessians (K >= 8) match the reference", {
+test_that("blocked Hessians (K >= 7) match the reference", {
   # 70 individuals (a partial second tile) and 301 loci (more than the 16
-  # loci of a block, a partial last block and an odd last pair of loci)
-  big <- radmix_simulate_admixed(n = 70, m = 301, k = 3, seed = 7)
+  # loci of a Q-side block and the 64 of a P-side block, partial last
+  # blocks and an odd last pair of loci)
+  big <- radmix_simulate_admixed(
+    n = 70, m = 301, k = 3, missing = 0.05, seed = 7
+  )
   inp <- radmix_ref_inputs(radmix_test_gt(big$genotypes))
-  for (k in c(8, 9)) {
+  for (k in c(7, 9)) {
     st <- radmix_ref_start(70, 301, k)
-    ref_q <- radmix_ref_grad_q(inp$g, inp$n, st$q, st$p)
     gq <- radmix_grad_q_cpp(inp$geno, st$q, st$p, 1)
-    expect_equal(gq, ref_q, tolerance = 1e-10)
+    gp <- radmix_grad_p_cpp(inp$geno, st$q, st$p, 1)
+    expect_equal(gq, radmix_ref_grad_q(inp$g, inp$n, st$q, st$p),
+      tolerance = 1e-10
+    )
+    expect_equal(gp, radmix_ref_grad_p(inp$g, inp$n, st$q, st$p),
+      tolerance = 1e-10
+    )
     # each Hessian is symmetric, and the results do not depend on the
     # number of threads
     expect_identical(gq$hess[, , 5], t(gq$hess[, , 5]))
+    expect_identical(gp$hess[, , 5], t(gp$hess[, , 5]))
     expect_identical(radmix_grad_q_cpp(inp$geno, st$q, st$p, 3), gq)
+    expect_identical(radmix_grad_p_cpp(inp$geno, st$q, st$p, 3), gp)
   }
 })
 

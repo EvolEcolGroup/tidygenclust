@@ -166,12 +166,13 @@ namespace radmix {
 #define RADMIX_OMP_SCHEDULE dynamic
 #endif
 #ifndef RADMIX_HESS_BLOCK_MIN_K
-#define RADMIX_HESS_BLOCK_MIN_K 8
+#define RADMIX_HESS_BLOCK_MIN_K 7
 #endif
 static const size_t TILE_I = 64;
 static const size_t TILE_J = RADMIX_TILE_J;
 
-// Register blocking of the Q-side Hessians, from K = HESS_BLOCK_MIN_K. The
+// Register blocking of the Hessians, from K = HESS_BLOCK_MIN_K. On the Q
+// side, the
 // sums hT[i, (k, k2)] += d2_ij p_kj p_k2j over the loci (K (K + 1) / 2 per
 // individual, against K for the gradients: 54-56% of a pass at K = 10)
 // keep their accumulators in memory, so each step of the loop below loads
@@ -185,12 +186,16 @@ static const size_t TILE_J = RADMIX_TILE_J;
 // intrinsics: the compiler vectorises the innermost loops for the baseline
 // and the AVX2 clones alike), and it adds the same products in another
 // order, so results change by rounding only (still identical for any
-// number of threads). On the desktop (8 threads, HGDP), a pass took
-// 0.86-0.94 of the time at K = 8-12, with identical iterations and
-// estimates within 3e-12; at K = 3 and 5 it gained nothing, so smaller K
-// keep the loop below. (In single precision, the blocked sums were no
-// faster per iteration than in double precision, and changed the paths of
-// the fits, so they are kept in double precision.)
+// number of threads). The P side is blocked in the same way, with the roles
+// of the individuals and the loci swapped (see accum_p_block()). On the
+// desktop (8 threads, HGDP), the Q side took 0.86-0.94 of the time per
+// iteration at K = 8-12, and the P side then 0.88-0.93 of the rest, with
+// identical iterations and estimates within 3e-12; K = 7 gained 6%, K = 6
+// and below nothing, so they keep the plain loops. (In single precision,
+// the blocked sums were no faster per iteration than in double precision,
+// and changed the paths of the fits; blocks of 6 pairs, 12 accumulators,
+// were 1.3-1.4 times slower than blocks of 4; adding the gradients to the
+// Q-side blocks gained nothing.)
 static const int HESS_BLOCK_MIN_K = RADMIX_HESS_BLOCK_MIN_K;
 static const int HB_L = 16;
 static const int HB_P = 4;
@@ -250,6 +255,9 @@ static RADMIX_INLINE void hess_buffer(const double* d2, const double* pj,
   for (; pr < npair_pad; pr++) c[pr] = 0;
 }
 static_assert(TILE_J % 2 == 0, "TILE_J must be even");
+// (the blocked P-side Hessians store the d2 of a block of loci in rows of
+// TILE_I values)
+static_assert(TILE_J <= TILE_I, "TILE_J must not exceed TILE_I");
 // (the bit mask of a training view gives one 64-bit word per slice, see
 // slice_geno())
 static_assert(TILE_I == 64, "slice_geno() requires TILE_I == 64");
@@ -1165,11 +1173,22 @@ static std::vector<size_t> free_individuals(const unsigned char* fixed,
 // reused for all the loci of the block, so it stays in cache, and each sum
 // is a dot product over the individuals of the tile; for each locus, the
 // tiles are always added in the same order (i0 = 0, TILE_I, ...).
-template <bool NEWTON, bool GL>
+//
+// BLOCK (with NEWTON): the Hessian sums are register-blocked as on the Q
+// side (see HESS_BLOCK_MIN_K), with the roles of the individuals and the
+// loci swapped: H[(k, k2), j] = sum_i d2_ij q_ki q_k2i, with the products
+// q_ki q_k2i of the tile formed once (qq, TILE_I x npair_pad), the d2 of the
+// tile and the loci of the block stored by individual (d2t, TILE_I x TILE_I,
+// one row per individual, one column per locus), and the sums of the block
+// in hp (n_pair x TILE_I, one column per locus), all in pB. The tiles are
+// still added in order, so the results do not depend on the number of
+// threads.
+template <bool NEWTON, bool GL, bool BLOCK>
 RADMIX_MULTIVERSION
 static void accum_p_block(const GenoView& geno, const double* qT,
                           const double* p, int K, size_t j0, size_t j1,
-                          double* out1, double* out2, Slice* s) {
+                          double* out1, double* out2, Slice* s,
+                          double* pB) {
   const size_t I = geno.nrow(), nj = j1 - j0, KK = (size_t) K * K;
   // out2 holds a K x K matrix per locus with NEWTON, K values otherwise
   const size_t n2 = NEWTON ? KK : K;
@@ -1192,8 +1211,32 @@ static void accum_p_block(const GenoView& geno, const double* qT,
   // scratch for the products d2 q_ki of the two loci
   double* __restrict wq1 = s[0].tmp.data();
   double* __restrict wq2 = s[1].tmp.data();
+  // the buffers of the blocked Hessians (see above); the columns of d2t
+  // beyond the last locus stay at zero
+  const size_t n_pair = (size_t) K * (K + 1) / 2;
+  const size_t npair_pad = hess_pairs_pad(n_pair);
+  double* qq = pB;
+  double* d2t = BLOCK ? qq + TILE_I * npair_pad : nullptr;
+  double* hp = BLOCK ? d2t + TILE_I * TILE_I : nullptr;
+  if (BLOCK) {
+    std::fill(d2t, d2t + TILE_I * TILE_I, 0.0);
+    std::fill(hp, hp + n_pair * TILE_I, 0.0);
+  }
   for (size_t i0 = 0; i0 < I; i0 += TILE_I) {
     const size_t i1 = std::min(I, i0 + TILE_I), ni = i1 - i0;
+    if (BLOCK) {
+      // the products of the ancestry proportions of each individual of the
+      // tile, reused by every locus of the block
+      for (size_t ii = 0; ii < ni; ii++) {
+        double* c = qq + ii * npair_pad;
+        size_t pr = 0;
+        for (int k = 0; k < K; k++) {
+          const double qk = qT[I * k + i0 + ii];
+          for (int k2 = k; k2 < K; k2++) c[pr++] = qk * qT[I * k2 + i0 + ii];
+        }
+        for (; pr < npair_pad; pr++) c[pr] = 0;
+      }
+    }
     // loci j0 + jj and j0 + jj + 1 (the second is the padding locus, with
     // zero coefficients, when jj + 1 == nj)
     for (size_t jj = 0; jj < nj; jj += 2) {
@@ -1220,6 +1263,8 @@ static void accum_p_block(const GenoView& geno, const double* qT,
           }
           o1[k] += sg1;
           o1[K + k] += sg2;
+          // (blocked: the Hessians are summed after the loci of the block)
+          if (BLOCK) continue;
           // Hessian column k, rows k2 >= k: sum_i (d2 q_ki) q_k2i; the
           // product in brackets depends only on k, so it is formed once,
           // and each entry is then a single dot product
@@ -1257,6 +1302,27 @@ static void accum_p_block(const GenoView& geno, const double* qT,
           o2[K + k] += sb2;
         }
       }
+      // (blocked: store the d2 of the two loci, one column each)
+      if (NEWTON && BLOCK) {
+        for (size_t ii = 0; ii < ni; ii++) d2t[ii * TILE_I + jj] = d21[ii];
+        if (jj + 1 < nj)
+          for (size_t ii = 0; ii < ni; ii++)
+            d2t[ii * TILE_I + jj + 1] = d22[ii];
+      }
+    }
+    // (blocked: the Hessian sums of the tile, over its individuals, for
+    // every locus of the block)
+    if (NEWTON && BLOCK) hess_block(d2t, qq, (int) ni, n_pair, npair_pad,
+                                    nj, hp);
+  }
+  // (blocked: the sums into the K x K matrices of the loci)
+  if (NEWTON && BLOCK) {
+    for (size_t jj = 0; jj < nj; jj++) {
+      double* H = out2 + KK * jj;
+      size_t idx = 0;
+      for (int k = 0; k < K; k++)
+        for (int k2 = k; k2 < K; k2++, idx++)
+          H[k2 + K * k] = hp[TILE_I * idx + jj];
     }
   }
   // fill in the other half of each Hessian, once all the tiles of
@@ -1279,18 +1345,27 @@ static void p_side(const GenoView& geno, const double* qT, const double* p,
   const size_t J = geno.ncol(), KK = (size_t) K * K;
   const ptrdiff_t nb = (ptrdiff_t) n_blocks(J, TILE_J);
   // the accumulation function for the kind of data (see slice_gl())
-  const auto accum = geno.is_gl() ? accum_p_block<NEWTON, true> :
-    accum_p_block<NEWTON, false>;
+  // (with the blocked Hessians from HESS_BLOCK_MIN_K)
+  const bool block = NEWTON && K >= HESS_BLOCK_MIN_K;
+  const auto accum = geno.is_gl() ?
+    (block ? accum_p_block<NEWTON, true, true> :
+     accum_p_block<NEWTON, true, false>) :
+    (block ? accum_p_block<NEWTON, false, true> :
+     accum_p_block<NEWTON, false, false>);
+  const size_t n_pair = (size_t) K * (K + 1) / 2;
+  const size_t p_scratch = block ?
+    TILE_I * (hess_pairs_pad(n_pair) + TILE_I) + n_pair * TILE_I : 0;
 #pragma omp parallel num_threads(n_cores)
 {
   // thread-local buffers: two slices, and the sums of one block of loci
   // (TILE_J slots, so that the spare slot of a padding locus always exists)
   Slice s[2];
   std::vector<double> out1(K * TILE_J), out2((NEWTON ? KK : K) * TILE_J);
+  std::vector<double> pB(p_scratch);
 #pragma omp for schedule(RADMIX_OMP_SCHEDULE)
   for (ptrdiff_t bl = 0; bl < nb; bl++) {
     const size_t j0 = bl * TILE_J, j1 = std::min(J, j0 + TILE_J);
-    accum(geno, qT, p, K, j0, j1, out1.data(), out2.data(), s);
+    accum(geno, qT, p, K, j0, j1, out1.data(), out2.data(), s, pB.data());
     finish(j0, j1, out1.data(), out2.data());
   }
 }
