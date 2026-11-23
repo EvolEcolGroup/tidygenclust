@@ -80,7 +80,7 @@ Imports:
     rlang,
     stats,
     tibble,
-    tidypopgen (>= 1.0.0.9011),
+    tidypopgen (>= 1.0.0.9015),
     tidyr,
     utils,
     vctrs

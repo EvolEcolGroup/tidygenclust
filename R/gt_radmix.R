@@ -181,10 +181,10 @@
 #'   With `init = "svd"`, each run starts from the principal components of
 #'   the genotypes rather than from random values, as in ADAMIXTURE
 #'   (Saurina-i-Ricos et al. 2026) and fastmixture (Santander et al. 2024):
-#'   1. a truncated SVD of the genotypes, centred and scaled as by default
-#'      in [tidypopgen::gt_pca()] (whose `method = "partial"` computes it for
-#'      diploid data), with `max(k) + 5` components, is computed once and
-#'      shared by all the runs (monomorphic loci are left unscaled);
+#'   1. a truncated SVD of the genotypes, computed by
+#'      [tidypopgen::gt_pca()] (centred and scaled as by default there) with
+#'      `max(k) + 5` components, is computed once and shared by all the runs
+#'      (monomorphic loci are left unscaled);
 #'   2. for each run, alternating least squares (ALS) find Q and P whose
 #'      product approximates the allele frequencies predicted by the first
 #'      `k + 5` components, starting from random allele frequencies. As in
@@ -195,12 +195,12 @@
 #'   3. the best of 3 such solutions, by log-likelihood, starts the fit,
 #'      without EM priming (`n_em_iter` is not used).
 #'
-#'   For diploid data, missing genotypes need no imputation: as in
-#'   `gt_pca()` (and PLINK 1.9), each pair of individuals is compared over
-#'   the loci genotyped in both. For pseudohaploid data, and for more than
-#'   20,000 individuals, the SVD is that of bigstatsr
-#'   ([tidypopgen::gt_pca_partialSVD()]), which cannot use missing
-#'   genotypes, so they must be imputed first (e.g. with
+#'   Missing genotypes need no imputation: as in `gt_pca()` (and PLINK
+#'   1.9), each pair of individuals is compared over the loci genotyped in
+#'   both, and pseudohaploids enter the SVD as homozygous diploids. With
+#'   more than 20,000 individuals, the SVD is a randomised SVD
+#'   (`gt_pca(method = "random")`), which cannot use missing genotypes, so
+#'   they must then be imputed first (e.g. with
 #'   [tidypopgen::gt_impute_simple()]). Imputed genotypes, if any, are only
 #'   used for the SVD, and the fit ignores them (unless
 #'   `use_imputed = TRUE`). The SVD also needs more individuals and loci than

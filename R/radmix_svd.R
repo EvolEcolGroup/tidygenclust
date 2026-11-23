@@ -1,74 +1,64 @@
 #' The factors of a truncated SVD of the genotypes, for the starts of
 #' gt_radmix(init = "svd")
 #'
-#' Computes a truncated SVD of the genotypes of `x`, each locus being centred
-#' by twice the frequency f of its alternate allele and scaled by
-#' sqrt(2 f (1 - f)), as with the default scaling of tidypopgen's PCAs
-#' (Patterson et al. 2006), and returns it as factors of the expected allele
-#' frequencies of the individuals. With G the genotypes (individuals x
-#' loci), the SVD gives (G - 2 1 f') S^-1 ~ U D V', with S the diagonal
-#' matrix of the scales, so the expected frequencies G' / 2 (loci x
-#' individuals) are approximately f 1' + 0.5 Z U', with Z = S V D. f is the
-#' frequency among the observed genotypes, as the allele frequencies of
-#' ADAMIXTURE's start. Monomorphic loci are left unscaled: their centred
-#' genotypes are all zero, so they do not contribute to the SVD, and their
-#' rows of Z are zero.
+#' Computes a truncated SVD of the genotypes of `x` with
+#' [tidypopgen::gt_pca()], each locus being centred by twice the frequency f
+#' of its alternate allele and scaled by sqrt(2 f (1 - f)), as with the
+#' default scaling of tidypopgen's PCAs (Patterson et al. 2006), and returns
+#' it as factors of the expected allele frequencies of the individuals. With
+#' G the genotypes (individuals x loci), the SVD gives
+#' (G - 2 1 f') S^-1 ~ U D V', with S the diagonal matrix of the scales, so
+#' the expected frequencies G' / 2 (loci x individuals) are approximately
+#' f 1' + 0.5 Z U', with Z = S V D. f is the frequency among the observed
+#' genotypes, as the allele frequencies of ADAMIXTURE's start (one allele
+#' per pseudohaploid, which are coded 0 or 2, so that half their dosage is
+#' their allele frequency, as for diploids). Monomorphic loci are left
+#' unscaled: their centred genotypes are all zero, so they do not contribute
+#' to the SVD, and their rows of Z are zero.
 #'
-#' For diploid data with at most `max_grm` individuals (`engine = "auto"`),
-#' the SVD is [tidypopgen::gt_pca()] with `method = "partial"`: the leading
-#' eigenvectors of the relationship matrix of the standardised genotypes,
-#' built from blocks of loci (of about 128 MB) with its own matrix products,
-#' which do not need an optimised BLAS (12 s against 195 s for the former
-#' partial SVD on 1,000 x 300,000 genotypes with R's reference BLAS, in
-#' tidypopgen's tests). Missing genotypes need no imputation there: each pair
-#' of individuals is compared over the loci genotyped in both, as in PLINK
-#' 1.9, and the loadings V are computed with missing genotypes as 0 (the
-#' mean, once centred). Otherwise (pseudohaploids, which gt_pca() rejects,
-#' or more individuals, whose relationship matrix would take 8 bytes per
-#' pair: 3.2 GB for 20,000), the SVD is bigstatsr's partial SVD
-#' ([tidypopgen::gt_pca_partialSVD()]), which needs complete genotypes. In
-#' both cases, imputed genotypes, when the backing file has them, replace
-#' the missing ones (they are switched on during the call).
+#' Up to `max_grm` individuals, gt_pca() uses `method = "partial"`: the
+#' leading eigenvectors of the relationship matrix of the standardised
+#' genotypes, built from blocks of loci (of about 128 MB) with its own
+#' matrix products, which do not need an optimised BLAS (12 s against 195 s
+#' for bigstatsr's partial SVD on 1,000 x 300,000 genotypes with R's
+#' reference BLAS, in tidypopgen's tests). Missing genotypes need no
+#' imputation there: each pair of individuals is compared over the loci
+#' genotyped in both, as in PLINK 1.9, and the loadings V are computed with
+#' missing genotypes as 0 (the mean, once centred). With more individuals,
+#' whose relationship matrix would take 8 bytes per pair (3.2 GB for
+#' 20,000), it uses `method = "random"`, bigstatsr's randomised SVD (memory
+#' linear in the numbers of individuals and loci), which needs complete
+#' genotypes. In both cases, imputed genotypes, when the backing file has
+#' them, replace the missing ones (they are switched on during the call).
 #' @param x a [`tidypopgen::gen_tibble`]
 #' @param rank the number of components
 #' @param n_cores the number of cores used for the allele frequencies, the
-#'   missingness and the relationship matrix
-#' @param engine `"auto"`, `"grm"` (gt_pca()) or `"partial_svd"` (bigstatsr;
-#'   for the tests)
-#' @param max_grm the largest number of individuals for which `"auto"` uses
-#'   gt_pca()
+#'   missingness and the SVD
+#' @param max_grm the largest number of individuals for which the SVD uses
+#'   the relationship matrix (`method = "partial"`)
 #' @returns a list with elements `z` (loci x rank), `u` (individuals x
 #'   rank) and `f` (the frequency of the alternate allele at each locus), in
 #'   the order of the loci and individuals of `x`
 #' @keywords internal
 #' @noRd
-radmix_svd_factors <- function(x, rank, n_cores = 1,
-                               engine = c("auto", "grm", "partial_svd"),
-                               max_grm = 20000) {
-  engine <- match.arg(engine)
+radmix_svd_factors <- function(x, rank, n_cores = 1, max_grm = 20000) {
   # the allele frequencies of a grouped gen_tibble would be computed by
   # group
   x <- dplyr::ungroup(x)
-  # gt_pca() rejects pseudohaploids (and other ploidies), and its
-  # relationship matrix grows with the square of the number of individuals
-  if (engine == "auto") {
-    use_grm <- all(tidypopgen::indiv_ploidy(x) == 2) && nrow(x) <= max_grm
-    engine <- if (use_grm) "grm" else "partial_svd"
-  }
+  method <- if (nrow(x) <= max_grm) "partial" else "random"
   # (gt_has_imputed() tells whether the backing file holds imputed values,
   # which then replace all the missing genotypes; without them, only the
   # relationship matrix can use missing genotypes)
-  if (engine == "partial_svd") {
+  if (method == "random") {
     has_missing <- !tidypopgen::gt_has_imputed(x) &&
       any(tidypopgen::loci_missingness(x, n_cores = n_cores) > 0)
     if (has_missing) {
       stop(
         "init = \"svd\" needs a gen_tibble without missing genotypes, or ",
-        "with imputed ones, for pseudohaploid data or more than ",
-        max_grm, " individuals: impute them first with ",
-        "tidypopgen::gt_impute_simple() (the imputed genotypes are only ",
-        "used for the starting values; the fit ignores them, unless ",
-        "'use_imputed = TRUE')",
+        "with imputed ones, for more than ", max_grm, " individuals: ",
+        "impute them first with tidypopgen::gt_impute_simple() (the ",
+        "imputed genotypes are only used for the starting values; the fit ",
+        "ignores them, unless 'use_imputed = TRUE')",
         call. = FALSE
       )
     }
@@ -81,55 +71,25 @@ radmix_svd_factors <- function(x, rank, n_cores = 1,
   f[!is.finite(f)] <- 0.5
   scale <- sqrt(2 * f * (1 - f))
   scale[scale == 0] <- 1
-  # bigstatsr calls the scaling function with the FBM and the indices of
-  # the selected individuals and loci (gt_pca() once for all the loci,
-  # bigstatsr's partial SVD for one block of loci at a time), and expects
-  # the values of the loci in `ind.col` only; f and scale are in the order
-  # of the loci of x, i.e. of their columns in the FBM
+  # gt_pca() calls the scaling function with the FBM and the indices of the
+  # selected individuals and loci, and expects the values of the loci in
+  # `ind.col` only; f and scale are in the order of the loci of x, i.e. of
+  # their columns in the FBM
   fbm_cols <- tidypopgen::show_loci(x)$big_index
   scaling <- function(X, ind.row, ind.col) { # nolint: object_name_linter
     pos <- match(ind.col, fbm_cols)
     data.frame(center = 2 * f[pos], scale = scale[pos])
   }
-  if (engine == "grm") {
-    # the imputed genotypes, if any, replace the missing ones (gt_pca() uses
-    # them only when they are switched on)
-    if (tidypopgen::gt_has_imputed(x) && !tidypopgen::gt_uses_imputed(x)) {
-      tidypopgen::gt_set_imputed(x, set = TRUE)
-      on.exit(tidypopgen::gt_set_imputed(x, set = FALSE), add = TRUE)
-    }
-    pca <- tidypopgen::gt_pca(x,
-      k = rank, method = "partial", fun_scaling = scaling,
-      n_cores = n_cores, total_var = FALSE
-    )
-  } else {
-    # bigstatsr's big_SVD() allocates a buffer of n_indiv x block_size()
-    # doubles, i.e. bigstatsr.block.sizeGB (1 GB by default) whatever the
-    # number of loci, and big_tcrossprodSelf() a dense block of the
-    # genotypes of up to the same size: they made the SVD start take
-    # 1.0-1.5 GB more than a random start, even on small data. Smaller
-    # blocks (0.05 GB, but at least 256 loci per block, so that very many
-    # individuals do not give tiny blocks, and never more than the user's
-    # setting) saved that memory without changing the time or the starts
-    # (only the blocks of loci of the scaling, see the tests).
-    block_gb <- min(
-      getOption("bigstatsr.block.sizeGB", 1),
-      max(0.05, 256 * 8 * nrow(x) / 1024^3)
-    )
-    old_options <- options(bigstatsr.block.sizeGB = block_gb)
-    on.exit(options(old_options), add = TRUE)
-    # (gt_pca_partialSVD() switches the imputed genotypes on itself; it is
-    # deprecated in favour of gt_pca(), which rejects pseudohaploids, so its
-    # deprecation warning is muffled)
-    pca <- withCallingHandlers(
-      tidypopgen::gt_pca_partialSVD(x,
-        k = rank, fun_scaling = scaling, total_var = FALSE
-      ),
-      lifecycle_warning_deprecated = function(w) {
-        invokeRestart("muffleWarning")
-      }
-    )
+  # the imputed genotypes, if any, replace the missing ones (gt_pca() uses
+  # them with "partial" only when they are switched on)
+  if (tidypopgen::gt_has_imputed(x) && !tidypopgen::gt_uses_imputed(x)) {
+    tidypopgen::gt_set_imputed(x, set = TRUE)
+    on.exit(tidypopgen::gt_set_imputed(x, set = FALSE), add = TRUE)
   }
+  pca <- tidypopgen::gt_pca(x,
+    k = rank, method = method, fun_scaling = scaling, n_cores = n_cores,
+    total_var = FALSE
+  )
   list(
     z = unname(sweep(pca$v, 2, pca$d, "*") * scale),
     u = unname(pca$u),

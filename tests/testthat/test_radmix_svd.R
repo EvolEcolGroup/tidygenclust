@@ -22,32 +22,16 @@ test_that("the SVD factors give the allele frequencies at full rank", {
   expect_equal(fac$z[1:2, ], matrix(0, 2, 19))
 })
 
-test_that("the SVD factors do not depend on the blocks of loci", {
-  # bigstatsr scales the loci in blocks of block_size() loci (a single block
-  # here, unless the blocks are made smaller): each block must get the
-  # centre and scale of its own loci
-  fac <- radmix_svd_factors(svd_gt, rank = 5, engine = "partial_svd")
-  withr::local_options(bigstatsr.block.sizeGB = 50 * 8 * 60 / 1024^3)
-  expect_identical(bigstatsr::block_size(60), 50)
-  fac_blocks <- radmix_svd_factors(svd_gt, rank = 5, engine = "partial_svd")
-  expect_equal(fac_blocks$z %*% t(fac_blocks$u), fac$z %*% t(fac$u))
-  expect_equal(fac_blocks$f, fac$f)
-  # the blocks of the SVD are made smaller during the call only (to save
-  # memory), so the user's setting is restored afterwards
-  expect_identical(
-    getOption("bigstatsr.block.sizeGB"), 50 * 8 * 60 / 1024^3
-  )
-})
-
-test_that("the relationship matrix and the partial SVD give the same SVD", {
-  # (diploid data use gt_pca(method = "partial") by default, which computes
-  # the leading eigenvectors of the relationship matrix; the low-rank
-  # approximation they give does not depend on the signs of the vectors)
+test_that("the randomised SVD of many individuals gives the same SVD", {
+  # (up to max_grm individuals, gt_pca(method = "partial") computes the
+  # leading eigenvectors of the relationship matrix; beyond, the randomised
+  # SVD, accurate to its tolerance; the low-rank approximation they give
+  # does not depend on the signs of the vectors)
   fac <- radmix_svd_factors(svd_gt, rank = 5)
-  fac_svd <- radmix_svd_factors(svd_gt, rank = 5, engine = "partial_svd")
-  expect_identical(fac$f, fac_svd$f)
-  expect_equal(fac$z %*% t(fac$u), fac_svd$z %*% t(fac_svd$u),
-    tolerance = 1e-8
+  fac_random <- radmix_svd_factors(svd_gt, rank = 5, max_grm = 50)
+  expect_identical(fac$f, fac_random$f)
+  expect_equal(fac$z %*% t(fac$u), fac_random$z %*% t(fac_random$u),
+    tolerance = 1e-3
   )
   # the same with imputed genotypes, which both switch on
   sim_missing <- radmix_simulate_admixed(
@@ -58,9 +42,9 @@ test_that("the relationship matrix and the partial SVD give the same SVD", {
     method = "mean0"
   )
   fac <- radmix_svd_factors(gt_imputed, rank = 5)
-  fac_svd <- radmix_svd_factors(gt_imputed, rank = 5, engine = "partial_svd")
-  expect_equal(fac$z %*% t(fac$u), fac_svd$z %*% t(fac_svd$u),
-    tolerance = 1e-8
+  fac_random <- radmix_svd_factors(gt_imputed, rank = 5, max_grm = 50)
+  expect_equal(fac$z %*% t(fac$u), fac_random$z %*% t(fac_random$u),
+    tolerance = 1e-3
   )
   # (and the imputed genotypes are switched off again)
   expect_false(tidypopgen::gt_uses_imputed(gt_imputed))
@@ -151,21 +135,19 @@ test_that("SVD fits are reproducible and restore the RNG state", {
   expect_identical(gt_radmix(svd_gt, k = 3, seed = 1, init = "svd"), adm)
 })
 
-test_that("missing genotypes need imputing only for pseudohaploids", {
+test_that("missing genotypes need imputing only for many individuals", {
   sim_missing <- radmix_simulate_admixed(
     n = 60, m = 300, k = 3, missing = 0.02, seed = 7
   )
   gt_missing <- radmix_test_gt(sim_missing$genotypes)
-  # diploid data: the relationship matrix uses the observed genotypes only
+  # the relationship matrix uses the observed genotypes only, also with
+  # pseudohaploids
   adm <- gt_radmix(gt_missing, k = 3, seed = 1, init = "svd")
   expect_true(adm$converged)
-  # the bigstatsr SVD (pseudohaploids, or very many individuals) needs
-  # imputed genotypes
   pseudo_missing <- radmix_pseudohaploid_gt(sim_missing$genotypes, 1:20)
-  expect_error(
-    gt_radmix(pseudo_missing, k = 3, init = "svd"),
-    "gt_impute_simple"
-  )
+  adm <- gt_radmix(pseudo_missing, k = 3, seed = 1, init = "svd")
+  expect_true(adm$converged)
+  # the randomised SVD (very many individuals) needs imputed genotypes
   expect_error(
     radmix_svd_factors(gt_missing, rank = 5, max_grm = 50),
     "more than 50 individuals"

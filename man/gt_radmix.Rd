@@ -335,10 +335,10 @@ With \code{init = "svd"}, each run starts from the principal components of
 the genotypes rather than from random values, as in ADAMIXTURE
 (Saurina-i-Ricos et al. 2026) and fastmixture (Santander et al. 2024):
 \enumerate{
-\item a truncated SVD of the genotypes, centred and scaled as by default
-in \code{\link[tidypopgen:gt_pca]{tidypopgen::gt_pca()}} (whose \code{method = "partial"} computes it for
-diploid data), with \code{max(k) + 5} components, is computed once and
-shared by all the runs (monomorphic loci are left unscaled);
+\item a truncated SVD of the genotypes, computed by
+\code{\link[tidypopgen:gt_pca]{tidypopgen::gt_pca()}} (centred and scaled as by default there) with
+\code{max(k) + 5} components, is computed once and shared by all the runs
+(monomorphic loci are left unscaled);
 \item for each run, alternating least squares (ALS) find Q and P whose
 product approximates the allele frequencies predicted by the first
 \code{k + 5} components, starting from random allele frequencies. As in
@@ -350,12 +350,12 @@ SVD, not the genotypes, so it is fast;
 without EM priming (\code{n_em_iter} is not used).
 }
 
-For diploid data, missing genotypes need no imputation: as in
-\code{gt_pca()} (and PLINK 1.9), each pair of individuals is compared over
-the loci genotyped in both. For pseudohaploid data, and for more than
-20,000 individuals, the SVD is that of bigstatsr
-(\code{\link[tidypopgen:gt_pca_partialSVD]{tidypopgen::gt_pca_partialSVD()}}), which cannot use missing
-genotypes, so they must be imputed first (e.g. with
+Missing genotypes need no imputation: as in \code{gt_pca()} (and PLINK
+1.9), each pair of individuals is compared over the loci genotyped in
+both, and pseudohaploids enter the SVD as homozygous diploids. With
+more than 20,000 individuals, the SVD is a randomised SVD
+(\code{gt_pca(method = "random")}), which cannot use missing genotypes, so
+they must then be imputed first (e.g. with
 \code{\link[tidypopgen:gt_impute_simple]{tidypopgen::gt_impute_simple()}}). Imputed genotypes, if any, are only
 used for the SVD, and the fit ignores them (unless
 \code{use_imputed = TRUE}). The SVD also needs more individuals and loci than
