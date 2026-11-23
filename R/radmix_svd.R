@@ -62,6 +62,21 @@ radmix_svd_factors <- function(x, rank, n_cores = 1) {
     pos <- match(ind.col, fbm_cols)
     data.frame(center = 2 * f[pos], scale = scale[pos])
   }
+  # bigstatsr's big_SVD() allocates a buffer of n_indiv x block_size()
+  # doubles, i.e. bigstatsr.block.sizeGB (1 GB by default) whatever the
+  # number of loci, and big_tcrossprodSelf() a dense block of the genotypes
+  # of up to the same size: they made the SVD start take 1.0-1.5 GB more
+  # than a random start, even on small data. Smaller blocks (0.05 GB, but
+  # at least 256 loci per block, so that very many individuals do not give
+  # tiny blocks, and never more than the user's setting) saved that memory
+  # without changing the time or the starts (only the blocks of loci of the
+  # scaling, see the tests).
+  block_gb <- min(
+    getOption("bigstatsr.block.sizeGB", 1),
+    max(0.05, 256 * 8 * nrow(x) / 1024^3)
+  )
+  old_options <- options(bigstatsr.block.sizeGB = block_gb)
+  on.exit(options(old_options), add = TRUE)
   pca <- tidypopgen::gt_pca_partialSVD(x,
     k = rank, fun_scaling = scaling, total_var = FALSE
   )

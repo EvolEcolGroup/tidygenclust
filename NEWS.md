@@ -1,4 +1,6 @@
 # tidygenclust (development version)
+* `gt_radmix(init = "svd")` uses about 1 GB less memory (the blocks of
+  bigstatsr's SVD are smaller)
 * `gt_radmix()` is 6-14% faster per iteration from K = 8, with the same
   results up to rounding
 * `gt_radmix()` reports in its log the largest change of the estimates at

@@ -32,6 +32,11 @@ test_that("the SVD factors do not depend on the blocks of loci", {
   fac_blocks <- radmix_svd_factors(svd_gt, rank = 5)
   expect_equal(fac_blocks$z %*% t(fac_blocks$u), fac$z %*% t(fac$u))
   expect_equal(fac_blocks$f, fac$f)
+  # the blocks of the SVD are made smaller during the call only (to save
+  # memory), so the user's setting is restored afterwards
+  expect_identical(
+    getOption("bigstatsr.block.sizeGB"), 50 * 8 * 60 / 1024^3
+  )
 })
 
 test_that("the ALS matches the R reference, whatever the number of cores", {
