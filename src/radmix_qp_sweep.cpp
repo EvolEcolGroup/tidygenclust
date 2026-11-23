@@ -51,7 +51,7 @@ namespace radmix {
 // K + 2 rows; that of a column of p, with K + 1 rows, fits in them. delta
 // has K entries, one per parameter.
 QPWork::QPWork(int K) : K(K), tab((K + 2) * (K + 2)), diag(K + 2),
-  swept(K + 2), tmp(K + 2), delta(K) {}
+  swept(K + 2), tmp(K + 2), delta(K), hshift(K * K) {}
 
 // Sweep (or inverse sweep) the symmetric n x n matrix a on diagonal k.
 //
@@ -339,6 +339,32 @@ int qp_solve_column(const double* H, const double* grad, const double* par,
   // the solution already, which is why the kernels use delta regardless of
   // the return value.
   return 0;
+}
+
+// See radmix_qp_sweep.h. passes stays 0 only when the initial sweeps fail
+// (the active-set loop sets it to at least 1), which is the case retried.
+int qp_solve_column_ridge(const double* H, const double* grad,
+                          const double* par, int K, bool simplex,
+                          double* delta, QPWork& work, bool* shifted) {
+  if (shifted != nullptr) *shifted = false;
+  int iter = qp_solve_column(H, grad, par, K, simplex, delta, work);
+  if (work.passes > 0) return iter;
+  double m = 0;
+  for (int k = 0; k < K; k++) m += H[k + k * K];
+  m /= K;
+  // (also rejects a NaN mean)
+  if (!(m > 0)) return iter;
+  double* Hs = work.hshift.data();
+  for (double tau : {1e-6, 1e-4, 1e-2}) {
+    std::copy(H, H + K * K, Hs);
+    for (int k = 0; k < K; k++) Hs[k + k * K] += tau * m;
+    iter = qp_solve_column(Hs, grad, par, K, simplex, delta, work);
+    if (work.passes > 0) {
+      if (shifted != nullptr) *shifted = true;
+      return iter;
+    }
+  }
+  return iter;
 }
 
 }  // namespace radmix

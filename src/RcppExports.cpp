@@ -214,8 +214,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // radmix_qp_solve_cpp
-List radmix_qp_solve_cpp(const NumericMatrix& H, const NumericVector& grad, const NumericVector& par, bool simplex);
-RcppExport SEXP _tidygenclust_radmix_qp_solve_cpp(SEXP HSEXP, SEXP gradSEXP, SEXP parSEXP, SEXP simplexSEXP) {
+List radmix_qp_solve_cpp(const NumericMatrix& H, const NumericVector& grad, const NumericVector& par, bool simplex, bool ridge);
+RcppExport SEXP _tidygenclust_radmix_qp_solve_cpp(SEXP HSEXP, SEXP gradSEXP, SEXP parSEXP, SEXP simplexSEXP, SEXP ridgeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -223,7 +223,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const NumericVector& >::type grad(gradSEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type par(parSEXP);
     Rcpp::traits::input_parameter< bool >::type simplex(simplexSEXP);
-    rcpp_result_gen = Rcpp::wrap(radmix_qp_solve_cpp(H, grad, par, simplex));
+    Rcpp::traits::input_parameter< bool >::type ridge(ridgeSEXP);
+    rcpp_result_gen = Rcpp::wrap(radmix_qp_solve_cpp(H, grad, par, simplex, ridge));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -349,7 +350,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_tidygenclust_radmix_update_q_loglik_cpp", (DL_FUNC) &_tidygenclust_radmix_update_q_loglik_cpp, 5},
     {"_tidygenclust_radmix_update_p_cpp", (DL_FUNC) &_tidygenclust_radmix_update_p_cpp, 4},
     {"_tidygenclust_radmix_q_segments_cpp", (DL_FUNC) &_tidygenclust_radmix_q_segments_cpp, 2},
-    {"_tidygenclust_radmix_qp_solve_cpp", (DL_FUNC) &_tidygenclust_radmix_qp_solve_cpp, 4},
+    {"_tidygenclust_radmix_qp_solve_cpp", (DL_FUNC) &_tidygenclust_radmix_qp_solve_cpp, 5},
     {"_tidygenclust_radmix_project_cpp", (DL_FUNC) &_tidygenclust_radmix_project_cpp, 2},
     {"_tidygenclust_radmix_qn_step_cpp", (DL_FUNC) &_tidygenclust_radmix_qn_step_cpp, 7},
     {"_tidygenclust_radmix_decode_cpp", (DL_FUNC) &_tidygenclust_radmix_decode_cpp, 1},

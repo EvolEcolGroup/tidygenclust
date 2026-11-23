@@ -61,8 +61,8 @@ radmix_q_segments_cpp <- function(I, J) {
     .Call(`_tidygenclust_radmix_q_segments_cpp`, I, J)
 }
 
-radmix_qp_solve_cpp <- function(H, grad, par, simplex) {
-    .Call(`_tidygenclust_radmix_qp_solve_cpp`, H, grad, par, simplex)
+radmix_qp_solve_cpp <- function(H, grad, par, simplex, ridge = FALSE) {
+    .Call(`_tidygenclust_radmix_qp_solve_cpp`, H, grad, par, simplex, ridge)
 }
 
 radmix_project_cpp <- function(x, simplex) {

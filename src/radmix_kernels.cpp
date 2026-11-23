@@ -1474,7 +1474,11 @@ void grad_p(const GenoView& geno, const double* q, const double* p, int K,
 // otherwise spread to the whole column, and through the next updates to the
 // log-likelihood. The column gets another chance at the next update, once
 // the other block has moved. (The return value of the solver is not used:
-// delta is the best step it found in any case, 0 if it failed.)
+// delta is the best step it found in any case. A Hessian that is not
+// numerically positive definite is shifted towards the identity until it
+// is, see qp_solve_column_ridge(), rather than giving no step: at a large
+// K, a nearly empty cluster otherwise froze whole columns, and the fit
+// could stall and report convergence.)
 //
 // H (K x K), grad and x (K values) are read only; x_new (K values) must not
 // overlap them. work provides the scratch of the solver and the buffer of
@@ -1483,7 +1487,7 @@ static inline void newton_column(const double* H, const double* grad,
                                  const double* x, int K, bool simplex,
                                  double* x_new, QPWork& work) {
   double* delta = work.delta.data();
-  qp_solve_column(H, grad, x, K, simplex, delta, work);
+  qp_solve_column_ridge(H, grad, x, K, simplex, delta, work);
   // discard a step with any non-finite component (see above)
   for (int k = 0; k < K; k++) {
     if (!std::isfinite(delta[k])) {
