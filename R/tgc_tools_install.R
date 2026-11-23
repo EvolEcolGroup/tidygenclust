@@ -70,7 +70,7 @@ tgc_tools_install <-
   function(tools = c("fastmixture", "admixture", "adamixture"),
            reset = FALSE,
            fastmixture_hash = "1f03a8980be4872341e5faca9d6f2dfc7ccbfe35",
-           adamixture_version = "1.8.9",
+           adamixture_version = "1.9.6",
            conda_yaml = "auto",
            ci_install = FALSE) {
     tgc_check_os()
@@ -310,7 +310,7 @@ tgc_admixture_install <- function(conda_yaml = "auto", ci_install = FALSE) {
 #' @returns NULL (invisibly)
 #' @export
 
-tgc_adamixture_install <- function(adamixture_version = "1.8.9") {
+tgc_adamixture_install <- function(adamixture_version = "1.9.6") {
   tgc_check_os()
   envname <- tgc_check_conda_env("adamixture")
   # the given version from pypi; pip only installs the dependencies that are
