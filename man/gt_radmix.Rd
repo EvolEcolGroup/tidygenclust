@@ -11,6 +11,7 @@ gt_radmix(
   seed = NULL,
   max_iter = 1000,
   rtol = 1e-08,
+  step_tol = NULL,
   n_em_iter = 5,
   n_qn = 3,
   init = c("random", "svd"),
@@ -50,6 +51,13 @@ log-likelihood between iterations (defaults to 1e-8). A threshold of
 1e-7 takes 10-20\% less time, but can stop a few log-likelihood units
 short of convergence, with ancestry proportions up to about 0.05 away
 from the converged ones}
+
+\item{step_tol}{optional second convergence threshold: the largest change
+of any ancestry proportion or allele frequency in the first round of
+block updates of an iteration (e.g. 1e-4). If given, the fit stops only
+when both this change and the relative change in log-likelihood fall
+below their thresholds. Defaults to \code{NULL}, to stop on \code{rtol} alone.
+Not used by the refits of cross-validation.}
 
 \item{n_em_iter}{the number of EM iterations used to prime the estimates
 (defaults to 5, as in ADMIXTURE); not used with \code{init = "svd"}}
@@ -211,7 +219,13 @@ ends with the plain block updates).
 }
 
 Iterations stop when the relative change in log-likelihood falls below
-\code{rtol}. All estimates are kept within [1e-5, 1 - 1e-5], as in
+\code{rtol} (a decrease of the log-likelihood, which can happen after a
+rejected quasi-Newton point, never counts as convergence) and, if
+\code{step_tol} is given, when the first round of block updates of the
+iteration changes no ancestry proportion or allele frequency by more
+than \code{step_tol}. That change, reported in the log of each iteration as
+"step", shows how far the estimates still are from converged, in their
+own units. All estimates are kept within [1e-5, 1 - 1e-5], as in
 ADMIXTURE. The log of each run (element \code{log} of the result) reports the
 log-likelihood at each iteration, together with that of the
 quasi-Newton point ("QN") and that of the plain block updates

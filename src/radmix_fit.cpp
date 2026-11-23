@@ -90,21 +90,26 @@ using namespace radmix;
 //   to estimate are NA. NULL for an unsupervised analysis.
 // max_iter, rtol: maximum number of iterations and convergence threshold on
 //   the relative change in log-likelihood.
+// step_tol: a second convergence threshold, on the largest change of any
+//   estimate in the first sweep of block updates of an iteration (Inf to
+//   stop on rtol alone).
 // n_em_iter: number of EM steps that prime a random start (skipped when both
 //   init_q and init_p are given).
 // n_qn: number of secant pairs used by the quasi-Newton step.
 // n_cores: number of OpenMP threads of the passes over the genotypes (the
 //   results do not depend on it).
 // verbose: print the lines of the log as they come.
-// Returns list(q = I x K, p = J x K, loglik, loglik_history, n_iter,
-// converged, log), with the estimates in the user layout; loglik_history
-// holds the log-likelihood of the start and of the end of each iteration.
+// Returns list(q = I x K, p = J x K, loglik, loglik_history, step_history,
+// n_iter, converged, log), with the estimates in the user layout;
+// loglik_history holds the log-likelihood of the start and of the end of
+// each iteration, and step_history the largest change of an estimate in the
+// first sweep of each iteration (see the stopping rule below).
 // [[Rcpp::export]]
 List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
                     Nullable<NumericMatrix> init_p, bool fix_q,
-                    bool fix_p, int max_iter, double rtol, int n_em_iter,
-                    int n_qn, int n_cores, bool verbose,
-                    Nullable<NumericMatrix> sup_q) {
+                    bool fix_p, int max_iter, double rtol,
+                    double step_tol, int n_em_iter, int n_qn, int n_cores,
+                    bool verbose, Nullable<NumericMatrix> sup_q) {
   // The arguments have been validated in R; these checks only guard against
   // misuse from within the package. Every R error must happen here, before
   // any parallel region.
@@ -259,6 +264,8 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
   log.add("Initial loglikelihood: " + fmt(ll_new, 12));
   // the log-likelihood of the start, then at the end of every iteration
   std::vector<double> ll_history(1, ll_new);
+  // the largest change of an estimate in the first sweep of each iteration
+  std::vector<double> step_history;
 
   SecantPairs pairs(nq + np, n_qn);
   bool converged = false;
@@ -277,6 +284,17 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     q1_ready = false;
     if (fix_p) p1 = p;
     else update_p(geno, q1.data(), p.data(), k, p1.data(), n_cores);
+    // How far the first sweep moves the estimates: max |x1 - x0| over every
+    // value of q and p. A sweep leaves a fixed point (a KKT point of the
+    // likelihood) where it is, and its constrained Newton steps are about
+    // the distance to the maximum along each block, so this measures how
+    // far the estimates still are from converged, in their own units (an
+    // ancestry proportion or an allele frequency), at the cost of reading
+    // the estimates once (no pass over the genotypes).
+    double step = 0;
+    for (size_t x = 0; x < nq; x++) step = std::max(step, std::fabs(q1[x] - q[x]));
+    for (size_t x = 0; x < np; x++) step = std::max(step, std::fabs(p1[x] - p[x]));
+    step_history.push_back(step);
     if (fix_q) q2 = q1;
     else update_q(geno, q1.data(), p1.data(), k, q2.data(), n_cores, fx);
     if (fix_p) p2 = p1;
@@ -340,16 +358,26 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     }
     ll_history.push_back(ll_new);
 
-    // convergence: the relative change in log-likelihood falls below rtol
-    // (NaN, e.g. with no observed genotype, never converges)
-    const double reldiff = std::fabs((ll_new - ll_prev) / ll_prev);
+    // Convergence: the relative change in log-likelihood falls below rtol,
+    // and the largest change of an estimate in the first sweep below
+    // step_tol (Inf by default, i.e. rtol alone). A decrease (possible when
+    // the quasi-Newton point is rejected: block Newton steps without a line
+    // search are not monotone) does not count, however small, unless it is
+    // within rounding (DECREASE_TOL: the same log-likelihood summed in
+    // another order differs by far less); the fit carries on from x2.
+    // (NaN, e.g. with no observed genotype, never converges.)
+    const double DECREASE_TOL = 1e-11;
+    const double change = (ll_new - ll_prev) / std::fabs(ll_prev);
+    const double reldiff = std::fabs(change);
+    const bool decrease = change < -DECREASE_TOL;
     log.add("Iteration " + std::to_string(iter) + ": loglikelihood = " +
             fmt(ll_new, 12) + ", reldiff = " + fmt(reldiff, 4) +
-            " (basic = " +
+            (decrease ? " (a decrease)" : "") +
+            ", step = " + fmt(step, 4) + " (basic = " +
             (ISNAN(ll_basic) ? std::string("not computed") :
              fmt(ll_basic, 12)) +
             ", QN = " + fmt(ll_qn, 12) + ")");
-    if (reldiff < rtol) {
+    if (reldiff < rtol && !decrease && step < step_tol) {
       converged = true;
       break;
     }
@@ -373,6 +401,7 @@ List radmix_fit_cpp(List data, int k, Nullable<NumericMatrix> init_q,
     for (size_t kk = 0; kk < K; kk++) p_out(j, kk) = p[K * j + kk];
   return List::create(
     Named("q") = q_out, Named("p") = p_out, Named("loglik") = ll_new,
-    Named("loglik_history") = wrap(ll_history), Named("n_iter") = iter,
+    Named("loglik_history") = wrap(ll_history),
+    Named("step_history") = wrap(step_history), Named("n_iter") = iter,
     Named("converged") = converged, Named("log") = wrap(log.lines));
 }

@@ -1,4 +1,8 @@
 # tidygenclust (development version)
+* `gt_radmix()` reports in its log the largest change of the estimates at
+  each iteration, and the new `step_tol` can require it to be small before
+  stopping; a decrease of the log-likelihood no longer counts as
+  convergence
 * `gt_radmix()`: fix columns that froze when a Newton step met a nearly
   singular Hessian (e.g. a near-empty cluster at large K); the step is now
   taken with a small ridge shift

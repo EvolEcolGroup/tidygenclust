@@ -166,6 +166,31 @@ test_that("verbose progress is reported as messages", {
   expect_match(utils::tail(adm0$log[[1]], 2)[1], "after 0 iterations")
 })
 
+test_that("step_tol adds a threshold on the changes of the estimates", {
+  small <- radmix_test_gt(sim$genotypes[1:40, 1:200])
+  data <- radmix_prepare(small)
+  set.seed(1)
+  fit <- radmix_fit(data, k = 2, rtol = 1e-4)
+  # one step per iteration, also reported in the log
+  expect_length(fit$step_history, fit$n_iter)
+  iter_lines <- grep("^Iteration", fit$log, value = TRUE)
+  expect_true(all(grepl("step = ", iter_lines)))
+  # a threshold below the last step makes the fit run longer, until the
+  # step falls below it
+  last_step <- utils::tail(fit$step_history, 1)
+  set.seed(1)
+  fit_s <- radmix_fit(data, k = 2, rtol = 1e-4, step_tol = last_step / 10)
+  expect_true(fit_s$converged)
+  expect_gt(fit_s$n_iter, fit$n_iter)
+  expect_lt(utils::tail(fit_s$step_history, 1), last_step / 10)
+  # the first iterations are the same
+  expect_identical(
+    fit_s$loglik_history[seq_len(fit$n_iter + 1)], fit$loglik_history
+  )
+  expect_error(gt_radmix(small, k = 2, step_tol = 0), "step_tol")
+  expect_error(gt_radmix(small, k = 2, step_tol = NA), "step_tol")
+})
+
 test_that("the log-likelihood is only computed when needed", {
   small <- radmix_test_gt(sim$genotypes[1:40, 1:200])
   # without verbose, EM priming is summarised in a single line

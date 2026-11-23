@@ -28,18 +28,22 @@
 #'   individuals to estimate are `NA`
 #' @param max_iter maximum number of iterations of the main loop
 #' @param rtol convergence threshold on the relative change in log-likelihood
+#' @param step_tol second convergence threshold, on the largest change of an
+#'   estimate in the first sweep of an iteration (`Inf` for none)
 #' @param n_em_iter number of EM iterations used to prime the estimates
 #'   (skipped if both `init_q` and `init_p` are given)
 #' @param n_qn number of secant pairs used by the quasi-Newton step
 #' @param n_cores number of threads
 #' @param verbose boolean; print progress
 #' @returns a list with elements `q` (individuals x K), `p` (loci x K),
-#'   `loglik`, `loglik_history`, `n_iter`, `converged` and `log`
+#'   `loglik`, `loglik_history`, `step_history`, `n_iter`, `converged` and
+#'   `log`
 #' @keywords internal
 #' @noRd
 radmix_fit <- function(data, k, init_q = NULL, init_p = NULL,
                        fix_q = FALSE, fix_p = FALSE, sup_q = NULL,
-                       max_iter = 1000, rtol = 1e-8, n_em_iter = 5,
+                       max_iter = 1000, rtol = 1e-8, step_tol = Inf,
+                       n_em_iter = 5,
                        n_qn = 3, n_cores = 1, verbose = FALSE) {
   # The whole fit runs in C++ (src/radmix_fit.cpp; the algorithm is
   # described in dev_notes/admixture_implementation.md). Running the loop in C++
@@ -69,6 +73,7 @@ radmix_fit <- function(data, k, init_q = NULL, init_p = NULL,
     init_q = as_double_matrix(init_q),
     init_p = as_double_matrix(init_p),
     fix_q = fix_q, fix_p = fix_p, max_iter = max_iter, rtol = rtol,
+    step_tol = step_tol,
     n_em_iter = n_em_iter, n_qn = n_qn, n_cores = n_cores,
     verbose = verbose, sup_q = as_double_matrix(sup_q)
   )

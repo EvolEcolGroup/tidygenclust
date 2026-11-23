@@ -77,8 +77,8 @@ radmix_decode_cpp <- function(data) {
     .Call(`_tidygenclust_radmix_decode_cpp`, data)
 }
 
-radmix_fit_cpp <- function(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose, sup_q) {
-    .Call(`_tidygenclust_radmix_fit_cpp`, data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, n_em_iter, n_qn, n_cores, verbose, sup_q)
+radmix_fit_cpp <- function(data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, step_tol, n_em_iter, n_qn, n_cores, verbose, sup_q) {
+    .Call(`_tidygenclust_radmix_fit_cpp`, data, k, init_q, init_p, fix_q, fix_p, max_iter, rtol, step_tol, n_em_iter, n_qn, n_cores, verbose, sup_q)
 }
 
 radmix_gl_dense_source_cpp <- function(e1, e2, obs) {

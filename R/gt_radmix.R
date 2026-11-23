@@ -69,7 +69,13 @@
 #'      ends with the plain block updates).
 #'
 #'   Iterations stop when the relative change in log-likelihood falls below
-#'   `rtol`. All estimates are kept within \[1e-5, 1 - 1e-5\], as in
+#'   `rtol` (a decrease of the log-likelihood, which can happen after a
+#'   rejected quasi-Newton point, never counts as convergence) and, if
+#'   `step_tol` is given, when the first round of block updates of the
+#'   iteration changes no ancestry proportion or allele frequency by more
+#'   than `step_tol`. That change, reported in the log of each iteration as
+#'   "step", shows how far the estimates still are from converged, in their
+#'   own units. All estimates are kept within \[1e-5, 1 - 1e-5\], as in
 #'   ADMIXTURE. The log of each run (element `log` of the result) reports the
 #'   log-likelihood at each iteration, together with that of the
 #'   quasi-Newton point ("QN") and that of the plain block updates
@@ -386,6 +392,12 @@
 #'   1e-7 takes 10-20% less time, but can stop a few log-likelihood units
 #'   short of convergence, with ancestry proportions up to about 0.05 away
 #'   from the converged ones
+#' @param step_tol optional second convergence threshold: the largest change
+#'   of any ancestry proportion or allele frequency in the first round of
+#'   block updates of an iteration (e.g. 1e-4). If given, the fit stops only
+#'   when both this change and the relative change in log-likelihood fall
+#'   below their thresholds. Defaults to `NULL`, to stop on `rtol` alone.
+#'   Not used by the refits of cross-validation.
 #' @param n_em_iter the number of EM iterations used to prime the estimates
 #'   (defaults to 5, as in ADMIXTURE); not used with `init = "svd"`
 #' @param n_qn the number of secant pairs used by the quasi-Newton
@@ -480,7 +492,8 @@
 #' adm_sup$ref_pops
 #' adm_sup$Q[[1]]
 gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
-                      rtol = 1e-8, n_em_iter = 5, n_qn = 3,
+                      rtol = 1e-8, step_tol = NULL, n_em_iter = 5,
+                      n_qn = 3,
                       init = c("random", "svd"), svd_power = 3,
                       init_q = NULL, init_p = NULL, fix_q = FALSE,
                       fix_p = FALSE, supervised = NULL,
@@ -524,6 +537,17 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
       value > 0
     if (!tol_ok) {
       stop("'", tol, "' should be a positive number", call. = FALSE)
+    }
+  }
+  # step_tol is NULL (not used, an infinite threshold for the C++ code) or a
+  # positive number
+  if (is.null(step_tol)) {
+    step_tol <- Inf
+  } else {
+    step_ok <- is.numeric(step_tol) && length(step_tol) == 1 &&
+      is.finite(step_tol) && step_tol > 0
+    if (!step_ok) {
+      stop("'step_tol' should be NULL or a positive number", call. = FALSE)
     }
   }
   k <- as.integer(k)
@@ -757,7 +781,8 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
         data,
         k = this_k, init_q = run_q, init_p = run_p,
         fix_q = fix_q, fix_p = fix_p, sup_q = sup$q, max_iter = max_iter,
-        rtol = rtol, n_em_iter = n_em_iter, n_qn = n_qn, n_cores = n_cores,
+        rtol = rtol, step_tol = step_tol, n_em_iter = n_em_iter,
+        n_qn = n_qn, n_cores = n_cores,
         verbose = verbose
       )
       if (init == "svd") fit$log <- c(start$log, fit$log)
