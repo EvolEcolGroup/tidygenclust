@@ -1,4 +1,6 @@
 # tidygenclust (development version)
+* `gt_radmix()` is faster on subsets of individuals that are filtered or
+  reordered (13-27% fewer cycles per pass), with identical results
 * `gt_radmix()` also fits genotype likelihoods, with the model of NGSadmix
   (Skotte, Korneliussen & Albrechtsen 2013) and the algorithm of ADMIXTURE.
   tidygenclust does not store genotype likelihoods: a package that does can

@@ -412,7 +412,39 @@ static RADMIX_INLINE void slice_geno(const GenoView& geno,
       }
       return;
     }
-    // general path: any order of the rows, pseudohaploids, masks
+    // consecutive individuals whose rows are not adjacent in the backing
+    // file (after filtering or reordering the individuals): when every
+    // individual is decoded alike, their bytes are gathered from the column
+    // of the locus through their rows and decoded with the same tables (the
+    // same values as the general loop below, at a fraction of its cost)
+    const unsigned char* __restrict col = geno.locus_bytes(j, gtab, htab);
+    if (col != nullptr) {
+      if (!geno.cv_masked()) {
+        for (size_t ii = 0; ii < ni; ii++) {
+          const unsigned char b = col[geno.row(gi0 + ii)];
+          g[ii] = gtab[b];
+          h[ii] = htab[b];
+        }
+      } else if (idx == nullptr && geno.cv_bits()) {
+        // the bit mask, as in the fast path above
+        const uint64_t w = geno.cv_word(i0, j);
+        for (size_t ii = 0; ii < ni; ii++) {
+          const unsigned char b = col[geno.row(gi0 + ii)];
+          const double vis = (double) ((w >> ii) & 1);
+          g[ii] = vis * gtab[b];
+          h[ii] = vis * htab[b];
+        }
+      } else {
+        for (size_t ii = 0; ii < ni; ii++) {
+          const unsigned char b = col[geno.row(gi0 + ii)];
+          const double vis = geno.cv_visible(gi0 + ii, j) ? 1.0 : 0.0;
+          g[ii] = vis * gtab[b];
+          h[ii] = vis * htab[b];
+        }
+      }
+      return;
+    }
+    // general path: pseudohaploids (individuals decoded differently)
     double gij;
     for (size_t ii = 0; ii < ni; ii++) {
       const double obs = geno.get(gi0 + ii, j, gij) ? 1.0 : 0.0;
