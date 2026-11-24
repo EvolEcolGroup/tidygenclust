@@ -15,3 +15,6 @@ cloud container: they use cgroup v1 memory and blkio limits and
 - `bench_kernels.R`: the time of each pass, warm cache
   (`results/conventional_passes.txt`; full fits in
   `results/conventional_fits.csv`).
+- `bench_passes.R`, `bench_passes.sh`, `run_passes.sh`, `summarise_passes.R`:
+  step 1, the cost of each pass of dev (and of streaming) out of core
+  (`results/passes.csv`).
