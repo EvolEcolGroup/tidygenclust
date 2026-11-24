@@ -12,7 +12,7 @@ documents listed in `README.md`.
 |---|---|---|---|---|
 | `articles_revised` | revision of the pseudohaploid article (2 commits) | `dev` (old) | yes | no: conflict in `pseudohaploids.Rmd` |
 | `hgdp_plots`, `windows` (origin) | not part of the radmix work; commits not in `dev` | | yes | no: ask Andrea before touching |
-| `ccr-fd217561-izn297` | prototype: `gt_radmix()` streams data larger than the memory (chunks, prefetch, alternating directions; `dev_notes/radmix_streaming.md`), with tidypopgl's branch of the same name (its prefetch function) | `dev` (the remote branch started from `main`, merged with `-s ours`) | yes | no: time conventional fits on the desktop first |
+| `ccr-fd217561-izn297` | prototype: `gt_radmix()` streams data larger than the memory (chunks, prefetch, alternating directions; `dev_notes/radmix_streaming.md`), with tidypopgl's branch of the same name (its prefetch function) | `dev` | yes | no: time conventional fits on the desktop first |
 
 Deleted 20 Nov: the local `radmix_extensions` and
 `data-raw/radmix/perf_verification/` (laptopX1; its one file not in the tag
