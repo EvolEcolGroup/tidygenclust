@@ -434,6 +434,12 @@ test_that("gt_radmix() fits genotype likelihoods given by another package", {
   # the results do not depend on the number of cores
   adm2 <- gt_radmix(test_gl, k = 2, seed = 1, rtol = 1e-12, n_cores = 2)
   expect_identical(adm2$Q[[1]], adm_gl$Q[[1]])
+  # hard calls carry no missing information, so the observed curvature is
+  # the complete one
+  adm_obs <- gt_radmix(test_gl,
+    k = 2, seed = 1, rtol = 1e-12, gl_curvature = "observed"
+  )
+  expect_equal(adm_obs$Q[[1]], adm_gt$Q[[1]], tolerance = 1e-5)
   # supervised analyses give the results of the genotypes too (the
   # references are scattered, so the source is read one individual at a time
   # for the others)
@@ -474,6 +480,38 @@ test_that("gt_radmix() fits genotype likelihoods given by another package", {
   expect_error(
     gt_radmix(data.frame(a = 1), k = 2),
     "a method of gt_radmix_data"
+  )
+})
+
+test_that("gl_curvature = \"observed\" reaches the same maximum, faster", {
+  # depth 1.5: many uncertain genotypes, where the two curvatures differ
+  sim <- radmix_simulate_admixed(n = 40, m = 300, k = 2, seed = 3)
+  ll <- radmix_simulate_gl(sim$genotypes, depth = 1.5)
+  test_gl <- radmix_test_gt(sim$genotypes)
+  class(test_gl) <- c("test_likelihoods", class(test_gl))
+  local_mocked_s3_method(
+    "gt_radmix_data", "test_likelihoods",
+    function(x, ...) radmix_test_gl(ll)
+  )
+  adm_c <- gt_radmix(test_gl, k = 2, seed = 1, rtol = 1e-10)
+  adm_o <- gt_radmix(test_gl,
+    k = 2, seed = 1, rtol = 1e-10, gl_curvature = "observed"
+  )
+  expect_true(adm_o$converged)
+  expect_equal(adm_o$loglik, adm_c$loglik, tolerance = 1e-8)
+  expect_equal(adm_o$Q[[1]], adm_c$Q[[1]], tolerance = 1e-4)
+  # the observed curvature reaches it in fewer iterations
+  n_iter <- function(adm) sum(grepl("^Iteration", adm$log[[1]]))
+  expect_lt(n_iter(adm_o), n_iter(adm_c))
+  # genotypes give the same fit with either curvature
+  test_gt <- radmix_test_gt(sim$genotypes)
+  expect_identical(
+    gt_radmix(test_gt, k = 2, seed = 1, gl_curvature = "observed")$Q,
+    gt_radmix(test_gt, k = 2, seed = 1)$Q
+  )
+  expect_error(
+    gt_radmix(test_gl, k = 2, gl_curvature = "exact"),
+    "should be one of"
   )
 })
 

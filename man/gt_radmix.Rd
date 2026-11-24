@@ -14,6 +14,7 @@ gt_radmix(
   step_tol = NULL,
   n_em_iter = 5,
   n_qn = 3,
+  gl_curvature = c("complete", "observed"),
   init = c("random", "svd"),
   svd_power = 3,
   init_q = NULL,
@@ -64,6 +65,13 @@ Not used by the refits of cross-validation.}
 
 \item{n_qn}{the number of secant pairs used by the quasi-Newton
 acceleration (defaults to 3, as in ADMIXTURE)}
+
+\item{gl_curvature}{the curvature used by the Newton steps for genotype
+likelihoods: \code{"complete"} (the default), that of the expected
+log-likelihood of the genotypes; or \code{"observed"}, that of the
+log-likelihood itself (floored), usually faster on low-depth data (see
+"Genotype likelihoods" in the details). Not used with genotypes, for
+which the two are the same}
 
 \item{init}{how the starting values of each run are chosen: \code{"random"}
 (the default), random values followed by \code{n_em_iter} EM iterations, as
@@ -265,9 +273,19 @@ expected numbers of copies of each allele given the likelihoods and the
 current estimates in place of the observed ones. EM steps are then
 those of NGSadmix, and the gradients of the block updates are exact; as
 the log-likelihood of genotype likelihoods is not concave in each block,
-the Newton steps use the curvature of the expected log-likelihood of the
-genotypes (that of the EM algorithm), which keeps every quadratic
-program convex. The quasi-Newton steps are accepted on the
+the Newton steps use by default the curvature of the expected
+log-likelihood of the genotypes (that of the EM algorithm), which keeps
+every quadratic program convex. That curvature exceeds the curvature of
+the log-likelihood itself by the missing information (the uncertainty
+about the genotypes), so the steps are short where genotypes are
+uncertain. With \code{gl_curvature = "observed"}, the Newton steps use the
+curvature of the log-likelihood instead, floored at a quarter of the
+complete one for each individual and locus (which keeps the programs
+convex). On simulated data at depths of 1-2 reads per site, with K
+from 3 to 10, this made fits about 1.5 times faster (fewer
+iterations, at the same cost each), and the fits reached maxima at
+least as good; as it changes the path of each fit, the maxima found by
+a given run can differ. The quasi-Newton steps are accepted on the
 log-likelihood above. Cross-validation (\code{crossval}) is available (see
 "Cross-validation"), and so are starts from the SVD (\code{init = "svd"}):
 the SVD is then that of the posterior dosages of the genotypes (their

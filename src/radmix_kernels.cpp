@@ -307,12 +307,13 @@ static std::vector<double> transpose_subset(const double* q, int K,
 // slice it processes; every buffer is recomputed for each slice. Entry ii of
 // each buffer refers to individual i0 + ii of the slice; only the first
 // ni = i1 - i0 entries are meaningful. With genotype likelihoods, e1, e2 and
-// obs hold the decoded likelihoods of the slice (see slice_gl()).
+// obs hold the decoded likelihoods of the slice, and rf = obs / f (see
+// slice_gl()).
 struct Slice {
-  std::vector<double> qp, g, h, a, b, d1, d2, tmp, e1, e2, obs;
+  std::vector<double> qp, g, h, a, b, d1, d2, tmp, e1, e2, obs, rf;
   Slice() : qp(TILE_I), g(TILE_I), h(TILE_I), a(TILE_I), b(TILE_I),
     d1(TILE_I), d2(TILE_I), tmp(TILE_I), e1(TILE_I), e2(TILE_I),
-    obs(TILE_I) {}
+    obs(TILE_I), rf(TILE_I) {}
   // zero coefficients for the first ni individuals: the padding locus of a
   // range with an odd number of loci, which adds nothing to any sum
   void zero_coef(size_t ni) {
@@ -349,6 +350,12 @@ struct Slice {
 //   a Newton step on that concave function, which has the same gradient as
 //   the log-likelihood at the current estimates; the quasi-Newton step is
 //   accepted on the log-likelihood itself (loglik_gl_slice()).
+//   This d2 exceeds the curvature of log f(x) by the missing information
+//   (the uncertainty of the genotype), so its steps are short where the
+//   genotypes are uncertain. With gl_curvature = "observed" (see
+//   slice_coef()), the Newton updates use the curvature of log f(x)
+//   itself where it is large enough. For it, rf = obs / f is kept in the
+//   slice.
 // f > 0 always (the source gives positive likelihoods), and x of exactly 0
 // or 1 gives finite counts (g = 0 or h = 0): with likelihoods no genotype is
 // impossible. An individual without data gets g = h = 0, so that it drops
@@ -402,6 +409,7 @@ static RADMIX_INLINE void slice_gl(const GenoView& geno, size_t j,
   const double* __restrict obs = s.obs.data();
   double* __restrict g = s.g.data();
   double* __restrict h = s.h.data();
+  double* __restrict rfs = s.rf.data();
 #pragma omp simd
   for (size_t ii = 0; ii < ni; ii++) {
     const double x = qp[ii], y = 1.0 - x;
@@ -411,8 +419,13 @@ static RADMIX_INLINE void slice_gl(const GenoView& geno, size_t j,
     const double rf = obs[ii] / (w0 + w1 + w2);
     g[ii] = (w1 + 2.0 * w2) * rf;
     h[ii] = (2.0 * w0 + w1) * rf;
+    rfs[ii] = rf;
   }
 }
+
+// The floor of the observed curvature of genotype likelihoods, as a
+// fraction of the complete-data curvature (see slice_coef()).
+static const double GL_CURV_FLOOR = 0.25;
 
 // qp and the decoded genotypes of the slice of locus j and individuals
 // [i0, i1): s.qp, s.g and s.h for ii = i - i0 in [0, i1 - i0). qT is the
@@ -618,6 +631,29 @@ static RADMIX_INLINE void slice_coef(const GenoView& geno,
     } else {
       a[ii] = g[ii] / x;
       b[ii] = h[ii] / y;
+    }
+  }
+  // Genotype likelihoods with gl_curvature = "observed": the negative
+  // second derivative of log f(x) itself, d1^2 - f''(x) / f(x) with
+  // f''(x) = 2 (1 - 2 e1 + e2) (see slice_gl()), instead of the
+  // complete-data d2 above. The observed curvature can be small, or
+  // negative (log f(x) is not concave), where the genotypes are uncertain,
+  // so it is floored at GL_CURV_FLOOR times the complete-data d2, which
+  // keeps the Hessians positive semi-definite and the steps bounded. An
+  // individual without data keeps d2 = 0 (d1 = rf = 0). On simulated data
+  // at depths 1-2 and K = 3-10 (desktop, Nov 2026), fits took about 0.7
+  // times as long (fewer iterations, at the same cost per iteration) and
+  // reached maxima at least as good; without a floor, they were a little
+  // faster but found the best maxima a little less often.
+  if (NEWTON && GL && geno.observed_curvature()) {
+    const double* __restrict e1 = s.e1.data();
+    const double* __restrict e2 = s.e2.data();
+    const double* __restrict rf = s.rf.data();
+#pragma omp simd
+    for (size_t ii = 0; ii < ni; ii++) {
+      const double obs_curv =
+        d1[ii] * d1[ii] - 2.0 * (1.0 - 2.0 * e1[ii] + e2[ii]) * rf[ii];
+      d2[ii] = std::max(obs_curv, GL_CURV_FLOOR * d2[ii]);
     }
   }
 }
