@@ -1,6 +1,7 @@
 # One fit of gt_radmix()'s C++ loop on an FBM made by make_data.R, timed,
 # with the bytes read from disk and a hash of the estimates, for
-# bench_stream.sh.
+# bench_stream.sh (the elapsed time, then at the end the user and system
+# CPU time of all the threads).
 # Usage: Rscript bench_fit.R <prefix> <stream: TRUE/FALSE/base> <n_cores>
 #          <k> <max_iter> <n_em_iter> <chunk_mb> <label>
 args <- commandArgs(TRUE)
@@ -37,12 +38,13 @@ majflt <- function() as.numeric(strsplit(readLines("/proc/self/stat"), " ")[[1]]
 set.seed(42)
 r0 <- io()
 f0 <- majflt()
-t <- system.time(
+tm <- system.time(
   fit <- tidygenclust:::radmix_fit_cpp(data, k, NULL, NULL, FALSE, FALSE,
     max_iter, 0, n_em_iter, 3L, n_cores, FALSE, NULL)
-)[["elapsed"]]
+)
+t <- tm[["elapsed"]]
 r1 <- io()
 f1 <- majflt()
 h <- rlang::hash(list(fit$q, fit$p, fit$loglik_history))
-cat(sprintf("%s,%s,%d,%.2f,%.0f,%.0f,%s,%.10f\n", label, stream, n_cores, t,
-  (r1 - r0) / 2^20, f1 - f0, h, fit$loglik))
+cat(sprintf("%s,%s,%d,%.2f,%.0f,%.0f,%s,%.10f,%.1f,%.1f\n", label, stream, n_cores, t,
+  (r1 - r0) / 2^20, f1 - f0, h, fit$loglik, tm[["user.self"]], tm[["sys.self"]]))

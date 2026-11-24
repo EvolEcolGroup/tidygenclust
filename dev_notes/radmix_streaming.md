@@ -215,6 +215,41 @@ reads the file once (1.4 GB). Chunks of 64 MB.
 | 92% | 150 MB/s | streaming | 66.7 | 7.2 | 700 |
 | 92% | 150 MB/s | no prefetch | 68.3 | 6.8 | 9,200 |
 
+Data about 3 times the memory (a third of the file cacheable: the peak
+memory of the fit plus 477 MB; chunks of 32 MB, the default for that
+memory; `run_ooc_third.sh`, `results/third_of_memory*.csv`). Two of the 22
+single runs were disturbed (1.5-2 times slower than their repeats: the
+machine is a shared VM), and are replaced by the medians of their repeats
+(*):
+
+| data | disk | dev | streaming | no prefetch | no alternation |
+|---|---|---|---|---|---|
+| 10,000 x 150,000 (in memory: 25 s) | 2 GB/s | 523 s, 295 GB | 33.1 s*, 12.6 GB | 36.7 s, 12.0 GB | 32.5 s*, 15.7 GB |
+| | 500 MB/s | 619 s, 295 GB | 35.2 s, 13.2 GB | 39.7 s, 11.9 GB | 34.7 s, 15.5 GB |
+| | 150 MB/s | (about 35 min) | 89.7 s, 11.8 GB | 89.9 s, 12.0 GB | 103.4 s, 14.8 GB |
+| 1,000 x 1,500,000 (in memory: 30 s) | 2 GB/s | 34.2 s, 15.1 GB | 38.2 s*, 16.5 GB | 34.1 s, 11.6 GB | 37.9 s, 19.6 GB |
+| | 500 MB/s | 43.7 s, 15.6 GB | 49.6 s, 16.1 GB | 42.5 s, 11.7 GB | 54.5 s, 19.7 GB |
+| | 150 MB/s | 116.1 s, 15.1 GB | 122.0 s, 15.3 GB | 96.3 s, 11.6 GB | 145.4 s, 19.5 GB |
+
+- 10,000 individuals: streaming takes 1.3-1.4 times the time in memory on
+  the faster disks, dev 21-25 times; on the slowest disk, every version is
+  bound by its reads (12 GB at 150 MB/s is 80 s).
+- 1,000 individuals: dev stays within 1.1-1.5 times the time in memory on
+  the faster disks. Streaming without the prefetch is as fast, and faster
+  on the slowest disk (96 against 116 s, 23% fewer bytes thanks to the
+  alternation); with the prefetch it reads 4 GB more, which costs 8 s at
+  500 MB/s and 26 s at 150 MB/s: the chunks of its Q side are whole
+  segments (187 MB here, against 32 MB chunks elsewhere), and the segment
+  computed plus the one prefetched (374 MB) do not leave the 477 MB cache
+  room to keep the first while all its blocks of individuals are processed.
+  The Q side should not prefetch a chunk much larger than `chunk_bytes`
+  (or prefetch only its first `chunk_bytes`).
+- The alternation saves 15-40% of the bytes, which pays on the slowest
+  disk (10,000 individuals: 90 against 103 s; 1,000: 96 against 145 s).
+- System CPU time was 8-9 s with the prefetch (with or without the
+  alternation) and 19 s without it (ten times as many page faults that
+  waited for the disk), out of 120 s of CPU in all.
+
 (The dev rows at 67% come from the first run of the matrix, with the same
 build of dev; the streaming rows of that first run, before the prefetch was
 split into 2 MB pieces and the chunks read forwards, are not shown.)
@@ -298,6 +333,10 @@ up to 15-20%.
   memory too, after timing it on the desktop.
 - Timing on a real disk (the container's disk is backed by the host's
   cache, and the throttle only caps its throughput, not its latency).
+- Few individuals: the Q side prefetches whole segments, which can be much
+  larger than `chunk_bytes`; with a third of the file cacheable this read
+  4 GB more than without the prefetch (above). Cap the prefetch of the Q
+  side at `chunk_bytes`.
 - Few individuals, file a little larger than the cache: the chunks and the
   prefetch can make streaming read more than dev (step 1), and dev is
   already close to its time in memory there. Whether streaming should

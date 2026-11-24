@@ -18,3 +18,6 @@ cloud container: they use cgroup v1 memory and blkio limits and
 - `bench_passes.R`, `bench_passes.sh`, `run_passes.sh`, `summarise_passes.R`:
   step 1, the cost of each pass of dev (and of streaming) out of core
   (`results/passes.csv`).
+- `run_ooc_third.sh`: data about 3 times the memory
+  (`results/third_of_memory.csv`; repeats of the runs that were disturbed,
+  with the user and system CPU time, in `results/third_of_memory_repeats.csv`).
