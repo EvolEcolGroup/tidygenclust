@@ -42,9 +42,12 @@ with four programs that fit the same model: ADMIXTURE itself, fastmixture
 (Santander et al. 2024), ADAMIXTURE (Saurina-i-Ricos et al. 2026), and
 OpenADMIXTURE.jl (Ko et al. 2023), a Julia implementation of the algorithm
 of ADMIXTURE (run without its selection of ancestry informative markers).
-Note that OpenADMIXTURE.jl and ADAMIXTURE also include implementations 
-using the GPU, which can scale to Biobank datasets, but are not included in this comparison. Here we just compare the CPU implementations of the programs, which are all multithreaded. In addition, ADAMIXTURE stores genotypes in a 2-bit packed encoding to reduce memory usage in standard runs (peak resident memory is now also recorded by `admixture_benchmark_cli.sh` for future benchmark runs). Thus, for very large datasets, some of the programs can perform
-better than these benchmarks suggest.
+OpenADMIXTURE.jl and ADAMIXTURE can also run on GPUs, which lets them scale
+to biobank datasets; this comparison is limited to the CPU implementations
+of the programs, which are all multithreaded. ADAMIXTURE also stores the
+genotypes in a 2-bit packed encoding, which keeps its memory use low. For
+very large datasets, some of the programs can therefore perform better than
+this benchmark suggests.
 
 The comparison uses the Human Genome Diversity Project (HGDP), and has two
 parts:
@@ -125,6 +128,9 @@ timings <- bind_rows(
     run = paste0(tool, "_t", n_cores, if_else(crossval, "_cv", "_nocv")),
     tool = factor(tool, names(tool_labels))
   )
+# the peak resident memory of the runs from the command line, in MB (not
+# recorded in the R session, nor by older versions of the scripts)
+if (!"peak_rss_mb" %in% names(timings)) timings$peak_rss_mb <- NA_real_
 # the machine and software, and the size of the data
 session_cli <- read.csv(file.path(results_dir, "session_cli.csv"))
 session_r <- read.csv(file.path(results_dir, "session_r.csv"))
@@ -226,6 +232,48 @@ format_seconds <- function(x) {
 format_diff <- function(x) {
   ifelse(x == 0, "0", formatC(signif(x, 2), format = "fg", digits = 2))
 }
+# the range of several times (or amounts of memory, in MB, rounded to tens),
+# e.g. "6.5-7.1", for programs whose runs took similar times
+format_range <- function(x, fmt = NULL) {
+  # (times to two significant digits by default)
+  if (is.null(fmt)) fmt <- function(v) format_seconds(signif(v, 2))
+  x <- fmt(range(x, na.rm = TRUE))
+  if (x[1] == x[2]) x[1] else paste0(x[1], "-", x[2])
+}
+format_mb <- function(x) {
+  trimws(formatC(round(x, -1), format = "d", big.mark = ","))
+}
+# how many times faster than ADMIXTURE (from random values, on the same
+# number of cores, without cross-validation), to one significant digit
+times_faster <- function(seconds, n_cores = min_cores) {
+  signif(time_of("admixture", n_cores) / seconds, 1)
+}
+# the program that used the least memory (median of its runs from random
+# values), with or without cross-validation
+has_memory <- any(!is.na(timings$peak_rss_mb))
+least_memory <- function(crossval) {
+  mb <- timings[timings$crossval == crossval & !is.na(timings$peak_rss_mb), ]
+  mb <- tapply(mb$peak_rss_mb, as.character(mb$tool), median)
+  program_labels[[tool_program[[names(which.min(mb))]]]]
+}
+memory_text <- if (has_memory) {
+  paste0(
+    least_memory(FALSE), " used the least memory without cross-validation, ",
+    "and ", least_memory(TRUE), " with it"
+  )
+} else {
+  "The peak memory of the runs was not recorded"
+}
+# the speed-up of a program from the fewest to the most cores
+speed_up_of <- function(tool) {
+  formatC(time_of(tool) / time_of(tool, max_cores), format = "f", digits = 1)
+}
+# the peak memory of the runs of a program from the command line (random
+# starts), with or without cross-validation, as a range in MB
+memory_of <- function(tool, crossval = FALSE) {
+  mb <- timings$peak_rss_mb[timings$tool == tool & timings$crossval == crossval]
+  format_range(mb, format_mb)
+}
 agreement_of <- function(tool, column) {
   agreement[[column]][agreement$run == paste0(tool, "_t", min_cores, "_nocv")]
 }
@@ -291,7 +339,9 @@ local_optima_text <- if (nrow(local_optima) == 0 && highest_above <= 1) {
 # start from an SVD of the genotypes as well as from random values (e.g.
 # radmix_cli_svd_s2 for gt_radmix() from an SVD with seed 2)
 start_labels <- c(random = "Random", svd = "SVD")
-starts <- read.csv(file.path(results_dir, "starts_cli.csv")) %>%
+starts <- read.csv(file.path(results_dir, "starts_cli.csv"))
+if (!"peak_rss_mb" %in% names(starts)) starts$peak_rss_mb <- NA_real_
+starts <- starts %>%
   mutate(
     run = paste0(tool, "_", init, "_s", seed),
     program = factor(tool_program[tool], names(program_labels)),
@@ -335,21 +385,57 @@ starts_summary <- starts %>%
     worst = max(below_best),
     spread = largest_spread(run),
     rmse_ref = median(rmse_ref),
+    memory = median(peak_rss_mb),
     .groups = "drop"
   )
+# the median time of a program from a start
+start_seconds <- function(program, init) {
+  starts_summary$seconds_median[
+    starts_summary$program == program & starts_summary$init == init
+  ]
+}
 # a sentence on a program, for the summary
 starts_text <- function(program) {
-  random <- starts_summary[
-    starts_summary$program == program & starts_summary$init == "random",
-  ]
-  svd <- starts_summary[
-    starts_summary$program == program & starts_summary$init == "svd",
-  ]
   paste0(
-    format_seconds(svd$seconds_median), " s from an SVD and ",
-    format_seconds(random$seconds_median), " s from random values (",
-    svd$at_best, " and ", random$at_best, " of the ", n_seeds,
-    " runs reached the highest log-likelihood)"
+    format_seconds(signif(start_seconds(program, "svd"), 2)),
+    " s from an SVD and ",
+    format_seconds(signif(start_seconds(program, "random"), 2)),
+    " s from random values"
+  )
+}
+# whether all the runs from both starts reached the same optimum: within 1
+# of the highest log-likelihood, or a little further for a program that
+# stops earlier by its own convergence criterion (but not more than 10 below,
+# which would be another optimum)
+worst_by_program <- tapply(starts$below_best, starts$program, max)
+worst_by_program <- worst_by_program[!is.na(worst_by_program)]
+short_programs <- names(worst_by_program)[worst_by_program >= 1]
+starts_optimum_text <- if (all(worst_by_program < 10)) {
+  paste0(
+    "All these runs reached the same optimum",
+    if (length(short_programs) == 0) {
+      ", to within 1 of the highest log-likelihood."
+    } else {
+      paste0(
+        ": those of ", knitr::combine_words(program_labels[short_programs]),
+        " stopped up to ", format_diff(max(worst_by_program)),
+        " below the highest log-likelihood, by their own convergence ",
+        "criterion, and those of the other programs within 1 of it."
+      )
+    }
+  )
+} else {
+  paste0(
+    "Some runs ended at other optima (",
+    paste0(
+      program_labels[as.character(starts_summary$program)], " from ",
+      c(random = "random", svd = "SVD")[as.character(starts_summary$init)],
+      " starts: ",
+      starts_summary$at_best, " of ", starts_summary$runs,
+      " at the highest log-likelihood",
+      collapse = "; "
+    ),
+    ")."
   )
 }
 ```
@@ -358,50 +444,48 @@ starts_text <- function(program) {
 
 The five programs estimated the ancestry proportions of `r n_indiv`
 individuals of the HGDP, typed at `r format(n_loci, big.mark = ",")` loci,
-for K = `r k` ancestral populations (see [The data](#the-data)):
+for K = `r k` ancestral populations (see [The data](#the-data)). On this
+dataset:
 
-- From random starts, from the command line, on `r min_cores` core, without
-  cross-validation,
-  `gt_radmix()` took `r format_seconds(time_of("radmix_cli"))` s,
-  ADMIXTURE `r format_seconds(time_of("admixture"))` s, fastmixture
-  `r format_seconds(time_of("fastmixture"))` s, ADAMIXTURE
-  `r format_seconds(time_of("adamixture"))` s and OpenADMIXTURE.jl
-  `r format_seconds(time_of("openadmixture_cli"))` s; on `r max_cores`
-  cores, they took `r format_seconds(time_of("radmix_cli", max_cores))` s,
-  `r format_seconds(time_of("admixture", max_cores))` s,
-  `r format_seconds(time_of("fastmixture", max_cores))` s,
-  `r format_seconds(time_of("adamixture", max_cores))` s and
-  `r format_seconds(time_of("openadmixture_cli", max_cores))` s.
-- Starting R and loading `tidygenclust` took about
-  `r format_seconds(startup_of("radmix"))` s of the time of `gt_radmix()`
-  from the command line. Starting Julia, loading OpenADMIXTURE.jl and
-  compiling its code took about
-  `r format_seconds(startup_of("openadmixture"))` s: in a Julia session in
-  which OpenADMIXTURE.jl has already been used, its fit took
-  `r format_seconds(time_of("openadmixture"))` s on `r min_cores` core.
-- Compared with ADMIXTURE (on `r min_cores` core, without
-  cross-validation), the log-likelihood of `gt_radmix()` differs by
-  `r format_diff(agreement_of("radmix", "loglik_diff"))`, that of
-  fastmixture by `r format_diff(agreement_of("fastmixture", "loglik_diff"))`,
-  that of ADAMIXTURE by
-  `r format_diff(agreement_of("adamixture", "loglik_diff"))`, and that of
-  OpenADMIXTURE.jl by
-  `r format_diff(agreement_of("openadmixture", "loglik_diff"))`. Their
-  ancestry proportions differ from those of ADMIXTURE by up to
-  `r format_diff(agreement_of("radmix", "diff_ref"))`,
-  `r format_diff(agreement_of("fastmixture", "diff_ref"))`,
-  `r format_diff(agreement_of("adamixture", "diff_ref"))` and
-  `r format_diff(agreement_of("openadmixture", "diff_ref"))` respectively.
-- Across numbers of cores, with and without cross-validation,
+- **The same answer.** All the programs found the same ancestry
+  proportions: on `r min_cores` core without cross-validation, those of
+  the other programs differ from those of ADMIXTURE by at most
+  `r format_diff(max(agreement$diff_ref[agreement$n_cores == min_cores & !agreement$crossval]))`
+  (see [Do the programs find the same ancestry proportions?](#do-the-programs-find-the-same-ancestry-proportions)).
+  Across numbers of cores, with and without cross-validation,
   `gt_radmix()` gives `r runs_differ_by("radmix")`, ADMIXTURE
   `r runs_differ_by("admixture")`, fastmixture
   `r runs_differ_by("fastmixture")`, ADAMIXTURE
   `r runs_differ_by("adamixture")`, and OpenADMIXTURE.jl (without
   cross-validation) `r runs_differ_by("openadmixture")`.
-- With `r n_seeds` seeds on `r starts_cores` cores (median times from the
-  command line), `gt_radmix()` took `r starts_text("radmix")`; fastmixture
-  `r starts_text("fastmixture")`; and ADAMIXTURE
-  `r starts_text("adamixture")`.
+- **fastmixture is much faster than ADMIXTURE.** It makes good use of
+  several cores (its time fell `r speed_up_of("fastmixture")` times from
+  `r min_cores` to `r max_cores` cores, against
+  `r speed_up_of("admixture")` times for ADMIXTURE), and from an SVD of
+  the genotypes, its default start, it took a median of
+  `r format_seconds(signif(start_seconds("fastmixture", "svd"), 2))` s on
+  `r starts_cores` cores, about
+  `r times_faster(start_seconds("fastmixture", "svd"), starts_cores)` times
+  faster than ADMIXTURE from random values.
+- **`gt_radmix()` and ADAMIXTURE run at similar speeds.** From random
+  values, they took
+  `r format_range(c(time_of("radmix_cli"), time_of("adamixture")))` s on
+  `r min_cores` core and
+  `r format_range(c(time_of("radmix_cli", max_cores), time_of("adamixture", max_cores)))`
+  s on `r max_cores` cores (from the command line), about
+  `r times_faster(mean(c(time_of("radmix_cli"), time_of("adamixture"))))`
+  and
+  `r times_faster(mean(c(time_of("radmix_cli", max_cores), time_of("adamixture", max_cores))), max_cores)`
+  times faster than ADMIXTURE. The differences between them are small,
+  and depend on the machine (see
+  [How long do they take?](#how-long-do-they-take)).
+- **SVD starts save time.** On `r starts_cores` cores, with `r n_seeds`
+  seeds, `gt_radmix()` took `r starts_text("radmix")`; ADAMIXTURE
+  `r starts_text("adamixture")`; and fastmixture
+  `r starts_text("fastmixture")` (median times from the command line).
+  `r starts_optimum_text`
+- **Memory.** `r memory_text` (see
+  [How much memory do they use?](#how-much-memory-do-they-use)).
 
 ## Random starts
 
@@ -610,6 +694,60 @@ compiling its code adds about
 OpenADMIXTURE.jl (these are the median differences between the runs from
 the command line and in a session).
 
+ADMIXTURE gained little from more cores. fastmixture, with its accelerated
+EM updates over mini-batches of the loci, made good use of them: its time
+fell `r speed_up_of("fastmixture")` times from `r min_cores` to
+`r max_cores` cores, and on `r max_cores` cores it was much faster than
+ADMIXTURE, even from random values (and faster still from an SVD, its
+default, see [SVD and random starts](#svd-and-random-starts)).
+`gt_radmix()` and ADAMIXTURE, which both take block-wise Newton steps with
+quasi-Newton acceleration, as ADMIXTURE does, in compiled multithreaded
+code, took similar times on every number of cores, with and without
+cross-validation. OpenADMIXTURE.jl, which uses the same algorithm, took
+`r format_seconds(time_of("openadmixture", max_cores))` s on
+`r max_cores` cores in a Julia session.
+
+Differences of a few tens of percent between programs are not meaningful
+here. Each run was done once, and the relative speeds of the programs
+depend on the machine, the compiler and the libraries. For example,
+ADAMIXTURE computes its main sums as matrix products with an optimised
+BLAS library (OpenBLAS, or Accelerate on macOS), which can use the wider
+vector instructions of some servers (AVX-512) and the matrix units of
+Apple processors. `gt_radmix()` uses its own loops, compiled for AVX2 only
+on Linux with GCC 12 or later, and multithreaded only where R supports
+OpenMP (which the CRAN builds of R for macOS do not, without extra set-up).
+
+### How much memory do they use?
+
+```{r memory_text, include = FALSE}
+# the memory of a program in the text (random starts, from the command
+# line), without and with cross-validation
+memory_both <- function(tool) {
+  if (!has_memory) {
+    return("(not recorded)")
+  }
+  without <- memory_of(tool)
+  with <- memory_of(tool, TRUE)
+  if (without == with) {
+    return(paste(without, "MB in both"))
+  }
+  paste0(without, " and ", with, " MB")
+}
+```
+
+The peak resident memory of each run from the command line was recorded
+with `/usr/bin/time` (the [detailed results](#detailed-results) give it
+for each run). From random values, without and with cross-validation,
+ADAMIXTURE used `r memory_both("adamixture")`; fastmixture
+`r memory_both("fastmixture")`; ADMIXTURE `r memory_both("admixture")`;
+and `gt_radmix()` `r memory_both("radmix_cli")`, including R and its
+packages, and the parts of the backing file of the `gen_tibble` held in
+memory. OpenADMIXTURE.jl, which has no cross-validation, used
+`r if (has_memory) memory_of("openadmixture_cli") else "(not recorded)"`
+MB, including Julia. ADAMIXTURE keeps the genotypes in a 2-bit packed
+encoding, which keeps its memory low without cross-validation, and
+fastmixture used about as much memory with cross-validation as without.
+
 ### Cross-validation errors
 
 The cross-validation errors did not depend on the number of cores. On
@@ -705,12 +843,12 @@ iterations of a program count its own steps, so they can be compared
 between its two starts but not between programs. The right panel shows how
 far the log-likelihood of each run is below the highest of all the runs of
 the benchmark: the runs left of the dashed line (within 1 of it) reached
-the same optimum.
+the same optimum. `r starts_optimum_text`
 
 The time of `gt_radmix()` from the command line includes starting R and
 loading `tidygenclust` (about `r format_seconds(startup_of("radmix"))` s),
-and, from an SVD, imputing the missing genotypes (needed for the SVD only;
-the fit ignores the imputed values).
+and, from an SVD, imputing the missing genotypes (the script imputes them
+for the SVD, and the fit ignores the imputed values).
 
 ## Detailed results
 
@@ -757,8 +895,11 @@ timings %>%
   group_by(tool, crossval) %>%
   mutate(speed_up = seconds[n_cores == min_cores] / seconds) %>%
   ungroup() %>%
-  select(tool, n_cores, crossval, seconds, speed_up) %>%
-  pivot_wider(names_from = crossval, values_from = c(seconds, speed_up)) %>%
+  select(tool, n_cores, crossval, seconds, speed_up, peak_rss_mb) %>%
+  pivot_wider(
+    names_from = crossval,
+    values_from = c(seconds, speed_up, peak_rss_mb)
+  ) %>%
   arrange(tool, n_cores) %>%
   mutate(
     tool = tool_labels[as.character(tool)],
@@ -769,21 +910,27 @@ timings %>%
     across(
       starts_with("speed_up"),
       ~ if_else(is.na(.x), "-", formatC(.x, format = "f", digits = 1))
+    ),
+    across(
+      starts_with("peak_rss_mb"),
+      ~ if_else(is.na(.x), "-", format_mb(.x))
     )
   ) %>%
   select(
-    tool, n_cores, seconds_FALSE, speed_up_FALSE, seconds_TRUE, speed_up_TRUE
+    tool, n_cores, seconds_FALSE, speed_up_FALSE, peak_rss_mb_FALSE,
+    seconds_TRUE, speed_up_TRUE, peak_rss_mb_TRUE
   ) %>%
   knitr::kable(
     col.names = c(
-      "Program", "Cores", "Time (s)", "Speed-up", "Time with CV (s)",
-      "Speed-up with CV"
+      "Program", "Cores", "Time (s)", "Speed-up", "Memory (MB)",
+      "Time with CV (s)", "Speed-up with CV", "Memory with CV (MB)"
     ),
-    align = "lrrrrr",
+    align = "lrrrrrrr",
     caption = paste0(
       "Time (s) taken by each run, without and with cross-validation (CV), ",
-      "and speed-up relative to the run of the same program on ", min_cores,
-      " core. OpenADMIXTURE.jl has no cross-validation."
+      "speed-up relative to the run of the same program on ", min_cores,
+      " core, and peak resident memory (MB; recorded for the runs from the ",
+      "command line). OpenADMIXTURE.jl has no cross-validation."
     )
   )
 ```
@@ -826,21 +973,24 @@ starts_summary %>%
       "-", format_seconds(seconds_max), ")"
     ),
     at_best = paste(at_best, "of", runs),
-    across(c(worst, spread, rmse_ref), format_diff)
+    across(c(worst, spread, rmse_ref), format_diff),
+    memory = if_else(is.na(memory), "-", format_mb(memory))
   ) %>%
   select(
-    program, init, seconds, iterations, at_best, worst, spread, rmse_ref
+    program, init, seconds, iterations, memory, at_best, worst, spread,
+    rmse_ref
   ) %>%
   knitr::kable(
     col.names = c(
-      "Program", "Start", "Time (s)", "Iterations", "At the best",
-      "Largest shortfall", "Largest difference between runs",
+      "Program", "Start", "Time (s)", "Iterations", "Memory (MB)",
+      "At the best", "Largest shortfall", "Largest difference between runs",
       "RMSE (ADMIXTURE)"
     ),
-    align = "llrrrrrr",
+    align = "llrrrrrrr",
     caption = paste0(
       "Median time (s; range in brackets) and number of iterations of the ",
-      n_seeds, " runs of each program from each start; number of runs that ",
+      n_seeds, " runs of each program from each start, and their median ",
+      "peak resident memory (MB); number of runs that ",
       "reached the highest log-likelihood of all the runs of the benchmark ",
       "(to within 1), and the largest shortfall from it; largest absolute ",
       "difference between the ancestry proportions of two runs of the same ",
@@ -864,8 +1014,10 @@ and `gt_radmix()` and OpenADMIXTURE.jl with two more scripts, which
 `vignettes/articles/data/admixture_benchmark`. Each run is done once, as the
 full runs take long enough for the variation between repeated runs to be
 small. The code shown below is taken from these scripts. Timings depend on
-the machine (see [Machine and software](#machine-and-software)), but the
-differences between the programs should be similar on other machines.
+the machine (see [Machine and software](#machine-and-software)), the
+compiler and the libraries: large differences between the programs should
+hold on other machines, but small ones need not (see
+[How long do they take?](#how-long-do-they-take)).
 
 ## The data
 
