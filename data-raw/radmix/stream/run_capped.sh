@@ -54,8 +54,9 @@ elif command -v systemd-run > /dev/null && [ -d /run/systemd/system ]; then
       "PATH=$PATH" "TMPDIR=${TMPDIR:-/tmp}" \
       "OMP_PROC_BIND=${OMP_PROC_BIND:-false}" \
       "OMP_PLACES=${OMP_PLACES:-threads}" "$@"
-    # (IOReadBandwidthMax takes a file, and limits the disk that holds it)
-    set -- -p "IOReadBandwidthMax=$data_file ${bps}M" "$@"
+    # (IOReadBandwidthMax takes a file, and limits the disk that holds it;
+    # the path must be absolute: systemd silently ignores a relative one)
+    set -- -p "IOReadBandwidthMax=$(readlink -f "$data_file") ${bps}M" "$@"
     [ "$cap" -gt 0 ] && set -- -p "MemoryMax=${cap}M" -p "MemorySwapMax=0" "$@"
     exec sudo -n systemd-run --scope --quiet "$@"
   else
