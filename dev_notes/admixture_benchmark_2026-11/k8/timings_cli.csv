@@ -1,0 +1,9 @@
+tool,init,seed,n_cores,crossval,seconds,loglik,cv_error,iterations,peak_rss_mb
+adamixture,random,1,1,FALSE,62.108,-100805639.1,NA,25,165.1
+adamixture,random,1,1,TRUE,133.440,-100805639.1,0.4177,25,965.8
+adamixture,random,1,8,FALSE,10.113,-100805639.1,NA,25,193.3
+adamixture,random,1,8,TRUE,25.686,-100805639.1,0.4177,25,989.3
+radmix_cli,random,1,1,FALSE,65.415,-100744121.978202,NA,25,595.9
+radmix_cli,random,1,1,TRUE,152.589,-100744121.978202,0.417507,25,648.6
+radmix_cli,random,1,8,FALSE,9.889,-100744121.978202,NA,25,595.4
+radmix_cli,random,1,8,TRUE,22.313,-100744121.978202,0.417507,25,648.6
