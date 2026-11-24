@@ -1,8 +1,9 @@
 #!/bin/sh
 # The out-of-core benchmark of dev_notes/radmix_streaming.md: each dataset
-# under memory caps that leave the page cache a fraction of the data (60%
-# and 85%), on the disk as it is and throttled (500 and 150 MB/s), with the
-# build of dev ("base") and streaming (all on, without prefetching, and
+# under memory caps that leave the page cache a fraction of the data
+# (FRACS, in %, default "67 92": the fractions of the matrix of the note),
+# on the disk as it is and throttled (500 and 150 MB/s), with the build of
+# dev ("base") and streaming (all on, without prefetching, and
 # without alternating directions). Appends CSV lines to <out.csv>.
 # Environment: BENCH_DATA (the folder of the data of make_data.R, default
 # /home/user/benchdata), LIB_BASE and LIB_NEW (the libraries of the builds of
@@ -22,7 +23,7 @@ for p in big_a big_b; do
   # the peak memory of the fit (anon_<prefix>.txt, from measure_peak.sh)
   # and a fraction of the file
   anon=$(cat anon_$p.txt)
-  for frac in 60 85; do
+  for frac in ${FRACS:-67 92}; do
     cap=$((anon + FILE_MB * frac / 100))
     for bps in 0 500 150; do
       modes="TRUE TRUE_nopf TRUE_nozz base"
