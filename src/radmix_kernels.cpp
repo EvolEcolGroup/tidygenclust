@@ -88,9 +88,37 @@
 // R: R is not thread safe, and an R error would jump out of the parallel
 // region. All the checks happen before, in the R wrappers
 // (radmix_exports.cpp, radmix_fit.cpp) and the GenoView constructor.
+//
+// Streaming
+// ---------
+// With a view in streaming mode (data larger than the memory, see
+// radmix_geno_access.h), each pass walks the loci in chunks (of about
+// chunk_bytes bytes of the backing file, in whole tiles), one parallel
+// region per chunk, so that all the threads read the same part of the file,
+// and a helper thread (Prefetcher) asks the kernel to read the next chunk
+// while they compute. The blocks and segments, and the order in which each
+// sum is accumulated, are those of the usual layout, so the results are
+// bit-identical:
+// - Q side, one segment: each block of individuals is accumulated over the
+//   loci of a chunk, then of the next, from where it stopped: its
+//   accumulators (and its log-likelihood) are kept between chunks, in
+//   I (K + K (K + 1) / 2) doubles (accum_q_block() with init and out
+//   false), and chunks have an even number of loci, so the loci are paired
+//   as in one run;
+// - Q side, several segments: a chunk is a group of whole segments, whose
+//   tasks are those of the usual layout (it can be larger than chunk_bytes,
+//   so only its first chunk_bytes are prefetched);
+// - P side, log-likelihood, deviance: each block of loci is independent (or
+//   keeps its own partial sums), so the chunks can be processed in any
+//   order: in order or in reverse order, as GenoView::direction() says
+//   (the loci of a chunk are always read forwards).
+// Streaming is never used for data that fit in memory, so the usual layout
+// keeps its speed.
 
 #include <algorithm>
 #include <cmath>
+#include <thread>
+#include <utility>
 #include <vector>
 #include "radmix_geno_access.h"
 #include "radmix_kernels.h"
@@ -267,6 +295,35 @@ static_assert(TILE_I == 64, "slice_geno() requires TILE_I == 64");
 static inline size_t n_blocks(size_t n, size_t tile) {
   return (n + tile - 1) / tile;
 }
+
+// The helper thread of a streaming pass (see "Streaming" at the top):
+// start(j0, j1) waits for the previous request, then asks the view to
+// prefetch loci [j0, j1) on a new thread, and returns at once. Prefetching
+// is only a hint, so a thread that cannot be created is ignored. Used on
+// the main thread only, between the parallel regions of the chunks.
+class Prefetcher {
+public:
+  explicit Prefetcher(const GenoView& geno) : _geno(geno) {}
+  ~Prefetcher() { wait(); }
+  void start(size_t j0, size_t j1) {
+    wait();
+    if (j0 >= j1) return;
+    try {
+      _thread = std::thread([this, j0, j1] { _geno.prefetch(j0, j1); });
+    } catch (...) {
+    }
+  }
+  void wait() {
+    if (_thread.joinable()) _thread.join();
+  }
+private:
+  const GenoView& _geno;
+  std::thread _thread;
+};
+
+// The number of blocks of TILE_J loci (defined below) per chunk of a
+// streaming pass
+static size_t chunk_blocks(const GenoView& geno);
 
 // Fill in a symmetric K x K matrix (column-major) whose entries H[k2 + K k]
 // with k2 >= k (the lower triangle) have been computed, by copying each of
@@ -856,6 +913,11 @@ static RADMIX_INLINE double loglik_slice_q(size_t ni, Slice& s) {
 // TILE_I values, only used if NEWTON) are scratch for the accumulators.
 // With a list of free individuals (free_idx, see q_side()), [i0, i1) are
 // positions in that list, and qT is their compact transpose, with ldq rows.
+// init, out and ll0 are true, true and 0 except in a streaming pass, which
+// accumulates a block over several chunks of loci: init = false resumes the
+// accumulators gT and hT as they are, out = false leaves the sums in them
+// (grad and hess are then not written), and the log-likelihood returned
+// adds that of the block to ll0.
 //
 // The accumulators are kept "transposed": one vector of length TILE_I per
 // gradient entry k, and one per Hessian entry (k, k2) with k2 >= k, so that
@@ -875,7 +937,8 @@ static double accum_q_block(const GenoView& geno, const double* qT,
                             const double* p, int K, size_t i0, size_t i1,
                             size_t j0, size_t j1, double* grad,
                             double* hess, Slice* s, double* gT, double* hT,
-                            double* hB, const size_t* free_idx, size_t ldq) {
+                            double* hB, const size_t* free_idx, size_t ldq,
+                            bool init, bool out, double ll0) {
   const size_t ni = i1 - i0, KK = (size_t) K * K;
   // the log-likelihood alone (see above): qp and the genotypes of each
   // slice, and its log-likelihood, in the order of the loci as below (EM
@@ -883,7 +946,7 @@ static double accum_q_block(const GenoView& geno, const double* qT,
   // overwrites them)
   if (!NEWTON && LOGLIK) {
     const size_t* fi = free_idx == nullptr ? nullptr : free_idx + i0;
-    double ll = 0.0;
+    double ll = ll0;
     for (size_t j = j0; j < j1; j++) {
       slice_geno<GL>(geno, qT, p + K * j, K, j, i0, i1, s[0], fi, ldq);
       ll += loglik_slice_q<GL>(ni, s[0]);
@@ -893,10 +956,17 @@ static double accum_q_block(const GenoView& geno, const double* qT,
   // the number of entries (k, k2) with k2 >= k of a symmetric K x K matrix
   const size_t n_pair = (size_t) K * (K + 1) / 2;
   // (the whole vectors are zeroed, including the tail beyond ni, which is
-  // never read)
-  std::fill(gT, gT + K * TILE_I, 0.0);
-  if (NEWTON) std::fill(hT, hT + n_pair * TILE_I, 0.0);
+  // never read; a streaming pass resumes the accumulators of the block from
+  // the previous chunk instead, see "Streaming" at the top)
+  if (init) {
+    std::fill(gT, gT + K * TILE_I, 0.0);
+    if (NEWTON) std::fill(hT, hT + n_pair * TILE_I, 0.0);
+  }
   // the buffers of the blocked Hessians, and the number of loci in them
+  // (added into hT at the end of every call, so nothing is carried over
+  // between the chunks of a streaming pass; its chunks are whole blocks of
+  // TILE_J loci, a multiple of HB_L, so the loci are buffered in the same
+  // groups as in one run over all of them, and the sums are the same)
   const size_t npair_pad = hess_pairs_pad(n_pair);
   double* d2b = hB;
   double* ppb = BLOCK ? hB + HB_L * TILE_I : nullptr;
@@ -912,7 +982,8 @@ static double accum_q_block(const GenoView& geno, const double* qT,
   const double* __restrict d12 = s[1].d1.data();
   const double* __restrict d22 = s[1].d2.data();
   // the log-likelihood of the slices of the block, in the order of the loci
-  double ll = 0.0;
+  // (continuing from ll0, that of the previous chunks of a streaming pass)
+  double ll = ll0;
   // with a list of free individuals, those of the block (see q_side())
   const size_t* fi = free_idx == nullptr ? nullptr : free_idx + i0;
   for (size_t j = j0; j < j1; j += 2) {
@@ -985,7 +1056,9 @@ static double accum_q_block(const GenoView& geno, const double* qT,
   // copy the accumulators into the output layout: grad K x ni and hess
   // K x K x ni, one column (or K x K matrix) per individual; the Hessian
   // entries are read in the order in which they were accumulated (idx), into
-  // the lower triangle, and then mirrored
+  // the lower triangle, and then mirrored (not before the last chunk of a
+  // streaming pass)
+  if (!out) return ll;
   for (size_t ii = 0; ii < ni; ii++) {
     for (int k = 0; k < K; k++) grad[k + K * ii] = gT[ii + TILE_I * k];
     if (NEWTON) {
@@ -1035,6 +1108,14 @@ size_t q_segments(size_t I, size_t J) {
   return n_seg;
 }
 
+// The number of blocks of TILE_J loci per chunk of a streaming pass: about
+// chunk_bytes bytes of the backing file (see GenoView::chunk_loci()), at
+// least one block.
+static size_t chunk_blocks(const GenoView& geno) {
+  const size_t b = geno.chunk_loci() / TILE_J;
+  return b < 1 ? 1 : b;
+}
+
 // The Q-side driver: the sums of accum_q_block() over all the loci for
 // every individual, then finish(i0, i1, grad, hess) for each block of
 // TILE_I individuals [i0, i1), with the complete sums of the block (grad
@@ -1077,9 +1158,20 @@ size_t q_segments(size_t I, size_t J) {
 // accum_q_block()), with the same tasks: there are no sums, and finish() is
 // not called.
 template <bool NEWTON, bool LOGLIK, class Finish>
+static void q_side_stream(const GenoView& geno, const double* qT,
+                          const double* p, int K, int n_cores, double* ll,
+                          Finish finish, const size_t* free_idx,
+                          size_t n_free);
+
+template <bool NEWTON, bool LOGLIK, class Finish>
 static void q_side(const GenoView& geno, const double* qT, const double* p,
                    int K, int n_cores, double* ll, Finish finish,
                    const size_t* free_idx = nullptr, size_t n_free = 0) {
+  if (geno.stream()) {
+    q_side_stream<NEWTON, LOGLIK>(geno, qT, p, K, n_cores, ll, finish,
+                                  free_idx, n_free);
+    return;
+  }
   // whether the pass computes sums (anything but the log-likelihood alone)
   const bool SUMS = NEWTON || !LOGLIK;
   // I: the number of individuals processed (all of them, or those of the
@@ -1128,7 +1220,8 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
         geno, qT, p, K, i0, i1, j0, j1,
         SUMS ? &grad_part[K * (seg * I + i0)] : NULL,
         NEWTON ? &hess_part[KK * (seg * I + i0)] : NULL, s, gT.data(),
-        NEWTON ? hT.data() : NULL, block ? hB.data() : NULL, free_idx, I);
+        NEWTON ? hT.data() : NULL, block ? hB.data() : NULL, free_idx, I,
+        true, true, 0.0);
       if (LOGLIK) ll_part[t] = ll_task;
     }
     // (the implicit barrier at the end of the loop above guarantees that
@@ -1143,7 +1236,8 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
       const double ll_task = accum(
         geno, qT, p, K, i0, i1, 0, J, grad.data(),
         NEWTON ? hess.data() : NULL, s, gT.data(),
-        NEWTON ? hT.data() : NULL, block ? hB.data() : NULL, free_idx, I);
+        NEWTON ? hT.data() : NULL, block ? hB.data() : NULL, free_idx, I,
+        true, true, 0.0);
       if (LOGLIK) ll_part[bl] = ll_task;
     } else if (SUMS) {
       // add up the partial sums of the segments, always in segment order
@@ -1170,6 +1264,177 @@ static void q_side(const GenoView& geno, const double* qT, const double* p,
 }
   // the log-likelihood, adding up the tasks in order (outside the parallel
   // region)
+  if (LOGLIK) {
+    double total = 0.0;
+    for (size_t t = 0; t < ll_part.size(); t++) total += ll_part[t];
+    *ll = total;
+  }
+}
+
+// q_side() for a view in streaming mode (see "Streaming" at the top): the
+// same tasks, sums and order of accumulation, walked in chunks of loci,
+// with the next chunk prefetched. A Q-side pass always runs forwards.
+template <bool NEWTON, bool LOGLIK, class Finish>
+static void q_side_stream(const GenoView& geno, const double* qT,
+                          const double* p, int K, int n_cores, double* ll,
+                          Finish finish, const size_t* free_idx,
+                          size_t n_free) {
+  const bool SUMS = NEWTON || !LOGLIK;
+  const size_t I = free_idx == nullptr ? geno.nrow() : n_free;
+  const size_t J = geno.ncol(), KK = (size_t) K * K;
+  const size_t n_pair = (size_t) K * (K + 1) / 2;
+  const size_t nbi = n_blocks(I, TILE_I), n_seg = q_segments(I, J);
+  geno.direction(true);
+  // (with the blocked Hessians from HESS_BLOCK_MIN_K, as in q_side())
+  const bool block = NEWTON && K >= HESS_BLOCK_MIN_K;
+  const auto accum = geno.is_gl() ?
+    (block ? accum_q_block<NEWTON, true, LOGLIK, true> :
+     accum_q_block<NEWTON, true, LOGLIK, false>) :
+    (block ? accum_q_block<NEWTON, false, LOGLIK, true> :
+     accum_q_block<NEWTON, false, LOGLIK, false>);
+  const size_t hb_size = block ? HB_L * (TILE_I + hess_pairs_pad(n_pair)) : 0;
+  // the chunks, as ranges of loci, and (several segments) of segments
+  std::vector<size_t> cut_j(1, 0), cut_seg(1, 0);
+  if (n_seg == 1) {
+    // an even number of loci per chunk (TILE_J is even), so that the loci
+    // are paired as in one run over all of them
+    const size_t C = chunk_blocks(geno) * TILE_J;
+    for (size_t j = C; j < J; j += C) cut_j.push_back(j);
+    cut_j.push_back(J);
+  } else {
+    // groups of whole segments, of about the size of a chunk
+    const double seg_loci = (double) J / n_seg;
+    size_t per = (size_t) std::floor(chunk_blocks(geno) * TILE_J / seg_loci);
+    if (per < 1) per = 1;
+    for (size_t sg = per; sg < n_seg; sg += per) {
+      cut_seg.push_back(sg);
+      cut_j.push_back(J * sg / n_seg);
+    }
+    cut_seg.push_back(n_seg);
+    cut_j.push_back(J);
+  }
+  const size_t n_chunks = cut_j.size() - 1;
+  // one segment: the accumulators and the log-likelihood of each block,
+  // kept from one chunk to the next
+  const bool keep = n_seg == 1 && n_chunks > 1;
+  std::vector<double> acc_g(keep && SUMS ? nbi * K * TILE_I : 0);
+  std::vector<double> acc_h(keep && NEWTON ? nbi * n_pair * TILE_I : 0);
+  // several segments: the partial sums of each (segment, block), as in
+  // q_side()
+  std::vector<double> grad_part(n_seg > 1 && SUMS ? n_seg * K * I : 0);
+  std::vector<double> hess_part(n_seg > 1 && NEWTON ? n_seg * KK * I : 0);
+  std::vector<double> ll_part(LOGLIK ? n_seg * nbi : 0, 0.0);
+  // The prefetch of the next chunk reads at most chunk_blocks() blocks of
+  // loci, the size of a chunk elsewhere: a chunk of whole segments can be
+  // much larger (a segment of 187 MB against 32 MB chunks), and the chunk
+  // computed must stay in the cache until all its blocks of individuals are
+  // done, so prefetching all of the next one could evict it (with a third
+  // of the file cacheable, that read 4 GB more in a fit than no prefetch).
+  // The rest of a large chunk is read by the kernel's read-ahead of the
+  // threads' forward page faults.
+  const size_t max_prefetch = chunk_blocks(geno) * TILE_J;
+  Prefetcher prefetcher(geno);
+  for (size_t c = 0; c < n_chunks; c++) {
+    if (c + 1 < n_chunks)
+      prefetcher.start(cut_j[c + 1],
+                       std::min(cut_j[c + 2], cut_j[c + 1] + max_prefetch));
+    const bool first = c == 0, last = c + 1 == n_chunks;
+    if (n_seg == 1) {
+      const size_t j0 = cut_j[c], j1 = cut_j[c + 1];
+#pragma omp parallel num_threads(n_cores)
+{
+      // the accumulators are thread-local, as in q_side(), and copied from
+      // and to the block's slots between chunks (accumulating straight into
+      // the slots, in one large array, made the pass 15-40% slower)
+      Slice s[2];
+      std::vector<double> gT(SUMS ? K * TILE_I : 0);
+      std::vector<double> hT(NEWTON ? n_pair * TILE_I : 0);
+      std::vector<double> hB(hb_size);
+      std::vector<double> grad(last && SUMS ? K * TILE_I : 0);
+      std::vector<double> hess(last && NEWTON ? KK * TILE_I : 0);
+#pragma omp for schedule(RADMIX_OMP_SCHEDULE)
+      for (ptrdiff_t bl = 0; bl < (ptrdiff_t) nbi; bl++) {
+        const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
+        double* slot_g = SUMS ? &acc_g[bl * K * TILE_I] : NULL;
+        double* slot_h = NEWTON ? &acc_h[bl * n_pair * TILE_I] : NULL;
+        if (!first) {
+          if (SUMS) std::copy(slot_g, slot_g + K * TILE_I, gT.begin());
+          if (NEWTON)
+            std::copy(slot_h, slot_h + n_pair * TILE_I, hT.begin());
+        }
+        const double l = accum(
+          geno, qT, p, K, i0, i1, j0, j1,
+          last && SUMS ? grad.data() : NULL,
+          last && NEWTON ? hess.data() : NULL, s,
+          SUMS ? gT.data() : NULL, NEWTON ? hT.data() : NULL,
+          block ? hB.data() : NULL, free_idx, I, first, last,
+          LOGLIK ? ll_part[bl] : 0.0);
+        if (LOGLIK) ll_part[bl] = l;
+        if (last && SUMS) finish(i0, i1, grad.data(), hess.data());
+        if (!last) {
+          if (SUMS) std::copy(gT.begin(), gT.end(), slot_g);
+          if (NEWTON) std::copy(hT.begin(), hT.end(), slot_h);
+        }
+      }
+}
+    } else {
+      const size_t s0 = cut_seg[c], s1 = cut_seg[c + 1];
+      const ptrdiff_t t0 = (ptrdiff_t) (s0 * nbi),
+        t1 = (ptrdiff_t) (s1 * nbi);
+#pragma omp parallel num_threads(n_cores)
+{
+      Slice s[2];
+      std::vector<double> gT(SUMS ? K * TILE_I : 0);
+      std::vector<double> hT(NEWTON ? n_pair * TILE_I : 0);
+      std::vector<double> hB(hb_size);
+#pragma omp for schedule(RADMIX_OMP_SCHEDULE)
+      for (ptrdiff_t t = t0; t < t1; t++) {
+        const size_t seg = t / nbi, bl = t % nbi;
+        const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
+        const size_t j0 = J * seg / n_seg, j1 = J * (seg + 1) / n_seg;
+        const double l = accum(
+          geno, qT, p, K, i0, i1, j0, j1,
+          SUMS ? &grad_part[K * (seg * I + i0)] : NULL,
+          NEWTON ? &hess_part[KK * (seg * I + i0)] : NULL, s, gT.data(),
+          NEWTON ? hT.data() : NULL, block ? hB.data() : NULL, free_idx, I,
+          true, true, 0.0);
+        if (LOGLIK) ll_part[t] = l;
+      }
+}
+    }
+  }
+  prefetcher.wait();
+  // several segments: add up the partial sums of each block in segment
+  // order, as q_side() does
+  if (n_seg > 1 && SUMS) {
+#pragma omp parallel num_threads(n_cores)
+{
+    std::vector<double> grad(K * TILE_I);
+    std::vector<double> hess(NEWTON ? KK * TILE_I : 0);
+#pragma omp for schedule(RADMIX_OMP_SCHEDULE)
+    for (ptrdiff_t bl = 0; bl < (ptrdiff_t) nbi; bl++) {
+      const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
+      for (size_t i = i0; i < i1; i++) {
+        double* g = &grad[K * (i - i0)];
+        for (int k = 0; k < K; k++) {
+          double sum = 0.0;
+          for (size_t seg = 0; seg < n_seg; seg++)
+            sum += grad_part[K * (seg * I + i) + k];
+          g[k] = sum;
+        }
+        if (!NEWTON) continue;
+        double* H = &hess[KK * (i - i0)];
+        for (size_t kk = 0; kk < KK; kk++) {
+          double sum = 0.0;
+          for (size_t seg = 0; seg < n_seg; seg++)
+            sum += hess_part[KK * (seg * I + i) + kk];
+          H[kk] = sum;
+        }
+      }
+      finish(i0, i1, grad.data(), hess.data());
+    }
+}
+  }
   if (LOGLIK) {
     double total = 0.0;
     for (size_t t = 0; t < ll_part.size(); t++) total += ll_part[t];
@@ -1391,6 +1656,39 @@ static void p_side(const GenoView& geno, const double* qT, const double* p,
   const size_t n_pair = (size_t) K * (K + 1) / 2;
   const size_t p_scratch = block ?
     TILE_I * (hess_pairs_pad(n_pair) + TILE_I) + n_pair * TILE_I : 0;
+  if (geno.stream()) {
+    // streaming (see "Streaming" at the top): the blocks chunk by chunk,
+    // with the chunks in order or in reverse order; each block is
+    // independent, so the order does not change the results
+    const bool backward = geno.direction(false);
+    const size_t cb = chunk_blocks(geno), n_chunks = n_blocks(nb, cb);
+    Prefetcher prefetcher(geno);
+    for (size_t cc = 0; cc < n_chunks; cc++) {
+      const size_t c = backward ? n_chunks - 1 - cc : cc;
+      const ptrdiff_t b0 = c * cb, b1 = std::min((size_t) nb, (c + 1) * cb);
+      if (cc + 1 < n_chunks) {
+        const size_t cn = backward ? c - 1 : c + 1;
+        prefetcher.start(cn * cb * TILE_J,
+                         std::min(J, (cn + 1) * cb * TILE_J));
+      }
+#pragma omp parallel num_threads(n_cores)
+{
+      Slice s[2];
+      std::vector<double> out1(K * TILE_J), out2((NEWTON ? KK : K) * TILE_J);
+      std::vector<double> pB(p_scratch);
+#pragma omp for schedule(RADMIX_OMP_SCHEDULE)
+      for (ptrdiff_t x = 0; x < b1 - b0; x++) {
+        // (forwards within the chunk, see GenoView::direction())
+        const ptrdiff_t bl = b0 + x;
+        const size_t j0 = bl * TILE_J, j1 = std::min(J, j0 + TILE_J);
+        accum(geno, qT, p, K, j0, j1, out1.data(), out2.data(), s,
+              pB.data());
+        finish(j0, j1, out1.data(), out2.data());
+      }
+}
+    }
+    return;
+  }
 #pragma omp parallel num_threads(n_cores)
 {
   // thread-local buffers: two slices, and the sums of one block of loci
@@ -1424,6 +1722,43 @@ static void sum_slices(const GenoView& geno, const double* q, const double* p,
   std::vector<double> qT = transpose(q, K, I);
   const ptrdiff_t nb = (ptrdiff_t) n_blocks(J, TILE_J);
   std::vector<double> partial(nb * NS, 0.0);
+  // the sums of block bl into partial
+  auto block = [&](ptrdiff_t bl, Slice& s) {
+    const size_t j1 = std::min(J, (bl + 1) * TILE_J);
+    double acc[NS] = {};
+    for (size_t j = bl * TILE_J; j < j1; j++) {
+      for (size_t i0 = 0; i0 < I; i0 += TILE_I) {
+        const size_t i1 = std::min(I, i0 + TILE_I);
+        slice_geno<GL>(geno, qT.data(), p + K * j, K, j, i0, i1, s);
+        slice_sum(i1 - i0, s, acc);
+      }
+    }
+    for (int c = 0; c < NS; c++) partial[NS * bl + c] = acc[c];
+  };
+  if (geno.stream()) {
+    // streaming (see "Streaming" at the top): the blocks chunk by chunk,
+    // with the chunks in order or in reverse order; each keeps its own sums,
+    // so the order does not change the results
+    const bool backward = geno.direction(false);
+    const size_t cb = chunk_blocks(geno), n_chunks = n_blocks(nb, cb);
+    Prefetcher prefetcher(geno);
+    for (size_t cc = 0; cc < n_chunks; cc++) {
+      const size_t c = backward ? n_chunks - 1 - cc : cc;
+      const ptrdiff_t b0 = c * cb, b1 = std::min((size_t) nb, (c + 1) * cb);
+      if (cc + 1 < n_chunks) {
+        const size_t cn = backward ? c - 1 : c + 1;
+        prefetcher.start(cn * cb * TILE_J,
+                         std::min(J, (cn + 1) * cb * TILE_J));
+      }
+#pragma omp parallel num_threads(n_cores)
+{
+      Slice s;
+#pragma omp for schedule(RADMIX_OMP_SCHEDULE)
+      for (ptrdiff_t x = 0; x < b1 - b0; x++)
+        block(b0 + x, s);
+}
+    }
+  } else {
 #pragma omp parallel num_threads(n_cores)
 {
   Slice s;
@@ -1443,6 +1778,7 @@ static void sum_slices(const GenoView& geno, const double* q, const double* p,
     for (int c = 0; c < NS; c++) partial[NS * bl + c] = acc[c];
   }
 }
+  }
   // the totals, adding up the blocks in order (outside the parallel region)
   for (int c = 0; c < NS; c++) {
     total[c] = 0.0;

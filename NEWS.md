@@ -1,4 +1,10 @@
 # tidygenclust (development version)
+* `gt_radmix()` streams data larger than the memory: its passes read the
+  backing file in chunks, with the next chunk read ahead and alternating
+  directions, and give identical results (options
+  `tidygenclust.radmix_stream` and `tidygenclust.radmix_chunk_mb`; a source
+  of genotype likelihoods can give a prefetch function, see
+  `inst/include/tidygenclust/radmix_gl_source.h`)
 * new `gl_curvature` argument of `gt_radmix()`: `"observed"` takes Newton
   steps with the curvature of the log-likelihood of genotype likelihoods,
   about 1.5 times faster on low-depth data (`"complete"`, the default,

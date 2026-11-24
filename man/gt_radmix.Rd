@@ -484,6 +484,26 @@ with and without these instructions. Compiling the package with
 same on every x86-64 machine.
 }
 
+\subsection{Data larger than the memory}{
+
+The genotypes (or likelihoods) are read from their memory-mapped backing
+file at every pass, and never copied into memory, so data larger than
+the memory can be analysed: the operating system reads the file again
+as needed. When the file read by a pass is larger than 0.8 times the
+memory available (on Linux, \code{MemAvailable} or the limit of the control
+group), the passes stream it: all the threads work on one chunk of loci
+at a time, a helper thread asks the operating system to read the next
+chunk meanwhile, and the passes that can take the chunks in any order
+alternate their direction, so that each starts with the data that the
+previous one left in memory. The results are identical. The option
+\code{tidygenclust.radmix_stream} forces streaming on (\code{TRUE}) or off
+(\code{FALSE}), and \code{tidygenclust.radmix_chunk_mb} sets the size of the
+chunks (by default a sixteenth of the memory available, between 16 and
+256 MB). Each pass still reads the part of the file that is not in
+memory, so a fit runs at the speed of the disk once the data are much
+larger than the memory.
+}
+
 \subsection{Comparison with ADMIXTURE}{
 
 The model, the log-likelihood and the optimisation strategy are those of

@@ -15,6 +15,11 @@
 //   ctx: an external pointer to the context, passed to the function as is;
 //   n_indiv, n_loci: the numbers of individuals and loci, in the order of
 //     the rows and of the loci (show_loci()) of the object;
+//   prefetch, locus_bytes (optional): an external pointer to a prefetch
+//     function (see below), tagged tidygenclust_gl_prefetch
+//     (TIDYGENCLUST_GL_PREFETCH_TAG), and the number of bytes of storage
+//     per locus, used when gt_radmix() streams data larger than the memory
+//     (a source without them still works, without prefetching);
 // and any other elements that must stay alive during the fit (e.g. the
 // file-backed matrix whose mapping the context points into): tidygenclust
 // keeps the list, and hence them, for as long as it uses the source.
@@ -52,6 +57,7 @@
 #define TIDYGENCLUST_GL_SOURCE_VERSION 1
 // the name of the symbol that must tag the external pointer to the function
 #define TIDYGENCLUST_GL_FILL_TAG "tidygenclust_gl_fill"
+#define TIDYGENCLUST_GL_PREFETCH_TAG "tidygenclust_gl_prefetch"
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,6 +66,16 @@ extern "C" {
 typedef void (*tidygenclust_gl_fill_fn)(const void* ctx, size_t i0,
                                         size_t ni, size_t j, double* e1,
                                         double* e2, double* obs);
+
+/* Optional (element "prefetch" of the list, with "locus_bytes", the bytes
+   of storage per locus): ask the operating system to read loci [j0, j1)
+   into memory, without waiting for them (e.g. madvise(MADV_WILLNEED) on a
+   memory-mapped file). Called from a helper thread of tidygenclust while
+   the kernels compute on other loci, so it must be thread safe, must not
+   call R and should return quickly. Used only when gt_radmix() streams
+   data larger than the memory. */
+typedef void (*tidygenclust_gl_prefetch_fn)(const void* ctx, size_t j0,
+                                            size_t j1);
 
 #ifdef __cplusplus
 }
