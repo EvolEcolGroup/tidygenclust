@@ -42,13 +42,17 @@ test_that("streaming passes are identical (Q side in segments)", {
   # 150 individuals: 3 blocks, so the Q side splits the loci into segments
   # (4 of 275 loci)
   expect_identical(radmix_q_segments_cpp(150, 1100), 4L)
-  qp <- random_qp(3, 150, 1100, 1)
-  ref <- all_passes(dat, qp$q, qp$p)
-  # chunks of one block of loci (and one segment), of two segments, and of
-  # all the loci
-  for (cb in c(1, 150 * 640, 1e9)) {
-    expect_identical(all_passes(stream_data(dat, cb), qp$q, qp$p), ref)
+  # K = 8 also streams the register-blocked Hessians of both sides
+  for (k in c(3, 8)) {
+    qp <- random_qp(k, 150, 1100, 1)
+    ref <- all_passes(dat, qp$q, qp$p)
+    # chunks of one block of loci (and one segment), of two segments, and
+    # of all the loci
+    for (cb in c(1, 150 * 640, 1e9)) {
+      expect_identical(all_passes(stream_data(dat, cb), qp$q, qp$p), ref)
+    }
   }
+  qp <- random_qp(3, 150, 1100, 1)
   # a supervised analysis (fixed individuals) and a training view of
   # cross-validation
   fixed <- rep(c(TRUE, FALSE, FALSE), 50)
@@ -75,35 +79,43 @@ test_that("streaming passes are identical (Q side in one segment)", {
   g[sample(length(g), 2000)] <- NA
   big <- radmix_prepare(radmix_test_gt(g))
   expect_identical(radmix_q_segments_cpp(n, m), 1L)
-  qp <- random_qp(2, n, m, 2)
-  ref <- all_passes(big, qp$q, qp$p)
-  expect_identical(all_passes(stream_data(big), qp$q, qp$p), ref)
   fixed <- seq_len(n) %% 7 == 0
-  expect_identical(
-    all_passes(stream_data(big), qp$q, qp$p, fixed),
-    all_passes(big, qp$q, qp$p, fixed)
-  )
+  # K = 8: the blocked Hessians of the Q side are flushed at the end of each
+  # chunk, at the same loci as in one run over all of them
+  for (k in c(2, 8)) {
+    qp <- random_qp(k, n, m, 2)
+    ref <- all_passes(big, qp$q, qp$p)
+    expect_identical(all_passes(stream_data(big), qp$q, qp$p), ref)
+    expect_identical(
+      all_passes(stream_data(big), qp$q, qp$p, fixed),
+      all_passes(big, qp$q, qp$p, fixed)
+    )
+  }
 })
 
 test_that("streaming passes are identical for genotype likelihoods", {
   gl <- radmix_test_gl(radmix_simulate_gl(sim$genotypes))
-  qp <- random_qp(3, 150, 1100, 4)
-  # without locus_bytes, a chunk holds chunk_bytes loci (here 70)
-  expect_identical(
-    all_passes(stream_data(gl, 70), qp$q, qp$p),
-    all_passes(gl, qp$q, qp$p)
-  )
+  for (k in c(3, 8)) {
+    qp <- random_qp(k, 150, 1100, 4)
+    # without locus_bytes, a chunk holds chunk_bytes loci (here 70)
+    expect_identical(
+      all_passes(stream_data(gl, 70), qp$q, qp$p),
+      all_passes(gl, qp$q, qp$p)
+    )
+  }
 })
 
 test_that("fits that stream are identical to those that do not", {
-  fit <- function(stream) {
+  fit <- function(stream, k = 3, max_iter = 1000) {
     withr::local_options(
       tidygenclust.radmix_stream = stream,
       tidygenclust.radmix_chunk_mb = 1e-4
     )
-    gt_radmix(sim_gt, k = 3, seed = 1, n_cores = 2)
+    gt_radmix(sim_gt, k = k, seed = 1, n_cores = 2, max_iter = max_iter)
   }
   expect_identical(fit(TRUE), fit(FALSE))
+  # K = 7: Newton steps with the blocked Hessians of both sides
+  expect_identical(fit(TRUE, 7, 10), fit(FALSE, 7, 10))
 })
 
 test_that("streaming is chosen from the size of the data", {
