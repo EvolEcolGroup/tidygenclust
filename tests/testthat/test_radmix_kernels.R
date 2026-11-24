@@ -586,6 +586,72 @@ test_that("gradients of likelihoods are exact, Hessians bound the curvature", {
   }
 })
 
+test_that("gl_curvature = \"observed\" gives the floored observed curvature", {
+  # depth 2 (many uncertain genotypes, and some without data), with 70
+  # individuals and 301 loci for partial tiles and blocks
+  big <- radmix_simulate_admixed(
+    n = 70, m = 301, k = 3, missing = 0.05, seed = 7
+  )
+  inp <- radmix_ref_gl_inputs(radmix_test_gl(
+    radmix_simulate_gl(big$genotypes, depth = 2)
+  ))
+  obs_dat <- inp$dat
+  obs_dat$gl_curvature <- "observed"
+  e1 <- inp$g$e1
+  e2 <- inp$g$e2
+  # K = 3 uses the plain loops, K = 8 the register-blocked Hessians
+  for (k in c(3, 8)) {
+    st <- radmix_ref_start(70, 301, k)
+    q <- st$q
+    p <- st$p
+    # the negative second derivative of log f(x), from f and its
+    # derivatives, and the complete-data curvature of the default
+    qp <- t(q) %*% p
+    f <- (1 - qp)^2 + 2 * e1 * qp * (1 - qp) + e2 * qp^2
+    f1 <- -2 * (1 - qp) + 2 * e1 * (1 - 2 * qp) + 2 * e2 * qp
+    f2 <- 2 * (1 - 2 * e1 + e2)
+    d2_obs <- (f1 / f)^2 - f2 / f
+    tt <- radmix_ref_terms(inp$g, inp$n, q, p)
+    d2_em <- tt$a / tt$qp + tt$b / (1 - tt$qp)
+    # floored at a quarter of the complete-data curvature, 0 without data
+    w <- ifelse(inp$g$obs, pmax(d2_obs, 0.25 * d2_em), 0)
+    hess_q <- array(0, c(k, k, 70))
+    for (i in 1:70) hess_q[, , i] <- p %*% (w[i, ] * t(p))
+    hess_p <- array(0, c(k, k, 301))
+    for (j in 1:301) hess_p[, , j] <- q %*% (w[, j] * t(q))
+    gq <- radmix_grad_q_cpp(obs_dat, q, p, 1)
+    gp <- radmix_grad_p_cpp(obs_dat, q, p, 1)
+    # the gradients are unchanged
+    expect_equal(gq$grad, radmix_ref_grad_q(inp$g, inp$n, q, p)$grad,
+      tolerance = 1e-10
+    )
+    expect_equal(gp$grad, radmix_ref_grad_p(inp$g, inp$n, q, p)$grad,
+      tolerance = 1e-10
+    )
+    expect_equal(gq$hess, hess_q, tolerance = 1e-10)
+    expect_equal(gp$hess, hess_p, tolerance = 1e-10)
+    expect_identical(radmix_grad_q_cpp(obs_dat, q, p, 3), gq)
+    expect_identical(radmix_grad_p_cpp(obs_dat, q, p, 3), gp)
+  }
+  # the floor binds for some genotypes, and not for others
+  has_data <- inp$g$obs
+  expect_true(any(has_data & d2_obs < 0.25 * d2_em))
+  expect_true(any(has_data & d2_obs > 0.25 * d2_em))
+  # genotypes ignore the option (their two curvatures are the same)
+  geno_dat <- radmix_prepare(radmix_test_gt(big$genotypes))
+  geno_obs <- geno_dat
+  geno_obs$gl_curvature <- "observed"
+  expect_identical(
+    radmix_grad_q_cpp(geno_obs, q, p, 1),
+    radmix_grad_q_cpp(geno_dat, q, p, 1)
+  )
+  obs_dat$gl_curvature <- "expected"
+  expect_error(
+    radmix_grad_q_cpp(obs_dat, q, p, 1),
+    "'gl_curvature' must be"
+  )
+})
+
 test_that("genotype likelihoods of hard calls give the results of genotypes", {
   # likelihood 1 for the observed genotype and 0 for the others (clamped to
   # about exp(-32) by radmix_test_gl()), and no data for missing genotypes

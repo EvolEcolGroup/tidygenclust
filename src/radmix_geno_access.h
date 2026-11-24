@@ -170,6 +170,17 @@ public:
     } else {
       init_gl_source(data);
     }
+    // the curvature of the Newton updates of genotype likelihoods (an
+    // optional element, set by gt_radmix(gl_curvature = ); see slice_coef()
+    // in radmix_kernels.cpp): "complete" (the default) or "observed". With
+    // genotypes the two are the same, so the element is ignored.
+    _obs_curv = false;
+    if (data.containsElementNamed("gl_curvature")) {
+      const std::string curv = Rcpp::as<std::string>(data["gl_curvature"]);
+      if (curv != "complete" && curv != "observed")
+        Rcpp::stop("'gl_curvature' must be \"complete\" or \"observed\".");
+      _obs_curv = _gl && curv == "observed";
+    }
     // cross-validation mask
     int cv_mode = CV_NONE, cv_fold = 0, n_folds = 1;
     double cv_seed = 0;
@@ -255,6 +266,11 @@ public:
   // whether the view holds genotype likelihoods (from a source) rather
   // than genotypes (code256)
   inline bool is_gl() const { return _gl; }
+
+  // whether the Newton updates of genotype likelihoods use the observed
+  // curvature (gt_radmix(gl_curvature = "observed"); always false for
+  // genotypes)
+  inline bool observed_curvature() const { return _obs_curv; }
 
   // Genotype likelihoods only: the likelihoods (1, e1, e2) of 0, 1 and 2
   // copies of allele2 for individuals i0 to i0 + ni - 1 at locus j, up to a
@@ -537,6 +553,7 @@ private:
   }
 
   bool _gl;                      // genotype likelihoods, not genotypes
+  bool _obs_curv;                // observed curvature (likelihoods only)
   size_t _n_indiv, _n_loci;      // numbers of selected individuals and loci
   const unsigned char* _pMat;    // start of the memory-mapped FBM (genotypes)
   std::vector<size_t> _rows;     // 0-based FBM row of each individual

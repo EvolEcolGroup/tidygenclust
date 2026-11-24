@@ -1,4 +1,8 @@
 # tidygenclust (development version)
+* new `gl_curvature` argument of `gt_radmix()`: `"observed"` takes Newton
+  steps with the curvature of the log-likelihood of genotype likelihoods,
+  about 1.5 times faster on low-depth data (`"complete"`, the default,
+  keeps the curvature of the EM algorithm)
 * `gt_radmix(init = "svd")` computes its SVD with tidypopgen's `gt_pca()`:
   missing genotypes no longer need imputing (also for pseudohaploids), it
   uses about 1 GB less memory, and it is faster without an optimised BLAS
