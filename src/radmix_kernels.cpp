@@ -106,7 +106,8 @@
 //   false), and chunks have an even number of loci, so the loci are paired
 //   as in one run;
 // - Q side, several segments: a chunk is a group of whole segments, whose
-//   tasks are those of the usual layout;
+//   tasks are those of the usual layout (it can be larger than chunk_bytes,
+//   so only its first chunk_bytes are prefetched);
 // - P side, log-likelihood, deviance: each block of loci is independent (or
 //   keeps its own partial sums), so the chunks can be processed in any
 //   order: in order or in reverse order, as GenoView::direction() says
@@ -1126,9 +1127,20 @@ static void q_side_stream(const GenoView& geno, const double* qT,
   std::vector<double> grad_part(n_seg > 1 && SUMS ? n_seg * K * I : 0);
   std::vector<double> hess_part(n_seg > 1 && NEWTON ? n_seg * KK * I : 0);
   std::vector<double> ll_part(LOGLIK ? n_seg * nbi : 0, 0.0);
+  // The prefetch of the next chunk reads at most chunk_blocks() blocks of
+  // loci, the size of a chunk elsewhere: a chunk of whole segments can be
+  // much larger (a segment of 187 MB against 32 MB chunks), and the chunk
+  // computed must stay in the cache until all its blocks of individuals are
+  // done, so prefetching all of the next one could evict it (with a third
+  // of the file cacheable, that read 4 GB more in a fit than no prefetch).
+  // The rest of a large chunk is read by the kernel's read-ahead of the
+  // threads' forward page faults.
+  const size_t max_prefetch = chunk_blocks(geno) * TILE_J;
   Prefetcher prefetcher(geno);
   for (size_t c = 0; c < n_chunks; c++) {
-    if (c + 1 < n_chunks) prefetcher.start(cut_j[c + 1], cut_j[c + 2]);
+    if (c + 1 < n_chunks)
+      prefetcher.start(cut_j[c + 1],
+                       std::min(cut_j[c + 2], cut_j[c + 1] + max_prefetch));
     const bool first = c == 0, last = c + 1 == n_chunks;
     if (n_seg == 1) {
       const size_t j0 = cut_j[c], j1 = cut_j[c + 1];

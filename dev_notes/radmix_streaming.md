@@ -101,7 +101,10 @@ one parallel region per chunk, all the threads working on the same chunk:
   an even number of loci, so the loci are paired as in one run: the sums
   are bit-identical.
 - **Q side, segments**: a chunk is a group of whole segments; the tasks are
-  those of the usual layout.
+  those of the usual layout. A segment can be much larger than
+  `chunk_bytes` (187 MB against 32 MB chunks for 1,000 x 1,500,000 with
+  500 MB of memory), so only the first `chunk_bytes` of the next chunk are
+  prefetched (see "The prefetch of the Q side", below).
 - **P side, log-likelihood, deviance**: blocks of loci are independent (or
   keep their own partial sums), so the chunks can be taken in any order.
 - **Prefetch** (step 2 of the plan): before computing a chunk, the main
@@ -242,8 +245,8 @@ machine is a shared VM), and are replaced by the medians of their repeats
   segments (187 MB here, against 32 MB chunks elsewhere), and the segment
   computed plus the one prefetched (374 MB) do not leave the 477 MB cache
   room to keep the first while all its blocks of individuals are processed.
-  The Q side should not prefetch a chunk much larger than `chunk_bytes`
-  (or prefetch only its first `chunk_bytes`).
+  The prefetch of the Q side is now capped at `chunk_bytes` (next
+  section).
 - The alternation saves 15-40% of the bytes, which pays on the slowest
   disk (10,000 individuals: 90 against 103 s; 1,000: 96 against 145 s).
 - System CPU time was 8-9 s with the prefetch (with or without the
@@ -278,6 +281,31 @@ Reading the results:
 - On the slowest disk, every version is bound by the bytes read (8 GB at
   150 MB/s is 55 s): only reading less helps (smaller chunks; see "Left to
   do").
+
+### The prefetch of the Q side
+
+With segments, the Q side used to prefetch the whole next chunk (one or
+more segments), which with a small cache evicted the segment being
+computed before all its blocks of individuals were done. The prefetch now
+reads at most `chunk_bytes` of the next chunk (`max_prefetch` in
+`q_side_stream()`); the rest is read by the kernel's read-ahead of the
+threads' forward page faults. 1,000 x 1,500,000, full fit as above:
+
+| cache | disk | capped | uncapped | no prefetch | dev |
+|---|---|---|---|---|---|
+| 33% | 2 GB/s | 33.1, 34.9 s; 14.0 GB | 34.7, 38.2 s; 15.8-16.8 GB | 34.1-36.6 s; 11.6-12.2 GB | 34.2-35.8 s; 15.1-16.2 GB |
+| 33% | 500 MB/s | 45.2 s; 12.8 GB | 49.6 s; 16.1 GB | 42.5 s; 11.7 GB | 43.7 s; 15.6 GB |
+| 33% | 150 MB/s | 103.5 s; 12.6 GB | 122.0 s; 15.3 GB | 96.3 s; 11.6 GB | 116.1 s; 15.1 GB |
+| 67% | 2 GB/s | 34.8, 34.7 s; 8.5 GB | 35.0, 34.1 s; 9.3 GB | 31.3 s; 8.0 GB | 31.9 s; 13.8 GB |
+
+(The runs at 2 GB/s alternated the capped and uncapped builds; the others
+are single runs, compared with those of the matrix above.) The cap removes
+most of the extra reads, which saves 9-15% of the time on the slower disks
+and costs nothing on the fast one. Streaming still reads 1 GB more than
+without the prefetch here, and on the slowest disk without the prefetch is
+7% faster; with 10,000 individuals (one segment, unchanged by the cap) the
+prefetch pays (see above). Whether few individuals should prefetch at all
+is for the desktop.
 
 ## Conventional fits
 
@@ -333,10 +361,6 @@ up to 15-20%.
   memory too, after timing it on the desktop.
 - Timing on a real disk (the container's disk is backed by the host's
   cache, and the throttle only caps its throughput, not its latency).
-- Few individuals: the Q side prefetches whole segments, which can be much
-  larger than `chunk_bytes`; with a third of the file cacheable this read
-  4 GB more than without the prefetch (above). Cap the prefetch of the Q
-  side at `chunk_bytes`.
 - Few individuals, file a little larger than the cache: the chunks and the
   prefetch can make streaming read more than dev (step 1), and dev is
   already close to its time in memory there. Whether streaming should
