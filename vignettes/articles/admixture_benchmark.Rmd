@@ -846,9 +846,10 @@ the benchmark: the runs left of the dashed line (within 1 of it) reached
 the same optimum. `r starts_optimum_text`
 
 The time of `gt_radmix()` from the command line includes starting R and
-loading `tidygenclust` (about `r format_seconds(startup_of("radmix"))` s),
-and, from an SVD, imputing the missing genotypes (the script imputes them
-for the SVD, and the fit ignores the imputed values).
+loading `tidygenclust` (about `r format_seconds(startup_of("radmix"))` s).
+Its SVD needs no imputation of the missing genotypes: it is computed by
+`tidypopgen::gt_pca()`, which, as PLINK 1.9 does, compares each pair of
+individuals over the loci genotyped in both.
 
 ## Detailed results
 
@@ -1082,9 +1083,8 @@ several seeds:
 ```
 
 From the command line, `gt_radmix()` is run by this R script (with
-`Rscript`), which reads the same bed file into a `gen_tibble` (imputing the
-missing genotypes for the SVD), runs `gt_radmix()`, and saves the result to
-an RDS file:
+`Rscript`), which reads the same bed file into a `gen_tibble`, runs
+`gt_radmix()`, and saves the result to an RDS file:
 
 ```{r r-cli, eval = FALSE}
 ```
@@ -1132,7 +1132,8 @@ mini-batches of the loci. An iteration of ADMIXTURE, ADAMIXTURE,
 `gt_radmix()` and OpenADMIXTURE.jl updates all the parameters with
 block-wise Newton steps. From random values, ADMIXTURE, ADAMIXTURE,
 `gt_radmix()` and OpenADMIXTURE.jl first refine them with a few EM steps.
-From an SVD, fastmixture, ADAMIXTURE and `gt_radmix()` start from the
+From an SVD (computed by `tidypopgen::gt_pca()` for `gt_radmix()`),
+fastmixture, ADAMIXTURE and `gt_radmix()` start from the
 solution of alternating least squares on its factors; the ALS step of
 `gt_radmix()` is adapted from ADAMIXTURE (`src/radmix_als.cpp`, see
 `inst/COPYRIGHTS`), and both ADAMIXTURE and `gt_radmix()` keep the best of
