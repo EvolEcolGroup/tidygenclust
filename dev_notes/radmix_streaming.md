@@ -1,0 +1,240 @@
+# Streaming data larger than the memory in `gt_radmix()`
+
+How `gt_radmix()` reads a backing file that does not fit in memory, what
+was measured, and what is left. The code is in `src/radmix_geno_access.h`
+("Streaming larger-than-memory data": `stream()`, `chunk_loci()`,
+`direction()`, `prefetch()`), `src/radmix_kernels.cpp` ("Streaming":
+`Prefetcher`, `q_side_stream()`, the streaming branches of `p_side()` and
+`sum_slices()`) and `R/radmix_stream.R` (when to stream). The benchmark
+scripts are in `data-raw/radmix/stream/`.
+
+## The problem
+
+The genotypes (or likelihoods) are never copied into memory: every pass
+reads the memory-mapped backing file, so data larger than the memory never
+exhaust it, and the operating system reads the file again as needed. But
+the usual layout of the work reads it many times per pass once it does not
+fit in the page cache:
+
+- Q side with one segment (8,192 individuals or more): each block of 64
+  individuals is streamed over all the loci by one thread, and then the
+  next block starts again at the first locus. With `nbi` blocks and `n`
+  threads, a Q-side pass reads the file about `nbi / n` times (40 times for
+  10,000 individuals on 4 threads): a fit of 10,000 x 150,000 genotypes
+  (1.5 GB) with 60% of the file in the page cache read 294 GB from disk and
+  took 518 s, against 25 s in memory.
+- Q side with segments (fewer individuals): the same within a segment, so a
+  segment that does not fit in the cache is read many times.
+- Every pass is a forward scan: with a file a little larger than the cache,
+  each pass evicts the pages that the next one reads first (LRU), and
+  almost nothing is read from the cache.
+
+## The design
+
+A view in streaming mode (`data$stream`) makes every pass walk the loci in
+chunks of about `chunk_bytes` bytes of the file (whole tiles of 64 loci),
+one parallel region per chunk, all the threads working on the same chunk:
+
+- **Q side, one segment**: each block of individuals is accumulated over
+  a chunk, then over the next, from where it stopped. Its accumulators (and
+  its log-likelihood) are kept between chunks (I (K + K (K + 1) / 2)
+  doubles), copied into thread-local buffers for each chunk (accumulating
+  in place, in one large array, made the passes 15-40% slower). Chunks have
+  an even number of loci, so the loci are paired as in one run: the sums
+  are bit-identical.
+- **Q side, segments**: a chunk is a group of whole segments; the tasks are
+  those of the usual layout.
+- **P side, log-likelihood, deviance**: blocks of loci are independent (or
+  keep their own partial sums), so the chunks can be taken in any order.
+- **Prefetch** (step 2 of the plan): before computing a chunk, the main
+  thread starts a helper thread (`Prefetcher`, a `std::thread`) that calls
+  `madvise(MADV_WILLNEED)` on the columns of the next chunk, merged into
+  runs of adjacent columns, in pieces of 2 MB. Linux reads only the first
+  4 MB of a larger range (a 256 MB call left 1,024 of 65,536 pages
+  resident), whereas each 2 MB call starts its reading and returns at once
+  (256 MB advised in 17 ms, all resident 0.5 s later). On cached pages it
+  costs nothing (0.04 ms per 256 MB). A source of genotype likelihoods can
+  give a prefetch function (optional element `prefetch` of its list, with
+  `locus_bytes`; tidypopgl's does).
+- **Alternating directions** (step 3): the P side, the log-likelihood and
+  the deviance take the chunks in reverse order after a forward pass, and in
+  order after a backward one (`direction()`), so that each starts with the
+  chunks the previous pass read last, still in the cache. The Q side always
+  runs forwards (its sums are accumulated over the loci in order). In a fit,
+  Q-side and P-side passes alternate (EM: Q then P; each iteration: P, Q, P
+  and the fused Q of the next point), so every pass starts where the last
+  one ended, except after a rejected quasi-Newton point (two Q passes in a
+  row). Within a chunk the loci are read forwards: the kernel reads ahead
+  of forward page faults only (backward reads within chunks doubled the
+  page faults), and with the chunk order reversed it stops reading ahead
+  even of forward faults, so the alternation only works with the prefetch
+  (85% of the file cacheable: 929,000 waiting faults without the prefetch,
+  3,900 with it).
+
+The results are bit-identical to those of the usual layout
+(`tests/testthat/test_radmix_stream.R`), whatever the size of the chunks
+and the number of threads, so whether a fit streams does not matter for
+reproducibility.
+
+**When**: `radmix_stream_mode()` streams when the bytes of the file read by
+a pass (whole columns of the FBM, or `locus_bytes` per locus of a source)
+exceed 0.8 times the memory available (`radmix_mem_available()`: on Linux,
+the smaller of `MemAvailable` and the room under the limit of the cgroup,
+v1 or v2; `Inf` elsewhere, so it never streams on its own on macOS or
+Windows). The option `tidygenclust.radmix_stream` forces it on or off.
+Chunks are a sixteenth of the memory available, between 16 and 256 MB
+(`tidygenclust.radmix_chunk_mb`): the chunk being computed and the one
+being prefetched take memory from the cache, and 256 MB chunks with 860 MB
+of cache read 7.5 GB where 32-64 MB chunks read 5.0-5.3 GB, in the same
+time.
+
+## Benchmark
+
+Container with 4 cores, 15 GB. Simulated genotypes (`make_data.R`: 3
+populations, 1% missing), 10,000 x 150,000 (one Q segment) and 1,000 x
+1,500,000 (8 segments), 1.5 GB each. One fit (`bench_fit.R`: K = 4, one EM
+step, 2 iterations, about 10 passes), from a cold page cache, under a cgroup
+v1 memory cap of the R process plus 60% or 85% of the file
+(`bench_stream.sh`, `run_ooc.sh`), on the disk as it is (about 2 GB/s,
+backed by the host's cache) or throttled with the blkio cgroup (500 and
+150 MB/s). "dev" is the build of `dev` before streaming; the other rows
+are streaming with everything on, without the prefetch, and without
+alternating directions. Every run gave the same estimates (hash of Q, P and
+the log-likelihoods). "Faults" are major page faults (that waited for the
+disk); "read" is `read_bytes` of `/proc/self/io`. In memory (no cap), the
+same fit takes 25 s (10,000 x 150,000) and 30 s (1,000 x 1,500,000), and
+reads the file once (1.4 GB). Chunks of 64 MB.
+
+10,000 x 150,000:
+
+| cache | disk | version | time (s) | read (GB) | faults |
+|---|---|---|---|---|---|
+| 60% | 2 GB/s | dev | 518 | 294 | 4,024,000 |
+| 60% | 2 GB/s | streaming | 27.3 | 8.2 | 12,000 |
+| 60% | 2 GB/s | no prefetch | 36.5 | 8.1 | 147,000 |
+| 60% | 2 GB/s | no alternation | 31.4 | 15.1 | 14,000 |
+| 60% | 500 MB/s | dev | 618 | 294 | 4,039,000 |
+| 60% | 500 MB/s | streaming | 29.4 | 8.0 | 7,000 |
+| 60% | 500 MB/s | no prefetch | 39.1 | 8.2 | 185,000 |
+| 60% | 500 MB/s | no alternation | 34.4 | 14.1 | 13,000 |
+| 60% | 150 MB/s | streaming | 67.7 | 8.3 | 7,000 |
+| 60% | 150 MB/s | no prefetch | 65.0 | 7.2 | 140,000 |
+| 85% | 2 GB/s | dev | 513 | 295 | 3,997,000 |
+| 85% | 2 GB/s | streaming | 27.7 | 5.1 | 3,900 |
+| 85% | 2 GB/s | no prefetch | 57.5 | 6.5 | 929,000 |
+| 85% | 2 GB/s | no alternation | 30.4 | 15.9 | 14,000 |
+| 85% | 500 MB/s | dev | 618 | 294 | 4,031,000 |
+| 85% | 500 MB/s | streaming | 29.3 | 5.4 | 4,100 |
+| 85% | 500 MB/s | no prefetch | 45.4 | 4.2 | 590,000 |
+| 85% | 500 MB/s | no alternation | 31.4 | 11.1 | 21,000 |
+| 85% | 150 MB/s | streaming | 50.2 | 4.8 | 6,200 |
+| 85% | 150 MB/s | no prefetch | 56.0 | 4.6 | 542,000 |
+
+1,000 x 1,500,000 (8 segments of 187 MB, each a chunk of the Q side):
+
+| cache | disk | version | time (s) | read (GB) | faults |
+|---|---|---|---|---|---|
+| 60% | 2 GB/s | dev | 31.9 | 13.8 | 18,000 |
+| 60% | 2 GB/s | streaming | 29.9 | 8.1 | 1,600 |
+| 60% | 2 GB/s | no prefetch | 31.3 | 8.0 | 11,000 |
+| 60% | 2 GB/s | no alternation | 33.3 | 15.5 | 6,000 |
+| 60% | 500 MB/s | dev | 38.7 | 13.3 | 19,000 |
+| 60% | 500 MB/s | streaming | 34.9 | 8.1 | 1,100 |
+| 60% | 500 MB/s | no prefetch | 35.6 | 6.6 | 10,000 |
+| 60% | 500 MB/s | no alternation | 39.5 | 14.7 | 3,800 |
+| 60% | 150 MB/s | streaming | 74.2 | 8.5 | 1,600 |
+| 60% | 150 MB/s | no prefetch | 68.8 | 7.1 | 11,000 |
+| 85% | 2 GB/s | dev | 30.7 | 10.6 | 13,000 |
+| 85% | 2 GB/s | streaming | 29.0 | 7.7 | 3,600 |
+| 85% | 2 GB/s | no prefetch | 29.1 | 6.0 | 9,700 |
+| 85% | 2 GB/s | no alternation | 29.2 | 7.7 | 1,300 |
+| 85% | 500 MB/s | dev | 36.3 | 10.7 | 14,000 |
+| 85% | 500 MB/s | streaming | 31.8 | 7.4 | 3,500 |
+| 85% | 500 MB/s | no prefetch | 33.5 | 6.0 | 9,900 |
+| 85% | 500 MB/s | no alternation | 37.3 | 12.3 | 6,400 |
+| 85% | 150 MB/s | streaming | 66.7 | 7.2 | 700 |
+| 85% | 150 MB/s | no prefetch | 68.3 | 6.8 | 9,200 |
+
+(The dev rows at 60% come from the first run of the matrix, with the same
+build of dev; the streaming rows of that first run, before the prefetch was
+split into 2 MB pieces and the chunks read forwards, are not shown.)
+
+Reading the results:
+
+- Many individuals (one Q segment): chunks are most of the gain. Each pass
+  reads the file at most once, so streaming fits take 1.1-1.2 times the
+  time in memory (25 s) where dev took 20-25 times as long (513-618 s,
+  294 GB read for a 1.5 GB file).
+- Few individuals (segments): dev reads each segment from the cache while
+  its blocks are processed, so it is not pathological (1.7 times the bytes
+  of streaming); streaming is 5-12% faster on the faster disks.
+- The prefetch keeps the threads from waiting on page faults (with one Q
+  segment, 147,000-929,000 waiting faults without it, 4,000-12,000 with
+  it): 25-50% of the time on the faster disks. With the chunk order
+  reversed, the kernel stops reading ahead, so the alternation needs the
+  prefetch. It reads 5-20% more bytes (the chunk prefetched while one is
+  computed evicts some of what the next pass would reuse), which costs
+  that much when the disk is the bottleneck (150 MB/s, 60% cacheable:
+  67.7 s against 65.0 s, and 74.2 against 68.8 s); at 85% it still won
+  (50.2 against 56.0 s).
+- Alternating directions halves the bytes read (15 to 8 GB at 60%, 16 to
+  5 GB at 85%, with one segment), 5-15% of the time on these disks; more
+  on a slower one, where bytes are time.
+- On the slowest disk, every version is bound by the bytes read (8 GB at
+  150 MB/s is 55 s): only reading less helps (smaller chunks; see "Left to
+  do").
+
+## Conventional fits
+
+Data that fit in memory never stream (0.8 times the memory available), and
+the usual layout is unchanged except for three arguments of
+`accum_q_block()` (`init`, `out`, `ll0`: true, true, 0). Streaming off
+against dev, with the file in the page cache, 4 threads, K = 4, processes
+alternated dev, new, new, dev, dev, new, identical estimates:
+
+| data | dev (s) | new (s) |
+|---|---|---|
+| fit, 10,000 x 150,000 (3 iterations, 2 EM steps) | 40.1, 38.6, 37.8 | 41.6, 40.1, 37.1 |
+| fit, 1,000 x 1,500,000 | 42.6, 37.0, 34.5 | 38.2, 35.8, 35.5 |
+
+and each pass (`bench_kernels.R`, the median of 3 runs in each process;
+the medians of the 3 processes):
+
+| pass | 10,000 x 150,000: dev, new (s) | 1,000 x 1,500,000: dev, new (s) |
+|---|---|---|
+| `update_q` | 2.85, 3.04 | 2.70, 2.61 |
+| `update_q_loglik` | 3.69, 3.76 | 3.32, 3.12 |
+| `update_p` | 2.16, 2.19 | 2.20, 2.20 |
+| `loglik` | 2.10, 1.94 | 2.19, 2.00 |
+| `em` | 4.06, 3.70 | 3.71, 3.46 |
+
+The differences go both ways and are within the variation between runs of
+the same build on this machine (a shared VM: up to 15-20%), so no slowdown
+could be measured; confirm on the desktop before merging.
+
+Streaming forced on in memory: on 10,000 x 150,000 the Q side is 15-20%
+faster (all the threads read the same columns, which stay in the cache),
+and on 1,000 x 1,500,000 the passes are within 5% (9 runs each). The
+variation between runs of the same build on this machine (a shared VM) was
+up to 15-20%.
+
+## Left to do
+
+- The SVD start of genotype likelihoods (`init = "svd"`) has the same
+  pattern in its product X b (`radmix_gl_dosage_prod_cpp()`, one task per
+  slice of individuals over all the loci): it would read the file many
+  times per product out of core. The same chunked loop, with the
+  accumulators kept between chunks, would fix it. The SVD start of
+  genotypes is `tidypopgen::gt_pca_partialSVD()`, whose memory and reads
+  are bigstatsr's.
+- On Windows `prefetch()` does nothing (`PrefetchVirtualMemory()` would
+  do), and `radmix_mem_available()` is `Inf` outside Linux, so streaming is
+  never chosen on its own there.
+- Memory that still grows with the data: P (J x K doubles, about 9 copies
+  in the fit) and, in streaming mode with 8,192 individuals or more, the
+  accumulators kept between chunks (I (K + K (K + 1) / 2) doubles).
+- Streaming in memory made the Q side of many individuals faster: chunking
+  the Q side of one segment could become the default for data that fit in
+  memory too, after timing it on the desktop.
+- Timing on a real disk (the container's disk is backed by the host's
+  cache, and the throttle only caps its throughput, not its latency).

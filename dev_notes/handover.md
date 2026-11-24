@@ -12,6 +12,7 @@ documents listed in `README.md`.
 |---|---|---|---|---|
 | `articles_revised` | revision of the pseudohaploid article (2 commits) | `dev` (old) | yes | no: conflict in `pseudohaploids.Rmd` |
 | `hgdp_plots`, `windows` (origin) | not part of the radmix work; commits not in `dev` | | yes | no: ask Andrea before touching |
+| `ccr-fd217561-izn297` | prototype: `gt_radmix()` streams data larger than the memory (chunks, prefetch, alternating directions; `dev_notes/radmix_streaming.md`), with tidypopgl's branch of the same name (its prefetch function) | `dev` (the remote branch started from `main`, merged with `-s ours`) | yes | no: time conventional fits on the desktop first |
 
 Deleted 20 Nov: the local `radmix_extensions` and
 `data-raw/radmix/perf_verification/` (laptopX1; its one file not in the tag
@@ -27,6 +28,16 @@ Deleted 17 Nov (origin and manica01): `newspeed`, `supervised` (tags
 local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
 
 ## Next tasks
+
+### 0. **P2** [claude] then [review] streaming of data larger than the memory
+
+- **Branch:** `ccr-fd217561-izn297` (and tidypopgl's of the same name).
+- **Check:** on the desktop, conventional fits against `dev` (HGDP, K = 5
+  and 10, 1 and 8 threads), with `benchmark`-style balanced runs; the cloud
+  container was too noisy to resolve less than about 5%
+  (`dev_notes/radmix_streaming.md`, "Conventional fits"). Then a fit of a
+  file larger than the desktop's memory, on its real disks.
+- **Done when:** a PR into `dev` is open for Andrea's review.
 
 ### 1. **P2** [claude] then [review] `articles_revised`
 

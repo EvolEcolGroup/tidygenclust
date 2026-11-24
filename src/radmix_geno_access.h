@@ -97,14 +97,49 @@
 // the same (i, j), and a hidden individual and locus is treated as one
 // without data (slice_gl() multiplies its indicator of data by
 // cv_visible()); the deviance of held-out likelihoods is in deviance().
+//
+// Streaming larger-than-memory data
+// ---------------------------------
+// The backing file is memory-mapped, so data larger than the memory never
+// exhaust it: the kernel drops pages of the mapping and reads them again
+// when they are needed. But every pass then reads the file from disk, and
+// the usual layout of the work makes that much worse (the Q side streams
+// each block of individuals over all the loci, so with many blocks the file
+// is read many times per pass). A view in streaming mode (element `stream`
+// of `data`, decided in R by radmix_stream_mode()) makes the passes walk
+// the loci in chunks of about `chunk_bytes` bytes, all the threads working
+// on the same chunk (radmix_kernels.cpp, "Streaming"), and:
+// - prefetch(): while the threads compute on a chunk, a helper thread asks
+//   the kernel to read the next one (madvise(MADV_WILLNEED) on the mapped
+//   range, or the prefetch function of a source of genotype likelihoods),
+//   so that reading and computing overlap;
+// - direction(): passes whose results do not depend on the order of the
+//   loci (the P side, the log-likelihood and the deviance) take the chunks
+//   in reverse order after a forward pass, and in order after a backward
+//   one, so that each starts with the chunks that the previous pass read
+//   last, which are still in the page cache (with a plain forward scan of a
+//   file a little larger than the memory, every pass evicts the pages that
+//   the next one needs first, and nothing is ever read from the cache).
+//   Within a chunk, the loci are always read forwards: the kernel reads
+//   ahead of forward page faults only, and backward ones read a page at a
+//   time (a backward pass within chunks made twice as many page faults as a
+//   forward one). The Q side always runs forwards (its sums are accumulated
+//   over the loci in order); in a fit, Q-side and P-side passes alternate.
+// Streaming never changes the results: they are bit-identical to those of
+// the usual layout.
 
 #include <bigstatsr/BMAcc.h>
 #include <tidygenclust/radmix_gl_source.h>
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
+#if !defined(_WIN32)
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
 
 // All the internal C++ code of gt_radmix() lives in the namespace radmix,
 // so that its generic names (GenoView, project_q, QPWork, ...) cannot clash
@@ -202,6 +237,28 @@ public:
       Rcpp::List cv = data["cv"];
       if (cv.containsElementNamed("mask"))
         _cv_mask_allowed = Rcpp::as<bool>(cv["mask"]);
+    }
+    // streaming (see "Streaming larger-than-memory data" above): off unless
+    // `stream` is TRUE
+    _stream = false;
+    _chunk_bytes = 256.0 * 1024 * 1024;
+    _last_backward = true;
+    if (data.containsElementNamed("stream")) {
+      Rcpp::LogicalVector st = data["stream"];
+      _stream = st.size() == 1 && st[0] == TRUE;
+    }
+    // (stream_prefetch = FALSE turns prefetching off, and stream_zigzag =
+    // FALSE the alternation of directions, for benchmarks)
+    _stream_prefetch = true;
+    if (data.containsElementNamed("stream_prefetch"))
+      _stream_prefetch = Rcpp::as<bool>(data["stream_prefetch"]);
+    _stream_zigzag = true;
+    if (data.containsElementNamed("stream_zigzag"))
+      _stream_zigzag = Rcpp::as<bool>(data["stream_zigzag"]);
+    if (data.containsElementNamed("chunk_bytes")) {
+      const double cb = Rcpp::as<double>(data["chunk_bytes"]);
+      if (!(cb >= 1)) Rcpp::stop("'chunk_bytes' must be positive.");
+      _chunk_bytes = cb;
     }
     _cv_bits = false;
     _mask_words = 0;
@@ -304,6 +361,56 @@ public:
   }
   // the 0-based FBM row of individual i
   inline size_t row(size_t i) const { return _rows[i]; }
+
+  // Streaming (see "Streaming larger-than-memory data" at the top of the
+  // file): whether the passes walk the loci in chunks, and the number of
+  // loci of a chunk (about chunk_bytes bytes of the backing file, at least
+  // one locus; the kernels round it to their tiles).
+  inline bool stream() const { return _stream; }
+  size_t chunk_loci() const {
+    const double per_locus = _locus_bytes > 0 ? _locus_bytes : 1.0;
+    const double n = std::floor(_chunk_bytes / per_locus);
+    return n < 1 ? 1 : (size_t) std::min(n, (double) _n_loci + 1);
+  }
+  // The direction of a pass: forced_forward for the Q side; otherwise the
+  // opposite of the last pass. Records it as the last direction. Called on
+  // the main thread, before the parallel region of the pass.
+  bool direction(bool forced_forward) const {
+    const bool backward =
+      forced_forward || !_stream_zigzag ? false : !_last_backward;
+    _last_backward = backward;
+    return backward;
+  }
+  // Ask the kernel to read loci [j0, j1) of the view into the page cache,
+  // without waiting for them: madvise(MADV_WILLNEED) on the mapped columns
+  // (merged into runs of adjacent columns; with columns in their order in
+  // the backing file, one call), or the prefetch function of a source of
+  // genotype likelihoods, if it has one. Called from the helper thread of
+  // a streaming pass: it reads only immutable members and never calls R.
+  // A no-op on Windows.
+  void prefetch(size_t j0, size_t j1) const {
+    if (j1 > _n_loci) j1 = _n_loci;
+    if (j0 >= j1 || !_stream_prefetch) return;
+    if (_gl) {
+      if (_prefetch_fn != nullptr) _prefetch_fn(_ctx, j0, j1);
+      return;
+    }
+#if !defined(_WIN32)
+    const size_t len = _locus_bytes;
+    size_t run0 = _col_off[j0], run1 = run0 + len;
+    for (size_t j = j0 + 1; j <= j1; j++) {
+      if (j < j1 && _col_off[j] == run1) {
+        run1 += len;
+        continue;
+      }
+      advise_willneed(run0, run1);
+      if (j < j1) {
+        run0 = _col_off[j];
+        run1 = run0 + len;
+      }
+    }
+#endif
+  }
 
   // Decode genotype (i, j). Returns whether it is observed (and visible,
   // with a cross-validation mask), and sets g to the (scaled) alt allele
@@ -430,6 +537,23 @@ public:
   }
 
 private:
+#if !defined(_WIN32)
+  // madvise(MADV_WILLNEED) on bytes [b0, b1) of the mapped backing file
+  // (rounded out to whole pages, as madvise() requires), in pieces of 2 MB:
+  // Linux reads only the first few MB of a larger range (4 MB of 256 MB in
+  // our tests), whereas each call starts the reading of its piece and
+  // returns at once
+  void advise_willneed(size_t b0, size_t b1) const {
+    static const size_t page = (size_t) sysconf(_SC_PAGESIZE);
+    const size_t piece = (size_t) 2 << 20;
+    const uintptr_t base = (uintptr_t) _pMat;
+    const uintptr_t a1 = base + b1;
+    for (uintptr_t a0 = (base + b0) / page * page; a0 < a1; a0 += piece)
+      madvise((void*) a0, std::min((uintptr_t) piece, a1 - a0),
+              MADV_WILLNEED);
+  }
+#endif
+
   // The genotypes of a gen_tibble (kind code256, see the top of the file):
   // the mapped backing file, the selected rows and columns, and the
   // decoding of the bytes
@@ -468,6 +592,9 @@ private:
     for (size_t j = 0; j < cols.size(); j++) _col_off[j] = cols[j] * nrow_fbm;
     _n_indiv = n;
     _n_loci = cols.size();
+    // a locus takes a whole column of the backing file, nrow_fbm bytes
+    _locus_bytes = nrow_fbm;
+    _prefetch_fn = nullptr;
     // split the lookup table into a missing flag and a value (0 for missing
     // bytes), so that get() never has to test for NaN
     for (int b = 0; b < 256; b++) {
@@ -513,6 +640,27 @@ private:
     _fill = reinterpret_cast<tidygenclust_gl_fill_fn>(
       R_ExternalPtrAddrFn(fill));
     _ctx = R_ExternalPtrAddr(ctx);
+    // optional (streaming): the prefetch function of the source, and the
+    // number of bytes of its storage per locus, which sets the size of the
+    // chunks (without it, a chunk holds chunk_bytes loci)
+    _prefetch_fn = nullptr;
+    if (data.containsElementNamed("prefetch")) {
+      SEXP pf = data["prefetch"];
+      if (TYPEOF(pf) != EXTPTRSXP ||
+          R_ExternalPtrTag(pf) != Rf_install(TIDYGENCLUST_GL_PREFETCH_TAG) ||
+          R_ExternalPtrAddrFn(pf) == NULL)
+        Rcpp::stop("'prefetch' must be an external pointer to the prefetch "
+                   "function of a source of genotype likelihoods, tagged "
+                   "%s.", TIDYGENCLUST_GL_PREFETCH_TAG);
+      _prefetch_fn = reinterpret_cast<tidygenclust_gl_prefetch_fn>(
+        R_ExternalPtrAddrFn(pf));
+    }
+    _locus_bytes = 0;
+    if (data.containsElementNamed("locus_bytes")) {
+      const double lb = Rcpp::as<double>(data["locus_bytes"]);
+      if (!(lb >= 0)) Rcpp::stop("'locus_bytes' must be non-negative.");
+      _locus_bytes = (size_t) lb;
+    }
     // the dimensions, read as doubles so that any number from R can be
     // checked (below 2^53, as the seed of cross-validation; empty data are
     // refused later, with the same error as for genotypes)
@@ -562,6 +710,13 @@ private:
   size_t _mask_words;            // 64-bit words of the mask per locus
   std::vector<uint64_t> _cv_mask;  // the visibility of each genotype of a
                                    // training view, one bit each
+  bool _stream;                  // whether the passes stream (see above)
+  double _chunk_bytes;           // the target size of a chunk, in bytes
+  bool _stream_prefetch;         // whether prefetch() does anything
+  bool _stream_zigzag;           // whether direction() alternates
+  size_t _locus_bytes;           // bytes of the backing file per locus
+  tidygenclust_gl_prefetch_fn _prefetch_fn;  // the source's prefetch, if any
+  mutable bool _last_backward;   // the direction of the last pass
 };
 
 }  // namespace radmix

@@ -295,6 +295,25 @@
 #'   `~/.R/Makevars`) builds only the portable version, whose results are the
 #'   same on every x86-64 machine.
 #'
+#'   ## Data larger than the memory
+#'
+#'   The genotypes (or likelihoods) are read from their memory-mapped backing
+#'   file at every pass, and never copied into memory, so data larger than
+#'   the memory can be analysed: the operating system reads the file again
+#'   as needed. When the file read by a pass is larger than 0.8 times the
+#'   memory available (on Linux, `MemAvailable` or the limit of the control
+#'   group), the passes stream it: all the threads work on one chunk of loci
+#'   at a time, a helper thread asks the operating system to read the next
+#'   chunk meanwhile, and the passes that can take the chunks in any order
+#'   alternate their direction, so that each starts with the data that the
+#'   previous one left in memory. The results are identical. The option
+#'   `tidygenclust.radmix_stream` forces streaming on (`TRUE`) or off
+#'   (`FALSE`), and `tidygenclust.radmix_chunk_mb` sets the size of the
+#'   chunks (by default a sixteenth of the memory available, between 16 and
+#'   256 MB). Each pass still reads the part of the file that is not in
+#'   memory, so a fit runs at the speed of the disk once the data are much
+#'   larger than the memory.
+#'
 #'   ## Comparison with ADMIXTURE
 #'
 #'   The model, the log-likelihood and the optimisation strategy are those of
@@ -625,6 +644,9 @@ gt_radmix <- function(x, k, n_runs = 1, seed = NULL, max_iter = 1000,
       )
     }
   }
+  # data larger than the memory are streamed (R/radmix_stream.R): the same
+  # results, with fewer reads of the backing file
+  data <- radmix_stream_mode(data)
   # with as many clusters as individuals, each individual could form its own
   # ancestral population, so the model would not be identifiable
   # (with P fixed, the ancestry of each individual is estimated on its own,

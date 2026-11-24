@@ -1,4 +1,15 @@
 # tidygenclust (development version)
+* `gt_radmix()` streams data larger than the memory: when the backing file
+  read by a pass is larger than 0.8 times the memory available, its passes
+  walk the loci in chunks, with a helper thread asking the operating system
+  to read the next chunk while the threads compute, and with passes that do
+  not depend on the order of the loci taking the chunks in alternating
+  order, so that each starts with the data that the previous pass left in
+  the page cache. The results are bit-identical. The options
+  `tidygenclust.radmix_stream` and `tidygenclust.radmix_chunk_mb` force it
+  and set the size of the chunks. A source of genotype likelihoods can give
+  a prefetch function (optional, see
+  `inst/include/tidygenclust/radmix_gl_source.h`).
 * `gt_radmix()` also fits genotype likelihoods, with the model of NGSadmix
   (Skotte, Korneliussen & Albrechtsen 2013) and the algorithm of ADMIXTURE.
   tidygenclust does not store genotype likelihoods: a package that does can
