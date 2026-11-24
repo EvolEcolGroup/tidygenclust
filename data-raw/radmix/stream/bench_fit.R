@@ -39,8 +39,9 @@ set.seed(42)
 r0 <- io()
 f0 <- majflt()
 tm <- system.time(
+  # (rtol 0 and no step_tol: exactly max_iter iterations)
   fit <- tidygenclust:::radmix_fit_cpp(data, k, NULL, NULL, FALSE, FALSE,
-    max_iter, 0, n_em_iter, 3L, n_cores, FALSE, NULL)
+    max_iter, 0, Inf, n_em_iter, 3L, n_cores, FALSE, NULL)
 )
 t <- tm[["elapsed"]]
 r1 <- io()
