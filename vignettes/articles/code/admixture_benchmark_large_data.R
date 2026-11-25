@@ -4,12 +4,12 @@
 # chunks of this script (the sections that start with a "## ---- label"
 # line, read with knitr::read_chunk()).
 #
-# 220,000 individuals typed at 200,000 loci, admixed from 5 ancestral
+# 250,000 individuals typed at 200,000 loci, admixed from 5 ancestral
 # populations, written as a PLINK bed file and read into a gen_tibble: its
-# backing file (one byte per genotype) takes 44 GB, and the bed file (two
-# bits per genotype) 11 GB. Run it once, from the directory of the article
-# (vignettes/articles), on a machine with enough disk space (about 100 GB
-# while it runs, 55 GB at the end) and memory (about 10 GB per core):
+# backing file (one byte per genotype) takes 50 GB, and the bed file (two
+# bits per genotype) 12.5 GB. Run it once, from the directory of the article
+# (vignettes/articles), on a machine with enough disk space (about 115 GB
+# while it runs, 63 GB at the end) and memory (about 3 GB per core):
 #
 #   cd vignettes/articles
 #   Rscript code/admixture_benchmark_large_data.R
@@ -17,20 +17,21 @@
 # The data are written to data/large (or to the directory given by the
 # environment variable LARGE_DIR), which is not part of the repository. The
 # number of cores used to simulate them (LARGE_CORES, default 8) does not
-# change the data.
+# change the data. LARGE_N_INDIV and LARGE_N_LOCI make smaller data, e.g.
+# to try the scripts (multiples of 5 and of 20).
 
 ## ---- large-setup ----
 large_dir <- Sys.getenv("LARGE_DIR", "data/large")
 dir.create(large_dir, recursive = TRUE, showWarnings = FALSE)
 n_cores <- as.integer(Sys.getenv("LARGE_CORES", "8"))
-n_indiv <- 220000
-n_loci <- 200000
+n_indiv <- as.integer(Sys.getenv("LARGE_N_INDIV", "250000"))
+n_loci <- as.integer(Sys.getenv("LARGE_N_LOCI", "200000"))
 k <- 5
 
 ## ---- large-simulate ----
 # Five ancestral populations, with allele frequencies drawn under the
 # Balding-Nichols model (Fst = 0.1 from frequencies uniform between 0.05 and
-# 0.95 in their common ancestor), and five sampled populations of 44,000
+# 0.95 in their common ancestor), and five sampled populations of 50,000
 # individuals each, whose ancestry proportions are drawn from a Dirichlet
 # distribution centred on one ancestral population (80% on average, the
 # rest shared among the other four). The genotypes are binomial draws from

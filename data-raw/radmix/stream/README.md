@@ -40,7 +40,8 @@ into `anon_<prefix>.txt` (fits) and `anonp_<prefix>.txt` (passes).
 
 ## The desktop (manica01, November 2026)
 
-`desktop/` holds the driver of the desktop runs and its phases, as they
+`desktop/` holds the driver of the desktop runs and its phases (`large_*`:
+the article's runs on data 5 times the memory, with a smoke test), as they
 ran in `~/project_temp/claude/tidygenclust/stream/` (`env.sh` gives the
 paths; the builds come from the timing kit of the tag `archive/newspeed`,
 `build_variants.sh`). Andrea starts the driver in a terminal on the

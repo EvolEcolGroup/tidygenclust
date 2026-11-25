@@ -3,9 +3,11 @@
 # the benchmark on data larger than the memory (admixture_benchmark_large.sh
 # runs it in memory and with the memory capped). It loads the gen_tibble,
 # runs gt_radmix(), and appends a line to the results: its time, number of
-# iterations and log-likelihood, the bytes it read from disk, whether the
-# data were larger than the memory available to it (and so streamed), and
-# how far its ancestry proportions are from those simulated. Usage, from the
+# iterations and log-likelihood, the bytes it read from disk, its memory
+# (the peak of its resident memory, and the cap and peak of its cgroup),
+# whether the data were larger than the memory available to it (and so
+# streamed), and how far its ancestry proportions are from those
+# simulated. Usage, from the
 # directory of the article (vignettes/articles):
 #
 #   Rscript code/admixture_benchmark_large_fit.R <run name> <K> <seed> \
@@ -31,6 +33,26 @@ read_bytes <- function() {
 # memory and the room under its memory cap), and then reads it in chunks
 stream <- tidygenclust:::radmix_stream_mode(gt_radmix_data(sim_gt))
 mem_available <- tidygenclust:::radmix_mem_available()
+# the peak of the resident memory of this process (Linux): its own memory
+# plus the pages of the backing file mapped in it
+peak_rss <- function() {
+  x <- grep("^VmHWM:", readLines("/proc/self/status"), value = TRUE)
+  as.numeric(gsub("[^0-9]", "", x)) * 1024
+}
+# a memory file of the cgroup of this process (cgroups v2): memory.max is
+# its cap, and memory.peak the peak of its memory, page cache included
+# (NA without a cap: the cgroup is then the user's session)
+cgroup_bytes <- function(name) {
+  cg <- sub("^0::", "", grep("^0::", readLines("/proc/self/cgroup"),
+    value = TRUE
+  ))
+  f <- file.path("/sys/fs/cgroup", cg, name)
+  cap <- file.path("/sys/fs/cgroup", cg, "memory.max")
+  if (!file.exists(f) || readLines(cap) == "max") {
+    return(NA_real_)
+  }
+  as.numeric(readLines(f))
+}
 read_before <- read_bytes()
 start <- proc.time()[["elapsed"]]
 fit <- gt_radmix(sim_gt, k = k, seed = seed, n_cores = n_cores)
@@ -59,6 +81,9 @@ result <- data.frame(
   ),
   loglik = fit$loglik,
   read_gb = (read_after - read_before) / 1e9,
+  peak_rss_gb = peak_rss() / 1e9,
+  cgroup_max_gb = cgroup_bytes("memory.max") / 1e9,
+  cgroup_peak_gb = cgroup_bytes("memory.peak") / 1e9,
   data_gb = stream$data_bytes / 1e9,
   mem_available_gb = mem_available / 1e9,
   streamed = stream$stream,
