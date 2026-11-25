@@ -11,7 +11,11 @@
 # directory of the article (vignettes/articles):
 #
 #   Rscript code/admixture_benchmark_large_fit.R <run name> <K> <seed> \
-#     <cores> <results file>
+#     <cores> <results file> <memory cap> <read throughput>
+#
+# (the memory cap, e.g. "8G" or "none", and the read throughput of the
+# disk in MB/s, 0 for the disk as it is, are only recorded with the
+# results: the caller sets them)
 
 ## ---- large-fit ----
 args <- commandArgs(trailingOnly = TRUE)
@@ -20,6 +24,8 @@ k <- as.integer(args[2])
 seed <- as.integer(args[3])
 n_cores <- as.integer(args[4])
 results_file <- args[5]
+memory_cap <- args[6]
+read_mbps <- as.numeric(args[7])
 large_dir <- Sys.getenv("LARGE_DIR", "data/large")
 library(tidygenclust)
 sim_gt <- tidypopgen::gt_load(file.path(large_dir, "sim_large.gt"))
@@ -73,6 +79,8 @@ rmse <- sqrt(min(sse) / length(q))
 converged_line <- grep("^Converged in", fit$log[[1]], value = TRUE)[1]
 result <- data.frame(
   run = run,
+  memory_cap = memory_cap,
+  read_mbps = read_mbps,
   k = k,
   n_cores = n_cores,
   seconds = seconds,

@@ -18,6 +18,7 @@ set -uo pipefail
 W=${W:-$HOME/project_temp/claude/tidygenclust/stream}
 PHASES=${PHASES:-"gate throttle_check ooc_third ooc passes large_data large_fits"}
 IDLE_LOAD=${IDLE_LOAD:-1.0}
+IDLE_CHECKS=${IDLE_CHECKS:-3}
 unset OMP_NUM_THREADS OMP_THREAD_LIMIT
 STATUS=$W/status.md; DONE=$W/done; LOGS=$W/logs
 mkdir -p "$DONE" "$LOGS" "$W/phases" "$W/results"
@@ -35,12 +36,12 @@ fi
 KEEP=$!
 trap 'kill $KEEP 2> /dev/null; say "driver stopped"' EXIT
 
-wait_idle() {  # the 5-min load below IDLE_LOAD for three checks, 5 min apart
+wait_idle() {  # the 5-min load below IDLE_LOAD for IDLE_CHECKS checks, 5 min apart
   local ok=0
-  while [ $ok -lt 3 ]; do
+  while [ $ok -lt $IDLE_CHECKS ]; do
     [ -e "$W/stop" ] && return 1
     if lt "$(cut -d' ' -f2 /proc/loadavg)" "$IDLE_LOAD"; then ok=$((ok + 1)); else ok=0; fi
-    [ $ok -lt 3 ] && sleep 300
+    [ $ok -lt $IDLE_CHECKS ] && sleep 300
   done
   return 0
 }
