@@ -555,13 +555,16 @@ public:
 private:
 #if !defined(_WIN32)
   // madvise(MADV_WILLNEED) on bytes [b0, b1) of the mapped backing file
-  // (rounded out to whole pages, as madvise() requires), in pieces of 2 MB:
-  // Linux reads only the first few MB of a larger range (4 MB of 256 MB in
-  // our tests), whereas each call starts the reading of its piece and
-  // returns at once
+  // (rounded out to whole pages, as madvise() requires), in pieces of
+  // 128 KB: Linux reads only the start of a larger range, up to the larger
+  // of the disk's read-ahead (read_ahead_kb) and its largest request
+  // (max_sectors_kb) per call (force_page_cache_ra()): 4 MB in the cloud
+  // container, but 128 KB on the NVMe of the desktop (the kernel's default
+  // read-ahead), where pieces of 2 MB read only 1/16 of each chunk. Each
+  // call starts the reading of its piece and returns at once
   void advise_willneed(size_t b0, size_t b1) const {
     static const size_t page = (size_t) sysconf(_SC_PAGESIZE);
-    const size_t piece = (size_t) 2 << 20;
+    const size_t piece = (size_t) 128 << 10;
     const uintptr_t base = (uintptr_t) _pMat;
     const uintptr_t a1 = base + b1;
     for (uintptr_t a0 = (base + b0) / page * page; a0 < a1; a0 += piece)
