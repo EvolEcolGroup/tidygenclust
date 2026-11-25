@@ -110,10 +110,13 @@ one parallel region per chunk, all the threads working on the same chunk:
 - **Prefetch** (step 2 of the plan): before computing a chunk, the main
   thread starts a helper thread (`Prefetcher`, a `std::thread`) that calls
   `madvise(MADV_WILLNEED)` on the columns of the next chunk, merged into
-  runs of adjacent columns, in pieces of 2 MB. Linux reads only the first
-  4 MB of a larger range (a 256 MB call left 1,024 of 65,536 pages
-  resident), whereas each 2 MB call starts its reading and returns at once
-  (256 MB advised in 17 ms, all resident 0.5 s later). On cached pages it
+  runs of adjacent columns, in pieces of 128 KB. Linux reads only the
+  start of a larger range: at most the larger of the disk's read-ahead and
+  its largest request (4 MB in the container: a 256 MB call left 1,024 of
+  65,536 pages resident; 128 KB on the desktop's NVMe, where the first
+  pieces of 2 MB read 1/16 of each chunk; see "Desktop"), whereas each
+  call starts its reading and returns at once (in the container, 256 MB
+  advised in 17 ms, all resident 0.5 s later). On cached pages it
   costs nothing (0.04 ms per 256 MB). A source of genotype likelihoods can
   give a prefetch function (optional element `prefetch` of its list, with
   `locus_bytes`; tidypopgl's does).
@@ -341,6 +344,125 @@ and on 1,000 x 1,500,000 the passes are within 5% (9 runs each). The
 variation between runs of the same build on this machine (a shared VM) was
 up to 15-20%.
 
+## Desktop (manica01, 24-25 November 2026)
+
+i9-13900, 8 P-cores (`taskset -c 0-7`, `OMP_PROC_BIND=close`), 125 GB,
+NVMe Samsung 970 EVO Plus (`read_ahead_kb` and `max_sectors_kb` 128),
+Linux 6.8 with cgroup v2. Builds at -O2 with the kit of the tag
+`archive/newspeed` (`build_variants.sh`, AVX2 clones checked): base =
+51b4e9f (`ada196_article` before the merge of streaming), new = 001667d
+(the merge, with the blocked Hessians), new2 = b07f087 (the prefetch in
+pieces of 128 KB, below). The same data and fit as in the container
+(`make_data.R`; `bench_fit.R`: K = 4, one EM step, 2 iterations), on 8
+cores. The hard disks of the desktop are not mounted (and would be outside
+the folders exempt from the antivirus), so the slow disks are the NVMe
+throttled to 500 and 150 MB/s (`IOReadBandwidthMax` of a system scope,
+with sudo); the memory caps are scopes of the user's systemd. Scripts:
+`data-raw/radmix/stream/desktop/` (the driver and its phases); results:
+`data-raw/radmix/stream/results/desktop_*`. Every run gave the same
+estimates as in memory (one hash per data set, 72 runs).
+
+### In memory: no slowdown, except small data on one thread
+
+The kit's `run_bench.sh` (full fits to convergence, 3 balanced rounds) and
+`MODE=kernels`, base against new, on eur (379 x 54,051) and hgdp
+(1,043 x 130,943); median seconds:
+
+| data | K | 1 thread: base, new | 8 threads: base, new |
+|---|---|---|---|
+| eur | 3 | 4.86, 5.06 (+4.1%) | 0.66, 0.67 |
+| eur | 4 | 6.07, 6.26 (+3.2%) | 0.81, 0.82 |
+| hgdp | 5 | 41.61, 40.95 (-1.6%) | 5.09, 5.14 |
+| hgdp | 10 | 132.75, 133.36 (+0.5%) | 17.75, 17.93 |
+
+Identical log-likelihood histories, and 1 and 8 threads identical. The
+eur fits on one thread are 3-4% slower in every round (ranges 4.86-4.88
+against 5.05-5.07 s, and 6.02-6.14 against 6.26-6.33 s); the passes put
+it in `update_p` and `loglik` (+5-7% on eur, 1 thread; not on hgdp). The
+cause is not known yet (open, below).
+
+The fit of the simulated data in memory (8 cores, warm page cache, 3 runs
+each, alternated; `desktop_in_memory.csv`):
+
+| data | base | new, not streaming | new, streaming forced |
+|---|---|---|---|
+| 10,000 x 150,000 | 6.59 s (6.51-6.62) | 6.56 s (6.50-6.63) | 5.61 s (5.54-5.88) |
+| 1,000 x 1,500,000 | 5.98 s (5.94-6.03) | 5.97 s (5.97-6.11) | 6.17 s (6.12-6.25) |
+
+### The prefetch read only 1/16 of each chunk
+
+On the desktop, the prefetch first made no difference: as many major page
+faults with it as without (156,000-226,000 per fit with 10,000
+individuals). Each `madvise(MADV_WILLNEED)` call makes Linux read at most
+the larger of the disk's read-ahead and its largest request
+(`force_page_cache_ra()`: `max(io_pages, ra_pages)`), 4 MB in the
+container but 128 KB here (the kernel's default read-ahead), so the pieces
+of 2 MB read 128 KB each: 4,096 of the 65,536 pages of a 256 MB range,
+against all of them within 50 ms in pieces of 128 KB or 64 KB (`mincore()`
+on manica01). b07f087 calls it in pieces of 128 KB, which every Linux
+block device honours (128 KB is the default read-ahead; NVMe, SATA,
+virtio and USB disks all allow requests at least that large). Alternated
+runs, unthrottled (`desktop_prefetch_fix.csv`): 10,000 x 150,000 at 92%
+cacheable, 9.7-10.1 s and 156,000-173,000 faults with pieces of 2 MB,
+7.4-7.5 s and 13,000-20,000 with pieces of 128 KB, 10.1-10.2 s without
+the prefetch; 1,000 x 1,500,000 at 67%, 8.6-8.9 s for all three.
+
+### Out of core
+
+Seconds per fit (bytes read; GB here are 2^30 bytes), new2 for streaming (`desktop_third_pf128.csv`,
+`desktop_ooc_pf128.csv`), base from the first run (`desktop_third.csv`,
+`desktop_ooc.csv`); chunks of 32 MB at 33% cacheable, 64 MB otherwise.
+Base was not run at 150 MB/s with 10,000 individuals (about 35 minutes
+each), nor at 67-92% at 150 MB/s.
+
+10,000 x 150,000 (in memory: 6.6 s):
+
+| cache | disk | base | streaming | no prefetch | no alternation |
+|---|---|---|---|---|---|
+| 33% | NVMe | 105.5 (148 GB) | 9.1 (12.2 GB) | 11.4 (11.0 GB) | 10.5 (16.9 GB) |
+| 33% | 500 MB/s | 318.0 (148 GB) | 25.2 (11.3 GB) | 24.9 (11.0 GB) | 33.5 (15.6 GB) |
+| 33% | 150 MB/s | | 81.4 (11.3 GB) | 79.7 (11.0 GB) | 110.2 (15.4 GB) |
+| 67% | NVMe | 104.2 (148 GB) | 7.9 (9.5 GB) | 10.4 (8.5 GB) | 9.6 (15.5 GB) |
+| 67% | 500 MB/s | 317.9 (148 GB) | 20.3 (8.6 GB) | 20.1 (8.5 GB) | 32.5 (15.1 GB) |
+| 67% | 150 MB/s | | 64.1 (8.7 GB) | 62.1 (8.5 GB) | |
+| 92% | NVMe | 23.9 (16.8 GB) | 7.2 (6.7 GB) | 9.8 (5.4 GB) | 8.8 (15.1 GB) |
+| 92% | 500 MB/s | 37.5 (16.8 GB) | 15.6 (6.3 GB) | 17.2 (7.0 GB) | 32.1 (15.0 GB) |
+| 92% | 150 MB/s | | 46.0 (6.2 GB) | 53.4 (7.2 GB) | |
+
+1,000 x 1,500,000 (in memory: 6.0 s):
+
+| cache | disk | base | streaming | no prefetch | no alternation |
+|---|---|---|---|---|---|
+| 33% | NVMe | 9.4 (15.4 GB) | 9.7 (11.9 GB) | 9.0 (10.6 GB) | 10.7 (16.6 GB) |
+| 33% | 500 MB/s | 33.3 (15.4 GB) | 26.5 (11.6 GB) | 24.4 (10.6 GB) | 35.6 (16.4 GB) |
+| 33% | 150 MB/s | 110.3 (15.4 GB) | 83.3 (11.5 GB) | 77.7 (10.6 GB) | 116.8 (16.3 GB) |
+| 67% | NVMe | 9.3 (14.1 GB) | 8.6 (9.0 GB) | 8.4 (8.5 GB) | 10.1 (15.5 GB) |
+| 67% | 500 MB/s | 30.8 (14.0 GB) | 21.3 (9.0 GB) | 20.6 (8.7 GB) | 33.9 (15.7 GB) |
+| 67% | 150 MB/s | | 63.1 (8.6 GB) | 62.5 (8.5 GB) | |
+| 92% | NVMe | 8.5 (5.6 GB) | 7.5 (4.7 GB) | 8.2 (5.9 GB) | 8.2 (7.6 GB) |
+| 92% | 500 MB/s | 15.1 (5.3 GB) | 14.4 (5.1 GB) | 14.0 (4.6 GB) | 18.4 (7.6 GB) |
+| 92% | 150 MB/s | | 37.4 (4.8 GB) | 40.7 (5.3 GB) | |
+
+- On the NVMe, streaming takes 1.1-1.4 times its time in memory with
+  10,000 individuals (base 3.6-16 times: it reads the 1.5 GB file about
+  100 times at 33-67%), and 1.25-1.6 times with 1,000 individuals, where
+  base is as fast (9.4 against 9.7 s at 33%) and slower only on the
+  throttled disks.
+- On the throttled disks, every fit is bound by its reads (11.3 GB at
+  150 MB/s is 81 s): the time follows the bytes, which fall as more of
+  the file is cached (81, 64, 46 s at 33, 67, 92%, 10,000 individuals).
+- The prefetch (fixed) saves 20-27% on the NVMe with 10,000 individuals,
+  where the threads otherwise wait on page faults, 8-14% at 92% cacheable
+  on the slowest disk, and 8-9% at 92% on the NVMe (1,000 individuals) and
+  at 500 MB/s (10,000); it costs 7-9% at 33% with 1,000 individuals, on
+  every disk (it reads 10-12% more), and is otherwise within 3.5%.
+- The alternation saves 28-56% of the bytes, and 22-51% of the time on the
+  throttled disks.
+- The per-pass picture (`desktop_passes.csv`, 33% cacheable, the build
+  with pieces of 2 MB): with 10,000 individuals, base's Q side reads the
+  file 20 times per pass (28.6 GB, 19.8 s, against 0.70 s in memory);
+  streaming's, once (1.5 s).
+
 ## Left to do
 
 - The SVD start of genotype likelihoods (`init = "svd"`) has the same
@@ -356,14 +478,28 @@ up to 15-20%.
 - Memory that still grows with the data: P (J x K doubles, about 9 copies
   in the fit) and, in streaming mode with 8,192 individuals or more, the
   accumulators kept between chunks (I (K + K (K + 1) / 2) doubles).
-- Streaming in memory made the Q side of many individuals faster: chunking
-  the Q side of one segment could become the default for data that fit in
-  memory too, after timing it on the desktop.
-- Timing on a real disk (the container's disk is backed by the host's
-  cache, and the throttle only caps its throughput, not its latency).
-- Few individuals, file a little larger than the cache: the chunks and the
-  prefetch can make streaming read more than dev (step 1), and dev is
-  already close to its time in memory there. Whether streaming should
-  apply only to one Q segment (the case that needs it), or prefetch less
-  (smaller chunks, or not past what the cache can hold), is for the
-  desktop.
+- Streaming in memory made the Q side of many individuals faster: on the
+  desktop, the fit of 10,000 x 150,000 takes 5.61 s streamed against
+  6.56 s (-15%), and that of 1,000 x 1,500,000 6.17 against 5.97 s (+3%).
+  Chunking the Q side of one segment could become the default for data
+  that fit in memory too (Andrea to decide).
+- Timing on a real hard disk and on a network file system (NFS, Lustre):
+  the desktop's NVMe and the container's disk are both fast, and the
+  throttle caps the throughput, not the latency. Pieces of 128 KB may make
+  many small requests on a network file system; if they cost there, read
+  the limit of the disk from `/sys` and use larger pieces where it allows.
+  A 10-second check that the prefetch covers its range on a machine:
+  `mincore()` after `madvise()` (the Python script of 25 November, to be
+  added to `data-raw/radmix/stream/`).
+- Few individuals, file a little larger than the cache: on the desktop,
+  streaming is within 3% of dev on the NVMe at 33% cacheable (9.7 against
+  9.4 s) and faster everywhere else, so streaming need not be limited to
+  one Q segment. The prefetch costs 7-9% there (it reads 10-12% more);
+  whether to prefetch less in that case is open.
+- Small data on one thread, in memory: eur (379 x 54,051) is 3-4% slower
+  than before the merge (`update_p`, `loglik`); hgdp and every fit on 8
+  threads are not. Cause not found yet.
+- The article's section on data 5 times the memory (220,000 x 200,000,
+  44 GB under an 8 GiB cap; scripts in `vignettes/articles/code/
+  admixture_benchmark_large*`) waits for the decisions above (Andrea,
+  25 November).

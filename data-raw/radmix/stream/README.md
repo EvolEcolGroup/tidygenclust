@@ -37,3 +37,29 @@ into `anon_<prefix>.txt` (fits) and `anonp_<prefix>.txt` (passes).
 - The cap of the prefetch of the Q side: `results/prefetch_cap.csv` and
   `results/prefetch_cap_alternated.csv` (the capped and uncapped builds,
   alternated).
+
+## The desktop (manica01, November 2026)
+
+`desktop/` holds the driver of the desktop runs and its phases, as they
+ran in `~/project_temp/claude/tidygenclust/stream/` (`env.sh` gives the
+paths; the builds come from the timing kit of the tag `archive/newspeed`,
+`build_variants.sh`). Andrea starts the driver in a terminal on the
+desktop after `sudo -v` (the throttled runs need root), e.g.
+`sudo -v && PHASES="ooc_third ooc" bash driver.sh`; it waits for an idle
+machine and logs to `status.md`. Results, in `results/`:
+
+- `desktop_gate_*`: the kit's `run_bench.sh` (fits) and `MODE=kernels`
+  (passes) in memory, base (51b4e9f) against the merge (001667d);
+  `desktop_gate_summary.md` is the kit's summary of both.
+- `desktop_passes.csv`: `run_passes.sh`, `mem 33 67 92`, 8 cores.
+- `desktop_third.csv`, `desktop_ooc.csv`: `run_ooc_third.sh` (chunks of
+  32 MB) and `run_ooc.sh` (64 MB), 8 cores, with the user and system CPU
+  time of each fit (columns `user_s`, `sys_s`).
+- `desktop_prefetch_fix.csv`: the prefetch in pieces of 2 MB (`new`,
+  001667d) and of 128 KB (`new2`, b07f087), alternated, NVMe unthrottled;
+  `desktop_third_pf128.csv`, `desktop_ooc_pf128.csv`: the two matrices
+  again with `new2` (`NO_BASE=1`).
+- `desktop_in_memory.csv`: the same fits in memory (no cap, warm page
+  cache): base, `new2` not streaming (`FALSE`) and streaming forced on
+  (`TRUE`), alternated, 3 each; `load_before` is the 1-minute load, which
+  includes the previous fit.

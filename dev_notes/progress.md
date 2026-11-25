@@ -5,6 +5,23 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-24/25 (laptopX1, manica01): streaming merged and measured on the desktop
+
+- `ccr-fd217561-izn297` merged into the local `ada196_article` (349c929;
+  the blocked Hessians combined with the streaming accumulators, tests at
+  K = 2, 3, 7, 8 bit-identical: 24908ae). Nothing pushed (Andrea).
+- manica01, 8 P-cores: in memory, identical results, equal times except
+  eur on one thread, 3-4% slower (open). Out of core, identical estimates
+  in 72 runs; streaming 1.1-1.6 times its time in memory on the NVMe,
+  `dev` up to 16 times (it reads a 1.5 GB file 100 times).
+- Fixed: the prefetch read 1/16 of each chunk (madvise pieces of 2 MB,
+  128 KB honoured per call: b07f087), and `run_capped.sh` gave systemd a
+  relative path for the throttle, which it ignores (df19269).
+- The article's section on data 5 times the memory is postponed until
+  Andrea decides on the streaming changes (`handover.md`, task 0).
+- Changed: `radmix_streaming.md` ("Desktop", "Left to do"),
+  `data-raw/radmix/stream/` (desktop scripts and results).
+
 ## 2026-11-20 (laptopX1): bounds of likelihoods decided; clean-up
 
 - Andrea decided to keep `[1e-5, 1 - 1e-5]` for estimates from genotype
