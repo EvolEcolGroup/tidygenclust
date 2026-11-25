@@ -8,7 +8,8 @@
 # Environment: BENCH_DATA (the folder of the data of make_data.R, default
 # /home/user/benchdata), LIB_BASE and LIB_NEW (the libraries of the builds of
 # dev and of the branch, default /home/user/rlib_base and rlib_new),
-# N_CORES (default 4), FILE_MB (the size of the backing files, default 1430).
+# N_CORES (default 4), FILE_MB (the size of the backing files, default 1430),
+# NO_BASE (if set, dev is not run).
 # Usage: run_ooc.sh <out.csv> <iter> <em> <chunk_mb> <skip_base>
 # (skip_base: dataset:frac:bps triples whose base run is already measured)
 OUT=$1; iter=$2; em=$3; chunk=$4; skip=$5
@@ -29,6 +30,8 @@ for p in big_a big_b; do
       modes="TRUE TRUE_nopf TRUE_nozz base"
       # (on the slowest disk, streaming with and without prefetching only)
       [ $bps = 150 ] && modes="TRUE TRUE_nopf"
+      # (NO_BASE: streaming only, e.g. a new build of the branch)
+      [ -n "${NO_BASE:-}" ] && modes=$(echo "$modes" | sed 's/ *base//')
       for m in $modes; do
         lib=$LIB_NEW; [ $m = base ] && lib=$LIB_BASE
         if [ $m = base ] && echo " $skip " | grep -q " $p:$frac:$bps "; then

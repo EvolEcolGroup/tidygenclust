@@ -9,7 +9,8 @@
 # Environment: BENCH_DATA (the folder of the data of make_data.R, default
 # /home/user/benchdata), LIB_BASE and LIB_NEW (the libraries of the builds of
 # dev and of the branch, default /home/user/rlib_base and rlib_new),
-# N_CORES (default 4), FILE_MB (the size of the backing files, default 1430).
+# N_CORES (default 4), FILE_MB (the size of the backing files, default 1430),
+# NO_BASE (if set, dev is not run).
 # Usage: run_ooc_third.sh <out.csv> <chunk_mb>
 OUT=$1; chunk=$2
 here=$(cd "$(dirname "$0")" && pwd)
@@ -24,6 +25,8 @@ for p in big_a big_b; do
   for bps in 0 500 150; do
     modes="TRUE TRUE_nopf TRUE_nozz base"
     [ $p = big_a ] && [ $bps = 150 ] && modes="TRUE TRUE_nopf TRUE_nozz"
+    # (NO_BASE: streaming only, e.g. a new build of the branch)
+    [ -n "${NO_BASE:-}" ] && modes=$(echo "$modes" | sed 's/ *base//')
     for m in $modes; do
       lib=$LIB_NEW; [ $m = base ] && lib=$LIB_BASE
       line=$(sh $here/bench_stream.sh $lib "$p:33" $p $m $N 4 2 1 $chunk $cap $bps)
