@@ -81,6 +81,8 @@ result <- data.frame(
   run = run,
   memory_cap = memory_cap,
   read_mbps = read_mbps,
+  n_indiv = nrow(sim_gt),
+  n_loci = tidypopgen::count_loci(sim_gt),
   k = k,
   n_cores = n_cores,
   seconds = seconds,
