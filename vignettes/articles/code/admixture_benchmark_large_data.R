@@ -5,11 +5,11 @@
 # line, read with knitr::read_chunk()).
 #
 # 250,000 individuals typed at 200,000 loci, admixed from 5 ancestral
-# populations, written as a PLINK bed file and read into a gen_tibble: its
-# backing file (one byte per genotype) takes 50 GB, and the bed file (two
-# bits per genotype) 12.5 GB. Run it once, from the directory of the article
-# (vignettes/articles), on a machine with enough disk space (about 115 GB
-# while it runs, 63 GB at the end) and memory (about 3 GB per core):
+# populations, simulated into a bigSNP (bigsnpr's format) and read into a
+# gen_tibble, whose backing file (one byte per genotype) takes 50 GB. Run it
+# once, from the directory of the article (vignettes/articles), on a machine
+# with enough disk space (about 100 GB while it runs, 50 GB at the end) and
+# memory (about 3 GB per core):
 #
 #   cd vignettes/articles
 #   Rscript code/admixture_benchmark_large_data.R
@@ -57,7 +57,7 @@ genotypes <- bigstatsr::FBM.code256(
   init = NULL
 )
 block_size <- 250
-bigstatsr::big_apply(
+invisible(bigstatsr::big_apply(
   genotypes,
   a.FUN = function(x, ind, q_true, k, block_size) {
     bigparallelr::set_blas_ncores(1)
@@ -86,12 +86,12 @@ bigstatsr::big_apply(
   q_true = q_true,
   k = k,
   block_size = block_size
-)
-genotypes$save()
+))
 
-## ---- large-bed ----
-# a PLINK bed file of the genotypes, with the sampled population of each
-# individual as its family ID, and the loci on 20 chromosomes
+## ---- large-bigsnp ----
+# a bigSNP of the genotypes (saved as sim_fbm.rds, next to their backing
+# file), with the sampled population of each individual as its family ID,
+# and the loci on 20 chromosomes
 sim <- structure(
   list(
     genotypes = genotypes,
@@ -114,18 +114,18 @@ sim <- structure(
   ),
   class = "bigSNP"
 )
-bed_file <- bigsnpr::snp_writeBed(sim, file.path(large_dir, "sim_large.bed"))
-# the FBM is no longer needed: the gen_tibble gets its own backing file
+invisible(bigsnpr::snp_save(sim))
 rm(sim, genotypes)
 invisible(gc())
-unlink(file.path(large_dir, c("sim_fbm.bk", "sim_fbm.rds")))
 
 ## ---- large-gen-tibble ----
-# the gen_tibble that gt_radmix() reads, saved so that each run can load it
-# without reading the bed file again
+# the gen_tibble that gt_radmix() reads (gen_tibble() copies the backing
+# file of the bigSNP into its own), saved so that each run can load it; the
+# bigSNP is then no longer needed
 sim_gt <- tidypopgen::gen_tibble(
-  bed_file,
+  file.path(large_dir, "sim_fbm.rds"),
   backingfile = file.path(large_dir, "sim_large"),
   quiet = TRUE
 )
 invisible(tidypopgen::gt_save(sim_gt, quiet = TRUE))
+unlink(file.path(large_dir, c("sim_fbm.bk", "sim_fbm.rds")))
