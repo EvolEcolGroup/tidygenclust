@@ -57,7 +57,7 @@ genotypes <- bigstatsr::FBM.code256(
   init = NULL
 )
 block_size <- 250
-bigstatsr::big_apply(
+invisible(bigstatsr::big_apply(
   genotypes,
   a.FUN = function(x, ind, q_true, k, block_size) {
     bigparallelr::set_blas_ncores(1)
@@ -86,8 +86,8 @@ bigstatsr::big_apply(
   q_true = q_true,
   k = k,
   block_size = block_size
-)
-genotypes$save()
+))
+invisible(genotypes$save())
 
 ## ---- large-bed ----
 # a PLINK bed file of the genotypes, with the sampled population of each
