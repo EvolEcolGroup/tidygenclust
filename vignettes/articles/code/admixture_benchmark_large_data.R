@@ -31,8 +31,8 @@ k <- 5
 ## ---- large-simulate ----
 # Five ancestral populations, with allele frequencies drawn under the
 # Balding-Nichols model (Fst = 0.1 from frequencies uniform between 0.05 and
-# 0.95 in their common ancestor), and five sampled populations of 50,000
-# individuals each, whose ancestry proportions are drawn from a Dirichlet
+# 0.95 in their common ancestor), and five sampled populations of the same
+# size, whose ancestry proportions are drawn from a Dirichlet
 # distribution centred on one ancestral population (80% on average, the
 # rest shared among the other four). The genotypes are binomial draws from
 # the individual allele frequencies, with 1% of them missing.

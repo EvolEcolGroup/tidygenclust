@@ -28,6 +28,9 @@ knitr::read_chunk("code/admixture_benchmark_cli.sh")
 knitr::read_chunk("code/admixture_benchmark_radmix_cli.R")
 knitr::read_chunk("code/admixture_benchmark_openadmixture.jl")
 knitr::read_chunk("code/admixture_benchmark_radmix.R")
+knitr::read_chunk("code/admixture_benchmark_large_data.R")
+knitr::read_chunk("code/admixture_benchmark_large_fit.R")
+knitr::read_chunk("code/admixture_benchmark_large.sh")
 # the directory with the results of the benchmark (data/admixture_benchmark,
 # or data/admixture_benchmark_quick for the results of a quick run)
 results_dir <- params$results_dir
@@ -64,6 +67,10 @@ parts:
   by default (`gt_radmix()` does so with `init = "svd"`). Each of them is run
   from both starts, with several seeds, to compare their times and the
   log-likelihoods they reach.
+
+A last part, [Data larger than the memory](#data-larger-than-the-memory),
+runs `gt_radmix()` alone on simulated data, with its memory capped below
+their size, to show what working out of memory costs.
 
 All the programs are timed from the command line, each run being a new
 process that starts the program, reads the data and saves the results.
@@ -440,6 +447,107 @@ starts_optimum_text <- if (all(worst_by_program < 10)) {
 }
 ```
 
+```{r read_ooc, include = FALSE}
+# the fits of gt_radmix() on simulated data larger than the memory: one row
+# per run (its memory cap and read throughput, time, bytes read, memory),
+# with the peak memory of R in it (RssAnon, sampled), and the machine; one
+# set of files per data set (mid: about 5 GB; large: 50 GB), absent until
+# they are run
+read_ooc <- function(name) {
+  files <- file.path(
+    results_dir, paste0(name, c("_runs.csv", "_memory.csv", "_session.csv"))
+  )
+  if (!all(file.exists(files))) {
+    return(NULL)
+  }
+  session <- read.csv(files[3])
+  runs <- read.csv(files[1]) %>%
+    left_join(read.csv(files[2]), by = "run") %>%
+    mutate(memory_seconds = seconds[run == "memory"])
+  list(
+    runs = runs,
+    session = session,
+    data_gb = as.numeric(session$value[session$item == "backing file bytes"]) /
+      1e9
+  )
+}
+ooc <- read_ooc("mid")
+ooc_large <- read_ooc("large")
+# a cap in GiB, from its systemd form (e.g. "4G")
+ooc_gib <- function(cap) as.numeric(sub("G$", "", cap))
+format_gb <- function(x) formatC(x, format = "f", digits = 1)
+# a run with a memory cap (e.g. "1G") and a read throughput (0: the disk as
+# it is), and its time, also as a multiple of the time in memory
+ooc_run <- function(d, cap, mbps) {
+  d$runs[d$runs$memory_cap == cap & d$runs$read_mbps == mbps, ]
+}
+ooc_ratio <- function(d, cap, mbps) {
+  r <- ooc_run(d, cap, mbps)
+  formatC(r$seconds / r$memory_seconds, format = "f", digits = 1)
+}
+ooc_time <- function(d, cap, mbps) {
+  r <- ooc_run(d, cap, mbps)
+  paste0(
+    format_seconds(r$seconds), " s, ", ooc_ratio(d, cap, mbps),
+    " times its time in memory"
+  )
+}
+# the description of a data set: its size, and how many times larger than
+# a cap it is
+ooc_data_text <- function(d) {
+  r <- d$runs[1, ]
+  paste0(
+    format(r$n_indiv, big.mark = ","), " individuals typed at ",
+    format(r$n_loci, big.mark = ","), " loci (",
+    format_gb(d$data_gb), " GB in the backing file of the `gen_tibble`)"
+  )
+}
+# the table of the runs of a data set
+ooc_table <- function(d) {
+  d$runs %>%
+    mutate(
+      memory = if_else(memory_cap == "none", "no cap",
+        paste(sub("G$", "", memory_cap), "GiB")
+      ),
+      disk = case_when(
+        run == "memory" ~ "(in memory)",
+        read_mbps == 0 ~ "SSD",
+        TRUE ~ paste(read_mbps, "MB/s")
+      ),
+      relative = seconds / memory_seconds,
+      # the peak of the cgroup (R and the page cache) with a cap, and of the
+      # resident memory of R (with the pages of the file it maps) without
+      peak = if_else(run == "memory", peak_rss_gb, cgroup_peak_gb)
+    ) %>%
+    select(memory, disk, seconds, relative, read_gb, peak, peak_anon_gb) %>%
+    knitr::kable(
+      col.names = c(
+        "Memory", "Disk", "Time (s)", "Relative to in memory", "Read (GB)",
+        "Peak memory (GB)", "Of which R (GB)"
+      ),
+      digits = c(0, 0, 0, 1, 0, 2, 2),
+      format.args = list(big.mark = ",")
+    )
+}
+if (!is.null(ooc)) {
+  ooc_caps <- unique(ooc$runs$memory_cap[ooc$runs$memory_cap != "none"])
+  ooc_small <- ooc_caps[which.min(ooc_gib(ooc_caps))]
+  ooc_big <- ooc_caps[which.max(ooc_gib(ooc_caps))]
+  ooc_mbps <- sort(unique(ooc$runs$read_mbps[ooc$runs$read_mbps > 0]),
+    decreasing = TRUE
+  )
+  ooc_capped <- ooc$runs[ooc$runs$run != "memory", ]
+  ooc_summary <- paste0(
+    "`gt_radmix()` fitted ", format_gb(ooc$data_gb), " GB of genotypes ",
+    "with its memory capped at ", ooc_gib(ooc_small), " GiB, about ",
+    round(ooc_gib(ooc_small) * 2^30 / 1e9 / ooc$data_gb * 100, -1),
+    "% of the data, in ", ooc_ratio(ooc, ooc_small, 0), " times its time ",
+    "in memory on an SSD, with the same results (see ",
+    "[Data larger than the memory](#data-larger-than-the-memory))."
+  )
+}
+```
+
 ## Summary
 
 The five programs estimated the ancestry proportions of `r n_indiv`
@@ -486,6 +594,7 @@ dataset:
   `r starts_optimum_text`
 - **Memory.** `r memory_text` (see
   [How much memory do they use?](#how-much-memory-do-they-use)).
+`r if (!is.null(ooc)) paste0("- **Data larger than the memory.** ", ooc_summary)`
 
 ## Random starts
 
@@ -747,6 +856,10 @@ memory. OpenADMIXTURE.jl, which has no cross-validation, used
 MB, including Julia. ADAMIXTURE keeps the genotypes in a 2-bit packed
 encoding, which keeps its memory low without cross-validation, and
 fastmixture used about as much memory with cross-validation as without.
+`gt_radmix()` reads the genotypes from the backing file of the `gen_tibble`,
+which the system keeps in memory when it fits; when it does not,
+`gt_radmix()` reads it in chunks (see
+[Data larger than the memory](#data-larger-than-the-memory)).
 
 ### Cross-validation errors
 
@@ -850,6 +963,79 @@ loading `tidygenclust` (about `r format_seconds(startup_of("radmix"))` s).
 Its SVD needs no imputation of the missing genotypes: it is computed by
 `tidypopgen::gt_pca()`, which, as PLINK 1.9 does, compares each pair of
 individuals over the loci genotyped in both.
+
+## Data larger than the memory
+
+`gt_radmix()` reads the genotypes from the backing file of the
+`gen_tibble`, which it maps into memory: the system keeps as much of the
+file in memory as it can (in its page cache), and reads the rest from the
+disk when it is needed. Each iteration of `gt_radmix()` goes through all the
+genotypes several times, so data that do not fit in memory could be read
+from the disk many times over in each pass. When the backing file is larger
+than the memory available to R, `gt_radmix()` therefore streams it: each
+pass over the genotypes reads the file in chunks, alternating its direction
+from one pass to the next (so that the end of one pass and the start of the
+next find their chunks still in memory), and asks the system to read the
+next chunk while the current one is processed. The results are identical to
+those of the same fit in memory.
+
+`r if (is.null(ooc)) "*(The runs of this section have not been done yet.)*"`
+
+```{r ooc_intro, include = FALSE, eval = !is.null(ooc)}
+ooc_intro <- paste0(
+  "To measure what this costs, `gt_radmix()` was run on simulated ",
+  "genotypes of ", ooc_data_text(ooc), ", for K = ", ooc$runs$k[1],
+  " on ", ooc$runs$n_cores[1], " cores (see [How the benchmark was ",
+  "run](#data-larger-than-the-memory-1)): in memory, and then with the ",
+  "memory of R, page cache included, capped at ", ooc_gib(ooc_big),
+  " GiB (a little less than the data) and at ", ooc_gib(ooc_small),
+  " GiB (about a fifth of them), reading from the SSD of the machine and ",
+  "from the same disk with its reads throttled to ",
+  knitr::combine_words(ooc_mbps), " MB/s, the speeds of a slower SSD and ",
+  "of a hard disk:"
+)
+```
+
+`r if (!is.null(ooc)) ooc_intro`
+
+```{r table_ooc, echo = FALSE, eval = !is.null(ooc)}
+ooc_table(ooc)
+```
+
+```{r ooc_results, include = FALSE, eval = !is.null(ooc)}
+ooc_results <- paste0(
+  if (length(unique(ooc$runs$loglik)) == 1) {
+    "All the fits reached the same log-likelihood, with the same ancestry proportions. "
+  } else {
+    "The fits did not all reach the same log-likelihood. "
+  },
+  "On the SSD, the fit took ", ooc_time(ooc, ooc_big, 0), ", with ",
+  ooc_gib(ooc_big), " GiB, and ", ooc_time(ooc, ooc_small, 0), ", with ",
+  ooc_gib(ooc_small), " GiB. On the slower disks, the time is set by the ",
+  "bytes read: with ", ooc_gib(ooc_small), " GiB, the fit read about ",
+  format(signif(ooc_run(ooc, ooc_small, ooc_mbps[1])$read_gb, 2),
+    big.mark = ","
+  ),
+  " GB from the disk (which takes ",
+  format_seconds(
+    ooc_run(ooc, ooc_small, ooc_mbps[1])$read_gb * 1000 / ooc_mbps[1]
+  ),
+  " s at ", ooc_mbps[1], " MB/s), and took ",
+  ooc_time(ooc, ooc_small, ooc_mbps[1]), ", at ", ooc_mbps[1], " MB/s, and ",
+  ooc_time(ooc, ooc_small, ooc_mbps[2]), ", at ", ooc_mbps[2], " MB/s. ",
+  "With a cap, the memory of the process (R and the page cache, the peak ",
+  "memory in the table) stayed within the cap: the page cache fills the ",
+  "room R leaves, while R itself used at most ",
+  formatC(max(ooc_capped$peak_anon_gb), format = "f", digits = 2), " GB. ",
+  "Without a cap, the peak memory is that of R and of the pages of the file ",
+  "it mapped, the whole file."
+)
+```
+
+`r if (!is.null(ooc)) ooc_results`
+
+The throttle limits the throughput of the disk, not its latency, so it
+mimics a slower disk only in part.
 
 ## Detailed results
 
@@ -1139,6 +1325,61 @@ solution of alternating least squares on its factors; the ALS step of
 `inst/COPYRIGHTS`), and both ADAMIXTURE and `gt_radmix()` keep the best of
 three such solutions by log-likelihood.
 
+## Data larger than the memory
+
+The genotypes of [Data larger than the memory](#data-larger-than-the-memory)
+are simulated, in blocks of loci on several cores, straight into the backing
+file of a file-backed matrix (from `bigstatsr`), written as a bed file and
+read into a `gen_tibble`, by `code/admixture_benchmark_large_data.R`. Its
+sizes and paths can be set with environment variables (the data are not
+part of the repository):
+
+```{r large-setup, eval = FALSE}
+```
+
+Five ancestral populations, and five sampled ones, each mostly of one
+ancestry:
+
+```{r large-simulate, eval = FALSE}
+```
+
+```{r large-bed, eval = FALSE}
+```
+
+```{r large-gen-tibble, eval = FALSE}
+```
+
+Each fit is run by `code/admixture_benchmark_large_fit.R`, which records
+its time, the bytes it read from the disk, its memory, whether
+`gt_radmix()` streamed the data, and how close its ancestry proportions are
+to the simulated ones:
+
+```{r large-fit, eval = FALSE}
+```
+
+```{r large-check, eval = FALSE}
+```
+
+The fits are run by `code/admixture_benchmark_large.sh`: the first in
+memory, the others under a memory cap (a transient scope of systemd, on
+Linux with cgroups v2, which also counts the page cache), from a cold page
+cache, on the disk as it is or with its reads throttled (which needs root):
+
+```{bash large-runs, eval = FALSE}
+```
+
+For the data of this article (`r if (!is.null(ooc)) format_gb(ooc$data_gb) else "about 5"` GB), from `vignettes/articles`:
+
+```sh
+cd vignettes/articles
+LARGE_DIR=data/mid LARGE_N_INDIV=50000 LARGE_N_LOCI=100000 \
+  Rscript code/admixture_benchmark_large_data.R
+sudo -v
+LARGE_DIR=data/mid LARGE_NAME=mid LARGE_MEMORY_CAPS="4G 1G" \
+  LARGE_READ_MBPS="0 500 150" taskset -c 0-7 \
+  bash code/admixture_benchmark_large.sh
+```
+
 ## From the results to the tables and plots
 
 The results are read, and the Q matrices aligned and compared, with this
@@ -1199,6 +1440,8 @@ bind_rows(
 ) %>%
   knitr::kable(col.names = c("", ""))
 ```
+
+`r if (!is.null(ooc)) paste0("The runs on data larger than the memory (", ooc$session$value[ooc$session$item == "date"], ") used the same machine, with tidygenclust ", ooc$session$value[ooc$session$item == "tidygenclust"], " and its data on a ", ooc$session$value[ooc$session$item == "disk"], ".")`
 
 # References
 
