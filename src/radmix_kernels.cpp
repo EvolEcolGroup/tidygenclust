@@ -1722,7 +1722,10 @@ static void sum_slices(const GenoView& geno, const double* q, const double* p,
   std::vector<double> qT = transpose(q, K, I);
   const ptrdiff_t nb = (ptrdiff_t) n_blocks(J, TILE_J);
   std::vector<double> partial(nb * NS, 0.0);
-  // the sums of block bl into partial
+  // the sums of block bl into partial (the only call of slice_sum, which GCC
+  // then inlines, with loglik_slice(): with a second copy of this loop in
+  // the usual layout, it called both for every slice, and the
+  // log-likelihood pass of small data on one thread was 7% slower)
   auto block = [&](ptrdiff_t bl, Slice& s) {
     const size_t j1 = std::min(J, (bl + 1) * TILE_J);
     double acc[NS] = {};
@@ -1765,18 +1768,8 @@ static void sum_slices(const GenoView& geno, const double* q, const double* p,
   // (dynamic scheduling balances the load if some threads are slower, e.g.
   // while the backing file is being paged in)
 #pragma omp for schedule(RADMIX_OMP_SCHEDULE)
-  for (ptrdiff_t bl = 0; bl < nb; bl++) {
-    const size_t j1 = std::min(J, (bl + 1) * TILE_J);
-    double acc[NS] = {};
-    for (size_t j = bl * TILE_J; j < j1; j++) {
-      for (size_t i0 = 0; i0 < I; i0 += TILE_I) {
-        const size_t i1 = std::min(I, i0 + TILE_I);
-        slice_geno<GL>(geno, qT.data(), p + K * j, K, j, i0, i1, s);
-        slice_sum(i1 - i0, s, acc);
-      }
-    }
-    for (int c = 0; c < NS; c++) partial[NS * bl + c] = acc[c];
-  }
+  for (ptrdiff_t bl = 0; bl < nb; bl++)
+    block(bl, s);
 }
   }
   // the totals, adding up the blocks in order (outside the parallel region)
