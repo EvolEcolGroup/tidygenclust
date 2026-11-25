@@ -61,18 +61,18 @@ and `data-raw/radmix/stream/results/desktop_*`.
   (instructions and cycles of base 51b4e9f against the merge) on
   manica01, when no timing runs; the libraries are in
   `~/project_temp/claude/tidygenclust/stream/work/libs/{base,new,new2}`.
-- **[desktop] then the article** (Andrea, 25 Nov: 250,000 individuals,
-  no bed file, three fits: in memory, capped at 8 GiB on the NVMe, capped
-  and throttled to 500 MB/s; memory records shown): simulate 250,000 x
-  200,000 into a gen_tibble with a 50 GB backing file and fit it
-  (`vignettes/articles/code/admixture_benchmark_large_data.R`, then
-  `admixture_benchmark_large.sh`, from `vignettes/articles`); the driver's
-  phases are `large_smoke`, `large_data`, `large_fits` in
-  `data-raw/radmix/stream/desktop/phases/` (build `art`). Then the section
-  "Data larger than the memory" of `admixture_benchmark.Rmd` (after "SVD
-  and random starts"), its summary bullet, and a subsection of "How the
-  benchmark was run" reading the chunks `large-*` of the three scripts;
-  render the article.
+- **[desktop] then the article** (after the decisions): simulate
+  220,000 x 200,000 (44 GB backing file, 11 GB bed; Andrea to confirm
+  220,000 or 250,000 individuals) and fit it in memory and under an 8 GiB
+  cap (`vignettes/articles/code/admixture_benchmark_large_data.R`, then
+  `admixture_benchmark_large.sh`, from `vignettes/articles`; the driver's
+  phases are `data-raw/radmix/stream/desktop/held/large_data.sh` and
+  `large_fits.sh`: copy them into the driver's `phases/` on manica01; they use the
+  build `new2`, b07f087). About 1-1.5 h to simulate (100 GB of disk at the peak), 40-60
+  min per fit. Then the section "Data larger than the memory" of
+  `admixture_benchmark.Rmd` (after "SVD and random starts"), its summary
+  bullet, and a subsection of "How the benchmark was run" reading the
+  chunks `large-*` of the three scripts; render the article.
 - **Done when:** the decisions are taken, the article section is written
   and rendered, and `ada196_article` is committed locally (no push, by
   Andrea's instruction).

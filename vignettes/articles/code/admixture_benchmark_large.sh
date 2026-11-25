@@ -112,5 +112,6 @@ disk=$(lsblk -no pkname "$(df --output=source "$bk" | tail -1)")
   echo "read throttle,$read_mbps MB/s"
   echo "disk,$(sed 's/^ *//; s/ *$//' "/sys/block/$disk/device/model")"
   echo "backing file bytes,$(stat -c %s "$bk")"
+  echo "bed file bytes,$(stat -c %s "$large_dir/sim_large.bed")"
   echo "tidygenclust,$(Rscript -e 'cat(format(packageVersion("tidygenclust")))')"
 } > "$out_dir/large_session.csv"
