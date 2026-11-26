@@ -485,6 +485,11 @@ ooc_ratio <- function(d, cap, mbps) {
   r <- ooc_run(d, cap, mbps)
   formatC(r$seconds / r$memory_seconds, format = "f", digits = 1)
 }
+# how much longer than in memory, in percent (e.g. "5% longer")
+ooc_longer <- function(d, cap, mbps) {
+  r <- ooc_run(d, cap, mbps)
+  paste0(round((r$seconds / r$memory_seconds - 1) * 100), "% longer")
+}
 ooc_time <- function(d, cap, mbps) {
   r <- ooc_run(d, cap, mbps)
   paste0(
@@ -543,6 +548,21 @@ if (!is.null(ooc)) {
     round(ooc_gib(ooc_small) * 2^30 / 1e9 / ooc$data_gb * 100, -1),
     "% of the data, in ", ooc_ratio(ooc, ooc_small, 0), " times its time ",
     "in memory on an SSD, with the same results (see ",
+    "[Data larger than the memory](#data-larger-than-the-memory))."
+  )
+}
+if (!is.null(ooc_large)) {
+  large_cap <- ooc_large$runs$memory_cap[ooc_large$runs$memory_cap != "none"][1]
+  large_mbps <- max(ooc_large$runs$read_mbps)
+  ooc_summary <- paste0(
+    "`gt_radmix()` fitted ", round(ooc_large$data_gb), " GB of genotypes (",
+    format(ooc_large$runs$n_indiv[1], big.mark = ","), " individuals ",
+    "typed at ", format(ooc_large$runs$n_loci[1], big.mark = ","),
+    " loci) with its memory capped at ", ooc_gib(large_cap), " GiB, a ",
+    "sixth of the data, on an SSD, with the same results, taking ",
+    ooc_longer(ooc_large, large_cap, 0), " than in memory (",
+    ooc_longer(ooc, ooc_small, 0), " on ", format_gb(ooc$data_gb),
+    " GB with a fifth of the data in memory; see ",
     "[Data larger than the memory](#data-larger-than-the-memory))."
   )
 }
@@ -1037,6 +1057,52 @@ ooc_results <- paste0(
 The throttle limits the throughput of the disk, not its latency, so it
 mimics a slower disk only in part.
 
+```{r ooc_large_text, include = FALSE, eval = !is.null(ooc_large)}
+large_run_ssd <- ooc_run(ooc_large, large_cap, 0)
+large_run_slow <- ooc_run(ooc_large, large_cap, large_mbps)
+ooc_large_intro <- paste0(
+  "On a larger simulation, of ", ooc_data_text(ooc_large), ", and ",
+  format_gb(as.numeric(ooc_large$session$value[
+    ooc_large$session$item == "bed file bytes"
+  ]) / 1e9), " GB even as a bed file, with 2 bits per genotype, ",
+  "`gt_radmix()` was run in memory and with its memory capped at ",
+  ooc_gib(large_cap), " GiB, about a sixth of the data, on the SSD and ",
+  "at ", large_mbps, " MB/s:"
+)
+ooc_large_results <- paste0(
+  if (length(unique(ooc_large$runs$loglik)) == 1) {
+    "The three fits reached the same log-likelihood. "
+  } else {
+    "The fits did not all reach the same log-likelihood. "
+  },
+  "In memory, the fit took ",
+  format_seconds(large_run_ssd$memory_seconds), " s (",
+  round(large_run_ssd$memory_seconds / 60), " minutes), with the whole ",
+  "file in memory. Capped at ", ooc_gib(large_cap), " GiB, it took ",
+  format_seconds(large_run_ssd$seconds), " s, ",
+  ooc_longer(ooc_large, large_cap, 0), ", on the SSD, reading ",
+  format(signif(large_run_ssd$read_gb, 2), big.mark = ","), " GB from the ",
+  "disk at ", formatC(large_run_ssd$read_gb / large_run_ssd$seconds,
+    format = "f", digits = 1
+  ), " GB/s on average, nearly as fast as the computation used them, and ",
+  ooc_time(ooc_large, large_cap, large_mbps), ", at ", large_mbps,
+  " MB/s, as long as it takes to read its ",
+  format(signif(large_run_slow$read_gb, 2), big.mark = ","), " GB at that ",
+  "speed (", format_seconds(large_run_slow$read_gb * 1000 / large_mbps),
+  " s). R itself used at most ",
+  formatC(max(ooc_large$runs$peak_anon_gb), format = "f", digits = 2),
+  " GB."
+)
+```
+
+`r if (!is.null(ooc_large)) ooc_large_intro`
+
+```{r table_ooc_large, echo = FALSE, eval = !is.null(ooc_large)}
+ooc_table(ooc_large)
+```
+
+`r if (!is.null(ooc_large)) ooc_large_results`
+
 ## Detailed results
 
 ### Agreement between the programs (random starts)
@@ -1380,6 +1446,16 @@ LARGE_DIR=data/mid LARGE_NAME=mid LARGE_MEMORY_CAPS="4G 1G" \
   bash code/admixture_benchmark_large.sh
 ```
 
+and for the larger data (`r if (!is.null(ooc_large)) round(ooc_large$data_gb) else 50` GB; the defaults of the scripts), which take
+about 120 GB of disk while they are simulated:
+
+```sh
+cd vignettes/articles
+Rscript code/admixture_benchmark_large_data.R
+sudo -v
+taskset -c 0-7 bash code/admixture_benchmark_large.sh
+```
+
 ## From the results to the tables and plots
 
 The results are read, and the Q matrices aligned and compared, with this
@@ -1441,7 +1517,7 @@ bind_rows(
   knitr::kable(col.names = c("", ""))
 ```
 
-`r if (!is.null(ooc)) paste0("The runs on data larger than the memory (", ooc$session$value[ooc$session$item == "date"], ") used the same machine, with tidygenclust ", ooc$session$value[ooc$session$item == "tidygenclust"], " and its data on a ", ooc$session$value[ooc$session$item == "disk"], ".")`
+`r if (!is.null(ooc)) paste0("The runs on data larger than the memory (", knitr::combine_words(unique(c(ooc$session$value[ooc$session$item == "date"], if (!is.null(ooc_large)) ooc_large$session$value[ooc_large$session$item == "date"]))), ") used the same machine, with tidygenclust ", ooc$session$value[ooc$session$item == "tidygenclust"], " and its data on a ", ooc$session$value[ooc$session$item == "disk"], ".")`
 
 # References
 

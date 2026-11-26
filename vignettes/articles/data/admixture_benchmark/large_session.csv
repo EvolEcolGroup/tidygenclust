@@ -1,0 +1,11 @@
+item,value
+date,2026-11-26
+CPU,13th Gen Intel(R) Core(TM) i9-13900
+cores used,8
+RAM,126 GB
+memory caps,8G
+read throughputs (MB/s; 0: the disk as it is),0 500
+disk,Samsung SSD 970 EVO Plus 2TB
+backing file bytes,50000000000
+bed file bytes,12500000003
+tidygenclust,0.1.5.9007
