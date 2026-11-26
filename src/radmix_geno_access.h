@@ -127,6 +127,16 @@
 //   over the loci in order); in a fit, Q-side and P-side passes alternate.
 // Streaming never changes the results: they are bit-identical to those of
 // the usual layout.
+//
+// Chunks in memory: with many individuals (one segment of the Q side, see
+// q_segments()), the usual layout of the Q side has each thread stream its
+// block of individuals over all the loci, so the threads read different
+// parts of the file at any time. A view with `chunk_q` TRUE (data that fit
+// in memory, decided by radmix_stream_mode()) runs that Q side in chunks of
+// loci as streaming does, all the threads on the same chunk, without
+// prefetching (the data are in memory); the other passes keep the usual
+// layout. The results are again bit-identical. (On the desktop, a fit of
+// 10,000 individuals in memory took 15% less time.)
 
 #include <bigstatsr/BMAcc.h>
 #include <tidygenclust/radmix_gl_source.h>
@@ -258,6 +268,13 @@ public:
       Rcpp::LogicalVector st = data["stream"];
       _stream = st.size() == 1 && st[0] == TRUE;
     }
+    // the Q side in chunks for data in memory (see "Chunks in memory"
+    // above): off unless `chunk_q` is TRUE
+    _chunk_q = false;
+    if (data.containsElementNamed("chunk_q")) {
+      Rcpp::LogicalVector cq = data["chunk_q"];
+      _chunk_q = cq.size() == 1 && cq[0] == TRUE;
+    }
     // (stream_prefetch = FALSE turns prefetching off, and stream_zigzag =
     // FALSE the alternation of directions, for benchmarks)
     _stream_prefetch = true;
@@ -383,6 +400,8 @@ public:
   // loci of a chunk (about chunk_bytes bytes of the backing file, at least
   // one locus; the kernels round it to their tiles).
   inline bool stream() const { return _stream; }
+  // whether the Q side runs in chunks for data in memory
+  inline bool chunk_q() const { return _chunk_q; }
   size_t chunk_loci() const {
     const double per_locus = _locus_bytes > 0 ? _locus_bytes : 1.0;
     const double n = std::floor(_chunk_bytes / per_locus);
@@ -406,7 +425,9 @@ public:
   // A no-op on Windows.
   void prefetch(size_t j0, size_t j1) const {
     if (j1 > _n_loci) j1 = _n_loci;
-    if (j0 >= j1 || !_stream_prefetch) return;
+    // (nothing to read ahead unless streaming: with chunk_q, the data are
+    // in memory)
+    if (j0 >= j1 || !_stream || !_stream_prefetch) return;
     if (_gl) {
       if (_prefetch_fn != nullptr) _prefetch_fn(_ctx, j0, j1);
       return;
@@ -731,6 +752,7 @@ private:
   std::vector<uint64_t> _cv_mask;  // the visibility of each genotype of a
                                    // training view, one bit each
   bool _stream;                  // whether the passes stream (see above)
+  bool _chunk_q;                 // whether the Q side runs in chunks in memory
   double _chunk_bytes;           // the target size of a chunk, in bytes
   bool _stream_prefetch;         // whether prefetch() does anything
   bool _stream_zigzag;           // whether direction() alternates

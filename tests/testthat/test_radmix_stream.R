@@ -82,14 +82,18 @@ test_that("streaming passes are identical (Q side in one segment)", {
   fixed <- seq_len(n) %% 7 == 0
   # K = 8: the blocked Hessians of the Q side are flushed at the end of each
   # chunk, at the same loci as in one run over all of them
+  # the Q side in chunks for data in memory (chunk_q) as well
+  chunks <- big
+  chunks$chunk_q <- TRUE
+  chunks$chunk_bytes <- 1
   for (k in c(2, 8)) {
     qp <- random_qp(k, n, m, 2)
     ref <- all_passes(big, qp$q, qp$p)
     expect_identical(all_passes(stream_data(big), qp$q, qp$p), ref)
-    expect_identical(
-      all_passes(stream_data(big), qp$q, qp$p, fixed),
-      all_passes(big, qp$q, qp$p, fixed)
-    )
+    expect_identical(all_passes(chunks, qp$q, qp$p), ref)
+    ref_fixed <- all_passes(big, qp$q, qp$p, fixed)
+    expect_identical(all_passes(stream_data(big), qp$q, qp$p, fixed), ref_fixed)
+    expect_identical(all_passes(chunks, qp$q, qp$p, fixed), ref_fixed)
   }
 })
 
@@ -120,19 +124,26 @@ test_that("fits that stream are identical to those that do not", {
 
 test_that("streaming is chosen from the size of the data", {
   withr::local_options(tidygenclust.radmix_stream = NULL)
-  # these data are small
+  # these data are small: no streaming, but the Q side in chunks (when it
+  # has one segment)
   s <- radmix_stream_mode(dat)
   expect_false(s$stream)
+  expect_true(s$chunk_q)
   expect_identical(s$data_bytes, 150 * 1100)
-  expect_gte(s$chunk_bytes, 16 * 2^20)
-  expect_lte(s$chunk_bytes, 256 * 2^20)
-  # the options force it, and set the size of the chunks
+  expect_identical(s$chunk_bytes, radmix_chunk_q_mb() * 2^20)
+  # the options force streaming, or the usual layout, and set the size of
+  # the chunks
+  withr::local_options(tidygenclust.radmix_stream = FALSE)
+  s <- radmix_stream_mode(dat)
+  expect_false(s$stream)
+  expect_false(s$chunk_q)
   withr::local_options(
     tidygenclust.radmix_stream = TRUE,
     tidygenclust.radmix_chunk_mb = 2
   )
   s <- radmix_stream_mode(dat)
   expect_true(s$stream)
+  expect_false(s$chunk_q)
   expect_identical(s$chunk_bytes, 2 * 2^20)
   withr::local_options(tidygenclust.radmix_chunk_mb = -1)
   expect_error(radmix_stream_mode(dat), "radmix_chunk_mb")

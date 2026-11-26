@@ -22,10 +22,12 @@ data <- list(
   scale = rep(1, nrow(fbm)), n_indiv = nrow(fbm), n_loci = ncol(fbm)
 )
 # modes: "base" (the build without streaming, which ignores these
-# elements), FALSE, TRUE, TRUE_nopf (streaming without prefetching) and
-# TRUE_nozz (streaming without alternating directions)
+# elements), FALSE (the usual layout), TRUE, TRUE_nopf (streaming without
+# prefetching), TRUE_nozz (streaming without alternating directions) and
+# CHUNKQ (not streaming, the Q side in chunks: chunk_q)
 if (stream != "base") {
-  data$stream <- stream != "FALSE"
+  data$stream <- !stream %in% c("FALSE", "CHUNKQ")
+  data$chunk_q <- stream == "CHUNKQ"
   data$stream_prefetch <- stream != "TRUE_nopf"
   data$stream_zigzag <- stream != "TRUE_nozz"
   data$chunk_bytes <- chunk_mb * 2^20

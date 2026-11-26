@@ -1167,7 +1167,12 @@ template <bool NEWTON, bool LOGLIK, class Finish>
 static void q_side(const GenoView& geno, const double* qT, const double* p,
                    int K, int n_cores, double* ll, Finish finish,
                    const size_t* free_idx = nullptr, size_t n_free = 0) {
-  if (geno.stream()) {
+  // streaming, or chunks in memory with one segment (see "Chunks in
+  // memory" in radmix_geno_access.h)
+  if (geno.stream() ||
+      (geno.chunk_q() &&
+       q_segments(free_idx == nullptr ? geno.nrow() : n_free, geno.ncol()) ==
+         1)) {
     q_side_stream<NEWTON, LOGLIK>(geno, qT, p, K, n_cores, ll, finish,
                                   free_idx, n_free);
     return;
@@ -1335,7 +1340,8 @@ static void q_side_stream(const GenoView& geno, const double* qT,
   const size_t max_prefetch = chunk_blocks(geno) * TILE_J;
   Prefetcher prefetcher(geno);
   for (size_t c = 0; c < n_chunks; c++) {
-    if (c + 1 < n_chunks)
+    // (only when streaming: chunks in memory have nothing to read ahead)
+    if (c + 1 < n_chunks && geno.stream())
       prefetcher.start(cut_j[c + 1],
                        std::min(cut_j[c + 2], cut_j[c + 1] + max_prefetch));
     const bool first = c == 0, last = c + 1 == n_chunks;

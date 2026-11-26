@@ -1,24 +1,30 @@
 #' Whether gt_radmix() streams its data (internal)
 #'
-#' Adds the elements `stream` and `chunk_bytes` to the data of
+#' Adds the elements `stream`, `chunk_q` and `chunk_bytes` to the data of
 #' `gt_radmix()` (the list returned by `gt_radmix_data()`), which tell the
 #' C++ passes whether to walk the loci in chunks, prefetching the next one
 #' and alternating the direction of the passes (see "Streaming
 #' larger-than-memory data" in `src/radmix_geno_access.h`). Streaming is for
 #' data larger than the memory, whose backing file cannot stay in the page
-#' cache from one pass to the next; it never changes the results, which are
-#' bit-identical either way.
+#' cache from one pass to the next. Genotypes that fit in memory get
+#' `chunk_q`: the Q side alone runs in chunks, when it has one segment
+#' (many individuals; "Chunks in memory" in the same file), which is faster
+#' there. Neither ever changes the results, which are bit-identical either
+#' way.
 #'
-#' The option `tidygenclust.radmix_stream` decides: `TRUE` or `FALSE`, or
-#' `NULL` (the default) to stream when the bytes of the backing file read
-#' by a pass exceed `0.8` times the memory available
-#' (`radmix_mem_available()`). The option `tidygenclust.radmix_chunk_mb`
-#' sets the size of the chunks (in MB; by default a sixteenth of the memory
-#' available, between 16 and 256 MB).
+#' The option `tidygenclust.radmix_stream` decides: `TRUE` (stream) or
+#' `FALSE` (neither: the usual layout), or `NULL` (the default) to stream
+#' when the bytes of the backing file read by a pass exceed `0.8` times the
+#' memory available (`radmix_mem_available()`), and to use `chunk_q`
+#' otherwise. The option `tidygenclust.radmix_chunk_mb` sets the size of
+#' the chunks (in MB; by default, when streaming, a sixteenth of the memory
+#' available, between 16 and 256 MB, and in memory
+#' `radmix_chunk_q_mb()`).
 #'
 #' @param data the data of `gt_radmix()`
-#' @returns `data`, with `stream` (`TRUE` or `FALSE`), `chunk_bytes` and
-#'   `data_bytes` (the bytes read by a pass, or `NA` if unknown).
+#' @returns `data`, with `stream` and `chunk_q` (`TRUE` or `FALSE`),
+#'   `chunk_bytes` and `data_bytes` (the bytes read by a pass, or `NA` if
+#'   unknown).
 #' @keywords internal
 #' @noRd
 radmix_stream_mode <- function(data) {
@@ -30,12 +36,19 @@ radmix_stream_mode <- function(data) {
   } else {
     isTRUE(opt)
   }
+  # genotypes in memory: the Q side in chunks (with one segment), unless
+  # the option asks for the usual layout
+  chunk_q <- !stream && !isFALSE(opt) && !identical(data$kind, "gl_source")
   chunk_mb <- getOption("tidygenclust.radmix_chunk_mb", default = NULL)
   if (is.null(chunk_mb)) {
-    # a sixteenth of the memory available, between 16 and 256 MB: the chunk
-    # being computed and the one being prefetched take memory from the
-    # page cache, which keeps the data that the next pass reads first
-    chunk_mb <- min(256, max(16, mem / 16 / 2^20))
+    chunk_mb <- if (stream) {
+      # a sixteenth of the memory available, between 16 and 256 MB: the
+      # chunk being computed and the one being prefetched take memory from
+      # the page cache, which keeps the data that the next pass reads first
+      min(256, max(16, mem / 16 / 2^20))
+    } else {
+      radmix_chunk_q_mb()
+    }
   }
   if (!(length(chunk_mb) == 1 && is.numeric(chunk_mb) && chunk_mb > 0)) {
     stop("option 'tidygenclust.radmix_chunk_mb' must be a positive number",
@@ -43,10 +56,15 @@ radmix_stream_mode <- function(data) {
     )
   }
   data$stream <- stream
+  data$chunk_q <- chunk_q
   data$chunk_bytes <- chunk_mb * 2^20
   data$data_bytes <- bytes
   data
 }
+
+# The size of the chunks of the Q side of genotypes in memory, in MB (see
+# radmix_stream_mode())
+radmix_chunk_q_mb <- function() 64
 
 # The bytes of the backing file that a pass reads: whole columns of the FBM
 # for a gen_tibble, and locus_bytes per locus for a source of genotype

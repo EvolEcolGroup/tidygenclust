@@ -495,11 +495,15 @@ group), the passes stream it: all the threads work on one chunk of loci
 at a time, a helper thread asks the operating system to read the next
 chunk meanwhile, and the passes that can take the chunks in any order
 alternate their direction, so that each starts with the data that the
-previous one left in memory. The results are identical. The option
+previous one left in memory. Genotypes that fit in memory, with 8,192
+individuals or more, have the passes over the individuals in chunks of
+loci too (all the threads reading the same part of the file), which is
+faster. The results are identical. The option
 \code{tidygenclust.radmix_stream} forces streaming on (\code{TRUE}) or off
-(\code{FALSE}), and \code{tidygenclust.radmix_chunk_mb} sets the size of the
-chunks (by default a sixteenth of the memory available, between 16 and
-256 MB). Each pass still reads the part of the file that is not in
+(\code{FALSE}, which also turns off the chunks in memory), and
+\code{tidygenclust.radmix_chunk_mb} sets the size of the chunks (by default
+a sixteenth of the memory available, between 16 and 256 MB, when
+streaming, and 64 MB in memory). Each pass still reads the part of the file that is not in
 memory, so a fit runs at the speed of the disk once the data are much
 larger than the memory.
 }
