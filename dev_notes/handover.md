@@ -1,15 +1,16 @@
 # tidygenclust: handover
 
-Updated 2026-11-25 (laptopX1, with runs on manica01): the streaming of
-`ccr-fd217561-izn297` is merged into the local `ada196_article` and
-measured on the desktop (`radmix_streaming.md`, "Desktop"): identical
-estimates everywhere, no slowdown in memory except 3-4% on small data on
-one thread, 1.1-1.6 times the time in memory out of core on the NVMe
-(`dev` up to 16 times). The prefetch read 1/16 of each chunk on the
-desktop and is fixed (b07f087). Andrea decides next what to keep of the
-streaming changes; the article's section on data 5 times the memory waits
-for that. `summary.md` first. History is in `progress.md`; designs are in
-the topic documents listed in `README.md`.
+Updated 2026-11-26 (laptopX1, with runs on manica01): streaming is merged
+into the local `ada196_article` (version 0.1.5.9007), measured on the
+desktop (`radmix_streaming.md`, "Desktop") and shown in the benchmark
+article, whose new section "Data larger than the memory" is written and
+renders: 5 GB under 4 and 1 GiB caps (1 GiB: 30% longer than in memory on
+the NVMe), and 50 GB under 8 GiB (5% longer on the NVMe, 3.4 times at
+500 MB/s), identical results. The prefetch fix (b07f087) and the inlining
+fix of the log-likelihood pass (524b347) are in; the small-data slowdown
+of the gate did not reproduce. Andrea reviews the article and decides on
+the streaming defaults. `summary.md` first. History is in `progress.md`;
+designs are in the topic documents listed in `README.md`.
 
 ## Branches
 
@@ -36,46 +37,31 @@ local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
 
 ## Next tasks
 
-### 0. **P1** [decide] then [claude] streaming of data larger than the memory
+### 0. **P1** [review] then [decide] the article section and the streaming defaults
 
-Read `dev_notes/radmix_streaming.md`, "Desktop", first. Measured on
-manica01 (8 P-cores, NVMe, also throttled to 500 and 150 MB/s): see the
-tables there. Scripts and raw results: `data-raw/radmix/stream/desktop/`
-and `data-raw/radmix/stream/results/desktop_*`.
+Read `dev_notes/radmix_streaming.md`, "Desktop" and "The article's runs",
+first. Scripts and raw results: `data-raw/radmix/stream/desktop/` and
+`data-raw/radmix/stream/results/desktop_*`; the article's results are in
+`vignettes/articles/data/admixture_benchmark/{mid,large}_*.csv`.
 
-- **Decisions (Andrea):**
-  1. Keep the streaming changes as they are (stream whenever the file
-     exceeds 0.8 times the memory available, few individuals included:
-     never worse than `dev` by more than 3% on the desktop).
-  2. The prefetch on by default (fixed: 20-27% faster with many
-     individuals on the NVMe; 7-9% slower with few individuals and a third
-     of the file cached), and the alternation (needed: 22-51% faster on
-     the slow disks).
-  3. Chunked Q side in memory too (15% faster with 10,000 individuals, 3%
-     slower with 1,000).
-  4. Test on a real hard disk (one of manica01's, mounted inside
-     `~/project_temp/claude/`, which is exempt from the antivirus; needs
-     sudo) and on a cluster's network file system before the article.
-- **[claude] the 3-4% on small data on one thread** (eur, `update_p` and
-  `loglik`; not hgdp, not 8 threads): find the cause with `perf stat`
-  (instructions and cycles of base 51b4e9f against the merge) on
-  manica01, when no timing runs; the libraries are in
-  `~/project_temp/claude/tidygenclust/stream/work/libs/{base,new,new2}`.
-- **[desktop] then the article** (Andrea, 25 Nov: 250,000 individuals,
-  three fits: in memory, capped at 8 GiB on the NVMe, capped and throttled
-  to 500 MB/s; memory records shown): simulate 250,000 x 200,000 (50 GB
-  backing file of the gen_tibble, read from a 12.5 GB bed) and fit it
-  (`vignettes/articles/code/admixture_benchmark_large_data.R`, then
-  `admixture_benchmark_large.sh`, from `vignettes/articles`); the driver's
-  phases are `large_smoke`, `large_data`, `large_fits` in
-  `data-raw/radmix/stream/desktop/phases/` (build `art`). Then the section
-  "Data larger than the memory" of `admixture_benchmark.Rmd` (after "SVD
-  and random starts"), its summary bullet, and a subsection of "How the
-  benchmark was run" reading the chunks `large-*` of the three scripts;
-  render the article.
-- **Done when:** the decisions are taken, the article section is written
-  and rendered, and `ada196_article` is committed locally (no push, by
-  Andrea's instruction).
+- **[review] (Andrea):** the section "Data larger than the memory" of
+  `vignettes/articles/admixture_benchmark.Rmd` (results after "SVD and
+  random starts"; code under "How the benchmark was run"; summary bullet;
+  a line in the introduction and in the memory section). Render it with
+  `rmarkdown::render("admixture_benchmark.Rmd")` from `vignettes/articles`
+  (`TMPDIR` in a work folder). The main benchmark is not rerun: the
+  desktop check of 25 Nov reproduced its HGDP times (5.07 s on 8 threads,
+  40.2 s on 1, against 6.5 and 40.6 s from the command line).
+- **[decide] (Andrea):** keep the defaults (stream above 0.8 times the
+  memory available; prefetch in pieces of 128 KB and alternation on);
+  chunked Q side in memory too (15% faster with 10,000 individuals, 3%
+  slower with 1,000); a real hard disk or a cluster file system before
+  publishing (manica01's disks are not mounted).
+- **Then [claude]:** the version is already 0.1.5.9007; a PR into `dev`
+  only when Andrea says so (`ada196_article` stays local by his
+  instruction). Delete the article's data on manica01 when he no longer
+  needs them (below).
+- **Done when:** the article is reviewed and the decisions are taken.
 
 ### 1. **P2** [claude] then [review] `articles_revised`
 
@@ -86,12 +72,10 @@ and `data-raw/radmix/stream/results/desktop_*`.
 
 ## Desktop queue
 
-- Task 0's article runs (after Andrea's decisions): about 3-4 h, the
-  simulation on 16 cores and the fits on the P-cores 0-7; no sudo.
-- If Andrea wants it: a hard disk test (mount one of manica01's disks
-  inside `~/project_temp/claude/`, sudo), the phases `ooc_third_pf` and
-  `ooc_pf` of `data-raw/radmix/stream/desktop/` with `BENCH_DATA` on it
-  (about 30 min, plus the `dev` runs if wanted).
+- Nothing queued. On manica01, `~/project_temp/claude/tidygenclust/stream/`
+  holds the builds (`work/`), the 1.5 GB benchmark data (`data/`), the
+  article's data (`mid/`, 6 GB; `large/`, 62 GB) and the driver: delete
+  them once the article is final.
 
 ## Backlog
 

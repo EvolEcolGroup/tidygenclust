@@ -5,6 +5,22 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-25/26 (laptopX1, manica01): the article's section on data larger than the memory
+
+- 524b347: the log-likelihood pass inlines `loglik_slice()` again (the
+  merge had made it two calls per slice): 7-11% faster than before the
+  merge on one thread; whole fits unchanged. The 3-4% slowdown of eur on
+  one thread in the gate did not reproduce (5 rounds: equal).
+- Version 0.1.5.9007 (870cff4). HGDP check on manica01: 5.07 s on 8
+  threads and 40.2 s on 1, as in the article (Andrea: no rerun).
+- Article (Andrea, 25 Nov: 250,000 individuals; a bed file; in memory,
+  SSD and throttled): 5 GB (50,000 x 100,000) under 4 and 1 GiB caps on
+  the NVMe, 500 and 150 MB/s; 50 GB (250,000 x 200,000) under 8 GiB on
+  the NVMe and 500 MB/s. 1 GiB of 5 GB: 30% longer than in memory on the
+  NVMe; 8 GiB of 50 GB: 5% longer, 3.4 times at 500 MB/s; identical
+  results; R at most 0.40 GB. Section written and rendered (03c7161).
+- Changed: `radmix_streaming.md` ("The article's runs").
+
 ## 2026-11-24/25 (laptopX1, manica01): streaming merged and measured on the desktop
 
 - `ccr-fd217561-izn297` merged into the local `ada196_article` (349c929;

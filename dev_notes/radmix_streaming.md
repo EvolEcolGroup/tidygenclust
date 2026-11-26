@@ -463,6 +463,45 @@ each), nor at 67-92% at 150 MB/s.
   file 20 times per pass (28.6 GB, 19.8 s, against 0.70 s in memory);
   streaming's, once (1.5 s).
 
+## The article's runs (manica01, 25-26 November 2026)
+
+The benchmark article's section "Data larger than the memory": the
+article's own scripts (`vignettes/articles/code/admixture_benchmark_large*`),
+`gt_radmix()` with the default options, K = 5, 8 P-cores, tidygenclust
+0.1.5.9007; caps by `systemd-run`, throttles as above. Results in
+`vignettes/articles/data/admixture_benchmark/{mid,large}_*.csv`.
+
+| data | cap | disk | time (s) | times in memory | read (GB) |
+|---|---|---|---|---|---|
+| 50,000 x 100,000 (5 GB) | none | | 255 | 1.0 | 0 |
+| | 4 GiB | NVMe | 277 | 1.08 | 238 |
+| | 1 GiB | NVMe | 332 | 1.30 | 476 |
+| | 4 GiB | 500 MB/s | 547 | 2.1 | 225 |
+| | 1 GiB | 500 MB/s | 917 | 3.6 | 444 |
+| | 4 GiB | 150 MB/s | 1,648 | 6.5 | 237 |
+| | 1 GiB | 150 MB/s | 2,972 | 11.6 | 441 |
+| 250,000 x 200,000 (50 GB) | none | | 2,173 | 1.0 | 0 |
+| | 8 GiB | NVMe | 2,290 | 1.05 | 3,579 |
+| | 8 GiB | 500 MB/s | 7,330 | 3.4 | 3,532 |
+
+Identical log-likelihoods within each data set (22 and 17 iterations);
+the capped runs peaked at their cap (R and the page cache), R itself at
+0.21 and 0.40 GB. Throttled, the time is that of the reads (3,532 GB at
+500 MB/s is 7,064 s). On the NVMe, the 50 GB fit read 1.56 GB/s on
+average, nearly the rate at which the computation used the data
+(about 1.6 GB/s), hence 5%; with 5 GB under 1 GiB, 1.43 GB/s against
+about 1.9 GB/s, hence 30%.
+
+The one-thread regression of the gate (eur, 3-4%) did not reproduce in
+5 rounds (base 4.89, merge 4.88, fix 4.88 s at K = 3). The merge had
+stopped GCC from inlining `loglik_slice()` into `sum_slices()` (a second
+copy of its loop for streaming); 524b347 keeps one copy, and the
+log-likelihood pass is 7-11% faster than before the merge (eur K = 3:
+0.054, 0.058, 0.050 s; hgdp K = 5: 0.419, 0.414, 0.373 s). The 8-thread
+HGDP fits of the merge and of the article's build are equal to base
+(5.07-5.14 against 5.09 s); on one thread they were 1.6% faster and 3%
+slower in two sessions: code placement, within noise.
+
 ## Left to do
 
 - The SVD start of genotype likelihoods (`init = "svd"`) has the same
@@ -496,10 +535,3 @@ each), nor at 67-92% at 150 MB/s.
   9.4 s) and faster everywhere else, so streaming need not be limited to
   one Q segment. The prefetch costs 7-9% there (it reads 10-12% more);
   whether to prefetch less in that case is open.
-- Small data on one thread, in memory: eur (379 x 54,051) is 3-4% slower
-  than before the merge (`update_p`, `loglik`); hgdp and every fit on 8
-  threads are not. Cause not found yet.
-- The article's section on data 5 times the memory (220,000 x 200,000,
-  44 GB under an 8 GiB cap; scripts in `vignettes/articles/code/
-  admixture_benchmark_large*`) waits for the decisions above (Andrea,
-  25 November).
