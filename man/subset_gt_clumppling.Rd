@@ -9,7 +9,9 @@ subset_gt_clumppling(x, k = NULL, indivs = NULL)
 \arguments{
 \item{x}{a gt_clumppling object}
 
-\item{k}{a vector of k values to subset to}
+\item{k}{a vector of values of K to subset to: consecutive values of
+\code{K_range} (e.g. \code{c(17, 19)} if \code{K_range} is 17, 19 and 21), in increasing
+order}
 
 \item{indivs}{a vector of individual indices to keep}
 }

@@ -1,51 +1,45 @@
-#' Print version of the python tools installed by `tidygenclust`
-#' @description This function prints the version of the python tools installed
-#'   by `tidygenclust`
-#' @return A list with the version of the python tools installed by
+#' Print version of the optional tools installed by `tidygenclust`
+#' @description This function returns the version of the optional tools
+#'   installed by [tgc_tools_install()]: `fastmixture`, `ADMIXTURE` and
+#'   `ADAMIXTURE`. Tools that are not installed have version NA.
+#' @return A list with the version of the optional tools installed by
 #' `tidygenclust`
 #' @export
 
 tgc_tools_version <- function() {
-  fast_ver <- tryCatch(
-    reticulate::conda_run2(
-      cmd = "fastmixture",
-      args = c("--version"),
-      envname = "ctidygenclust",
-      echo = FALSE,
-      intern = TRUE
-    ),
-    error = function(e) NA,
-    warning = function(w) NA
-  )
-
-  clump_ver <- tryCatch(
-    reticulate::conda_run2(
-      cmd = "pip",
-      args = c("show clumppling | grep Version"),
-      envname = "ctidygenclust",
-      echo = FALSE,
-      intern = TRUE
-    ),
-    error = function(e) NA,
-    warning = function(w) NA
-  )
-
-  tgc_vers <- list(fastmixture = fast_ver, clumppling = clump_ver)
-
-  if (.Platform$OS.type %in% c("unix", "darwin")) {
-    adm_ver <- tryCatch(
+  # run a command in the conda environment of a tool, returning NA if the
+  # tool is not installed
+  tool_output <- function(tool, cmd, args) {
+    if (!tgc_tool_installed(tool)) {
+      return(NA)
+    }
+    # the output lines of the command (a non-zero exit status gives a
+    # warning, which is also turned into NA)
+    tryCatch(
       reticulate::conda_run2(
-        cmd = "admixture",
-        args = c("--version"),
-        envname = "ctidygenclust",
+        cmd = cmd,
+        args = args,
+        envname = tgc_tool_env(tool),
         echo = FALSE,
         intern = TRUE
       ),
       error = function(e) NA,
       warning = function(w) NA
     )
-
-    tgc_vers[["admxiture"]] <- adm_ver[length(adm_ver)]
   }
-  return(tgc_vers)
+
+  fast_ver <- tool_output("fastmixture", "fastmixture", "--version")
+  # ADMIXTURE prints a banner before its version number, which is the last
+  # line of the output
+  adm_ver <- tool_output("admixture", "admixture", "--version")
+  # the command line of ADAMIXTURE has no --version, so ask its python module
+  ada_ver <- tool_output(
+    "adamixture", "python",
+    c("-c", shQuote("import adamixture; print(adamixture.__version__)"))
+  )
+  list(
+    fastmixture = fast_ver,
+    admixture = adm_ver[length(adm_ver)],
+    adamixture = ada_ver[length(ada_ver)]
+  )
 }

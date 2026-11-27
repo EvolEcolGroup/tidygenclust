@@ -25,8 +25,9 @@ jobs:
       fail-fast: false
       matrix:
         config:
+          # the optional tools are only available on linux at the moment
 #          - {os: macos-14,   r: 'release',  py: "3.11" }
-          - {os: macos-latest,   r: 'release',  py: "3.11" }
+#          - {os: macos-latest,   r: 'release',  py: "3.11" }
           - {os: ubuntu-latest,   r: 'release',  py: "3.11" }
 
     env:

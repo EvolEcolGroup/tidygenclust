@@ -1,0 +1,6 @@
+"dataset","n_runs","n_individuals","k_values","n_modes_r","n_modes_python","same_modes","same_modes_k","same_representatives","max_diff_aligned","max_diff_cost"
+"capeverde_5",20,399,"2, 3, 4, 5",9,9,TRUE,"2, 3, 4, 5",TRUE,2.22044604925031e-16,4.16333634234434e-17
+"capeverde_10",40,399,"2, 3, 4, 5",6,6,TRUE,"2, 3, 4, 5",TRUE,2.22044604925031e-16,2.77555756156289e-17
+"capeverde_20",80,399,"2, 3, 4, 5",6,6,TRUE,"2, 3, 4, 5",TRUE,2.22044604925031e-16,3.46944695195361e-18
+"capeverde_50",200,399,"2, 3, 4, 5",7,7,TRUE,"2, 3, 4, 5",TRUE,2.22044604925031e-16,4.16333634234434e-17
+"chicken_20",60,600,"17, 19, 21",8,7,FALSE,"21",FALSE,NA,NA

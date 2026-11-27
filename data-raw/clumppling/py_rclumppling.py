@@ -2,6 +2,10 @@
 # @author of the original file Xiran Liu
 # modified by Andrea Manica for use with tidygenclust
 #
+# Previous versions of tidygenclust used this module to run clumppling; it is
+# now only used to compute the reference results for the tests of the native
+# port (see data-raw/clumppling/README.md).
+#
 # Rather than running the clumppling command line tool (which reads all its
 # inputs from, and writes all its outputs to, files), we call the clumppling
 # functions directly, so that Q matrices can be passed from R as numpy arrays,
