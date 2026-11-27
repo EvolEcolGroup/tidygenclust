@@ -63,7 +63,11 @@ radmix_stream_mode <- function(data) {
 }
 
 # The size of the chunks of the Q side of genotypes in memory, in MB (see
-# radmix_stream_mode())
+# radmix_stream_mode()). On manica01 (27 Nov 2026, K = 5, 8 cores), chunks of
+# 8 to 64 MB were all 15-19% faster than the usual layout and within about 2%
+# of each other: 64 MB was best with 250,000 individuals (smaller chunks hold
+# a single tile of 64 loci there) and 1.7% behind 16 MB with 10,000
+# (dev_notes/radmix_streaming.md, "Chunks in memory")
 radmix_chunk_q_mb <- function() 64
 
 # The bytes of the backing file that a pass reads: whole columns of the FBM

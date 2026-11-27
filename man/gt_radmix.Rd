@@ -503,9 +503,9 @@ faster. The results are identical. The option
 (\code{FALSE}, which also turns off the chunks in memory), and
 \code{tidygenclust.radmix_chunk_mb} sets the size of the chunks (by default
 a sixteenth of the memory available, between 16 and 256 MB, when
-streaming, and 64 MB in memory). Each pass still reads the part of the file that is not in
-memory, so a fit runs at the speed of the disk once the data are much
-larger than the memory.
+streaming, and 64 MB in memory). Each pass still reads the part of the
+file that is not in memory, so a fit runs at the speed of the disk once
+the data are much larger than the memory.
 }
 
 \subsection{Comparison with ADMIXTURE}{

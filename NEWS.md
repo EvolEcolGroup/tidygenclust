@@ -5,6 +5,9 @@
   `tidygenclust.radmix_stream` and `tidygenclust.radmix_chunk_mb`; a source
   of genotype likelihoods can give a prefetch function, see
   `inst/include/tidygenclust/radmix_gl_source.h`)
+* `gt_radmix()` is 15-20% faster on genotypes in memory with 8,192
+  individuals or more: their passes over the individuals now take the loci
+  in chunks too
 * new `gl_curvature` argument of `gt_radmix()`: `"observed"` takes Newton
   steps with the curvature of the log-likelihood of genotype likelihoods,
   about 1.5 times faster on low-depth data (`"complete"`, the default,

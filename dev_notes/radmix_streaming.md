@@ -502,6 +502,37 @@ HGDP fits of the merge and of the article's build are equal to base
 (5.07-5.14 against 5.09 s); on one thread they were 1.6% faster and 3%
 slower in two sessions: code placement, within noise.
 
+## Chunks in memory (manica01, 26-27 November 2026)
+
+Andrea, 26 Nov: keep the defaults (stream above 0.8 x the memory
+available, prefetch in pieces of 128 KB, alternating directions), and
+take the Q side in chunks for data in memory too. c521e36: `chunk_q`, set
+by `radmix_stream_mode()` when the data are not streamed (unless the
+option `tidygenclust.radmix_stream` is `FALSE`, and not for sources of
+genotype likelihoods), sends a Q side with one segment (8,192 individuals
+or more) through `q_side_stream()`, without the prefetch. The results are
+identical (tests in `test_radmix_stream.R`, chunks of one byte).
+
+The chunk size, `phases/chunkq_bench.sh` (build c521e36, `bench_fit.R`,
+K = 5, one EM step and 2 iterations, 1 for the 50 GB data; 8 P-cores,
+warm page cache, alternated rounds; 23:53-00:21, nothing else running).
+Medians (min-max) in seconds, `chunkq.csv` in the work folder:
+
+| data | usual | 8 MB | 16 MB | 32 MB | 64 MB |
+|---|---|---|---|---|---|
+| 10,000 x 150,000 (3 rounds) | 7.39 (7.27-7.40) | 6.27 (6.10-6.31) | 6.26 (6.17-6.35) | 6.40 (6.34-6.49) | 6.37 (6.36-6.46) |
+| 50,000 x 100,000 (3) | 25.42 (25.03-25.98) | 21.25 (21.04-21.80) | 21.62 (20.95-21.65) | 21.06 (21.05-21.17) | 21.13 (21.10-21.54) |
+| 250,000 x 200,000 (2) | 163.1 (162.4-163.8) | | 135.3 (135.3-135.4) | 133.0 (132.7-133.3) | 132.6 (132.5-132.7) |
+
+Chunks are 15-19% faster than the usual layout, with identical hashes
+and log-likelihoods; the sizes are within about 2% of each other. 64 MB
+(`radmix_chunk_q_mb()`) is best on the largest data, where 16 MB is a
+single tile of 64 loci, and 1.7% behind 16 MB on the smallest. Not
+tested: larger K, where a chunk's P (loci x K doubles, up to 1.25 MB at
+K = 20 with 8,192 individuals and 64 MB) may outgrow the L2 cache. The
+streamed runs of the article are unchanged (chunk_q is off when
+streaming); its in-memory baselines are rerun with this build.
+
 ## Left to do
 
 - The SVD start of genotype likelihoods (`init = "svd"`) has the same
@@ -517,11 +548,8 @@ slower in two sessions: code placement, within noise.
 - Memory that still grows with the data: P (J x K doubles, about 9 copies
   in the fit) and, in streaming mode with 8,192 individuals or more, the
   accumulators kept between chunks (I (K + K (K + 1) / 2) doubles).
-- Streaming in memory made the Q side of many individuals faster: on the
-  desktop, the fit of 10,000 x 150,000 takes 5.61 s streamed against
-  6.56 s (-15%), and that of 1,000 x 1,500,000 6.17 against 5.97 s (+3%).
-  Chunking the Q side of one segment could become the default for data
-  that fit in memory too (Andrea to decide).
+- The chunk size of `chunk_q` at large K (10, 20): 16 against 64 MB on
+  10,000 x 150,000 (see "Chunks in memory").
 - Timing on a real hard disk and on a network file system (NFS, Lustre):
   the desktop's NVMe and the container's disk are both fast, and the
   throttle caps the throughput, not the latency. Pieces of 128 KB may make
