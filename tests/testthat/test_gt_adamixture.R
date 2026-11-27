@@ -22,7 +22,7 @@ pops_path <- system.file(
 pops <- readr::read_csv(pops_path, show_col_types = FALSE)
 anole_gt <- anole_gt %>% mutate(id = gsub("punc_", "", .data$id, ))
 anole_gt <- anole_gt %>%
-  mutate(population = pops$pop[match(pops$ID, .data$id)])
+  mutate(population = pops$pop[match(.data$id, pops$id)])
 
 # check a gt_admix object returned by gt_adamixture() for anole_gt: one Q
 # matrix (and one P matrix, with `freqs`) per combination of k and run, in

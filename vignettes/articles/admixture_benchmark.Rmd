@@ -293,7 +293,7 @@ read_ooc <- function(name) {
   }
   read.csv(files[1]) %>%
     left_join(read.csv(files[2]), by = "run") %>%
-    mutate(memory_seconds = seconds[run == "memory"])
+    mutate(memory_seconds = .data$seconds[.data$run == "memory"])
 }
 ooc <- read_ooc("mid")
 ooc_large <- read_ooc("large")
@@ -301,20 +301,25 @@ ooc_large <- read_ooc("large")
 ooc_table <- function(runs) {
   runs %>%
     mutate(
-      memory = if_else(memory_cap == "none", "no cap",
-        paste(sub("G$", "", memory_cap), "GiB")
+      memory = if_else(.data$memory_cap == "none", "no cap",
+        paste(sub("G$", "", .data$memory_cap), "GiB")
       ),
       disk = case_when(
-        run == "memory" ~ "(in memory)",
-        read_mbps == 0 ~ "SSD",
-        TRUE ~ paste(read_mbps, "MB/s")
+        .data$run == "memory" ~ "(in memory)",
+        .data$read_mbps == 0 ~ "SSD",
+        TRUE ~ paste(.data$read_mbps, "MB/s")
       ),
-      relative = seconds / memory_seconds,
+      relative = .data$seconds / .data$memory_seconds,
       # the peak of the cgroup (R and the page cache) with a cap, and of the
       # resident memory of R (with the pages of the file it maps) without
-      peak = if_else(run == "memory", peak_rss_gb, cgroup_peak_gb)
+      peak = if_else(
+        .data$run == "memory", .data$peak_rss_gb, .data$cgroup_peak_gb
+      )
     ) %>%
-    select(memory, disk, seconds, relative, read_gb, peak, peak_anon_gb) %>%
+    select(
+      "memory", "disk", "seconds", "relative", "read_gb", "peak",
+      "peak_anon_gb"
+    ) %>%
     knitr::kable(
       col.names = c(
         "Memory", "Disk", "Time (s)", "Relative to in memory", "Read (GB)",

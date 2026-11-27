@@ -1,6 +1,6 @@
 Package: tidygenclust
 Title: Clustering for Population Genetics in R
-Version: 0.1.5.9007
+Version: 0.1.5.9010
 Authors@R: c(
     person("Eirlys", "Tysall", role = c("aut")),
     person("Anahit", "Hovhannisyan", role = c("aut")),
@@ -101,6 +101,8 @@ Suggests:
     testthat (>= 3.0.0),
     tidyselect,
     withr
+Remotes:
+    EvolEcolGroup/tidypopgen@dev
 LazyData: true
 VignetteBuilder: knitr
 Config/testthat/edition: 3

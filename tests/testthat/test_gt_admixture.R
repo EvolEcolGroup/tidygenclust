@@ -20,7 +20,7 @@ pops_path <- system.file(
 pops <- readr::read_csv(pops_path, show_col_types = FALSE)
 anole_gt <- anole_gt %>% dplyr::mutate(id = gsub("punc_", "", .data$id, ))
 anole_gt <- anole_gt %>%
-  dplyr::mutate(population = pops$pop[match(pops$ID, .data$id)])
+  dplyr::mutate(population = pops$pop[match(.data$id, pops$id)])
 
 test_that("run admixture as single run", {
   # run admixture
