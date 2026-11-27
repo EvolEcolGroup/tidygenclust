@@ -233,6 +233,15 @@ with `tidypopgen`:
 anole_gt <- anole_gt %>% gt_impute_simple(method = "mode")
 
 anole_pca <- anole_gt %>% gt_pca_partialSVD(k = 2)
+```
+
+    ## Warning: `gt_pca_partialSVD()` was deprecated in tidypopgen 1.1.0.
+    ## ℹ Please use `gt_pca()` instead.
+    ## This warning is displayed once per session.
+    ## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+    ## generated.
+
+``` r
 
 library(ggplot2)
 anole_pca %>% autoplot(type = "scores") +
@@ -341,9 +350,9 @@ anole_res %>%
     ##            .Q1     .Q2       .Q3     .Q4
     ## [1,] 0.0000100 0.99997 0.0000100 0.00001
     ## [2,] 0.0000100 0.99997 0.0000100 0.00001
-    ## [3,] 0.6706262 0.00001 0.3293538 0.00001
+    ## [3,] 0.6758906 0.00001 0.3240894 0.00001
     ## [4,] 0.0000100 0.00001 0.9999700 0.00001
-    ## [5,] 0.7260964 0.00001 0.2738836 0.00001
+    ## [5,] 0.7311626 0.00001 0.2688174 0.00001
     ## [6,] 0.0000100 0.00001 0.0000100 0.99997
 
 Or the P matrix of the first run of K = 3:
@@ -356,12 +365,12 @@ anole_res %>%
 ```
 
     ##                    .P1   .P2       .P3
-    ## locus_137_2  0.0000100 1e-05 0.3920996
-    ## locus_137_13 0.8360442 1e-05 0.1676845
-    ## locus_137_16 0.8407303 1e-05 0.0000100
-    ## locus_203_57 0.4998483 1e-05 0.1834460
-    ## locus_346_34 0.0000100 1e-05 0.3321086
-    ## locus_346_37 0.9999900 1e-05 0.2612285
+    ## locus_137_2  0.0000100 1e-05 0.3920899
+    ## locus_137_13 0.8353815 1e-05 0.1677643
+    ## locus_137_16 0.8399713 1e-05 0.0000100
+    ## locus_203_57 0.4999378 1e-05 0.1833636
+    ## locus_346_34 0.0000100 1e-05 0.3321202
+    ## locus_346_37 0.9999900 1e-05 0.2612229
 
 We can now compare the cross-validation errors for our range of K values
 2-4, stored in the `cv` element of our `gt_admix` object, to help

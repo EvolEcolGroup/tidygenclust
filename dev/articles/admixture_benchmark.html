@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">tidygenclust</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.1.5.9006</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.1.5.9010</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -73,17 +73,18 @@ method of ADMIXTURE (Alexander et al. 2009), directly from the backing
 file of a <code>gen_tibble</code>. It uses the algorithm of ADMIXTURE
 (block-wise Newton updates with quasi-Newton acceleration), in
 multithreaded C++, and the cross-validation of ADMIXTURE (Alexander and
-Lange 2011). This article compares <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> with four
-programs that fit the same model: ADMIXTURE itself, fastmixture
-(Santander et al. 2024), ADAMIXTURE (Saurina-i-Ricos et al. 2026), and
-OpenADMIXTURE.jl (Ko et al. 2023), a Julia implementation of the
-algorithm of ADMIXTURE (run without its selection of ancestry
-informative markers). Note that OpenADMIXTURE.jl and ADAMIXTURE also
-include implementations using the GPU, which can scale to Biobank
-datasets, but are not included in this comparison. Here we just compare
-the CPU implementations of the programs, which are all multithreaded.
-Thus, for very large datasets, some of the programs can perform better
-than these benchmarks suggest.</p>
+Lange 2011).</p>
+<p>This article compares <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> with four programs
+that fit the same model: ADMIXTURE itself; OpenADMIXTURE.jl (Ko et
+al. 2023), a Julia implementation of the algorithm of ADMIXTURE (run
+without its selection of ancestry informative markers); fastmixture
+(Santander et al. 2024), and ADAMIXTURE (Saurina-i-Ricos et al. 2026).
+Note that OpenADMIXTURE.jl and ADAMIXTURE can also run on GPUs; this
+comparison is limited to the CPU implementations of the programs, which
+are all multithreaded. The actual speeds will depend on the exact set up
+and operating system, so these values should be interpreted with caution
+and only provide a general idea of the relative performance of the
+programs.</p>
 <p>The comparison uses the Human Genome Diversity Project (HGDP), and
 has two parts:</p>
 <ul>
@@ -103,6 +104,13 @@ so with <code>init = "svd"</code>). Each of them is run from both
 starts, with several seeds, to compare their times and the
 log-likelihoods they reach.</li>
 </ul>
+<p>We also compare the memory used by the programs, which is important
+for large dataset. The other packages store the genotypes in a 2-bit
+packed encoding, whilst gt_radmix() use a byte per genotype with memory
+mapping, meaning that, whilst it uses more memory, it can also
+effectively stream data when it runs out of memory. The section <a href="#data-larger-than-the-memory">Data larger than the memory</a>,
+runs <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> alone on simulated data, with its memory
+capped below their size, to show what working out of memory costs.</p>
 <p>All the programs are timed from the command line, each run being a
 new process that starts the program, reads the data and saves the
 results. <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> is also timed in an R session, and
@@ -118,38 +126,38 @@ benchmark again.</p>
 <div class="section level3">
 <h3 id="summary">Summary<a class="anchor" aria-label="anchor" href="#summary"></a>
 </h3>
-<p>The five programs estimated the ancestry proportions of 1043
+<p>The five programs estimated the ancestry proportions of 1,043
 individuals of the HGDP, typed at 130,943 loci, for K = 5 ancestral
-populations (see <a href="#the-data">The data</a>):</p>
+populations (see <a href="#the-data">The data</a>). On this dataset:</p>
 <ul>
-<li>From random starts, from the command line, on 1 core, without
-cross-validation, <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> took 39.8 s, ADMIXTURE 326 s,
-fastmixture 455 s, ADAMIXTURE 75.3 s and OpenADMIXTURE.jl 220 s; on 8
-cores, they took 6.6 s, 360 s, 68.8 s, 10.7 s and 50.2 s.</li>
-<li>Starting R and loading <code>tidygenclust</code> took about 0.969 s
-of the time of <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> from the command line. Starting
-Julia, loading OpenADMIXTURE.jl and compiling its code took about 18.6
-s: in a Julia session in which OpenADMIXTURE.jl has already been used,
-its fit took 202 s on 1 core.</li>
-<li>Compared with ADMIXTURE (on 1 core, without cross-validation), the
-log-likelihood of <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> differs by 9.6, that of
-fastmixture by 6.8, that of ADAMIXTURE by 9.6, and that of
-OpenADMIXTURE.jl by 9.5. Their ancestry proportions differ from those of
-ADMIXTURE by up to 0.00016, 0.0023, 0.000052 and 0.00013
-respectively.</li>
-<li>Across numbers of cores, with and without cross-validation,
-<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> gives identical ancestry proportions, ADMIXTURE
-ancestry proportions that differ by up to 0.000001, fastmixture ancestry
-proportions that differ by up to 0.00021, ADAMIXTURE identical ancestry
-proportions, and OpenADMIXTURE.jl (without cross-validation) identical
-ancestry proportions.</li>
-<li>With 5 seeds on 8 cores (median times from the command line),
-<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> took 5.73 s from an SVD and 6.88 s from random
-values (5 and 5 of the 5 runs reached the highest log-likelihood);
-fastmixture 43.1 s from an SVD and 68.7 s from random values (0 and 0 of
-the 5 runs reached the highest log-likelihood); and ADAMIXTURE 7.65 s
-from an SVD and 11.7 s from random values (5 and 5 of the 5 runs reached
-the highest log-likelihood).</li>
+<li>
+<strong>The same answer.</strong> All the programs reached very
+similar log-likelihoods and almost identical ancestry proportions (see
+<a href="#do-the-programs-find-the-same-ancestry-proportions">Do the
+programs find the same ancestry proportions?</a>).</li>
+<li>
+<strong><code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> and ADAMIXTURE run at similar
+speeds</strong>, about 8 times faster than ADMIXTURE on 1 core and 40
+times faster on 8 cores (see <a href="#how-long-do-they-take">How long
+do they take?</a>). fastmixture and OpenADMIXTURE.jl had intermediate
+speeds.</li>
+<li>
+<strong>SVD starts save time.</strong> Starting from an SVD of the
+genotypes made <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> and ADAMIXTURE about 1.5 times
+faster than starting from random values (about 5 s rather than 7-8 s on
+8 cores), with the same results (see <a href="#svd-and-random-starts">SVD and random starts</a>).</li>
+<li>
+<strong>Memory.</strong> ADAMIXTURE and fastmixture used the least
+memory, and OpenADMIXTURE.jl the most. <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> used
+more than ADMIXTURE, because it keeps a byte per genotype, but it can
+fit data larger than the memory (see <a href="#how-much-memory-do-they-use">How much memory do they
+use?</a>).</li>
+<li>
+<strong>Data larger than the memory.</strong>
+<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> fitted 50 GB of simulated genotypes with its
+memory capped at 8 GiB, a sixth of the data, in about a third more time
+than in memory, with the same results (see <a href="#data-larger-than-the-memory">Data larger than the
+memory</a>).</li>
 </ul>
 </div>
 <div class="section level3">
@@ -159,24 +167,17 @@ the highest log-likelihood).</li>
 <h4 id="do-the-programs-find-the-same-ancestry-proportions">Do the programs find the same ancestry proportions?<a class="anchor" aria-label="anchor" href="#do-the-programs-find-the-same-ancestry-proportions"></a>
 </h4>
 <p>All the programs maximise the same likelihood, but each starts from
-its own random values and stops according to its own convergence
-criterion. Each run is compared with ADMIXTURE on 1 core without
-cross-validation, after matching its clusters to those of ADMIXTURE (the
-<a href="#detailed-results">detailed results</a> give the numbers of
-each run):</p>
+its own random values and stops by its own convergence criterion. Each
+run is compared with ADMIXTURE on 1 core without cross-validation, after
+matching its clusters to those of ADMIXTURE:</p>
 <p><img src="admixture_benchmark_files/figure-html/plot_agreement-1.png" class="r-plt" alt="" width="672"></p>
 <p>Each point is a run (on each number of cores, with and without
 cross-validation, and, for <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> and
-OpenADMIXTURE.jl, from the command line and in a session).</p>
-<p>Each program was run once for each number of cores, from a single
-random start (with seed 1, but each program draws its own random
-values), so a run can end at another local optimum of the likelihood,
-with a lower log-likelihood and different ancestry proportions. Here, no
-run ended more than 1 below the log-likelihood of ADMIXTURE, and runs of
-the other programs ended up to 9.6 above it: ADMIXTURE stopped short of
-the maximum that they reached, by its own convergence criterion, with
-ancestry proportions that differ little from theirs (see the detailed
-results).</p>
+OpenADMIXTURE.jl, from the command line and in a session). All the runs
+reached very similar log-likelihoods, with almost identical ancestry
+proportions. ADMIXTURE stops a little earlier than the other programs,
+so its log-likelihood is slightly lower (the <a href="#detailed-results">detailed results</a> give the numbers of each
+run).</p>
 <p>The ancestry proportions from each program (on 1 core, without
 cross-validation, and in a session for <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> and
 OpenADMIXTURE.jl), with the individuals grouped by region and
@@ -186,57 +187,64 @@ population:</p>
 <div class="section level4">
 <h4 id="how-long-do-they-take">How long do they take?<a class="anchor" aria-label="anchor" href="#how-long-do-they-take"></a>
 </h4>
-<p>The times of ADMIXTURE, fastmixture and ADAMIXTURE are those of runs
-from the command line: each run is a new process, which starts the
-program, reads the bed file and writes the estimates of Q and P to text
-files (ADAMIXTURE also always draws a plot of the ancestry proportions,
-which is included in its time). <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> and
-OpenADMIXTURE.jl are timed in the same way, with <code>Rscript</code>
-and <code>julia</code> (command line), and also in a session, where R or
-Julia is already running with the package loaded:</p>
-<ul>
-<li>for <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>, the time of reading the bed file into
-a <code>gen_tibble</code> (and its backing file), running
-<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>, and saving the resulting <code>gt_admix</code>
-object, with Q and P, to an RDS file. In an analysis with several values
-of K, or several runs, the <code>gen_tibble</code> would only be read
-once;</li>
-<li>for OpenADMIXTURE.jl, the time of its fit (including reading the bed
-file and writing Q and P), measured in Julia after a first, untimed run
-on a small subset of the data. Julia compiles the code of a function the
-first time it is called, so this is the time of a fit in a Julia session
-in which OpenADMIXTURE.jl has already been used.</li>
-</ul>
+<p>Each program is timed from the command line, as a new process that
+starts the program, reads the bed file and writes Q and P (ADAMIXTURE
+also always draws a plot, which is included in its time).
+<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> and OpenADMIXTURE.jl are also timed in a
+session, where R or Julia is already running with the package loaded
+(and, for Julia, its code compiled); the time of
+<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> includes reading the bed file into a
+<code>gen_tibble</code>, which an analysis of several values of K would
+only do once.</p>
 <p><img src="admixture_benchmark_files/figure-html/plot_timings-1.png" class="r-plt" alt="" width="672"></p>
-<p>(The times and speed-ups of each run are in the <a href="#detailed-results">detailed results</a>.) Starting R and loading
-<code>tidygenclust</code> adds about 0.969 s to each run of
-<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> from the command line. Starting Julia, loading
-OpenADMIXTURE.jl and compiling its code adds about 18.6 s to each run of
-OpenADMIXTURE.jl (these are the median differences between the runs from
-the command line and in a session).</p>
+<p><code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> and ADAMIXTURE were the fastest, with
+similar times on every number of cores, with and without
+cross-validation. fastmixture made good use of more cores, whereas
+ADMIXTURE gained little from them. Starting R adds about a second to
+each run of <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> from the command line, and starting
+Julia and compiling OpenADMIXTURE.jl about 20 s to each of its runs (the
+<a href="#detailed-results">detailed results</a> give the time of each
+run).</p>
+<p>Differences of a few percent between programs are not meaningful:
+each run was done once, and the relative speeds depend on the machine,
+the compiler and the libraries. For example, ADAMIXTURE computes its
+main sums with an optimised BLAS library, which can use the wider vector
+instructions of some servers (AVX-512) and the matrix units of Apple
+processors, whereas <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> uses its own loops,
+compiled for AVX2, and is multithreaded only where R supports OpenMP
+(which the CRAN builds of R for macOS do not, without extra set-up).</p>
+</div>
+<div class="section level4">
+<h4 id="how-much-memory-do-they-use">How much memory do they use?<a class="anchor" aria-label="anchor" href="#how-much-memory-do-they-use"></a>
+</h4>
+<p>The peak resident memory of each run from the command line was
+recorded with <code>/usr/bin/time</code> (see the <a href="#detailed-results">detailed results</a>). ADAMIXTURE, which keeps
+the genotypes in a 2-bit packed encoding, used the least memory without
+cross-validation, and fastmixture, whose memory does not grow with
+cross-validation, the least with it. OpenADMIXTURE.jl, including Julia,
+used the most. <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> used more than ADMIXTURE: it
+reads the genotypes from the backing file of the
+<code>gen_tibble</code>, a byte per genotype, which the system keeps in
+memory when it fits, and streams it when it does not (see <a href="#data-larger-than-the-memory">Data larger than the
+memory</a>).</p>
 </div>
 <div class="section level4">
 <h4 id="cross-validation-errors">Cross-validation errors<a class="anchor" aria-label="anchor" href="#cross-validation-errors"></a>
 </h4>
-<p>The cross-validation errors did not depend on the number of cores. On
-1 core, they were 0.42239 with <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>, 0.42242 with
-ADMIXTURE, 0.42240 with ADAMIXTURE and 0.42191 with fastmixture (see the
-<a href="#detailed-results">detailed results</a> for all the runs).</p>
-<p>OpenADMIXTURE.jl has no cross-validation. ADMIXTURE and
-<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> compute the same cross-validation error
-(Alexander and Lange 2011): they hold out a fold of the genotypes, refit
-the model on the others, and average the deviance of the held-out
-genotypes. They draw the folds differently, so their errors are close
-but not identical. fastmixture averages the same deviance, but holds out
-a fold of the individuals rather than of the genotypes. The allele
-frequencies come from the other individuals, but the ancestry of the
-held-out individuals is estimated from their own genotypes, the same
-genotypes on which the error is then computed. Its errors can be
-compared between values of K, but not with those of the other programs.
-ADAMIXTURE also averages the deviance of held-out genotypes, but it
-refits the model on each fold with only 5 iterations, starting from the
-estimates on all the genotypes, so its errors are close to those of
-ADMIXTURE and <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>, but not identical.</p>
+<p>The cross-validation errors did not depend on the number of cores,
+and those of <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>, ADMIXTURE and ADAMIXTURE were
+almost the same (see the <a href="#detailed-results">detailed
+results</a>). OpenADMIXTURE.jl has no cross-validation.</p>
+<p><code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> and ADMIXTURE hold out a fold of the
+genotypes, refit the model on the others, and average the deviance of
+the held-out genotypes (Alexander and Lange 2011). They draw the folds
+differently, so their errors are close but not identical. ADAMIXTURE
+does the same, but refits each fold with only 5 iterations, starting
+from the estimates on all the genotypes. fastmixture holds out
+individuals rather than genotypes, and estimates their ancestry from the
+same genotypes on which it then computes the error, so its errors can be
+compared between values of K, but not with those of the other
+programs.</p>
 </div>
 </div>
 <div class="section level3">
@@ -250,16 +258,184 @@ random values (the SVD is an option, <code>init = "svd"</code>). Each of
 the three programs was run from both starts with seeds 1 to 5, on 8
 cores, without cross-validation, from the command line:</p>
 <p><img src="admixture_benchmark_files/figure-html/plot_starts-1.png" class="r-plt" alt="" width="672"></p>
-<p>Each point is a run. Time and iterations are on log scales; the
-iterations of a program count its own steps, so they can be compared
-between its two starts but not between programs. The right panel shows
-how far the log-likelihood of each run is below the highest of all the
-runs of the benchmark: the runs left of the dashed line (within 1 of it)
-reached the same optimum.</p>
-<p>The time of <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> from the command line includes
-starting R and loading <code>tidygenclust</code> (about 0.969 s), and,
-from an SVD, imputing the missing genotypes (needed for the SVD only;
-the fit ignores the imputed values).</p>
+<p>Each point is a run. The iterations count each program’s own steps,
+so they can only be compared between the two starts of a program. The
+right panel shows how far each run ended below the highest
+log-likelihood of the benchmark (the dashed line marks 1).</p>
+<p>From an SVD, all three programs needed fewer iterations, and were
+about 1.5 times faster than from random values. All the runs reached the
+same optimum from both starts; fastmixture stops a little short of it,
+by its own convergence criterion. The SVD of <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> is
+computed by <code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_pca.html" class="external-link">tidypopgen::gt_pca()</a></code>, without imputing the
+missing genotypes.</p>
+</div>
+<div class="section level3">
+<h3 id="data-larger-than-the-memory">Data larger than the memory<a class="anchor" aria-label="anchor" href="#data-larger-than-the-memory"></a>
+</h3>
+<p><code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> maps the backing file of the
+<code>gen_tibble</code> into memory, so the system keeps as much of the
+file in memory as it can and reads the rest from the disk. When the file
+is larger than the memory available to R, <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>
+streams it: each pass over the genotypes reads the file in chunks,
+alternating its direction from one pass to the next, and asks the system
+to read the next chunk while the current one is processed. The results
+are identical to those of the same fit in memory.</p>
+<p>To measure what this costs, <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> was run on
+simulated genotypes of 50,000 individuals at 100,000 loci (5 GB in the
+backing file), for K = 5 on 8 cores: in memory, and with its memory,
+page cache included, capped at 4 GiB and 1 GiB, reading from the SSD of
+the machine and from the same disk throttled to 500 and 150 MB/s, the
+speeds of a slower SSD and of a hard disk (see <a href="#data-larger-than-the-memory-1">How the benchmark was
+run</a>):</p>
+<table class="table">
+<colgroup>
+<col width="7%">
+<col width="12%">
+<col width="9%">
+<col width="23%">
+<col width="10%">
+<col width="18%">
+<col width="17%">
+</colgroup>
+<thead><tr class="header">
+<th align="left">Memory</th>
+<th align="left">Disk</th>
+<th align="right">Time (s)</th>
+<th align="right">Relative to in memory</th>
+<th align="right">Read (GB)</th>
+<th align="right">Peak memory (GB)</th>
+<th align="right">Of which R (GB)</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">no cap</td>
+<td align="left">(in memory)</td>
+<td align="right">214</td>
+<td align="right">1.0</td>
+<td align="right">0</td>
+<td align="right">5.23</td>
+<td align="right">0.21</td>
+</tr>
+<tr class="even">
+<td align="left">4 GiB</td>
+<td align="left">SSD</td>
+<td align="right">277</td>
+<td align="right">1.3</td>
+<td align="right">238</td>
+<td align="right">4.29</td>
+<td align="right">0.21</td>
+</tr>
+<tr class="odd">
+<td align="left">1 GiB</td>
+<td align="left">SSD</td>
+<td align="right">332</td>
+<td align="right">1.5</td>
+<td align="right">476</td>
+<td align="right">1.07</td>
+<td align="right">0.21</td>
+</tr>
+<tr class="even">
+<td align="left">4 GiB</td>
+<td align="left">500 MB/s</td>
+<td align="right">547</td>
+<td align="right">2.6</td>
+<td align="right">225</td>
+<td align="right">4.29</td>
+<td align="right">0.21</td>
+</tr>
+<tr class="odd">
+<td align="left">1 GiB</td>
+<td align="left">500 MB/s</td>
+<td align="right">917</td>
+<td align="right">4.3</td>
+<td align="right">444</td>
+<td align="right">1.07</td>
+<td align="right">0.21</td>
+</tr>
+<tr class="even">
+<td align="left">4 GiB</td>
+<td align="left">150 MB/s</td>
+<td align="right">1,648</td>
+<td align="right">7.7</td>
+<td align="right">237</td>
+<td align="right">4.29</td>
+<td align="right">0.21</td>
+</tr>
+<tr class="odd">
+<td align="left">1 GiB</td>
+<td align="left">150 MB/s</td>
+<td align="right">2,972</td>
+<td align="right">13.9</td>
+<td align="right">441</td>
+<td align="right">1.07</td>
+<td align="right">0.21</td>
+</tr>
+</tbody>
+</table>
+<p>All the fits reached the same log-likelihood. On the SSD, the capped
+fits took only 1.3 to 1.5 times as long as the fit in memory. On slower
+disks, the time is set by how fast the data can be read: the fits took
+2.5 to 4 times as long at 500 MB/s, and 8 to 14 times at 150 MB/s. R
+itself used only about 0.2 GB, leaving the rest of the cap to the page
+cache. The throttle limits the throughput of the disk, not its latency,
+so it mimics a slower disk only in part.</p>
+<p>On a larger simulation, of 250,000 individuals at 200,000 loci (50 GB
+in the backing file, and 12.5 GB even as a bed file),
+<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> was run in memory and with its memory capped at
+8 GiB, a sixth of the data:</p>
+<table class="table">
+<colgroup>
+<col width="7%">
+<col width="12%">
+<col width="9%">
+<col width="23%">
+<col width="10%">
+<col width="18%">
+<col width="17%">
+</colgroup>
+<thead><tr class="header">
+<th align="left">Memory</th>
+<th align="left">Disk</th>
+<th align="right">Time (s)</th>
+<th align="right">Relative to in memory</th>
+<th align="right">Read (GB)</th>
+<th align="right">Peak memory (GB)</th>
+<th align="right">Of which R (GB)</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">no cap</td>
+<td align="left">(in memory)</td>
+<td align="right">1,711</td>
+<td align="right">1.0</td>
+<td align="right">0</td>
+<td align="right">50.42</td>
+<td align="right">0.4</td>
+</tr>
+<tr class="even">
+<td align="left">8 GiB</td>
+<td align="left">SSD</td>
+<td align="right">2,290</td>
+<td align="right">1.3</td>
+<td align="right">3,579</td>
+<td align="right">8.59</td>
+<td align="right">0.4</td>
+</tr>
+<tr class="odd">
+<td align="left">8 GiB</td>
+<td align="left">500 MB/s</td>
+<td align="right">7,330</td>
+<td align="right">4.3</td>
+<td align="right">3,532</td>
+<td align="right">8.59</td>
+<td align="right">0.4</td>
+</tr>
+</tbody>
+</table>
+<p>The three fits reached the same log-likelihood. On the SSD, the
+capped fit took about a third longer than in memory (38 rather than 29
+minutes); at 500 MB/s it took about 4 times as long, the time needed to
+read the data from the disk over and over.</p>
 </div>
 <div class="section level3">
 <h3 id="detailed-results">Detailed results<a class="anchor" aria-label="anchor" href="#detailed-results"></a>
@@ -482,10 +658,10 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="left">2</td>
 <td align="left">no</td>
 <td align="right">-101,809,876.71</td>
-<td align="right">0.000077</td>
 <td align="right">0.000001</td>
-<td align="right">0.000000014</td>
-<td align="right">0.000001</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
 </tr>
 <tr class="even">
 <td align="left">ADMIXTURE</td>
@@ -502,7 +678,7 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="left">4</td>
 <td align="left">no</td>
 <td align="right">-101,809,876.71</td>
-<td align="right">0.000003</td>
+<td align="right">0.000004</td>
 <td align="right">0</td>
 <td align="right">0</td>
 <td align="right">0</td>
@@ -512,10 +688,10 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="left">4</td>
 <td align="left">yes</td>
 <td align="right">-101,809,876.71</td>
-<td align="right">0.000076</td>
-<td align="right">0.000001</td>
-<td align="right">0.000000014</td>
-<td align="right">0.000001</td>
+<td align="right">0.000004</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
 </tr>
 <tr class="odd">
 <td align="left">ADMIXTURE</td>
@@ -532,7 +708,7 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="left">8</td>
 <td align="left">yes</td>
 <td align="right">-101,809,876.71</td>
-<td align="right">0.000003</td>
+<td align="right">0.000002</td>
 <td align="right">0</td>
 <td align="right">0</td>
 <td align="right">0</td>
@@ -561,62 +737,62 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="left">fastmixture</td>
 <td align="left">2</td>
 <td align="left">no</td>
+<td align="right">-101,809,869.90</td>
+<td align="right">6.8</td>
+<td align="right">0.000005</td>
+<td align="right">0.00023</td>
+<td align="right">0.0023</td>
+</tr>
+<tr class="even">
+<td align="left">fastmixture</td>
+<td align="left">2</td>
+<td align="left">yes</td>
+<td align="right">-101,809,869.90</td>
+<td align="right">6.8</td>
+<td align="right">0.000008</td>
+<td align="right">0.00023</td>
+<td align="right">0.0023</td>
+</tr>
+<tr class="odd">
+<td align="left">fastmixture</td>
+<td align="left">4</td>
+<td align="left">no</td>
+<td align="right">-101,809,869.90</td>
+<td align="right">6.8</td>
+<td align="right">0.00001</td>
+<td align="right">0.00023</td>
+<td align="right">0.0023</td>
+</tr>
+<tr class="even">
+<td align="left">fastmixture</td>
+<td align="left">4</td>
+<td align="left">yes</td>
+<td align="right">-101,809,869.90</td>
+<td align="right">6.8</td>
+<td align="right">0.000002</td>
+<td align="right">0.00023</td>
+<td align="right">0.0023</td>
+</tr>
+<tr class="odd">
+<td align="left">fastmixture</td>
+<td align="left">8</td>
+<td align="left">no</td>
+<td align="right">-101,809,869.90</td>
+<td align="right">6.8</td>
+<td align="right">0.000009</td>
+<td align="right">0.00023</td>
+<td align="right">0.0023</td>
+</tr>
+<tr class="even">
+<td align="left">fastmixture</td>
+<td align="left">8</td>
+<td align="left">yes</td>
 <td align="right">-101,809,869.60</td>
 <td align="right">7.1</td>
-<td align="right">0.00021</td>
+<td align="right">0.0002</td>
 <td align="right">0.00022</td>
 <td align="right">0.0023</td>
 </tr>
-<tr class="even">
-<td align="left">fastmixture</td>
-<td align="left">2</td>
-<td align="left">yes</td>
-<td align="right">-101,809,869.90</td>
-<td align="right">6.8</td>
-<td align="right">0.000004</td>
-<td align="right">0.00023</td>
-<td align="right">0.0023</td>
-</tr>
-<tr class="odd">
-<td align="left">fastmixture</td>
-<td align="left">4</td>
-<td align="left">no</td>
-<td align="right">-101,809,869.90</td>
-<td align="right">6.8</td>
-<td align="right">0.000005</td>
-<td align="right">0.00023</td>
-<td align="right">0.0023</td>
-</tr>
-<tr class="even">
-<td align="left">fastmixture</td>
-<td align="left">4</td>
-<td align="left">yes</td>
-<td align="right">-101,809,869.90</td>
-<td align="right">6.8</td>
-<td align="right">0.000005</td>
-<td align="right">0.00023</td>
-<td align="right">0.0023</td>
-</tr>
-<tr class="odd">
-<td align="left">fastmixture</td>
-<td align="left">8</td>
-<td align="left">no</td>
-<td align="right">-101,809,869.90</td>
-<td align="right">6.8</td>
-<td align="right">0.000005</td>
-<td align="right">0.00023</td>
-<td align="right">0.0023</td>
-</tr>
-<tr class="even">
-<td align="left">fastmixture</td>
-<td align="left">8</td>
-<td align="left">yes</td>
-<td align="right">-101,809,869.90</td>
-<td align="right">6.8</td>
-<td align="right">0.000003</td>
-<td align="right">0.00023</td>
-<td align="right">0.0023</td>
-</tr>
 <tr class="odd">
 <td align="left">ADAMIXTURE</td>
 <td align="left">1</td>
@@ -624,8 +800,8 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="right">-101,809,867.10</td>
 <td align="right">9.6</td>
 <td align="right">0</td>
-<td align="right">0.0000088</td>
-<td align="right">0.000052</td>
+<td align="right">0.000017</td>
+<td align="right">0.00021</td>
 </tr>
 <tr class="even">
 <td align="left">ADAMIXTURE</td>
@@ -634,8 +810,8 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="right">-101,809,867.10</td>
 <td align="right">9.6</td>
 <td align="right">0</td>
-<td align="right">0.0000088</td>
-<td align="right">0.000052</td>
+<td align="right">0.000017</td>
+<td align="right">0.00021</td>
 </tr>
 <tr class="odd">
 <td align="left">ADAMIXTURE</td>
@@ -644,8 +820,8 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="right">-101,809,867.10</td>
 <td align="right">9.6</td>
 <td align="right">0</td>
-<td align="right">0.0000088</td>
-<td align="right">0.000052</td>
+<td align="right">0.000017</td>
+<td align="right">0.00021</td>
 </tr>
 <tr class="even">
 <td align="left">ADAMIXTURE</td>
@@ -654,8 +830,8 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="right">-101,809,867.10</td>
 <td align="right">9.6</td>
 <td align="right">0</td>
-<td align="right">0.0000088</td>
-<td align="right">0.000052</td>
+<td align="right">0.000017</td>
+<td align="right">0.00021</td>
 </tr>
 <tr class="odd">
 <td align="left">ADAMIXTURE</td>
@@ -664,8 +840,8 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="right">-101,809,867.10</td>
 <td align="right">9.6</td>
 <td align="right">0</td>
-<td align="right">0.0000088</td>
-<td align="right">0.000052</td>
+<td align="right">0.000017</td>
+<td align="right">0.00021</td>
 </tr>
 <tr class="even">
 <td align="left">ADAMIXTURE</td>
@@ -674,8 +850,8 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="right">-101,809,867.10</td>
 <td align="right">9.6</td>
 <td align="right">0</td>
-<td align="right">0.0000088</td>
-<td align="right">0.000052</td>
+<td align="right">0.000017</td>
+<td align="right">0.00021</td>
 </tr>
 <tr class="odd">
 <td align="left">ADAMIXTURE</td>
@@ -684,8 +860,8 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="right">-101,809,867.10</td>
 <td align="right">9.6</td>
 <td align="right">0</td>
-<td align="right">0.0000088</td>
-<td align="right">0.000052</td>
+<td align="right">0.000017</td>
+<td align="right">0.00021</td>
 </tr>
 <tr class="even">
 <td align="left">ADAMIXTURE</td>
@@ -694,8 +870,8 @@ differences smaller than 1e-6 do not show.</caption>
 <td align="right">-101,809,867.10</td>
 <td align="right">9.6</td>
 <td align="right">0</td>
-<td align="right">0.0000088</td>
-<td align="right">0.000052</td>
+<td align="right">0.000017</td>
+<td align="right">0.00021</td>
 </tr>
 <tr class="odd">
 <td align="left">OpenADMIXTURE.jl (command line)</td>
@@ -785,198 +961,247 @@ differences smaller than 1e-6 do not show.</caption>
 </h4>
 <table class="table">
 <caption>Time (s) taken by each run, without and with cross-validation
-(CV), and speed-up relative to the run of the same program on 1 core.
+(CV), speed-up relative to the run of the same program on 1 core, and
+peak resident memory (MB; recorded for the runs from the command line).
 OpenADMIXTURE.jl has no cross-validation.</caption>
 <colgroup>
-<col width="36%">
-<col width="6%">
+<col width="26%">
+<col width="4%">
+<col width="7%">
+<col width="7%">
 <col width="9%">
-<col width="9%">
-<col width="18%">
-<col width="18%">
+<col width="13%">
+<col width="13%">
+<col width="16%">
 </colgroup>
 <thead><tr class="header">
 <th align="left">Program</th>
 <th align="right">Cores</th>
 <th align="right">Time (s)</th>
 <th align="right">Speed-up</th>
+<th align="right">Memory (MB)</th>
 <th align="right">Time with CV (s)</th>
 <th align="right">Speed-up with CV</th>
+<th align="right">Memory with CV (MB)</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
 <td align="left">gt_radmix() (command line)</td>
 <td align="right">1</td>
-<td align="right">39.8</td>
+<td align="right">40.6</td>
 <td align="right">1.0</td>
-<td align="right">103</td>
+<td align="right">560</td>
+<td align="right">108</td>
 <td align="right">1.0</td>
+<td align="right">620</td>
 </tr>
 <tr class="even">
 <td align="left">gt_radmix() (command line)</td>
 <td align="right">2</td>
-<td align="right">21.6</td>
-<td align="right">1.8</td>
-<td align="right">55.2</td>
+<td align="right">21.3</td>
 <td align="right">1.9</td>
+<td align="right">560</td>
+<td align="right">53.8</td>
+<td align="right">2.0</td>
+<td align="right">620</td>
 </tr>
 <tr class="odd">
 <td align="left">gt_radmix() (command line)</td>
 <td align="right">4</td>
-<td align="right">11.5</td>
+<td align="right">11.4</td>
 <td align="right">3.5</td>
-<td align="right">28</td>
-<td align="right">3.7</td>
+<td align="right">560</td>
+<td align="right">28.1</td>
+<td align="right">3.8</td>
+<td align="right">620</td>
 </tr>
 <tr class="even">
 <td align="left">gt_radmix() (command line)</td>
 <td align="right">8</td>
-<td align="right">6.6</td>
-<td align="right">6.0</td>
-<td align="right">15.7</td>
-<td align="right">6.6</td>
+<td align="right">6.53</td>
+<td align="right">6.2</td>
+<td align="right">560</td>
+<td align="right">15.5</td>
+<td align="right">6.9</td>
+<td align="right">620</td>
 </tr>
 <tr class="odd">
 <td align="left">gt_radmix() (R session)</td>
 <td align="right">1</td>
-<td align="right">39.2</td>
+<td align="right">40.7</td>
 <td align="right">1.0</td>
-<td align="right">102</td>
+<td align="right">-</td>
+<td align="right">105</td>
 <td align="right">1.0</td>
+<td align="right">-</td>
 </tr>
 <tr class="even">
 <td align="left">gt_radmix() (R session)</td>
 <td align="right">2</td>
-<td align="right">20.8</td>
-<td align="right">1.9</td>
-<td align="right">54</td>
-<td align="right">1.9</td>
+<td align="right">20.1</td>
+<td align="right">2.0</td>
+<td align="right">-</td>
+<td align="right">52.6</td>
+<td align="right">2.0</td>
+<td align="right">-</td>
 </tr>
 <tr class="odd">
 <td align="left">gt_radmix() (R session)</td>
 <td align="right">4</td>
-<td align="right">10.4</td>
-<td align="right">3.8</td>
-<td align="right">26.9</td>
-<td align="right">3.8</td>
+<td align="right">10.3</td>
+<td align="right">4.0</td>
+<td align="right">-</td>
+<td align="right">27.1</td>
+<td align="right">3.9</td>
+<td align="right">-</td>
 </tr>
 <tr class="even">
 <td align="left">gt_radmix() (R session)</td>
 <td align="right">8</td>
-<td align="right">5.68</td>
-<td align="right">6.9</td>
+<td align="right">5.56</td>
+<td align="right">7.3</td>
+<td align="right">-</td>
 <td align="right">14.7</td>
-<td align="right">6.9</td>
+<td align="right">7.2</td>
+<td align="right">-</td>
 </tr>
 <tr class="odd">
 <td align="left">ADMIXTURE</td>
 <td align="right">1</td>
-<td align="right">326</td>
+<td align="right">337</td>
 <td align="right">1.0</td>
-<td align="right">495</td>
+<td align="right">280</td>
+<td align="right">510</td>
 <td align="right">1.0</td>
+<td align="right">420</td>
 </tr>
 <tr class="even">
 <td align="left">ADMIXTURE</td>
 <td align="right">2</td>
-<td align="right">316</td>
-<td align="right">1.0</td>
-<td align="right">525</td>
-<td align="right">0.9</td>
+<td align="right">440</td>
+<td align="right">0.8</td>
+<td align="right">280</td>
+<td align="right">636</td>
+<td align="right">0.8</td>
+<td align="right">420</td>
 </tr>
 <tr class="odd">
 <td align="left">ADMIXTURE</td>
 <td align="right">4</td>
-<td align="right">397</td>
-<td align="right">0.8</td>
-<td align="right">491</td>
-<td align="right">1.0</td>
+<td align="right">309</td>
+<td align="right">1.1</td>
+<td align="right">280</td>
+<td align="right">565</td>
+<td align="right">0.9</td>
+<td align="right">420</td>
 </tr>
 <tr class="even">
 <td align="left">ADMIXTURE</td>
 <td align="right">8</td>
-<td align="right">360</td>
-<td align="right">0.9</td>
-<td align="right">647</td>
-<td align="right">0.8</td>
+<td align="right">282</td>
+<td align="right">1.2</td>
+<td align="right">280</td>
+<td align="right">528</td>
+<td align="right">1.0</td>
+<td align="right">420</td>
 </tr>
 <tr class="odd">
 <td align="left">fastmixture</td>
 <td align="right">1</td>
-<td align="right">455</td>
+<td align="right">462</td>
 <td align="right">1.0</td>
-<td align="right">707</td>
+<td align="right">200</td>
+<td align="right">735</td>
 <td align="right">1.0</td>
+<td align="right">200</td>
 </tr>
 <tr class="even">
 <td align="left">fastmixture</td>
 <td align="right">2</td>
-<td align="right">244</td>
-<td align="right">1.9</td>
-<td align="right">394</td>
+<td align="right">234</td>
+<td align="right">2.0</td>
+<td align="right">200</td>
+<td align="right">404</td>
 <td align="right">1.8</td>
+<td align="right">200</td>
 </tr>
 <tr class="odd">
 <td align="left">fastmixture</td>
 <td align="right">4</td>
 <td align="right">124</td>
 <td align="right">3.7</td>
-<td align="right">195</td>
-<td align="right">3.6</td>
+<td align="right">200</td>
+<td align="right">194</td>
+<td align="right">3.8</td>
+<td align="right">200</td>
 </tr>
 <tr class="even">
 <td align="left">fastmixture</td>
 <td align="right">8</td>
-<td align="right">68.8</td>
-<td align="right">6.6</td>
-<td align="right">107</td>
-<td align="right">6.6</td>
+<td align="right">86</td>
+<td align="right">5.4</td>
+<td align="right">200</td>
+<td align="right">109</td>
+<td align="right">6.7</td>
+<td align="right">200</td>
 </tr>
 <tr class="odd">
 <td align="left">ADAMIXTURE</td>
 <td align="right">1</td>
-<td align="right">75.3</td>
+<td align="right">44.5</td>
 <td align="right">1.0</td>
-<td align="right">173</td>
+<td align="right">150</td>
+<td align="right">108</td>
 <td align="right">1.0</td>
+<td align="right">910</td>
 </tr>
 <tr class="even">
 <td align="left">ADAMIXTURE</td>
 <td align="right">2</td>
-<td align="right">43.1</td>
-<td align="right">1.7</td>
-<td align="right">101</td>
-<td align="right">1.7</td>
+<td align="right">23</td>
+<td align="right">1.9</td>
+<td align="right">160</td>
+<td align="right">57.8</td>
+<td align="right">1.9</td>
+<td align="right">920</td>
 </tr>
 <tr class="odd">
 <td align="left">ADAMIXTURE</td>
 <td align="right">4</td>
-<td align="right">20.6</td>
-<td align="right">3.7</td>
-<td align="right">50.8</td>
-<td align="right">3.4</td>
+<td align="right">12.3</td>
+<td align="right">3.6</td>
+<td align="right">170</td>
+<td align="right">33</td>
+<td align="right">3.3</td>
+<td align="right">930</td>
 </tr>
 <tr class="even">
 <td align="left">ADAMIXTURE</td>
 <td align="right">8</td>
-<td align="right">10.7</td>
-<td align="right">7.0</td>
-<td align="right">29</td>
-<td align="right">5.9</td>
+<td align="right">7.13</td>
+<td align="right">6.2</td>
+<td align="right">180</td>
+<td align="right">21.2</td>
+<td align="right">5.1</td>
+<td align="right">930</td>
 </tr>
 <tr class="odd">
 <td align="left">OpenADMIXTURE.jl (command line)</td>
 <td align="right">1</td>
-<td align="right">220</td>
+<td align="right">230</td>
 <td align="right">1.0</td>
+<td align="right">1,600</td>
+<td align="right">-</td>
 <td align="right">-</td>
 <td align="right">-</td>
 </tr>
 <tr class="even">
 <td align="left">OpenADMIXTURE.jl (command line)</td>
 <td align="right">2</td>
-<td align="right">121</td>
-<td align="right">1.8</td>
+<td align="right">124</td>
+<td align="right">1.9</td>
+<td align="right">1,160</td>
+<td align="right">-</td>
 <td align="right">-</td>
 <td align="right">-</td>
 </tr>
@@ -984,23 +1209,29 @@ OpenADMIXTURE.jl has no cross-validation.</caption>
 <td align="left">OpenADMIXTURE.jl (command line)</td>
 <td align="right">4</td>
 <td align="right">73.1</td>
-<td align="right">3.0</td>
+<td align="right">3.1</td>
+<td align="right">1,160</td>
+<td align="right">-</td>
 <td align="right">-</td>
 <td align="right">-</td>
 </tr>
 <tr class="even">
 <td align="left">OpenADMIXTURE.jl (command line)</td>
 <td align="right">8</td>
-<td align="right">50.2</td>
-<td align="right">4.4</td>
+<td align="right">50.3</td>
+<td align="right">4.6</td>
+<td align="right">1,270</td>
+<td align="right">-</td>
 <td align="right">-</td>
 <td align="right">-</td>
 </tr>
 <tr class="odd">
 <td align="left">OpenADMIXTURE.jl (Julia session)</td>
 <td align="right">1</td>
-<td align="right">202</td>
+<td align="right">209</td>
 <td align="right">1.0</td>
+<td align="right">1,600</td>
+<td align="right">-</td>
 <td align="right">-</td>
 <td align="right">-</td>
 </tr>
@@ -1008,23 +1239,29 @@ OpenADMIXTURE.jl has no cross-validation.</caption>
 <td align="left">OpenADMIXTURE.jl (Julia session)</td>
 <td align="right">2</td>
 <td align="right">102</td>
-<td align="right">2.0</td>
+<td align="right">2.1</td>
+<td align="right">1,170</td>
+<td align="right">-</td>
 <td align="right">-</td>
 <td align="right">-</td>
 </tr>
 <tr class="odd">
 <td align="left">OpenADMIXTURE.jl (Julia session)</td>
 <td align="right">4</td>
-<td align="right">54.4</td>
-<td align="right">3.7</td>
+<td align="right">54.3</td>
+<td align="right">3.8</td>
+<td align="right">1,150</td>
+<td align="right">-</td>
 <td align="right">-</td>
 <td align="right">-</td>
 </tr>
 <tr class="even">
 <td align="left">OpenADMIXTURE.jl (Julia session)</td>
 <td align="right">8</td>
-<td align="right">31.5</td>
-<td align="right">6.4</td>
+<td align="right">31.4</td>
+<td align="right">6.7</td>
+<td align="right">1,160</td>
+<td align="right">-</td>
 <td align="right">-</td>
 <td align="right">-</td>
 </tr>
@@ -1088,29 +1325,32 @@ cores.</caption>
 </h4>
 <table class="table">
 <caption>Median time (s; range in brackets) and number of iterations of
-the 5 runs of each program from each start; number of runs that reached
-the highest log-likelihood of all the runs of the benchmark (to within
-1), and the largest shortfall from it; largest absolute difference
-between the ancestry proportions of two runs of the same program from
-the same start; and median root mean square error (RMSE) of the ancestry
+the 5 runs of each program from each start, and their median peak
+resident memory (MB); number of runs that reached the highest
+log-likelihood of all the runs of the benchmark (to within 1), and the
+largest shortfall from it; largest absolute difference between the
+ancestry proportions of two runs of the same program from the same
+start; and median root mean square error (RMSE) of the ancestry
 proportions from those of ADMIXTURE on 1 core without cross-validation.
 The numbers of iterations are not comparable between programs (see <a href="#running-the-programs-from-the-command-line">Running the programs
 from the command line</a>).</caption>
 <colgroup>
-<col width="9%">
-<col width="5%">
-<col width="13%">
 <col width="8%">
-<col width="9%">
-<col width="14%">
-<col width="25%">
+<col width="5%">
+<col width="12%">
+<col width="7%">
+<col width="8%">
+<col width="8%">
 <col width="13%">
+<col width="23%">
+<col width="12%">
 </colgroup>
 <thead><tr class="header">
 <th align="left">Program</th>
 <th align="left">Start</th>
 <th align="right">Time (s)</th>
 <th align="right">Iterations</th>
+<th align="right">Memory (MB)</th>
 <th align="right">At the best</th>
 <th align="right">Largest shortfall</th>
 <th align="right">Largest difference between runs</th>
@@ -1120,8 +1360,9 @@ from the command line</a>).</caption>
 <tr class="odd">
 <td align="left">gt_radmix()</td>
 <td align="left">Random</td>
-<td align="right">6.88 (6.62-8.31)</td>
+<td align="right">6.8 (6.38-8.23)</td>
 <td align="right">21</td>
+<td align="right">560</td>
 <td align="right">5 of 5</td>
 <td align="right">0.1</td>
 <td align="right">0.00044</td>
@@ -1130,28 +1371,31 @@ from the command line</a>).</caption>
 <tr class="even">
 <td align="left">gt_radmix()</td>
 <td align="left">SVD</td>
-<td align="right">5.73 (5.66-5.79)</td>
+<td align="right">4.52 (4.5-4.63)</td>
 <td align="right">7</td>
+<td align="right">690</td>
 <td align="right">5 of 5</td>
-<td align="right">0.038</td>
-<td align="right">0.000043</td>
-<td align="right">0.000031</td>
+<td align="right">0.028</td>
+<td align="right">0.000035</td>
+<td align="right">0.000023</td>
 </tr>
 <tr class="odd">
 <td align="left">fastmixture</td>
 <td align="left">Random</td>
-<td align="right">68.7 (65.2-73.5)</td>
+<td align="right">68.2 (61.8-73.4)</td>
 <td align="right">225</td>
+<td align="right">200</td>
 <td align="right">0 of 5</td>
-<td align="right">2.8</td>
-<td align="right">0.0016</td>
+<td align="right">3.1</td>
+<td align="right">0.0017</td>
 <td align="right">0.00023</td>
 </tr>
 <tr class="even">
 <td align="left">fastmixture</td>
 <td align="left">SVD</td>
-<td align="right">43.1 (34.7-53.7)</td>
+<td align="right">43.5 (34.7-50.7)</td>
 <td align="right">135</td>
+<td align="right">220</td>
 <td align="right">0 of 5</td>
 <td align="right">2.8</td>
 <td align="right">0.0014</td>
@@ -1160,22 +1404,24 @@ from the command line</a>).</caption>
 <tr class="odd">
 <td align="left">ADAMIXTURE</td>
 <td align="left">Random</td>
-<td align="right">11.7 (11.6-14.6)</td>
+<td align="right">7.89 (7.82-8.75)</td>
 <td align="right">21</td>
+<td align="right">180</td>
 <td align="right">5 of 5</td>
 <td align="right">0.012</td>
-<td align="right">0.0002</td>
-<td align="right">0.0000098</td>
+<td align="right">0.00032</td>
+<td align="right">0.000011</td>
 </tr>
 <tr class="even">
 <td align="left">ADAMIXTURE</td>
 <td align="left">SVD</td>
-<td align="right">7.65 (7.45-9.6)</td>
+<td align="right">5.16 (5.07-5.45)</td>
 <td align="right">9</td>
+<td align="right">200</td>
 <td align="right">5 of 5</td>
-<td align="right">0.11</td>
-<td align="right">0.000037</td>
-<td align="right">0.0000075</td>
+<td align="right">0.012</td>
+<td align="right">0.00025</td>
+<td align="right">0.0000091</td>
 </tr>
 </tbody>
 </table>
@@ -1195,9 +1441,9 @@ which <code>Rscript</code> and <code>julia</code> run. The last runs
 <code>vignettes/articles/data/admixture_benchmark</code>. Each run is
 done once, as the full runs take long enough for the variation between
 repeated runs to be small. The code shown below is taken from these
-scripts. Timings depend on the machine (see <a href="#machine-and-software">Machine and software</a>), but the
-differences between the programs should be similar on other
-machines.</p>
+scripts. Timings depend on the machine (see <a href="#machine-and-software">Machine and software</a>), the compiler and
+the libraries: large differences between the programs should hold on
+other machines, but small ones need not (see <a href="#how-long-do-they-take">How long do they take?</a>).</p>
 <div class="section level3">
 <h3 id="the-data">The data<a class="anchor" aria-label="anchor" href="#the-data"></a>
 </h3>
@@ -1292,120 +1538,159 @@ OpenADMIXTURE.jl), with and without cross-validation (with
 <code>--cv</code> in ADMIXTURE, fastmixture and ADAMIXTURE, and
 <code>crossval</code> in <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>; OpenADMIXTURE.jl has
 none), from random values or from an SVD of the genotypes (with
-<code>--random-init</code> in fastmixture, <code>--init em</code> or
-<code>--init als</code> in ADAMIXTURE, and <code>init</code> in
+<code>--random-init</code> in fastmixture, <code>--init random</code> or
+<code>--init svd</code> in ADAMIXTURE, and <code>init</code> in
 <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>), with these functions:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># the wall-clock time, in seconds</span></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="fu">now()</span> <span class="kw">{</span> <span class="fu">date</span> +%s.%N<span class="kw">;</span> <span class="kw">}</span></span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a></span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co"># the first match of a regular expression (with one group, which is</span></span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co"># returned) at the start of a line of a log, or NA if there is none</span></span>
-<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="fu">extract()</span> <span class="kw">{</span></span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">value</span></span>
-<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>  <span class="va">value</span><span class="op">=</span><span class="va">$(</span><span class="fu">sed</span> <span class="at">-n</span> <span class="at">-E</span> <span class="st">"s/</span><span class="va">$1</span><span class="st">/\1/p"</span> <span class="st">"</span><span class="va">$2</span><span class="st">"</span> <span class="kw">|</span> <span class="fu">head</span> <span class="at">-n</span> 1<span class="va">)</span></span>
-<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">"</span><span class="va">${value</span><span class="op">:-</span>NA<span class="va">}</span><span class="st">"</span></span>
+<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># the wall-clock time, in seconds (GNU date on Linux, python fallback on macOS)</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="fu">now()</span> <span class="kw">{</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">t</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="va">t</span><span class="op">=</span><span class="va">$(</span><span class="fu">date</span> +%s.%N <span class="dv">2</span><span class="op">&gt;</span>/dev/null <span class="kw">||</span> <span class="fu">true</span><span class="va">)</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="st">"</span><span class="va">$t</span><span class="st">"</span> <span class="ot">==</span> <span class="pp">*</span>.<span class="pp">*</span> <span class="kw">&amp;&amp;</span> <span class="st">"</span><span class="va">$t</span><span class="st">"</span> <span class="ot">!=</span> <span class="pp">*</span>N<span class="pp">*</span> <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">"</span><span class="va">$t</span><span class="st">"</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  <span class="cf">else</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>    <span class="ex">python3</span> <span class="at">-c</span> <span class="st">'import time; print(f"{time.time():.6f}")'</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  <span class="cf">fi</span></span>
 <span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="kw">}</span></span>
 <span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a></span>
-<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co"># Each program is run by a function run_&lt;program&gt; &lt;cores&gt; &lt;cross-validation</span></span>
-<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co"># (TRUE or FALSE)&gt; &lt;run directory&gt; &lt;seed&gt; &lt;start (random or svd)&gt;.</span></span>
-<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a></span>
-<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co"># ADMIXTURE writes its output in the current directory, named after the bed</span></span>
-<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co"># file (e.g. hgdp_bench.5.Q), so it is run from the directory of the run;</span></span>
-<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co"># its log is what it prints. It starts from random values</span></span>
-<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="fu">run_admixture()</span> <span class="kw">{</span></span>
-<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">n_cores</span><span class="op">=</span><span class="va">$1</span> <span class="va">crossval</span><span class="op">=</span><span class="va">$2</span> <span class="va">run_dir</span><span class="op">=</span><span class="va">$3</span> <span class="va">seed</span><span class="op">=</span><span class="va">$4</span></span>
-<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">bed_path</span><span class="op">=</span><span class="va">$PWD</span>/<span class="va">$bed</span></span>
-<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">args</span><span class="op">=</span><span class="va">(</span>-s <span class="st">"</span><span class="va">$seed</span><span class="st">"</span> -j<span class="st">"</span><span class="va">$n_cores</span><span class="st">"</span><span class="va">)</span></span>
-<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="va">$crossval</span> <span class="ot">==</span> TRUE <span class="kw">]];</span> <span class="cf">then</span></span>
-<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a>    <span class="va">args</span><span class="op">+=</span><span class="va">(</span>--cv=<span class="st">"</span><span class="va">$n_folds</span><span class="st">"</span><span class="va">)</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co"># run a command redirecting its stdout+stderr to $2, and record peak RSS in $1</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co"># using GNU /usr/bin/time -v (Linux) or BSD /usr/bin/time -l (macOS)</span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="fu">timed_exec()</span> <span class="kw">{</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">time_log</span><span class="op">=</span><span class="va">$1</span> <span class="va">out_log</span><span class="op">=</span><span class="va">$2</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a>  <span class="bu">shift</span> 2</span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a>  <span class="cf">if</span> <span class="ex">/usr/bin/time</span> <span class="at">-v</span> true <span class="op">&gt;</span>/dev/null <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span><span class="kw">;</span> <span class="cf">then</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a>    <span class="ex">/usr/bin/time</span> <span class="at">-v</span> <span class="at">-o</span> <span class="st">"</span><span class="va">$time_log</span><span class="st">"</span> <span class="at">--</span> <span class="st">"</span><span class="va">$@</span><span class="st">"</span> <span class="op">&gt;</span> <span class="st">"</span><span class="va">$out_log</span><span class="st">"</span> <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a>  <span class="cf">elif</span> <span class="ex">/usr/bin/time</span> <span class="at">-l</span> true <span class="op">&gt;</span>/dev/null <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span><span class="kw">;</span> <span class="cf">then</span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a>    <span class="ex">/usr/bin/time</span> <span class="at">-l</span> sh <span class="at">-c</span> <span class="st">'exec "$@" &gt; "$0" 2&gt;&amp;1'</span> <span class="st">"</span><span class="va">$out_log</span><span class="st">"</span> <span class="st">"</span><span class="va">$@</span><span class="st">"</span> <span class="dv">2</span><span class="op">&gt;</span> <span class="st">"</span><span class="va">$time_log</span><span class="st">"</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a>  <span class="cf">else</span></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a>    <span class="bu">:</span> <span class="op">&gt;</span> <span class="st">"</span><span class="va">$time_log</span><span class="st">"</span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a>    <span class="st">"</span><span class="va">$@</span><span class="st">"</span> <span class="op">&gt;</span> <span class="st">"</span><span class="va">$out_log</span><span class="st">"</span> <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span></span>
 <span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a>  <span class="cf">fi</span></span>
-<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a>  <span class="kw">(</span><span class="bu">cd</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">"</span> <span class="kw">&amp;&amp;</span> <span class="st">"</span><span class="va">$admixture</span><span class="st">"</span> <span class="st">"</span><span class="va">${args</span><span class="op">[@]</span><span class="va">}</span><span class="st">"</span> <span class="st">"</span><span class="va">$bed_path</span><span class="st">"</span> <span class="st">"</span><span class="va">$k</span><span class="st">"</span> <span class="op">&gt;</span> admixture.log <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span><span class="kw">)</span></span>
-<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="kw">}</span></span>
-<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a></span>
-<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="co"># fastmixture writes its output (Q, P and a log with its settings and</span></span>
-<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a><span class="co"># results) with the prefix given by --out, and prints its progress. It</span></span>
-<span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a><span class="co"># starts from an SVD of the genotypes, or from random values with</span></span>
-<span id="cb6-31"><a href="#cb6-31" tabindex="-1"></a><span class="co"># --random-init</span></span>
-<span id="cb6-32"><a href="#cb6-32" tabindex="-1"></a><span class="fu">run_fastmixture()</span> <span class="kw">{</span></span>
-<span id="cb6-33"><a href="#cb6-33" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">n_cores</span><span class="op">=</span><span class="va">$1</span> <span class="va">crossval</span><span class="op">=</span><span class="va">$2</span> <span class="va">run_dir</span><span class="op">=</span><span class="va">$3</span> <span class="va">seed</span><span class="op">=</span><span class="va">$4</span> <span class="va">init</span><span class="op">=</span><span class="va">$5</span></span>
-<span id="cb6-34"><a href="#cb6-34" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">args</span><span class="op">=</span><span class="va">(</span></span>
-<span id="cb6-35"><a href="#cb6-35" tabindex="-1"></a>    --bfile <span class="st">"</span><span class="va">${bed</span><span class="op">%</span>.bed<span class="va">}</span><span class="st">"</span> --K <span class="st">"</span><span class="va">$k</span><span class="st">"</span> --threads <span class="st">"</span><span class="va">$n_cores</span><span class="st">"</span> --seed <span class="st">"</span><span class="va">$seed</span><span class="st">"</span></span>
-<span id="cb6-36"><a href="#cb6-36" tabindex="-1"></a>    --out <span class="st">"</span><span class="va">$run_dir</span><span class="st">/fastmixture"</span></span>
-<span id="cb6-37"><a href="#cb6-37" tabindex="-1"></a>  <span class="va">)</span></span>
-<span id="cb6-38"><a href="#cb6-38" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="va">$crossval</span> <span class="ot">==</span> TRUE <span class="kw">]];</span> <span class="cf">then</span></span>
-<span id="cb6-39"><a href="#cb6-39" tabindex="-1"></a>    <span class="va">args</span><span class="op">+=</span><span class="va">(</span>--cv <span class="st">"</span><span class="va">$n_folds</span><span class="st">"</span><span class="va">)</span></span>
-<span id="cb6-40"><a href="#cb6-40" tabindex="-1"></a>  <span class="cf">fi</span></span>
-<span id="cb6-41"><a href="#cb6-41" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="va">$init</span> <span class="ot">==</span> random <span class="kw">]];</span> <span class="cf">then</span></span>
-<span id="cb6-42"><a href="#cb6-42" tabindex="-1"></a>    <span class="va">args</span><span class="op">+=</span><span class="va">(</span>--random-init<span class="va">)</span></span>
-<span id="cb6-43"><a href="#cb6-43" tabindex="-1"></a>  <span class="cf">fi</span></span>
-<span id="cb6-44"><a href="#cb6-44" tabindex="-1"></a>  <span class="st">"</span><span class="va">$fastmixture</span><span class="st">"</span> <span class="st">"</span><span class="va">${args</span><span class="op">[@]</span><span class="va">}</span><span class="st">"</span> <span class="op">&gt;</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/console.log"</span> <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span></span>
-<span id="cb6-45"><a href="#cb6-45" tabindex="-1"></a><span class="kw">}</span></span>
-<span id="cb6-46"><a href="#cb6-46" tabindex="-1"></a></span>
-<span id="cb6-47"><a href="#cb6-47" tabindex="-1"></a><span class="co"># ADAMIXTURE writes its output (Q, P and a plot, which cannot be turned off)</span></span>
-<span id="cb6-48"><a href="#cb6-48" tabindex="-1"></a><span class="co"># in --save_dir, named after --name and K (e.g. adamixture.5.Q), and prints</span></span>
-<span id="cb6-49"><a href="#cb6-49" tabindex="-1"></a><span class="co"># its progress. Its command line drops the chromosomes that are not</span></span>
-<span id="cb6-50"><a href="#cb6-50" tabindex="-1"></a><span class="co"># autosomes by default (hence --chrom_mode all), and -t alone does not limit</span></span>
-<span id="cb6-51"><a href="#cb6-51" tabindex="-1"></a><span class="co"># its number of threads (it sets OMP_NUM_THREADS after loading its OpenMP</span></span>
-<span id="cb6-52"><a href="#cb6-52" tabindex="-1"></a><span class="co"># library), so OMP_NUM_THREADS is set before starting it. It starts from an</span></span>
-<span id="cb6-53"><a href="#cb6-53" tabindex="-1"></a><span class="co"># SVD of the genotypes followed by alternating least squares (--init als,</span></span>
-<span id="cb6-54"><a href="#cb6-54" tabindex="-1"></a><span class="co"># its default), or from random values primed with EM steps (--init em)</span></span>
-<span id="cb6-55"><a href="#cb6-55" tabindex="-1"></a><span class="fu">run_adamixture()</span> <span class="kw">{</span></span>
-<span id="cb6-56"><a href="#cb6-56" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">n_cores</span><span class="op">=</span><span class="va">$1</span> <span class="va">crossval</span><span class="op">=</span><span class="va">$2</span> <span class="va">run_dir</span><span class="op">=</span><span class="va">$3</span> <span class="va">seed</span><span class="op">=</span><span class="va">$4</span> <span class="va">init</span><span class="op">=</span><span class="va">$5</span></span>
-<span id="cb6-57"><a href="#cb6-57" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">args</span><span class="op">=</span><span class="va">(</span></span>
-<span id="cb6-58"><a href="#cb6-58" tabindex="-1"></a>    --data_path <span class="st">"</span><span class="va">$bed</span><span class="st">"</span> --save_dir <span class="st">"</span><span class="va">$run_dir</span><span class="st">"</span> --name adamixture -k <span class="st">"</span><span class="va">$k</span><span class="st">"</span></span>
-<span id="cb6-59"><a href="#cb6-59" tabindex="-1"></a>    -t <span class="st">"</span><span class="va">$n_cores</span><span class="st">"</span> -s <span class="st">"</span><span class="va">$seed</span><span class="st">"</span> --chrom_mode all</span>
-<span id="cb6-60"><a href="#cb6-60" tabindex="-1"></a>  <span class="va">)</span></span>
-<span id="cb6-61"><a href="#cb6-61" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="va">$init</span> <span class="ot">==</span> random <span class="kw">]];</span> <span class="cf">then</span></span>
-<span id="cb6-62"><a href="#cb6-62" tabindex="-1"></a>    <span class="va">args</span><span class="op">+=</span><span class="va">(</span>--init em<span class="va">)</span></span>
-<span id="cb6-63"><a href="#cb6-63" tabindex="-1"></a>  <span class="cf">else</span></span>
-<span id="cb6-64"><a href="#cb6-64" tabindex="-1"></a>    <span class="va">args</span><span class="op">+=</span><span class="va">(</span>--init als<span class="va">)</span></span>
-<span id="cb6-65"><a href="#cb6-65" tabindex="-1"></a>  <span class="cf">fi</span></span>
-<span id="cb6-66"><a href="#cb6-66" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="va">$crossval</span> <span class="ot">==</span> TRUE <span class="kw">]];</span> <span class="cf">then</span></span>
-<span id="cb6-67"><a href="#cb6-67" tabindex="-1"></a>    <span class="va">args</span><span class="op">+=</span><span class="va">(</span>--cv <span class="st">"</span><span class="va">$n_folds</span><span class="st">"</span><span class="va">)</span></span>
-<span id="cb6-68"><a href="#cb6-68" tabindex="-1"></a>  <span class="cf">fi</span></span>
-<span id="cb6-69"><a href="#cb6-69" tabindex="-1"></a>  <span class="va">OMP_NUM_THREADS</span><span class="op">=</span><span class="va">$n_cores</span> <span class="st">"</span><span class="va">$adamixture</span><span class="st">"</span> <span class="st">"</span><span class="va">${args</span><span class="op">[@]</span><span class="va">}</span><span class="st">"</span> <span class="dt">\</span></span>
-<span id="cb6-70"><a href="#cb6-70" tabindex="-1"></a>    <span class="op">&gt;</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/console.log"</span> <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span></span>
-<span id="cb6-71"><a href="#cb6-71" tabindex="-1"></a><span class="kw">}</span></span>
-<span id="cb6-72"><a href="#cb6-72" tabindex="-1"></a></span>
-<span id="cb6-73"><a href="#cb6-73" tabindex="-1"></a><span class="co"># gt_radmix() is run by a new R process, which loads tidygenclust, reads the</span></span>
-<span id="cb6-74"><a href="#cb6-74" tabindex="-1"></a><span class="co"># bed file into a gen_tibble, runs gt_radmix() (from random values, its</span></span>
-<span id="cb6-75"><a href="#cb6-75" tabindex="-1"></a><span class="co"># default, or with init = "svd"), saves the results, and prints the</span></span>
-<span id="cb6-76"><a href="#cb6-76" tabindex="-1"></a><span class="co"># log-likelihood and cross-validation error</span></span>
-<span id="cb6-77"><a href="#cb6-77" tabindex="-1"></a><span class="fu">run_radmix_cli()</span> <span class="kw">{</span></span>
-<span id="cb6-78"><a href="#cb6-78" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">n_cores</span><span class="op">=</span><span class="va">$1</span> <span class="va">crossval</span><span class="op">=</span><span class="va">$2</span> <span class="va">run_dir</span><span class="op">=</span><span class="va">$3</span> <span class="va">seed</span><span class="op">=</span><span class="va">$4</span> <span class="va">init</span><span class="op">=</span><span class="va">$5</span></span>
-<span id="cb6-79"><a href="#cb6-79" tabindex="-1"></a>  <span class="st">"</span><span class="va">$rscript</span><span class="st">"</span> code/admixture_benchmark_radmix_cli.R <span class="st">"</span><span class="va">$bed</span><span class="st">"</span> <span class="st">"</span><span class="va">$k</span><span class="st">"</span> <span class="st">"</span><span class="va">$seed</span><span class="st">"</span> <span class="dt">\</span></span>
-<span id="cb6-80"><a href="#cb6-80" tabindex="-1"></a>    <span class="st">"</span><span class="va">$n_cores</span><span class="st">"</span> <span class="st">"</span><span class="va">$crossval</span><span class="st">"</span> <span class="st">"</span><span class="va">$n_folds</span><span class="st">"</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">"</span> <span class="st">"</span><span class="va">$init</span><span class="st">"</span> <span class="dt">\</span></span>
-<span id="cb6-81"><a href="#cb6-81" tabindex="-1"></a>    <span class="op">&gt;</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/console.log"</span> <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span></span>
-<span id="cb6-82"><a href="#cb6-82" tabindex="-1"></a><span class="kw">}</span></span>
-<span id="cb6-83"><a href="#cb6-83" tabindex="-1"></a></span>
-<span id="cb6-84"><a href="#cb6-84" tabindex="-1"></a><span class="co"># julia, with the variables that activating its conda environment would</span></span>
-<span id="cb6-85"><a href="#cb6-85" tabindex="-1"></a><span class="co"># set, so that it finds the packages installed in it (without the time</span></span>
-<span id="cb6-86"><a href="#cb6-86" tabindex="-1"></a><span class="co"># taken by conda run)</span></span>
-<span id="cb6-87"><a href="#cb6-87" tabindex="-1"></a><span class="fu">julia_run()</span> <span class="kw">{</span></span>
-<span id="cb6-88"><a href="#cb6-88" tabindex="-1"></a>  <span class="fu">env</span> JULIA_DEPOT_PATH=<span class="st">"</span><span class="va">$julia_prefix</span><span class="st">/share/julia:"</span> <span class="dt">\</span></span>
-<span id="cb6-89"><a href="#cb6-89" tabindex="-1"></a>    JULIA_PROJECT=<span class="st">"@</span><span class="va">$julia_env</span><span class="st">"</span> JULIA_LOAD_PATH=<span class="st">"@:@</span><span class="va">$julia_env</span><span class="st">:@stdlib"</span> <span class="dt">\</span></span>
-<span id="cb6-90"><a href="#cb6-90" tabindex="-1"></a>    <span class="st">"</span><span class="va">$julia_prefix</span><span class="st">/bin/julia"</span> <span class="st">"</span><span class="va">$@</span><span class="st">"</span></span>
-<span id="cb6-91"><a href="#cb6-91" tabindex="-1"></a><span class="kw">}</span></span>
-<span id="cb6-92"><a href="#cb6-92" tabindex="-1"></a></span>
-<span id="cb6-93"><a href="#cb6-93" tabindex="-1"></a><span class="co"># OpenADMIXTURE.jl is run by a new Julia process, which writes Q and P with</span></span>
-<span id="cb6-94"><a href="#cb6-94" tabindex="-1"></a><span class="co"># the prefix openadmixture, and prints its progress, the log-likelihood and</span></span>
-<span id="cb6-95"><a href="#cb6-95" tabindex="-1"></a><span class="co"># the time of the fit (Julia is started without an interactive thread, see</span></span>
-<span id="cb6-96"><a href="#cb6-96" tabindex="-1"></a><span class="co"># admixture_benchmark_openadmixture.jl); it starts from random values, and</span></span>
-<span id="cb6-97"><a href="#cb6-97" tabindex="-1"></a><span class="co"># has no cross-validation</span></span>
-<span id="cb6-98"><a href="#cb6-98" tabindex="-1"></a><span class="fu">run_openadmixture_cli()</span> <span class="kw">{</span></span>
-<span id="cb6-99"><a href="#cb6-99" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">n_cores</span><span class="op">=</span><span class="va">$1</span> <span class="va">run_dir</span><span class="op">=</span><span class="va">$3</span> <span class="va">seed</span><span class="op">=</span><span class="va">$4</span></span>
-<span id="cb6-100"><a href="#cb6-100" tabindex="-1"></a>  <span class="ex">julia_run</span> <span class="at">--threads</span><span class="op">=</span><span class="st">"</span><span class="va">$n_cores</span><span class="st">,0"</span> code/admixture_benchmark_openadmixture.jl <span class="dt">\</span></span>
-<span id="cb6-101"><a href="#cb6-101" tabindex="-1"></a>    <span class="st">"</span><span class="va">$bed</span><span class="st">"</span> <span class="st">"</span><span class="va">$k</span><span class="st">"</span> <span class="st">"</span><span class="va">$seed</span><span class="st">"</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/openadmixture"</span> <span class="op">&gt;</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/console.log"</span> <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span></span>
-<span id="cb6-102"><a href="#cb6-102" tabindex="-1"></a><span class="kw">}</span></span>
-<span id="cb6-103"><a href="#cb6-103" tabindex="-1"></a></span>
-<span id="cb6-104"><a href="#cb6-104" tabindex="-1"></a><span class="co"># the same, after a warm-up on the small subset of the data, so that the</span></span>
-<span id="cb6-105"><a href="#cb6-105" tabindex="-1"></a><span class="co"># fit, timed in Julia, does not include compiling the code</span></span>
-<span id="cb6-106"><a href="#cb6-106" tabindex="-1"></a><span class="fu">run_openadmixture()</span> <span class="kw">{</span></span>
-<span id="cb6-107"><a href="#cb6-107" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">n_cores</span><span class="op">=</span><span class="va">$1</span> <span class="va">run_dir</span><span class="op">=</span><span class="va">$3</span> <span class="va">seed</span><span class="op">=</span><span class="va">$4</span></span>
-<span id="cb6-108"><a href="#cb6-108" tabindex="-1"></a>  <span class="ex">julia_run</span> <span class="at">--threads</span><span class="op">=</span><span class="st">"</span><span class="va">$n_cores</span><span class="st">,0"</span> code/admixture_benchmark_openadmixture.jl <span class="dt">\</span></span>
-<span id="cb6-109"><a href="#cb6-109" tabindex="-1"></a>    <span class="st">"</span><span class="va">$bed</span><span class="st">"</span> <span class="st">"</span><span class="va">$k</span><span class="st">"</span> <span class="st">"</span><span class="va">$seed</span><span class="st">"</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/openadmixture"</span> <span class="st">"</span><span class="va">$warmup_bed</span><span class="st">"</span> <span class="dt">\</span></span>
-<span id="cb6-110"><a href="#cb6-110" tabindex="-1"></a>    <span class="op">&gt;</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/console.log"</span> <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span></span>
-<span id="cb6-111"><a href="#cb6-111" tabindex="-1"></a><span class="kw">}</span></span></code></pre></div>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a></span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="co"># peak resident set size in MiB from the log written by timed_exec(), or NA</span></span>
+<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="fu">extract_peak_rss_mb()</span> <span class="kw">{</span></span>
+<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">time_log</span><span class="op">=</span><span class="va">$1</span> <span class="va">rss</span></span>
+<span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="ot">!</span> <span class="ot">-s</span> <span class="st">"</span><span class="va">$time_log</span><span class="st">"</span> <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb6-31"><a href="#cb6-31" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">"NA"</span></span>
+<span id="cb6-32"><a href="#cb6-32" tabindex="-1"></a>    <span class="cf">return</span></span>
+<span id="cb6-33"><a href="#cb6-33" tabindex="-1"></a>  <span class="cf">fi</span></span>
+<span id="cb6-34"><a href="#cb6-34" tabindex="-1"></a>  <span class="va">rss</span><span class="op">=</span><span class="va">$(</span><span class="fu">awk</span> <span class="st">'/Maximum resident set size \(kbytes\)/ { printf "%.1f", $NF / 1024; exit }'</span> <span class="st">"</span><span class="va">$time_log</span><span class="st">"</span><span class="va">)</span></span>
+<span id="cb6-35"><a href="#cb6-35" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="ot">-z</span> <span class="st">"</span><span class="va">$rss</span><span class="st">"</span> <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb6-36"><a href="#cb6-36" tabindex="-1"></a>    <span class="va">rss</span><span class="op">=</span><span class="va">$(</span><span class="fu">awk</span> <span class="st">'/maximum resident set size/ { printf "%.1f", $1 / 1048576; exit }'</span> <span class="st">"</span><span class="va">$time_log</span><span class="st">"</span><span class="va">)</span></span>
+<span id="cb6-37"><a href="#cb6-37" tabindex="-1"></a>  <span class="cf">fi</span></span>
+<span id="cb6-38"><a href="#cb6-38" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">"</span><span class="va">${rss</span><span class="op">:-</span>NA<span class="va">}</span><span class="st">"</span></span>
+<span id="cb6-39"><a href="#cb6-39" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb6-40"><a href="#cb6-40" tabindex="-1"></a></span>
+<span id="cb6-41"><a href="#cb6-41" tabindex="-1"></a><span class="co"># the first match of a regular expression (with one group, which is</span></span>
+<span id="cb6-42"><a href="#cb6-42" tabindex="-1"></a><span class="co"># returned) at the start of a line of a log, or NA if there is none</span></span>
+<span id="cb6-43"><a href="#cb6-43" tabindex="-1"></a><span class="fu">extract()</span> <span class="kw">{</span></span>
+<span id="cb6-44"><a href="#cb6-44" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">value</span></span>
+<span id="cb6-45"><a href="#cb6-45" tabindex="-1"></a>  <span class="va">value</span><span class="op">=</span><span class="va">$(</span><span class="fu">sed</span> <span class="at">-n</span> <span class="at">-E</span> <span class="st">"s/</span><span class="va">$1</span><span class="st">/\1/p"</span> <span class="st">"</span><span class="va">$2</span><span class="st">"</span> <span class="kw">|</span> <span class="fu">head</span> <span class="at">-n</span> 1<span class="va">)</span></span>
+<span id="cb6-46"><a href="#cb6-46" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">"</span><span class="va">${value</span><span class="op">:-</span>NA<span class="va">}</span><span class="st">"</span></span>
+<span id="cb6-47"><a href="#cb6-47" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb6-48"><a href="#cb6-48" tabindex="-1"></a></span>
+<span id="cb6-49"><a href="#cb6-49" tabindex="-1"></a><span class="co"># Each program is run by a function run_&lt;program&gt; &lt;cores&gt; &lt;cross-validation</span></span>
+<span id="cb6-50"><a href="#cb6-50" tabindex="-1"></a><span class="co"># (TRUE or FALSE)&gt; &lt;run directory&gt; &lt;seed&gt; &lt;start (random or svd)&gt;.</span></span>
+<span id="cb6-51"><a href="#cb6-51" tabindex="-1"></a></span>
+<span id="cb6-52"><a href="#cb6-52" tabindex="-1"></a><span class="co"># ADMIXTURE writes its output in the current directory, named after the bed</span></span>
+<span id="cb6-53"><a href="#cb6-53" tabindex="-1"></a><span class="co"># file (e.g. hgdp_bench.5.Q), so it is run from the directory of the run;</span></span>
+<span id="cb6-54"><a href="#cb6-54" tabindex="-1"></a><span class="co"># its log is what it prints. It starts from random values</span></span>
+<span id="cb6-55"><a href="#cb6-55" tabindex="-1"></a><span class="fu">run_admixture()</span> <span class="kw">{</span></span>
+<span id="cb6-56"><a href="#cb6-56" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">n_cores</span><span class="op">=</span><span class="va">$1</span> <span class="va">crossval</span><span class="op">=</span><span class="va">$2</span> <span class="va">run_dir</span><span class="op">=</span><span class="va">$3</span> <span class="va">seed</span><span class="op">=</span><span class="va">$4</span></span>
+<span id="cb6-57"><a href="#cb6-57" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">bed_path</span><span class="op">=</span><span class="va">$PWD</span>/<span class="va">$bed</span></span>
+<span id="cb6-58"><a href="#cb6-58" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">time_log</span><span class="op">=</span><span class="va">$PWD</span>/<span class="va">$run_dir</span>/time.log</span>
+<span id="cb6-59"><a href="#cb6-59" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">args</span><span class="op">=</span><span class="va">(</span>-s <span class="st">"</span><span class="va">$seed</span><span class="st">"</span> -j<span class="st">"</span><span class="va">$n_cores</span><span class="st">"</span><span class="va">)</span></span>
+<span id="cb6-60"><a href="#cb6-60" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="va">$crossval</span> <span class="ot">==</span> TRUE <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb6-61"><a href="#cb6-61" tabindex="-1"></a>    <span class="va">args</span><span class="op">+=</span><span class="va">(</span>--cv=<span class="st">"</span><span class="va">$n_folds</span><span class="st">"</span><span class="va">)</span></span>
+<span id="cb6-62"><a href="#cb6-62" tabindex="-1"></a>  <span class="cf">fi</span></span>
+<span id="cb6-63"><a href="#cb6-63" tabindex="-1"></a>  <span class="kw">(</span><span class="bu">cd</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">"</span> <span class="kw">&amp;&amp;</span> <span class="ex">timed_exec</span> <span class="st">"</span><span class="va">$time_log</span><span class="st">"</span> admixture.log <span class="st">"</span><span class="va">$admixture</span><span class="st">"</span> <span class="st">"</span><span class="va">${args</span><span class="op">[@]</span><span class="va">}</span><span class="st">"</span> <span class="st">"</span><span class="va">$bed_path</span><span class="st">"</span> <span class="st">"</span><span class="va">$k</span><span class="st">"</span><span class="kw">)</span></span>
+<span id="cb6-64"><a href="#cb6-64" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb6-65"><a href="#cb6-65" tabindex="-1"></a></span>
+<span id="cb6-66"><a href="#cb6-66" tabindex="-1"></a><span class="co"># fastmixture writes its output (Q, P and a log with its settings and</span></span>
+<span id="cb6-67"><a href="#cb6-67" tabindex="-1"></a><span class="co"># results) with the prefix given by --out, and prints its progress. It</span></span>
+<span id="cb6-68"><a href="#cb6-68" tabindex="-1"></a><span class="co"># starts from an SVD of the genotypes, or from random values with</span></span>
+<span id="cb6-69"><a href="#cb6-69" tabindex="-1"></a><span class="co"># --random-init</span></span>
+<span id="cb6-70"><a href="#cb6-70" tabindex="-1"></a><span class="fu">run_fastmixture()</span> <span class="kw">{</span></span>
+<span id="cb6-71"><a href="#cb6-71" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">n_cores</span><span class="op">=</span><span class="va">$1</span> <span class="va">crossval</span><span class="op">=</span><span class="va">$2</span> <span class="va">run_dir</span><span class="op">=</span><span class="va">$3</span> <span class="va">seed</span><span class="op">=</span><span class="va">$4</span> <span class="va">init</span><span class="op">=</span><span class="va">$5</span></span>
+<span id="cb6-72"><a href="#cb6-72" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">args</span><span class="op">=</span><span class="va">(</span></span>
+<span id="cb6-73"><a href="#cb6-73" tabindex="-1"></a>    --bfile <span class="st">"</span><span class="va">${bed</span><span class="op">%</span>.bed<span class="va">}</span><span class="st">"</span> --K <span class="st">"</span><span class="va">$k</span><span class="st">"</span> --threads <span class="st">"</span><span class="va">$n_cores</span><span class="st">"</span> --seed <span class="st">"</span><span class="va">$seed</span><span class="st">"</span></span>
+<span id="cb6-74"><a href="#cb6-74" tabindex="-1"></a>    --out <span class="st">"</span><span class="va">$run_dir</span><span class="st">/fastmixture"</span></span>
+<span id="cb6-75"><a href="#cb6-75" tabindex="-1"></a>  <span class="va">)</span></span>
+<span id="cb6-76"><a href="#cb6-76" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="va">$crossval</span> <span class="ot">==</span> TRUE <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb6-77"><a href="#cb6-77" tabindex="-1"></a>    <span class="va">args</span><span class="op">+=</span><span class="va">(</span>--cv <span class="st">"</span><span class="va">$n_folds</span><span class="st">"</span><span class="va">)</span></span>
+<span id="cb6-78"><a href="#cb6-78" tabindex="-1"></a>  <span class="cf">fi</span></span>
+<span id="cb6-79"><a href="#cb6-79" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="va">$init</span> <span class="ot">==</span> random <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb6-80"><a href="#cb6-80" tabindex="-1"></a>    <span class="va">args</span><span class="op">+=</span><span class="va">(</span>--random-init<span class="va">)</span></span>
+<span id="cb6-81"><a href="#cb6-81" tabindex="-1"></a>  <span class="cf">fi</span></span>
+<span id="cb6-82"><a href="#cb6-82" tabindex="-1"></a>  <span class="ex">timed_exec</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/time.log"</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/console.log"</span> <span class="st">"</span><span class="va">$fastmixture</span><span class="st">"</span> <span class="st">"</span><span class="va">${args</span><span class="op">[@]</span><span class="va">}</span><span class="st">"</span></span>
+<span id="cb6-83"><a href="#cb6-83" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb6-84"><a href="#cb6-84" tabindex="-1"></a></span>
+<span id="cb6-85"><a href="#cb6-85" tabindex="-1"></a><span class="co"># ADAMIXTURE writes its output (Q, P and a plot) in --save_dir, named after</span></span>
+<span id="cb6-86"><a href="#cb6-86" tabindex="-1"></a><span class="co"># --name and K (e.g. adamixture.5.Q), and prints its progress. We pass</span></span>
+<span id="cb6-87"><a href="#cb6-87" tabindex="-1"></a><span class="co"># --chrom_mode all explicitly and set OMP_NUM_THREADS before starting it so</span></span>
+<span id="cb6-88"><a href="#cb6-88" tabindex="-1"></a><span class="co"># its OpenMP thread pool matches n_cores. In ADAMIXTURE &gt;= 1.9, it starts</span></span>
+<span id="cb6-89"><a href="#cb6-89" tabindex="-1"></a><span class="co"># from an SVD of the genotypes followed by alternating least squares</span></span>
+<span id="cb6-90"><a href="#cb6-90" tabindex="-1"></a><span class="co"># (--init svd, its default), or from random values primed with EM steps</span></span>
+<span id="cb6-91"><a href="#cb6-91" tabindex="-1"></a><span class="co"># (--init random)</span></span>
+<span id="cb6-92"><a href="#cb6-92" tabindex="-1"></a><span class="fu">run_adamixture()</span> <span class="kw">{</span></span>
+<span id="cb6-93"><a href="#cb6-93" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">n_cores</span><span class="op">=</span><span class="va">$1</span> <span class="va">crossval</span><span class="op">=</span><span class="va">$2</span> <span class="va">run_dir</span><span class="op">=</span><span class="va">$3</span> <span class="va">seed</span><span class="op">=</span><span class="va">$4</span> <span class="va">init</span><span class="op">=</span><span class="va">$5</span></span>
+<span id="cb6-94"><a href="#cb6-94" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">args</span><span class="op">=</span><span class="va">(</span></span>
+<span id="cb6-95"><a href="#cb6-95" tabindex="-1"></a>    --data_path <span class="st">"</span><span class="va">$bed</span><span class="st">"</span> --save_dir <span class="st">"</span><span class="va">$run_dir</span><span class="st">"</span> --name adamixture -k <span class="st">"</span><span class="va">$k</span><span class="st">"</span></span>
+<span id="cb6-96"><a href="#cb6-96" tabindex="-1"></a>    -t <span class="st">"</span><span class="va">$n_cores</span><span class="st">"</span> -s <span class="st">"</span><span class="va">$seed</span><span class="st">"</span> --chrom_mode all --device cpu --init <span class="st">"</span><span class="va">$init</span><span class="st">"</span></span>
+<span id="cb6-97"><a href="#cb6-97" tabindex="-1"></a>  <span class="va">)</span></span>
+<span id="cb6-98"><a href="#cb6-98" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="va">$crossval</span> <span class="ot">==</span> TRUE <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb6-99"><a href="#cb6-99" tabindex="-1"></a>    <span class="va">args</span><span class="op">+=</span><span class="va">(</span>--cv <span class="st">"</span><span class="va">$n_folds</span><span class="st">"</span><span class="va">)</span></span>
+<span id="cb6-100"><a href="#cb6-100" tabindex="-1"></a>  <span class="cf">fi</span></span>
+<span id="cb6-101"><a href="#cb6-101" tabindex="-1"></a>  <span class="ex">timed_exec</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/time.log"</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/console.log"</span> <span class="dt">\</span></span>
+<span id="cb6-102"><a href="#cb6-102" tabindex="-1"></a>    env OMP_NUM_THREADS=<span class="st">"</span><span class="va">$n_cores</span><span class="st">"</span> <span class="st">"</span><span class="va">$adamixture</span><span class="st">"</span> <span class="st">"</span><span class="va">${args</span><span class="op">[@]</span><span class="va">}</span><span class="st">"</span></span>
+<span id="cb6-103"><a href="#cb6-103" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb6-104"><a href="#cb6-104" tabindex="-1"></a></span>
+<span id="cb6-105"><a href="#cb6-105" tabindex="-1"></a><span class="co"># gt_radmix() is run by a new R process, which loads tidygenclust, reads the</span></span>
+<span id="cb6-106"><a href="#cb6-106" tabindex="-1"></a><span class="co"># bed file into a gen_tibble, runs gt_radmix() (from random values, its</span></span>
+<span id="cb6-107"><a href="#cb6-107" tabindex="-1"></a><span class="co"># default, or with init = "svd"), saves the results, and prints the</span></span>
+<span id="cb6-108"><a href="#cb6-108" tabindex="-1"></a><span class="co"># log-likelihood and cross-validation error</span></span>
+<span id="cb6-109"><a href="#cb6-109" tabindex="-1"></a><span class="fu">run_radmix_cli()</span> <span class="kw">{</span></span>
+<span id="cb6-110"><a href="#cb6-110" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">n_cores</span><span class="op">=</span><span class="va">$1</span> <span class="va">crossval</span><span class="op">=</span><span class="va">$2</span> <span class="va">run_dir</span><span class="op">=</span><span class="va">$3</span> <span class="va">seed</span><span class="op">=</span><span class="va">$4</span> <span class="va">init</span><span class="op">=</span><span class="va">$5</span></span>
+<span id="cb6-111"><a href="#cb6-111" tabindex="-1"></a>  <span class="ex">timed_exec</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/time.log"</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/console.log"</span> <span class="dt">\</span></span>
+<span id="cb6-112"><a href="#cb6-112" tabindex="-1"></a>    <span class="st">"</span><span class="va">$rscript</span><span class="st">"</span> code/admixture_benchmark_radmix_cli.R <span class="st">"</span><span class="va">$bed</span><span class="st">"</span> <span class="st">"</span><span class="va">$k</span><span class="st">"</span> <span class="st">"</span><span class="va">$seed</span><span class="st">"</span> <span class="dt">\</span></span>
+<span id="cb6-113"><a href="#cb6-113" tabindex="-1"></a>    <span class="st">"</span><span class="va">$n_cores</span><span class="st">"</span> <span class="st">"</span><span class="va">$crossval</span><span class="st">"</span> <span class="st">"</span><span class="va">$n_folds</span><span class="st">"</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">"</span> <span class="st">"</span><span class="va">$init</span><span class="st">"</span></span>
+<span id="cb6-114"><a href="#cb6-114" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb6-115"><a href="#cb6-115" tabindex="-1"></a></span>
+<span id="cb6-116"><a href="#cb6-116" tabindex="-1"></a><span class="co"># julia, with the variables that activating its conda environment would</span></span>
+<span id="cb6-117"><a href="#cb6-117" tabindex="-1"></a><span class="co"># set, so that it finds the packages installed in it (without the time</span></span>
+<span id="cb6-118"><a href="#cb6-118" tabindex="-1"></a><span class="co"># taken by conda run)</span></span>
+<span id="cb6-119"><a href="#cb6-119" tabindex="-1"></a><span class="fu">julia_run()</span> <span class="kw">{</span></span>
+<span id="cb6-120"><a href="#cb6-120" tabindex="-1"></a>  <span class="fu">env</span> JULIA_DEPOT_PATH=<span class="st">"</span><span class="va">$julia_prefix</span><span class="st">/share/julia:"</span> <span class="dt">\</span></span>
+<span id="cb6-121"><a href="#cb6-121" tabindex="-1"></a>    JULIA_PROJECT=<span class="st">"@</span><span class="va">$julia_env</span><span class="st">"</span> JULIA_LOAD_PATH=<span class="st">"@:@</span><span class="va">$julia_env</span><span class="st">:@stdlib"</span> <span class="dt">\</span></span>
+<span id="cb6-122"><a href="#cb6-122" tabindex="-1"></a>    <span class="st">"</span><span class="va">$julia_prefix</span><span class="st">/bin/julia"</span> <span class="st">"</span><span class="va">$@</span><span class="st">"</span></span>
+<span id="cb6-123"><a href="#cb6-123" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb6-124"><a href="#cb6-124" tabindex="-1"></a></span>
+<span id="cb6-125"><a href="#cb6-125" tabindex="-1"></a><span class="co"># OpenADMIXTURE.jl is run by a new Julia process, which writes Q and P with</span></span>
+<span id="cb6-126"><a href="#cb6-126" tabindex="-1"></a><span class="co"># the prefix openadmixture, and prints its progress, the log-likelihood and</span></span>
+<span id="cb6-127"><a href="#cb6-127" tabindex="-1"></a><span class="co"># the time of the fit (Julia is started without an interactive thread, see</span></span>
+<span id="cb6-128"><a href="#cb6-128" tabindex="-1"></a><span class="co"># admixture_benchmark_openadmixture.jl); it starts from random values, and</span></span>
+<span id="cb6-129"><a href="#cb6-129" tabindex="-1"></a><span class="co"># has no cross-validation</span></span>
+<span id="cb6-130"><a href="#cb6-130" tabindex="-1"></a><span class="fu">run_openadmixture_cli()</span> <span class="kw">{</span></span>
+<span id="cb6-131"><a href="#cb6-131" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">n_cores</span><span class="op">=</span><span class="va">$1</span> <span class="va">run_dir</span><span class="op">=</span><span class="va">$3</span> <span class="va">seed</span><span class="op">=</span><span class="va">$4</span></span>
+<span id="cb6-132"><a href="#cb6-132" tabindex="-1"></a>  <span class="ex">timed_exec</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/time.log"</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/console.log"</span> <span class="dt">\</span></span>
+<span id="cb6-133"><a href="#cb6-133" tabindex="-1"></a>    env JULIA_DEPOT_PATH=<span class="st">"</span><span class="va">$julia_prefix</span><span class="st">/share/julia:"</span> <span class="dt">\</span></span>
+<span id="cb6-134"><a href="#cb6-134" tabindex="-1"></a>    JULIA_PROJECT=<span class="st">"@</span><span class="va">$julia_env</span><span class="st">"</span> JULIA_LOAD_PATH=<span class="st">"@:@</span><span class="va">$julia_env</span><span class="st">:@stdlib"</span> <span class="dt">\</span></span>
+<span id="cb6-135"><a href="#cb6-135" tabindex="-1"></a>    <span class="st">"</span><span class="va">$julia_prefix</span><span class="st">/bin/julia"</span> <span class="at">--threads</span><span class="op">=</span><span class="st">"</span><span class="va">$n_cores</span><span class="st">,0"</span> <span class="dt">\</span></span>
+<span id="cb6-136"><a href="#cb6-136" tabindex="-1"></a>    code/admixture_benchmark_openadmixture.jl <span class="dt">\</span></span>
+<span id="cb6-137"><a href="#cb6-137" tabindex="-1"></a>    <span class="st">"</span><span class="va">$bed</span><span class="st">"</span> <span class="st">"</span><span class="va">$k</span><span class="st">"</span> <span class="st">"</span><span class="va">$seed</span><span class="st">"</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/openadmixture"</span></span>
+<span id="cb6-138"><a href="#cb6-138" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb6-139"><a href="#cb6-139" tabindex="-1"></a></span>
+<span id="cb6-140"><a href="#cb6-140" tabindex="-1"></a><span class="co"># the same, after a warm-up on the small subset of the data, so that the</span></span>
+<span id="cb6-141"><a href="#cb6-141" tabindex="-1"></a><span class="co"># fit, timed in Julia, does not include compiling the code</span></span>
+<span id="cb6-142"><a href="#cb6-142" tabindex="-1"></a><span class="fu">run_openadmixture()</span> <span class="kw">{</span></span>
+<span id="cb6-143"><a href="#cb6-143" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">n_cores</span><span class="op">=</span><span class="va">$1</span> <span class="va">run_dir</span><span class="op">=</span><span class="va">$3</span> <span class="va">seed</span><span class="op">=</span><span class="va">$4</span></span>
+<span id="cb6-144"><a href="#cb6-144" tabindex="-1"></a>  <span class="ex">timed_exec</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/time.log"</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/console.log"</span> <span class="dt">\</span></span>
+<span id="cb6-145"><a href="#cb6-145" tabindex="-1"></a>    env JULIA_DEPOT_PATH=<span class="st">"</span><span class="va">$julia_prefix</span><span class="st">/share/julia:"</span> <span class="dt">\</span></span>
+<span id="cb6-146"><a href="#cb6-146" tabindex="-1"></a>    JULIA_PROJECT=<span class="st">"@</span><span class="va">$julia_env</span><span class="st">"</span> JULIA_LOAD_PATH=<span class="st">"@:@</span><span class="va">$julia_env</span><span class="st">:@stdlib"</span> <span class="dt">\</span></span>
+<span id="cb6-147"><a href="#cb6-147" tabindex="-1"></a>    <span class="st">"</span><span class="va">$julia_prefix</span><span class="st">/bin/julia"</span> <span class="at">--threads</span><span class="op">=</span><span class="st">"</span><span class="va">$n_cores</span><span class="st">,0"</span> <span class="dt">\</span></span>
+<span id="cb6-148"><a href="#cb6-148" tabindex="-1"></a>    code/admixture_benchmark_openadmixture.jl <span class="dt">\</span></span>
+<span id="cb6-149"><a href="#cb6-149" tabindex="-1"></a>    <span class="st">"</span><span class="va">$bed</span><span class="st">"</span> <span class="st">"</span><span class="va">$k</span><span class="st">"</span> <span class="st">"</span><span class="va">$seed</span><span class="st">"</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/openadmixture"</span> <span class="st">"</span><span class="va">$warmup_bed</span><span class="st">"</span></span>
+<span id="cb6-150"><a href="#cb6-150" tabindex="-1"></a><span class="kw">}</span></span></code></pre></div>
 <p>and the time, Q matrix, log-likelihood, cross-validation error and
 number of iterations of each run are saved:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># each run is done in its own directory, and its time includes starting the</span></span>
@@ -1471,13 +1756,15 @@ number of iterations of each run are saved:</p>
 <span id="cb7-61"><a href="#cb7-61" tabindex="-1"></a>      <span class="cf">;;</span></span>
 <span id="cb7-62"><a href="#cb7-62" tabindex="-1"></a>  <span class="cf">esac</span></span>
 <span id="cb7-63"><a href="#cb7-63" tabindex="-1"></a>  <span class="va">iterations</span><span class="op">=</span><span class="va">$(</span><span class="ex">extract</span> <span class="st">"</span><span class="va">$iterations_pattern</span><span class="st">"</span> <span class="st">"</span><span class="va">$log_file</span><span class="st">"</span><span class="va">)</span></span>
-<span id="cb7-64"><a href="#cb7-64" tabindex="-1"></a>  <span class="fu">cp</span> <span class="st">"</span><span class="va">$q_file</span><span class="st">"</span> <span class="st">"</span><span class="va">$out_dir</span><span class="st">/Q/</span><span class="va">$run</span><span class="st">.Q"</span></span>
-<span id="cb7-65"><a href="#cb7-65" tabindex="-1"></a>  <span class="fu">cp</span> <span class="st">"</span><span class="va">$log_file</span><span class="st">"</span> <span class="st">"</span><span class="va">$out_dir</span><span class="st">/logs/</span><span class="va">$run</span><span class="st">.log"</span></span>
-<span id="cb7-66"><a href="#cb7-66" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">"</span><span class="va">$tool</span><span class="st">,</span><span class="va">$init</span><span class="st">,</span><span class="va">$seed</span><span class="st">,</span><span class="va">$n_cores</span><span class="st">,</span><span class="va">$crossval</span><span class="st">,</span><span class="va">$seconds</span><span class="st">,</span><span class="va">$loglik</span><span class="st">,</span><span class="va">$cv_error</span><span class="st">,</span><span class="va">$iterations</span><span class="st">"</span> <span class="dt">\</span></span>
-<span id="cb7-67"><a href="#cb7-67" tabindex="-1"></a>    <span class="op">&gt;&gt;</span> <span class="st">"</span><span class="va">$table</span><span class="st">"</span></span>
-<span id="cb7-68"><a href="#cb7-68" tabindex="-1"></a><span class="kw">}</span></span>
-<span id="cb7-69"><a href="#cb7-69" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> <span class="st">"</span><span class="va">$out_dir</span><span class="st">/Q"</span> <span class="st">"</span><span class="va">$out_dir</span><span class="st">/logs"</span></span>
-<span id="cb7-70"><a href="#cb7-70" tabindex="-1"></a><span class="va">header</span><span class="op">=</span>tool,init,seed,n_cores,crossval,seconds,loglik,cv_error,iterations</span></code></pre></div>
+<span id="cb7-64"><a href="#cb7-64" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">peak_rss_mb</span></span>
+<span id="cb7-65"><a href="#cb7-65" tabindex="-1"></a>  <span class="va">peak_rss_mb</span><span class="op">=</span><span class="va">$(</span><span class="ex">extract_peak_rss_mb</span> <span class="st">"</span><span class="va">$run_dir</span><span class="st">/time.log"</span><span class="va">)</span></span>
+<span id="cb7-66"><a href="#cb7-66" tabindex="-1"></a>  <span class="fu">cp</span> <span class="st">"</span><span class="va">$q_file</span><span class="st">"</span> <span class="st">"</span><span class="va">$out_dir</span><span class="st">/Q/</span><span class="va">$run</span><span class="st">.Q"</span></span>
+<span id="cb7-67"><a href="#cb7-67" tabindex="-1"></a>  <span class="fu">cp</span> <span class="st">"</span><span class="va">$log_file</span><span class="st">"</span> <span class="st">"</span><span class="va">$out_dir</span><span class="st">/logs/</span><span class="va">$run</span><span class="st">.log"</span></span>
+<span id="cb7-68"><a href="#cb7-68" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">"</span><span class="va">$tool</span><span class="st">,</span><span class="va">$init</span><span class="st">,</span><span class="va">$seed</span><span class="st">,</span><span class="va">$n_cores</span><span class="st">,</span><span class="va">$crossval</span><span class="st">,</span><span class="va">$seconds</span><span class="st">,</span><span class="va">$loglik</span><span class="st">,</span><span class="va">$cv_error</span><span class="st">,</span><span class="va">$iterations</span><span class="st">,</span><span class="va">$peak_rss_mb</span><span class="st">"</span> <span class="dt">\</span></span>
+<span id="cb7-69"><a href="#cb7-69" tabindex="-1"></a>    <span class="op">&gt;&gt;</span> <span class="st">"</span><span class="va">$table</span><span class="st">"</span></span>
+<span id="cb7-70"><a href="#cb7-70" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb7-71"><a href="#cb7-71" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> <span class="st">"</span><span class="va">$out_dir</span><span class="st">/Q"</span> <span class="st">"</span><span class="va">$out_dir</span><span class="st">/logs"</span></span>
+<span id="cb7-72"><a href="#cb7-72" tabindex="-1"></a><span class="va">header</span><span class="op">=</span>tool,init,seed,n_cores,crossval,seconds,loglik,cv_error,iterations,peak_rss_mb</span></code></pre></div>
 <p>The programs are first run from random values, on each number of
 cores, with and without cross-validation:</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># all the programs from random starting values: each combination of</span></span>
@@ -1523,8 +1810,8 @@ both starts, with several seeds:</p>
 <span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="cf">done</span></span></code></pre></div>
 <p>From the command line, <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> is run by this R
 script (with <code>Rscript</code>), which reads the same bed file into a
-<code>gen_tibble</code> (imputing the missing genotypes for the SVD),
-runs <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>, and saves the result to an RDS file:</p>
+<code>gen_tibble</code>, runs <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>, and saves the
+result to an RDS file:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">args</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/commandArgs.html" class="external-link">commandArgs</a></span><span class="op">(</span>trailingOnly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">bed_file</span> <span class="op">&lt;-</span> <span class="va">args</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
@@ -1536,19 +1823,15 @@ runs <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>, and sav
 <span><span class="va">run_dir</span> <span class="op">&lt;-</span> <span class="va">args</span><span class="op">[</span><span class="fl">7</span><span class="op">]</span></span>
 <span><span class="va">init</span> <span class="op">&lt;-</span> <span class="va">args</span><span class="op">[</span><span class="fl">8</span><span class="op">]</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/EvolEcolGroup/tidygenclust" class="external-link">tidygenclust</a></span><span class="op">)</span></span>
-<span><span class="co"># BLAS is limited to the cores of the run: gt_radmix() uses it for the SVD</span></span>
-<span><span class="co"># of init = "svd" (and otherwise only for small k x k systems)</span></span>
+<span><span class="co"># BLAS is limited to the cores of the run: gt_radmix() can use it for the</span></span>
+<span><span class="co"># PCA of init = "svd" (tidypopgen's gt_pca(), which handles missing</span></span>
+<span><span class="co"># genotypes without imputation), and otherwise only for small k x k systems</span></span>
 <span><span class="fu">bigparallelr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/bigparallelr/man/get_blas_ncores.html" class="external-link">set_blas_ncores</a></span><span class="op">(</span><span class="va">n_cores</span><span class="op">)</span></span>
 <span><span class="va">hgdp</span> <span class="op">&lt;-</span> <span class="fu">tidypopgen</span><span class="fu">::</span><span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/gen_tibble.html" class="external-link">gen_tibble</a></span><span class="op">(</span></span>
 <span>  <span class="va">bed_file</span>,</span>
 <span>  backingfile <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">run_dir</span>, <span class="st">"hgdp_bench"</span><span class="op">)</span>,</span>
 <span>  quiet <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co"># the SVD of init = "svd" needs complete genotypes: the missing ones are</span></span>
-<span><span class="co"># imputed with the mean, and the fit itself ignores them</span></span>
-<span><span class="kw">if</span> <span class="op">(</span><span class="va">init</span> <span class="op">==</span> <span class="st">"svd"</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">hgdp</span> <span class="op">&lt;-</span> <span class="fu">tidypopgen</span><span class="fu">::</span><span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_impute_simple.html" class="external-link">gt_impute_simple</a></span><span class="op">(</span><span class="va">hgdp</span>, method <span class="op">=</span> <span class="st">"mean0"</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
 <span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gt_radmix.html">gt_radmix</a></span><span class="op">(</span></span>
 <span>  <span class="va">hgdp</span>,</span>
 <span>  k <span class="op">=</span> <span class="va">k</span>,</span>
@@ -1705,17 +1988,333 @@ mini-batches of the loci. An iteration of ADMIXTURE, ADAMIXTURE,
 <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> and OpenADMIXTURE.jl updates all the parameters
 with block-wise Newton steps. From random values, ADMIXTURE, ADAMIXTURE,
 <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> and OpenADMIXTURE.jl first refine them with a
-few EM steps. From an SVD, fastmixture, ADAMIXTURE and
+few EM steps. From an SVD (computed by <code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_pca.html" class="external-link">tidypopgen::gt_pca()</a></code>
+for <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>), fastmixture, ADAMIXTURE and
 <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> start from the solution of alternating least
-squares on its factors (<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> keeps the best of three
-such solutions).</p>
+squares on its factors; the ALS step of <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> is
+adapted from ADAMIXTURE (<code>src/radmix_als.cpp</code>, see
+<code>inst/COPYRIGHTS</code>), and both ADAMIXTURE and
+<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> keep the best of three such solutions by
+log-likelihood.</p>
+</div>
+<div class="section level3">
+<h3 id="data-larger-than-the-memory-1">Data larger than the memory<a class="anchor" aria-label="anchor" href="#data-larger-than-the-memory-1"></a>
+</h3>
+<p>The genotypes of <a href="#data-larger-than-the-memory">Data larger
+than the memory</a> are simulated, in blocks of loci on several cores,
+straight into the backing file of a file-backed matrix (from
+<code>bigstatsr</code>), written as a bed file and read into a
+<code>gen_tibble</code>, by
+<code>code/admixture_benchmark_large_data.R</code>. Its sizes and paths
+can be set with environment variables (the data are not part of the
+repository):</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">large_dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"LARGE_DIR"</span>, <span class="st">"data/large"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/files2.html" class="external-link">dir.create</a></span><span class="op">(</span><span class="va">large_dir</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span>, showWarnings <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="va">n_cores</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"LARGE_CORES"</span>, <span class="st">"8"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">n_indiv</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"LARGE_N_INDIV"</span>, <span class="st">"250000"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">n_loci</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"LARGE_N_LOCI"</span>, <span class="st">"200000"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">k</span> <span class="op">&lt;-</span> <span class="fl">5</span></span></code></pre></div>
+<p>Five ancestral populations, and five sampled ones, each mostly of one
+ancestry:</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Five ancestral populations, with allele frequencies drawn under the</span></span>
+<span><span class="co"># Balding-Nichols model (Fst = 0.1 from frequencies uniform between 0.05 and</span></span>
+<span><span class="co"># 0.95 in their common ancestor), and five sampled populations of the same</span></span>
+<span><span class="co"># size, whose ancestry proportions are drawn from a Dirichlet</span></span>
+<span><span class="co"># distribution centred on one ancestral population (80% on average, the</span></span>
+<span><span class="co"># rest shared among the other four). The genotypes are binomial draws from</span></span>
+<span><span class="co"># the individual allele frequencies, with 1% of them missing.</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">k</span><span class="op">)</span>, each <span class="op">=</span> <span class="va">n_indiv</span> <span class="op">/</span> <span class="va">k</span><span class="op">)</span></span>
+<span><span class="va">alpha</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fl">0.25</span>, <span class="va">n_indiv</span>, <span class="va">k</span><span class="op">)</span></span>
+<span><span class="va">alpha</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n_indiv</span><span class="op">)</span>, <span class="va">pop</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">4</span></span>
+<span><span class="va">q_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/GammaDist.html" class="external-link">rgamma</a></span><span class="op">(</span><span class="va">n_indiv</span> <span class="op">*</span> <span class="va">k</span>, <span class="va">alpha</span><span class="op">)</span>, <span class="va">n_indiv</span>, <span class="va">k</span><span class="op">)</span></span>
+<span><span class="va">q_true</span> <span class="op">&lt;-</span> <span class="va">q_true</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">q_true</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS</a></span><span class="op">(</span><span class="va">q_true</span>, <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">large_dir</span>, <span class="st">"q_true.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co"># the genotypes, written straight into the backing file of an FBM in blocks</span></span>
+<span><span class="co"># of loci (one byte per genotype, 3 for a missing genotype), on several</span></span>
+<span><span class="co"># cores; each block of loci has its own seed, so the data do not depend on</span></span>
+<span><span class="co"># the number of cores. Each core runs BLAS (for its matrix products) on a</span></span>
+<span><span class="co"># single thread, set in a.FUN, so bigstatsr's check against two levels of</span></span>
+<span><span class="co"># parallelism is not needed</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>bigstatsr.check.parallel.blas <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="va">genotypes</span> <span class="op">&lt;-</span> <span class="fu">bigstatsr</span><span class="fu">::</span><span class="fu"><a href="https://privefl.github.io/bigstatsr/reference/FBM.code256-class.html" class="external-link">FBM.code256</a></span><span class="op">(</span></span>
+<span>  <span class="va">n_indiv</span>, <span class="va">n_loci</span>,</span>
+<span>  code <span class="op">=</span> <span class="fu">bigsnpr</span><span class="fu">::</span><span class="va"><a href="https://privefl.github.io/bigsnpr/reference/snp_codes.html" class="external-link">CODE_012</a></span>,</span>
+<span>  backingfile <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">large_dir</span>, <span class="st">"sim_fbm"</span><span class="op">)</span>,</span>
+<span>  init <span class="op">=</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">block_size</span> <span class="op">&lt;-</span> <span class="fl">250</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu">bigstatsr</span><span class="fu">::</span><span class="fu"><a href="https://privefl.github.io/bigstatsr/reference/big_apply.html" class="external-link">big_apply</a></span><span class="op">(</span></span>
+<span>  <span class="va">genotypes</span>,</span>
+<span>  a.FUN <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">ind</span>, <span class="va">q_true</span>, <span class="va">k</span>, <span class="va">block_size</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="fu">bigparallelr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/bigparallelr/man/get_blas_ncores.html" class="external-link">set_blas_ncores</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span>    <span class="kw">for</span> <span class="op">(</span><span class="va">j0</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">ind</span><span class="op">)</span>, by <span class="op">=</span> <span class="va">block_size</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="va">cols</span> <span class="op">&lt;-</span> <span class="va">ind</span><span class="op">[</span><span class="va">j0</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">ind</span><span class="op">)</span>, <span class="va">j0</span> <span class="op">+</span> <span class="va">block_size</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span><span class="op">]</span></span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1e6</span> <span class="op">+</span> <span class="va">cols</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
+<span>      <span class="va">f</span> <span class="op">&lt;-</span> <span class="fl">0.1</span></span>
+<span>      <span class="va">p_anc</span> <span class="op">&lt;-</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">cols</span><span class="op">)</span>, <span class="fl">0.05</span>, <span class="fl">0.95</span><span class="op">)</span></span>
+<span>      <span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span></span>
+<span>        <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Beta.html" class="external-link">rbeta</a></span><span class="op">(</span></span>
+<span>          <span class="va">k</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">cols</span><span class="op">)</span>,</span>
+<span>          <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="va">p_anc</span> <span class="op">*</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">f</span><span class="op">)</span> <span class="op">/</span> <span class="va">f</span>, each <span class="op">=</span> <span class="va">k</span><span class="op">)</span>,</span>
+<span>          <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">p_anc</span><span class="op">)</span> <span class="op">*</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">f</span><span class="op">)</span> <span class="op">/</span> <span class="va">f</span>, each <span class="op">=</span> <span class="va">k</span><span class="op">)</span></span>
+<span>        <span class="op">)</span>,</span>
+<span>        <span class="va">k</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">cols</span><span class="op">)</span></span>
+<span>      <span class="op">)</span></span>
+<span>      <span class="va">g</span> <span class="op">&lt;-</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">cols</span><span class="op">)</span>, <span class="fl">2</span>, <span class="va">q_true</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">p</span><span class="op">)</span></span>
+<span>      <span class="va">g</span><span class="op">[</span><span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">g</span><span class="op">)</span><span class="op">)</span> <span class="op">&lt;</span> <span class="fl">0.01</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">3L</span></span>
+<span>      <span class="va">x</span><span class="op">[</span>, <span class="va">cols</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">g</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="op">}</span></span>
+<span>    <span class="cn">NULL</span></span>
+<span>  <span class="op">}</span>,</span>
+<span>  a.combine <span class="op">=</span> <span class="st">"c"</span>,</span>
+<span>  block.size <span class="op">=</span> <span class="va">block_size</span> <span class="op">*</span> <span class="fl">8</span>,</span>
+<span>  ncores <span class="op">=</span> <span class="va">n_cores</span>,</span>
+<span>  q_true <span class="op">=</span> <span class="va">q_true</span>,</span>
+<span>  k <span class="op">=</span> <span class="va">k</span>,</span>
+<span>  block_size <span class="op">=</span> <span class="va">block_size</span></span>
+<span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="va">genotypes</span><span class="op">$</span><span class="fu">save</span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># a PLINK bed file of the genotypes, with the sampled population of each</span></span>
+<span><span class="co"># individual as its family ID, and the loci on 20 chromosomes</span></span>
+<span><span class="va">sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/structure.html" class="external-link">structure</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    genotypes <span class="op">=</span> <span class="va">genotypes</span>,</span>
+<span>    fam <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>      family.ID <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"pop"</span>, <span class="va">pop</span><span class="op">)</span>,</span>
+<span>      sample.ID <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"ind%06d"</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n_indiv</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>      paternal.ID <span class="op">=</span> <span class="fl">0L</span>,</span>
+<span>      maternal.ID <span class="op">=</span> <span class="fl">0L</span>,</span>
+<span>      sex <span class="op">=</span> <span class="fl">0L</span>,</span>
+<span>      affection <span class="op">=</span> <span class="op">-</span><span class="fl">9L</span></span>
+<span>    <span class="op">)</span>,</span>
+<span>    map <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>      chromosome <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">20</span>, each <span class="op">=</span> <span class="va">n_loci</span> <span class="op">/</span> <span class="fl">20</span><span class="op">)</span>,</span>
+<span>      marker.ID <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"snp%06d"</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n_loci</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>      genetic.dist <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>      physical.pos <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n_loci</span> <span class="op">/</span> <span class="fl">20</span><span class="op">)</span> <span class="op">*</span> <span class="fl">1000L</span>, <span class="fl">20</span><span class="op">)</span>,</span>
+<span>      allele1 <span class="op">=</span> <span class="st">"A"</span>,</span>
+<span>      allele2 <span class="op">=</span> <span class="st">"G"</span></span>
+<span>    <span class="op">)</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  class <span class="op">=</span> <span class="st">"bigSNP"</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">bed_file</span> <span class="op">&lt;-</span> <span class="fu">bigsnpr</span><span class="fu">::</span><span class="fu"><a href="https://privefl.github.io/bigsnpr/reference/snp_writeBed.html" class="external-link">snp_writeBed</a></span><span class="op">(</span><span class="va">sim</span>, <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">large_dir</span>, <span class="st">"sim_large.bed"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co"># the FBM is no longer needed: the gen_tibble gets its own backing file</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/rm.html" class="external-link">rm</a></span><span class="op">(</span><span class="va">sim</span>, <span class="va">genotypes</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/gc.html" class="external-link">gc</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">large_dir</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"sim_fbm.bk"</span>, <span class="st">"sim_fbm.rds"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># the gen_tibble that gt_radmix() reads, saved so that each run can load it</span></span>
+<span><span class="co"># without reading the bed file again</span></span>
+<span><span class="va">sim_gt</span> <span class="op">&lt;-</span> <span class="fu">tidypopgen</span><span class="fu">::</span><span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/gen_tibble.html" class="external-link">gen_tibble</a></span><span class="op">(</span></span>
+<span>  <span class="va">bed_file</span>,</span>
+<span>  backingfile <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">large_dir</span>, <span class="st">"sim_large"</span><span class="op">)</span>,</span>
+<span>  quiet <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu">tidypopgen</span><span class="fu">::</span><span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_save.html" class="external-link">gt_save</a></span><span class="op">(</span><span class="va">sim_gt</span>, quiet <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>Each fit is run by <code>code/admixture_benchmark_large_fit.R</code>,
+which records its time, the bytes it read from the disk, its memory,
+whether <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> streamed the data, and how close its
+ancestry proportions are to the simulated ones:</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">args</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/commandArgs.html" class="external-link">commandArgs</a></span><span class="op">(</span>trailingOnly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">run</span> <span class="op">&lt;-</span> <span class="va">args</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
+<span><span class="va">k</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">args</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">seed</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">args</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">n_cores</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">args</span><span class="op">[</span><span class="fl">4</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">results_file</span> <span class="op">&lt;-</span> <span class="va">args</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span></span>
+<span><span class="va">memory_cap</span> <span class="op">&lt;-</span> <span class="va">args</span><span class="op">[</span><span class="fl">6</span><span class="op">]</span></span>
+<span><span class="va">read_mbps</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">args</span><span class="op">[</span><span class="fl">7</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">large_dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"LARGE_DIR"</span>, <span class="st">"data/large"</span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/EvolEcolGroup/tidygenclust" class="external-link">tidygenclust</a></span><span class="op">)</span></span>
+<span><span class="va">sim_gt</span> <span class="op">&lt;-</span> <span class="fu">tidypopgen</span><span class="fu">::</span><span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_load.html" class="external-link">gt_load</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">large_dir</span>, <span class="st">"sim_large.gt"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co"># the bytes read from disk by this process so far (Linux)</span></span>
+<span><span class="va">read_bytes</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">io</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="st">"/proc/self/io"</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span><span class="st">".*: "</span>, <span class="st">""</span>, <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"^read_bytes"</span>, <span class="va">io</span>, value <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="co"># whether gt_radmix() will stream the data: it does when the backing file is</span></span>
+<span><span class="co"># larger than 0.8 times the memory available to it (the smaller of the free</span></span>
+<span><span class="co"># memory and the room under its memory cap), and then reads it in chunks</span></span>
+<span><span class="va">stream</span> <span class="op">&lt;-</span> <span class="fu">tidygenclust</span><span class="fu">:::</span><span class="fu">radmix_stream_mode</span><span class="op">(</span><span class="fu"><a href="../reference/gt_radmix_data.html">gt_radmix_data</a></span><span class="op">(</span><span class="va">sim_gt</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">mem_available</span> <span class="op">&lt;-</span> <span class="fu">tidygenclust</span><span class="fu">:::</span><span class="fu">radmix_mem_available</span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="co"># the peak of the resident memory of this process (Linux): its own memory</span></span>
+<span><span class="co"># plus the pages of the backing file mapped in it</span></span>
+<span><span class="va">peak_rss</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"^VmHWM:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="st">"/proc/self/status"</span><span class="op">)</span>, value <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">gsub</a></span><span class="op">(</span><span class="st">"[^0-9]"</span>, <span class="st">""</span>, <span class="va">x</span><span class="op">)</span><span class="op">)</span> <span class="op">*</span> <span class="fl">1024</span></span>
+<span><span class="op">}</span></span>
+<span><span class="co"># a memory file of the cgroup of this process (cgroups v2): memory.max is</span></span>
+<span><span class="co"># its cap, and memory.peak the peak of its memory, page cache included</span></span>
+<span><span class="co"># (NA without a cap: the cgroup is then the user's session)</span></span>
+<span><span class="va">cgroup_bytes</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">name</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">cg</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span><span class="st">"^0::"</span>, <span class="st">""</span>, <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"^0::"</span>, <span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="st">"/proc/self/cgroup"</span><span class="op">)</span>,</span>
+<span>    value <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  <span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="va">f</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="st">"/sys/fs/cgroup"</span>, <span class="va">cg</span>, <span class="va">name</span><span class="op">)</span></span>
+<span>  <span class="va">cap</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="st">"/sys/fs/cgroup"</span>, <span class="va">cg</span>, <span class="st">"memory.max"</span><span class="op">)</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/files.html" class="external-link">file.exists</a></span><span class="op">(</span><span class="va">f</span><span class="op">)</span> <span class="op">||</span> <span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">cap</span><span class="op">)</span> <span class="op">==</span> <span class="st">"max"</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="kw"><a href="https://rdrr.io/r/base/function.html" class="external-link">return</a></span><span class="op">(</span><span class="cn">NA_real_</span><span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">f</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="va">read_before</span> <span class="op">&lt;-</span> <span class="fu">read_bytes</span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">start</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gt_radmix.html">gt_radmix</a></span><span class="op">(</span><span class="va">sim_gt</span>, k <span class="op">=</span> <span class="va">k</span>, seed <span class="op">=</span> <span class="va">seed</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span><span class="op">)</span></span>
+<span><span class="va">seconds</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span> <span class="op">-</span> <span class="va">start</span></span>
+<span><span class="va">read_after</span> <span class="op">&lt;-</span> <span class="fu">read_bytes</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># the ancestry proportions estimated against those simulated: the clusters</span></span>
+<span><span class="co"># are numbered arbitrarily, so the columns are matched (by the permutation</span></span>
+<span><span class="co"># with the smallest sum of squared differences), then the root mean square</span></span>
+<span><span class="co"># difference is computed</span></span>
+<span><span class="va">q_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">large_dir</span>, <span class="st">"q_true.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">q</span> <span class="op">&lt;-</span> <span class="va">fit</span><span class="op">$</span><span class="va">Q</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="va">perms</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">k</span><span class="op">)</span><span class="op">)</span>, <span class="va">k</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">perms</span> <span class="op">&lt;-</span> <span class="va">perms</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">perms</span>, <span class="fl">1</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span><span class="op">)</span> <span class="op">==</span> <span class="va">k</span><span class="op">)</span>, <span class="op">]</span></span>
+<span><span class="va">sse</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">perms</span>, <span class="fl">1</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">(</span><span class="va">q</span><span class="op">[</span>, <span class="va">x</span><span class="op">]</span> <span class="op">-</span> <span class="va">q_true</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">rmse</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">sse</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">q</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">converged_line</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"^Converged in"</span>, <span class="va">fit</span><span class="op">$</span><span class="va">log</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, value <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  run <span class="op">=</span> <span class="va">run</span>,</span>
+<span>  memory_cap <span class="op">=</span> <span class="va">memory_cap</span>,</span>
+<span>  read_mbps <span class="op">=</span> <span class="va">read_mbps</span>,</span>
+<span>  n_indiv <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">sim_gt</span><span class="op">)</span>,</span>
+<span>  n_loci <span class="op">=</span> <span class="fu">tidypopgen</span><span class="fu">::</span><span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/count_loci.html" class="external-link">count_loci</a></span><span class="op">(</span><span class="va">sim_gt</span><span class="op">)</span>,</span>
+<span>  k <span class="op">=</span> <span class="va">k</span>,</span>
+<span>  n_cores <span class="op">=</span> <span class="va">n_cores</span>,</span>
+<span>  seconds <span class="op">=</span> <span class="va">seconds</span>,</span>
+<span>  iterations <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span><span class="st">"^Converged in ([0-9]+) iterations.*"</span>, <span class="st">"\\1"</span>, <span class="va">converged_line</span><span class="op">)</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  loglik <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">loglik</span>,</span>
+<span>  read_gb <span class="op">=</span> <span class="op">(</span><span class="va">read_after</span> <span class="op">-</span> <span class="va">read_before</span><span class="op">)</span> <span class="op">/</span> <span class="fl">1e9</span>,</span>
+<span>  peak_rss_gb <span class="op">=</span> <span class="fu">peak_rss</span><span class="op">(</span><span class="op">)</span> <span class="op">/</span> <span class="fl">1e9</span>,</span>
+<span>  cgroup_max_gb <span class="op">=</span> <span class="fu">cgroup_bytes</span><span class="op">(</span><span class="st">"memory.max"</span><span class="op">)</span> <span class="op">/</span> <span class="fl">1e9</span>,</span>
+<span>  cgroup_peak_gb <span class="op">=</span> <span class="fu">cgroup_bytes</span><span class="op">(</span><span class="st">"memory.peak"</span><span class="op">)</span> <span class="op">/</span> <span class="fl">1e9</span>,</span>
+<span>  data_gb <span class="op">=</span> <span class="va">stream</span><span class="op">$</span><span class="va">data_bytes</span> <span class="op">/</span> <span class="fl">1e9</span>,</span>
+<span>  mem_available_gb <span class="op">=</span> <span class="va">mem_available</span> <span class="op">/</span> <span class="fl">1e9</span>,</span>
+<span>  streamed <span class="op">=</span> <span class="va">stream</span><span class="op">$</span><span class="va">stream</span>,</span>
+<span>  chunk_mb <span class="op">=</span> <span class="va">stream</span><span class="op">$</span><span class="va">chunk_bytes</span> <span class="op">/</span> <span class="fl">2</span><span class="op">^</span><span class="fl">20</span>,</span>
+<span>  rmse_q <span class="op">=</span> <span class="va">rmse</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.table</a></span><span class="op">(</span></span>
+<span>  <span class="va">result</span>, <span class="va">results_file</span>,</span>
+<span>  sep <span class="op">=</span> <span class="st">","</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  col.names <span class="op">=</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/files.html" class="external-link">file.exists</a></span><span class="op">(</span><span class="va">results_file</span><span class="op">)</span>,</span>
+<span>  append <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/files.html" class="external-link">file.exists</a></span><span class="op">(</span><span class="va">results_file</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></code></pre></div>
+<p>The fits are run by <code>code/admixture_benchmark_large.sh</code>:
+the first in memory, the others under a memory cap (a transient scope of
+systemd, on Linux with cgroups v2, which also counts the page cache),
+from a cold page cache, on the disk as it is or with its reads throttled
+(which needs root):</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a><span class="bu">set</span> <span class="at">-euo</span> pipefail</span>
+<span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a><span class="va">large_dir</span><span class="op">=</span><span class="va">${LARGE_DIR</span><span class="op">:-</span>data/large<span class="va">}</span></span>
+<span id="cb21-3"><a href="#cb21-3" tabindex="-1"></a><span class="va">name</span><span class="op">=</span><span class="va">${LARGE_NAME</span><span class="op">:-</span>large<span class="va">}</span></span>
+<span id="cb21-4"><a href="#cb21-4" tabindex="-1"></a><span class="va">memory_caps</span><span class="op">=</span><span class="va">${LARGE_MEMORY_CAPS</span><span class="op">:-</span>8G<span class="va">}</span></span>
+<span id="cb21-5"><a href="#cb21-5" tabindex="-1"></a><span class="va">read_mbps</span><span class="op">=</span><span class="va">${LARGE_READ_MBPS</span><span class="op">:-</span>0 500<span class="va">}</span></span>
+<span id="cb21-6"><a href="#cb21-6" tabindex="-1"></a><span class="va">out_dir</span><span class="op">=</span>data/admixture_benchmark</span>
+<span id="cb21-7"><a href="#cb21-7" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> <span class="st">"</span><span class="va">$out_dir</span><span class="st">"</span></span>
+<span id="cb21-8"><a href="#cb21-8" tabindex="-1"></a><span class="va">k</span><span class="op">=</span>5</span>
+<span id="cb21-9"><a href="#cb21-9" tabindex="-1"></a><span class="va">seed</span><span class="op">=</span>1</span>
+<span id="cb21-10"><a href="#cb21-10" tabindex="-1"></a><span class="va">cores</span><span class="op">=</span>8</span>
+<span id="cb21-11"><a href="#cb21-11" tabindex="-1"></a><span class="va">bk</span><span class="op">=</span><span class="va">$(</span><span class="fu">readlink</span> <span class="at">-f</span> <span class="st">"</span><span class="va">$large_dir</span><span class="st">/sim_large.bk"</span><span class="va">)</span></span>
+<span id="cb21-12"><a href="#cb21-12" tabindex="-1"></a><span class="va">fit</span><span class="op">=</span><span class="va">(</span>Rscript code/admixture_benchmark_large_fit.R<span class="va">)</span></span>
+<span id="cb21-13"><a href="#cb21-13" tabindex="-1"></a><span class="va">runs</span><span class="op">=</span><span class="va">$out_dir</span>/<span class="va">${name}</span>_runs.csv</span>
+<span id="cb21-14"><a href="#cb21-14" tabindex="-1"></a><span class="va">peaks</span><span class="op">=</span><span class="va">$out_dir</span>/<span class="va">${name}</span>_memory.csv</span>
+<span id="cb21-15"><a href="#cb21-15" tabindex="-1"></a><span class="fu">rm</span> <span class="at">-f</span> <span class="st">"</span><span class="va">$runs</span><span class="st">"</span></span>
+<span id="cb21-16"><a href="#cb21-16" tabindex="-1"></a><span class="bu">echo</span> <span class="st">"run,peak_anon_gb"</span> <span class="op">&gt;</span> <span class="st">"</span><span class="va">$peaks</span><span class="st">"</span></span>
+<span id="cb21-17"><a href="#cb21-17" tabindex="-1"></a></span>
+<span id="cb21-18"><a href="#cb21-18" tabindex="-1"></a><span class="co"># the processes started by a process, those they started, and so on</span></span>
+<span id="cb21-19"><a href="#cb21-19" tabindex="-1"></a><span class="fu">descendants()</span> <span class="kw">{</span></span>
+<span id="cb21-20"><a href="#cb21-20" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">c</span></span>
+<span id="cb21-21"><a href="#cb21-21" tabindex="-1"></a>  <span class="cf">for</span> c <span class="kw">in</span> <span class="va">$(</span><span class="ex">pgrep</span> <span class="at">-P</span> <span class="st">"</span><span class="va">$1</span><span class="st">"</span><span class="va">)</span><span class="kw">;</span> <span class="cf">do</span></span>
+<span id="cb21-22"><a href="#cb21-22" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">"</span><span class="va">$c</span><span class="st">"</span></span>
+<span id="cb21-23"><a href="#cb21-23" tabindex="-1"></a>    <span class="ex">descendants</span> <span class="st">"</span><span class="va">$c</span><span class="st">"</span></span>
+<span id="cb21-24"><a href="#cb21-24" tabindex="-1"></a>  <span class="cf">done</span></span>
+<span id="cb21-25"><a href="#cb21-25" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb21-26"><a href="#cb21-26" tabindex="-1"></a><span class="co"># run a command, and record the peak of the memory of its processes that is</span></span>
+<span id="cb21-27"><a href="#cb21-27" tabindex="-1"></a><span class="co"># not the page cache (RssAnon, sampled every 0.2 s), in GB</span></span>
+<span id="cb21-28"><a href="#cb21-28" tabindex="-1"></a><span class="fu">with_peak()</span> <span class="kw">{</span></span>
+<span id="cb21-29"><a href="#cb21-29" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">run</span><span class="op">=</span><span class="va">$1</span></span>
+<span id="cb21-30"><a href="#cb21-30" tabindex="-1"></a>  <span class="bu">shift</span></span>
+<span id="cb21-31"><a href="#cb21-31" tabindex="-1"></a>  <span class="st">"</span><span class="va">$@</span><span class="st">"</span> <span class="kw">&amp;</span></span>
+<span id="cb21-32"><a href="#cb21-32" tabindex="-1"></a>  <span class="bu">local</span> <span class="va">pid</span><span class="op">=</span><span class="va">$!</span> <span class="va">peak</span><span class="op">=</span>0 <span class="va">kb</span> <span class="va">p</span></span>
+<span id="cb21-33"><a href="#cb21-33" tabindex="-1"></a>  <span class="cf">while</span> <span class="bu">kill</span> <span class="at">-0</span> <span class="st">"</span><span class="va">$pid</span><span class="st">"</span> <span class="dv">2</span><span class="op">&gt;</span> /dev/null<span class="kw">;</span> <span class="cf">do</span></span>
+<span id="cb21-34"><a href="#cb21-34" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> <span class="va">$pid</span> <span class="va">$(</span><span class="ex">descendants</span> <span class="st">"</span><span class="va">$pid</span><span class="st">"</span><span class="va">)</span><span class="kw">;</span> <span class="cf">do</span></span>
+<span id="cb21-35"><a href="#cb21-35" tabindex="-1"></a>      <span class="va">kb</span><span class="op">=</span><span class="va">$(</span><span class="fu">awk</span> <span class="st">'/^RssAnon:/ {print $2}'</span> <span class="st">"/proc/</span><span class="va">$p</span><span class="st">/status"</span> <span class="dv">2</span><span class="op">&gt;</span> /dev/null <span class="kw">||</span> <span class="fu">true</span><span class="va">)</span></span>
+<span id="cb21-36"><a href="#cb21-36" tabindex="-1"></a>      <span class="cf">if</span> <span class="bu">[</span> <span class="ot">-n</span> <span class="st">"</span><span class="va">$kb</span><span class="st">"</span> <span class="bu">]</span> <span class="kw">&amp;&amp;</span> <span class="bu">[</span> <span class="st">"</span><span class="va">$kb</span><span class="st">"</span> <span class="ot">-gt</span> <span class="st">"</span><span class="va">$peak</span><span class="st">"</span> <span class="bu">]</span><span class="kw">;</span> <span class="cf">then</span> <span class="va">peak</span><span class="op">=</span><span class="va">$kb</span><span class="kw">;</span> <span class="cf">fi</span></span>
+<span id="cb21-37"><a href="#cb21-37" tabindex="-1"></a>    <span class="cf">done</span></span>
+<span id="cb21-38"><a href="#cb21-38" tabindex="-1"></a>    <span class="fu">sleep</span> 0.2</span>
+<span id="cb21-39"><a href="#cb21-39" tabindex="-1"></a>  <span class="cf">done</span></span>
+<span id="cb21-40"><a href="#cb21-40" tabindex="-1"></a>  <span class="bu">wait</span> <span class="st">"</span><span class="va">$pid</span><span class="st">"</span></span>
+<span id="cb21-41"><a href="#cb21-41" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">"</span><span class="va">$run</span><span class="st">,</span><span class="va">$(</span><span class="fu">awk</span> <span class="at">-v</span> kb=<span class="st">"</span><span class="va">$peak</span><span class="st">"</span> <span class="st">'BEGIN { printf "%.2f", kb * 1024 / 1e9 }'</span><span class="va">)</span><span class="st">"</span> <span class="dt">\</span></span>
+<span id="cb21-42"><a href="#cb21-42" tabindex="-1"></a>    <span class="op">&gt;&gt;</span> <span class="st">"</span><span class="va">$peaks</span><span class="st">"</span></span>
+<span id="cb21-43"><a href="#cb21-43" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb21-44"><a href="#cb21-44" tabindex="-1"></a><span class="co"># drop the pages of the backing file from the page cache (no root needed)</span></span>
+<span id="cb21-45"><a href="#cb21-45" tabindex="-1"></a><span class="fu">drop_cache()</span> <span class="kw">{</span></span>
+<span id="cb21-46"><a href="#cb21-46" tabindex="-1"></a>  <span class="fu">sync</span> <span class="st">"</span><span class="va">$bk</span><span class="st">"</span></span>
+<span id="cb21-47"><a href="#cb21-47" tabindex="-1"></a>  <span class="fu">dd</span> if=<span class="st">"</span><span class="va">$bk</span><span class="st">"</span> iflag=nocache count=0 status=none</span>
+<span id="cb21-48"><a href="#cb21-48" tabindex="-1"></a><span class="kw">}</span></span>
+<span id="cb21-49"><a href="#cb21-49" tabindex="-1"></a></span>
+<span id="cb21-50"><a href="#cb21-50" tabindex="-1"></a><span class="co"># in memory: the backing file is first read into the page cache</span></span>
+<span id="cb21-51"><a href="#cb21-51" tabindex="-1"></a><span class="fu">cat</span> <span class="st">"</span><span class="va">$bk</span><span class="st">"</span> <span class="op">&gt;</span> /dev/null</span>
+<span id="cb21-52"><a href="#cb21-52" tabindex="-1"></a><span class="ex">with_peak</span> memory <span class="st">"</span><span class="va">${fit</span><span class="op">[@]</span><span class="va">}</span><span class="st">"</span> memory <span class="va">$k</span> <span class="va">$seed</span> <span class="va">$cores</span> <span class="st">"</span><span class="va">$runs</span><span class="st">"</span> none 0</span>
+<span id="cb21-53"><a href="#cb21-53" tabindex="-1"></a></span>
+<span id="cb21-54"><a href="#cb21-54" tabindex="-1"></a><span class="co"># with the memory capped, for R and the page cache together, from a cold</span></span>
+<span id="cb21-55"><a href="#cb21-55" tabindex="-1"></a><span class="co"># page cache: on the disk as it is, in a scope of the user's systemd; with</span></span>
+<span id="cb21-56"><a href="#cb21-56" tabindex="-1"></a><span class="co"># the reads throttled, in a scope of the system's systemd (as root), in</span></span>
+<span id="cb21-57"><a href="#cb21-57" tabindex="-1"></a><span class="co"># which R runs as the user, with the environment it needs</span></span>
+<span id="cb21-58"><a href="#cb21-58" tabindex="-1"></a><span class="cf">for</span> mbps <span class="kw">in</span> <span class="va">$read_mbps</span><span class="kw">;</span> <span class="cf">do</span></span>
+<span id="cb21-59"><a href="#cb21-59" tabindex="-1"></a>  <span class="cf">for</span> cap <span class="kw">in</span> <span class="va">$memory_caps</span><span class="kw">;</span> <span class="cf">do</span></span>
+<span id="cb21-60"><a href="#cb21-60" tabindex="-1"></a>    <span class="va">run</span><span class="op">=</span>capped_<span class="va">${cap}</span>_<span class="va">$(</span><span class="bu">[</span> <span class="st">"</span><span class="va">$mbps</span><span class="st">"</span> <span class="ot">=</span> 0 <span class="bu">]</span> <span class="kw">&amp;&amp;</span> <span class="bu">echo</span> ssd <span class="kw">||</span> <span class="bu">echo</span> <span class="st">"</span><span class="va">${mbps}</span><span class="st">mbps"</span><span class="va">)</span></span>
+<span id="cb21-61"><a href="#cb21-61" tabindex="-1"></a>    <span class="ex">drop_cache</span></span>
+<span id="cb21-62"><a href="#cb21-62" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">[</span> <span class="st">"</span><span class="va">$mbps</span><span class="st">"</span> <span class="ot">=</span> 0 <span class="bu">]</span><span class="kw">;</span> <span class="cf">then</span></span>
+<span id="cb21-63"><a href="#cb21-63" tabindex="-1"></a>      <span class="ex">with_peak</span> <span class="st">"</span><span class="va">$run</span><span class="st">"</span> <span class="dt">\</span></span>
+<span id="cb21-64"><a href="#cb21-64" tabindex="-1"></a>        systemd-run <span class="at">--user</span> <span class="at">--scope</span> <span class="at">--quiet</span> <span class="dt">\</span></span>
+<span id="cb21-65"><a href="#cb21-65" tabindex="-1"></a>        <span class="at">-p</span> MemoryMax=<span class="st">"</span><span class="va">$cap</span><span class="st">"</span> <span class="at">-p</span> MemorySwapMax=0 <span class="dt">\</span></span>
+<span id="cb21-66"><a href="#cb21-66" tabindex="-1"></a>        <span class="st">"</span><span class="va">${fit</span><span class="op">[@]</span><span class="va">}</span><span class="st">"</span> <span class="st">"</span><span class="va">$run</span><span class="st">"</span> <span class="va">$k</span> <span class="va">$seed</span> <span class="va">$cores</span> <span class="st">"</span><span class="va">$runs</span><span class="st">"</span> <span class="st">"</span><span class="va">$cap</span><span class="st">"</span> 0</span>
+<span id="cb21-67"><a href="#cb21-67" tabindex="-1"></a>    <span class="cf">else</span></span>
+<span id="cb21-68"><a href="#cb21-68" tabindex="-1"></a>      <span class="ex">with_peak</span> <span class="st">"</span><span class="va">$run</span><span class="st">"</span> <span class="dt">\</span></span>
+<span id="cb21-69"><a href="#cb21-69" tabindex="-1"></a>        sudo systemd-run <span class="at">--scope</span> <span class="at">--quiet</span> <span class="dt">\</span></span>
+<span id="cb21-70"><a href="#cb21-70" tabindex="-1"></a>        <span class="at">-p</span> MemoryMax=<span class="st">"</span><span class="va">$cap</span><span class="st">"</span> <span class="at">-p</span> MemorySwapMax=0 <span class="dt">\</span></span>
+<span id="cb21-71"><a href="#cb21-71" tabindex="-1"></a>        <span class="at">-p</span> <span class="st">"IOReadBandwidthMax=</span><span class="va">$bk</span><span class="st"> </span><span class="va">${mbps}</span><span class="st">M"</span> <span class="dt">\</span></span>
+<span id="cb21-72"><a href="#cb21-72" tabindex="-1"></a>        sudo <span class="at">-u</span> <span class="st">"</span><span class="va">$USER</span><span class="st">"</span> env <span class="st">"PATH=</span><span class="va">$PATH</span><span class="st">"</span> <span class="st">"R_LIBS=</span><span class="va">${R_LIBS</span><span class="op">:-</span><span class="va">}</span><span class="st">"</span> <span class="dt">\</span></span>
+<span id="cb21-73"><a href="#cb21-73" tabindex="-1"></a>        <span class="st">"TMPDIR=</span><span class="va">${TMPDIR</span><span class="op">:-</span>/tmp<span class="va">}</span><span class="st">"</span> <span class="st">"LARGE_DIR=</span><span class="va">$large_dir</span><span class="st">"</span> <span class="dt">\</span></span>
+<span id="cb21-74"><a href="#cb21-74" tabindex="-1"></a>        <span class="st">"OMP_PROC_BIND=</span><span class="va">${OMP_PROC_BIND</span><span class="op">:-</span>false<span class="va">}</span><span class="st">"</span> <span class="dt">\</span></span>
+<span id="cb21-75"><a href="#cb21-75" tabindex="-1"></a>        <span class="st">"OMP_PLACES=</span><span class="va">${OMP_PLACES</span><span class="op">:-</span>threads<span class="va">}</span><span class="st">"</span> <span class="dt">\</span></span>
+<span id="cb21-76"><a href="#cb21-76" tabindex="-1"></a>        <span class="st">"</span><span class="va">${fit</span><span class="op">[@]</span><span class="va">}</span><span class="st">"</span> <span class="st">"</span><span class="va">$run</span><span class="st">"</span> <span class="va">$k</span> <span class="va">$seed</span> <span class="va">$cores</span> <span class="st">"</span><span class="va">$runs</span><span class="st">"</span> <span class="st">"</span><span class="va">$cap</span><span class="st">"</span> <span class="st">"</span><span class="va">$mbps</span><span class="st">"</span></span>
+<span id="cb21-77"><a href="#cb21-77" tabindex="-1"></a>    <span class="cf">fi</span></span>
+<span id="cb21-78"><a href="#cb21-78" tabindex="-1"></a>  <span class="cf">done</span></span>
+<span id="cb21-79"><a href="#cb21-79" tabindex="-1"></a><span class="cf">done</span></span></code></pre></div>
+<p>For the data of this article (5 GB), from
+<code>vignettes/articles</code>:</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a><span class="bu">cd</span> vignettes/articles</span>
+<span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a><span class="va">LARGE_DIR</span><span class="op">=</span>data/mid <span class="va">LARGE_N_INDIV</span><span class="op">=</span>50000 <span class="va">LARGE_N_LOCI</span><span class="op">=</span>100000 <span class="dt">\</span></span>
+<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a>  <span class="ex">Rscript</span> code/admixture_benchmark_large_data.R</span>
+<span id="cb22-4"><a href="#cb22-4" tabindex="-1"></a><span class="fu">sudo</span> <span class="at">-v</span></span>
+<span id="cb22-5"><a href="#cb22-5" tabindex="-1"></a><span class="va">LARGE_DIR</span><span class="op">=</span>data/mid <span class="va">LARGE_NAME</span><span class="op">=</span>mid <span class="va">LARGE_MEMORY_CAPS</span><span class="op">=</span><span class="st">"4G 1G"</span> <span class="dt">\</span></span>
+<span id="cb22-6"><a href="#cb22-6" tabindex="-1"></a>  <span class="va">LARGE_READ_MBPS</span><span class="op">=</span><span class="st">"0 500 150"</span> <span class="ex">taskset</span> <span class="at">-c</span> 0-7 <span class="dt">\</span></span>
+<span id="cb22-7"><a href="#cb22-7" tabindex="-1"></a>  bash code/admixture_benchmark_large.sh</span></code></pre></div>
+<p>and for the larger data (50 GB; the defaults of the scripts), which
+take about 120 GB of disk while they are simulated:</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="bu">cd</span> vignettes/articles</span>
+<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a><span class="ex">Rscript</span> code/admixture_benchmark_large_data.R</span>
+<span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a><span class="fu">sudo</span> <span class="at">-v</span></span>
+<span id="cb23-4"><a href="#cb23-4" tabindex="-1"></a><span class="ex">taskset</span> <span class="at">-c</span> 0-7 bash code/admixture_benchmark_large.sh</span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="from-the-results-to-the-tables-and-plots">From the results to the tables and plots<a class="anchor" aria-label="anchor" href="#from-the-results-to-the-tables-and-plots"></a>
 </h3>
 <p>The results are read, and the Q matrices aligned and compared, with
 this code:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># to summarise and plot the results</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dplyr.tidyverse.org" class="external-link">dplyr</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyr.tidyverse.org" class="external-link">tidyr</a></span><span class="op">)</span></span>
@@ -1763,17 +2362,12 @@ this code:</p>
 <span>    run <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">tool</span>, <span class="st">"_t"</span>, <span class="va">n_cores</span>, <span class="fu"><a href="https://dplyr.tidyverse.org/reference/if_else.html" class="external-link">if_else</a></span><span class="op">(</span><span class="va">crossval</span>, <span class="st">"_cv"</span>, <span class="st">"_nocv"</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>    tool <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">tool</span>, <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">tool_labels</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
-<span><span class="co"># the machine and software, and the size of the data</span></span>
+<span><span class="co"># the peak resident memory of the runs from the command line, in MB (not</span></span>
+<span><span class="co"># recorded in the R session, nor by older versions of the scripts)</span></span>
+<span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="st">"peak_rss_mb"</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">timings</span><span class="op">)</span><span class="op">)</span> <span class="va">timings</span><span class="op">$</span><span class="va">peak_rss_mb</span> <span class="op">&lt;-</span> <span class="cn">NA_real_</span></span>
+<span><span class="co"># the machine and software</span></span>
 <span><span class="va">session_cli</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">results_dir</span>, <span class="st">"session_cli.csv"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">session_r</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">results_dir</span>, <span class="st">"session_r.csv"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">session_value</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">session</span>, <span class="va">item</span><span class="op">)</span> <span class="va">session</span><span class="op">$</span><span class="va">value</span><span class="op">[</span><span class="va">session</span><span class="op">$</span><span class="va">item</span> <span class="op">==</span> <span class="va">item</span><span class="op">]</span></span>
-<span><span class="va">n_indiv</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="fu">session_value</span><span class="op">(</span><span class="va">session_cli</span>, <span class="st">"individuals"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co"># the numbers of cores, e.g. "1, 2 and 4"</span></span>
-<span><span class="va">cores_text</span> <span class="op">&lt;-</span> <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/combine_words.html" class="external-link">combine_words</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">timings</span><span class="op">$</span><span class="va">n_cores</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  oxford_comma <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">n_loci</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="fu">session_value</span><span class="op">(</span><span class="va">session_cli</span>, <span class="st">"loci"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co"># the population and region of the individual of each row of the Q matrices</span></span>
 <span><span class="va">individuals</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">results_dir</span>, <span class="st">"individuals.csv"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co"># the Q matrix of a run, with 6 decimals (as written by ADMIXTURE and most</span></span>
@@ -1805,7 +2399,6 @@ this code:</p>
 <span><span class="op">}</span></span>
 <span><span class="co"># the reference: ADMIXTURE on the fewest cores, without cross-validation</span></span>
 <span><span class="va">min_cores</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">timings</span><span class="op">$</span><span class="va">n_cores</span><span class="op">)</span></span>
-<span><span class="va">max_cores</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">timings</span><span class="op">$</span><span class="va">n_cores</span><span class="op">)</span></span>
 <span><span class="va">reference_run</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"admixture_t"</span>, <span class="va">min_cores</span>, <span class="st">"_nocv"</span><span class="op">)</span></span>
 <span><span class="va">q_ref</span> <span class="op">&lt;-</span> <span class="fu">read_q</span><span class="op">(</span><span class="va">reference_run</span><span class="op">)</span></span>
 <span><span class="va">k</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">q_ref</span><span class="op">)</span></span>
@@ -1843,18 +2436,18 @@ C++ code without optimisation. Also install ADMIXTURE, fastmixture and
 ADAMIXTURE, e.g. in the conda environment created by
 <code><a href="../reference/tgc_tools_install.html">tgc_tools_install()</a></code>, and OpenADMIXTURE.jl, in the conda
 environment created (from the root of the package) by:</p>
-<div class="sourceCode" id="cb16"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="fu">bash</span> data-raw/radmix/setup_julia_env.sh</span></code></pre></div>
+<div class="sourceCode" id="cb25"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="fu">bash</span> data-raw/radmix/setup_julia_env.sh</span></code></pre></div>
 <p>Then run, from <code>vignettes/articles</code>, on an otherwise idle
 machine with at least 8 cores (the largest number of cores tested, set
 by <code>cores</code> in the scripts). On a processor with performance
 and efficiency cores, confine the runs to the performance cores
 (e.g. with <code>taskset -c 0-7</code> before <code>bash</code> and
 <code>Rscript</code> on Linux):</p>
-<div class="sourceCode" id="cb17"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="bu">cd</span> vignettes/articles</span>
-<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="ex">Rscript</span> code/admixture_benchmark_data.R</span>
-<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a><span class="ex">conda</span> activate ctidygenclust</span>
-<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="fu">bash</span> code/admixture_benchmark_cli.sh</span>
-<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a><span class="ex">Rscript</span> code/admixture_benchmark_radmix.R</span></code></pre></div>
+<div class="sourceCode" id="cb26"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a><span class="bu">cd</span> vignettes/articles</span>
+<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a><span class="ex">Rscript</span> code/admixture_benchmark_data.R</span>
+<span id="cb26-3"><a href="#cb26-3" tabindex="-1"></a><span class="ex">conda</span> activate ctidygenclust</span>
+<span id="cb26-4"><a href="#cb26-4" tabindex="-1"></a><span class="fu">bash</span> code/admixture_benchmark_cli.sh</span>
+<span id="cb26-5"><a href="#cb26-5" tabindex="-1"></a><span class="ex">Rscript</span> code/admixture_benchmark_radmix.R</span></code></pre></div>
 <p>The first script downloads and prepares the data in
 <code>data/hgdp</code>, which is not part of the repository, and only
 needs to be run once. The other two overwrite the results in
@@ -1863,8 +2456,9 @@ With the argument <code>quick</code>, the last two scripts run
 everything on the small subset of the data, to check them in less time.
 They then save their results in
 <code>data/admixture_benchmark_quick</code>, which this article can be
-rendered on with:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+rendered on (its plots and tables then show them, but its text still
+describes the full benchmark) with:</p>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">rmarkdown</span><span class="fu">::</span><span class="fu"><a href="https://pkgs.rstudio.com/rmarkdown/reference/render.html" class="external-link">render</a></span><span class="op">(</span></span>
 <span>  <span class="st">"admixture_benchmark.Rmd"</span>,</span>
 <span>  params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>results_dir <span class="op">=</span> <span class="st">"data/admixture_benchmark_quick"</span><span class="op">)</span></span>
@@ -1881,7 +2475,7 @@ rendered on with:</p>
 <tbody>
 <tr class="odd">
 <td align="left">date</td>
-<td align="left">2026-11-16</td>
+<td align="left">2026-11-24</td>
 </tr>
 <tr class="even">
 <td align="left">CPU</td>
@@ -1909,7 +2503,7 @@ rendered on with:</p>
 </tr>
 <tr class="even">
 <td align="left">ADAMIXTURE</td>
-<td align="left">1.8.9</td>
+<td align="left">1.9.6</td>
 </tr>
 <tr class="odd">
 <td align="left">Julia</td>
@@ -1929,14 +2523,19 @@ rendered on with:</p>
 </tr>
 <tr class="odd">
 <td align="left">tidygenclust</td>
-<td align="left">0.1.5.9005</td>
+<td align="left">0.1.5.9006</td>
 </tr>
 <tr class="even">
 <td align="left">tidypopgen</td>
-<td align="left">1.0.0.9001</td>
+<td align="left">1.0.0.9015</td>
 </tr>
 </tbody>
 </table>
+<p>The runs on data larger than the memory (25 and 26 November 2026; the
+fits in memory again on 27 November, after the passes over the
+individuals in memory were changed to take the loci in chunks) used the
+same machine, with <code>tidygenclust</code> 0.1.5.9007 and the data on
+a Samsung SSD 970 EVO Plus.</p>
 </div>
 </div>
 <div class="section level2">

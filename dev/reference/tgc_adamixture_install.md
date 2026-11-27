@@ -14,7 +14,7 @@ available on Linux at the moment (see
 ## Usage
 
 ``` r
-tgc_adamixture_install(adamixture_version = "1.8.9")
+tgc_adamixture_install(adamixture_version = "1.9.6")
 ```
 
 ## Arguments

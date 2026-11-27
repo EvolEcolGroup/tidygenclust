@@ -23,7 +23,7 @@ tgc_tools_install(
   tools = c("fastmixture", "admixture", "adamixture"),
   reset = FALSE,
   fastmixture_hash = "1f03a8980be4872341e5faca9d6f2dfc7ccbfe35",
-  adamixture_version = "1.8.9",
+  adamixture_version = "1.9.6",
   conda_yaml = "auto",
   ci_install = FALSE
 )

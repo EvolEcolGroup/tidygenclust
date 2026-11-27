@@ -29,8 +29,10 @@ gt_radmix(
   seed = NULL,
   max_iter = 1000,
   rtol = 1e-08,
+  step_tol = NULL,
   n_em_iter = 5,
   n_qn = 3,
+  gl_curvature = c("complete", "observed"),
   init = c("random", "svd"),
   svd_power = 3,
   init_q = NULL,
@@ -84,6 +86,15 @@ gt_radmix(
   convergence, with ancestry proportions up to about 0.05 away from the
   converged ones
 
+- step_tol:
+
+  optional second convergence threshold: the largest change of any
+  ancestry proportion or allele frequency in the first round of block
+  updates of an iteration (e.g. 1e-4). If given, the fit stops only when
+  both this change and the relative change in log-likelihood fall below
+  their thresholds. Defaults to `NULL`, to stop on `rtol` alone. Not
+  used by the refits of cross-validation.
+
 - n_em_iter:
 
   the number of EM iterations used to prime the estimates (defaults to
@@ -93,6 +104,15 @@ gt_radmix(
 
   the number of secant pairs used by the quasi-Newton acceleration
   (defaults to 3, as in ADMIXTURE)
+
+- gl_curvature:
+
+  the curvature used by the Newton steps for genotype likelihoods:
+  `"complete"` (the default), that of the expected log-likelihood of the
+  genotypes; or `"observed"`, that of the log-likelihood itself
+  (floored), usually faster on low-depth data (see "Genotype
+  likelihoods" in the details). Not used with genotypes, for which the
+  two are the same
 
 - init:
 
@@ -151,7 +171,8 @@ gt_radmix(
 - crossval:
 
   boolean; should the cross-validation error be computed (defaults to
-  `FALSE`)? See the details. Only for genotypes.
+  `FALSE`)? See the details (for genotype likelihoods, the error is the
+  deviance of the held-out likelihoods).
 
 - n_folds:
 
@@ -268,7 +289,13 @@ run consists of:
     ends with the plain block updates).
 
 Iterations stop when the relative change in log-likelihood falls below
-`rtol`. All estimates are kept within \[1e-5, 1 - 1e-5\], as in
+`rtol` (a decrease of the log-likelihood, which can happen after a
+rejected quasi-Newton point, never counts as convergence) and, if
+`step_tol` is given, when the first round of block updates of the
+iteration changes no ancestry proportion or allele frequency by more
+than `step_tol`. That change, reported in the log of each iteration as
+"step", shows how far the estimates still are from converged, in their
+own units. All estimates are kept within \[1e-5, 1 - 1e-5\], as in
 ADMIXTURE. The log of each run (element `log` of the result) reports the
 log-likelihood at each iteration, together with that of the quasi-Newton
 point ("QN") and that of the plain block updates ("basic"). The latter
@@ -306,22 +333,31 @@ numbers of copies of each allele given the likelihoods and the current
 estimates in place of the observed ones. EM steps are then those of
 NGSadmix, and the gradients of the block updates are exact; as the
 log-likelihood of genotype likelihoods is not concave in each block, the
-Newton steps use the curvature of the expected log-likelihood of the
-genotypes (that of the EM algorithm), which keeps every quadratic
-program convex. The quasi-Newton steps are accepted on the
-log-likelihood above. Cross-validation (`crossval`) is available (see
-"Cross-validation"), and so are starts from the SVD (`init = "svd"`):
-the SVD is then that of the posterior dosages of the genotypes (their
-expected numbers of copies of `allele2`) under Hardy-Weinberg
-proportions with the allele frequencies estimated from the likelihoods
-(emMAF, Kim et al. 2011), as in the first step of PCAngsd (Meisner and
-Albrechtsen 2018), computed by a randomised SVD (Halko et al. 2011)
-whose products are passes over the likelihoods; individuals without data
-at a locus get the mean dosage. `use_imputed` is not available for
-genotype likelihoods. Unlike NGSadmix, which by default drops loci with
-a minor allele frequency below 0.05 (its option `-minMaf`),
-`gt_radmix()` uses all the loci of `x`: select them beforehand if
-needed.
+Newton steps use by default the curvature of the expected log-likelihood
+of the genotypes (that of the EM algorithm), which keeps every quadratic
+program convex. That curvature exceeds the curvature of the
+log-likelihood itself by the missing information (the uncertainty about
+the genotypes), so the steps are short where genotypes are uncertain.
+With `gl_curvature = "observed"`, the Newton steps use the curvature of
+the log-likelihood instead, floored at a quarter of the complete one for
+each individual and locus (which keeps the programs convex). On
+simulated data at depths of 1-2 reads per site, with K from 3 to 10,
+this made fits about 1.5 times faster (fewer iterations, at the same
+cost each), and the fits reached maxima at least as good; as it changes
+the path of each fit, the maxima found by a given run can differ. The
+quasi-Newton steps are accepted on the log-likelihood above.
+Cross-validation (`crossval`) is available (see "Cross-validation"), and
+so are starts from the SVD (`init = "svd"`): the SVD is then that of the
+posterior dosages of the genotypes (their expected numbers of copies of
+`allele2`) under Hardy-Weinberg proportions with the allele frequencies
+estimated from the likelihoods (emMAF, Kim et al. 2011), as in the first
+step of PCAngsd (Meisner and Albrechtsen 2018), computed by a randomised
+SVD (Halko et al. 2011) whose products are passes over the likelihoods;
+individuals without data at a locus get the mean dosage. `use_imputed`
+is not available for genotype likelihoods. Unlike NGSadmix, which by
+default drops loci with a minor allele frequency below 0.05 (its option
+`-minMaf`), `gt_radmix()` uses all the loci of `x`: select them
+beforehand if needed.
 
 ### Supervised analyses
 
@@ -375,11 +411,11 @@ With `init = "svd"`, each run starts from the principal components of
 the genotypes rather than from random values, as in ADAMIXTURE
 (Saurina-i-Ricos et al. 2026) and fastmixture (Santander et al. 2024):
 
-1.  a partial SVD of the genotypes, centred and scaled as by
-    [`tidypopgen::gt_pca_partialSVD()`](https://evolecolgroup.github.io/tidypopgen/reference/gt_pca_partialSVD.html),
-    with `max(k) + 5` components, is computed once and shared by all the
-    runs (monomorphic loci, which the default scaling of tidypopgen
-    rejects, are left unscaled);
+1.  a truncated SVD of the genotypes, computed by
+    [`tidypopgen::gt_pca()`](https://evolecolgroup.github.io/tidypopgen/reference/gt_pca.html)
+    (centred and scaled as by default there) with `max(k) + 5`
+    components, is computed once and shared by all the runs (monomorphic
+    loci are left unscaled);
 
 2.  for each run, alternating least squares (ALS) find Q and P whose
     product approximates the allele frequencies predicted by the first
@@ -392,18 +428,22 @@ the genotypes rather than from random values, as in ADAMIXTURE
 3.  the best of 3 such solutions, by log-likelihood, starts the fit,
     without EM priming (`n_em_iter` is not used).
 
-The SVD cannot use missing genotypes, so they must be imputed first
-(e.g. with
-[`tidypopgen::gt_impute_simple()`](https://evolecolgroup.github.io/tidypopgen/reference/gt_impute_simple.html));
-the imputed genotypes are only used for the SVD, and the fit ignores
-them (unless `use_imputed = TRUE`). The SVD also needs more individuals
-and loci than `max(k) + 5`. With genotype likelihoods, the SVD is that
-of the posterior dosages (see "Genotype likelihoods"), and needs no
-imputation; its random test matrix is drawn after setting the first
-value of `seed`, and its number of power iterations is `svd_power` (3 by
-default, enough for the leading components, those of the structure; each
-further iteration makes the trailing components more accurate at the
-cost of two more passes over the likelihoods).
+Missing genotypes need no imputation: as in `gt_pca()` (and PLINK 1.9),
+each pair of individuals is compared over the loci genotyped in both,
+and pseudohaploids enter the SVD as homozygous diploids. With more than
+20,000 individuals, the SVD is a randomised SVD
+(`gt_pca(method = "random")`), which cannot use missing genotypes, so
+they must then be imputed first (e.g. with
+[`tidypopgen::gt_impute_simple()`](https://evolecolgroup.github.io/tidypopgen/reference/gt_impute_simple.html)).
+Imputed genotypes, if any, are only used for the SVD, and the fit
+ignores them (unless `use_imputed = TRUE`). The SVD also needs more
+individuals and loci than `max(k) + 5`. With genotype likelihoods, the
+SVD is that of the posterior dosages (see "Genotype likelihoods"), and
+needs no imputation; its random test matrix is drawn after setting the
+first value of `seed`, and its number of power iterations is `svd_power`
+(3 by default, enough for the leading components, those of the
+structure; each further iteration makes the trailing components more
+accurate at the cost of two more passes over the likelihoods).
 
 Fits from the SVD need fewer iterations (often less than half as many as
 from random starts in our tests), and usually reach a good fit (though,
@@ -497,6 +537,29 @@ and without these instructions. Compiling the package with
 `-DRADMIX_NO_MULTIVERSION` (e.g. added to `CXXFLAGS` in `~/.R/Makevars`)
 builds only the portable version, whose results are the same on every
 x86-64 machine.
+
+### Data larger than the memory
+
+The genotypes (or likelihoods) are read from their memory-mapped backing
+file at every pass, and never copied into memory, so data larger than
+the memory can be analysed: the operating system reads the file again as
+needed. When the file read by a pass is larger than 0.8 times the memory
+available (on Linux, `MemAvailable` or the limit of the control group),
+the passes stream it: all the threads work on one chunk of loci at a
+time, a helper thread asks the operating system to read the next chunk
+meanwhile, and the passes that can take the chunks in any order
+alternate their direction, so that each starts with the data that the
+previous one left in memory. Genotypes that fit in memory, with 8,192
+individuals or more, have the passes over the individuals in chunks of
+loci too (all the threads reading the same part of the file), which is
+faster. The results are identical. The option
+`tidygenclust.radmix_stream` forces streaming on (`TRUE`) or off
+(`FALSE`, which also turns off the chunks in memory), and
+`tidygenclust.radmix_chunk_mb` sets the size of the chunks (by default a
+sixteenth of the memory available, between 16 and 256 MB, when
+streaming, and 64 MB in memory). Each pass still reads the part of the
+file that is not in memory, so a fit runs at the speed of the disk once
+the data are much larger than the memory.
 
 ### Comparison with ADMIXTURE
 
@@ -602,7 +665,7 @@ adm$Q[[1]]
 # choose k by cross-validation
 adm_cv <- gt_radmix(pop_a, k = 1:3, seed = 1, crossval = TRUE)
 adm_cv$cv
-#> [1] 0.8224648 1.1840311 0.7096221
+#> [1] 0.8224648 1.8254380 1.1548134
 
 # supervised analysis: the first two individuals are references of
 # population "A" and the next two of population "B"; the ancestry of the

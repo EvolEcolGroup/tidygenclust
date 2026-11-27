@@ -72,13 +72,13 @@ Source:
 Tysall E, Hovhannisyan A, Carter E, Pozzi A, Padilla-Iglesias C,
 Leonardi M, Fatima A, Pelanek O, Stephenson N, Colucci M, Manica A
 (2026). *tidygenclust: Clustering for Population Genetics in R*. R
-package version 0.1.5.9006,
+package version 0.1.5.9010,
 <https://github.com/EvolEcolGroup/tidygenclust>.
 
     @Manual{,
       title = {tidygenclust: Clustering for Population Genetics in R},
       author = {Eirlys Tysall and Anahit Hovhannisyan and Evie Carter and Andrea Pozzi and Cecilia Padilla-Iglesias and Michela Leonardi and Aramish Fatima and Ondrej Pelanek and Nile Stephenson and Margherita Colucci and Andrea Manica},
       year = {2026},
-      note = {R package version 0.1.5.9006},
+      note = {R package version 0.1.5.9010},
       url = {https://github.com/EvolEcolGroup/tidygenclust},
     }

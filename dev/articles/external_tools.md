@@ -101,7 +101,7 @@ tools_version
 #> [1] "1.3.0"
 #> 
 #> $adamixture
-#> [1] "1.8.9"
+#> [1] "1.9.6"
 ```
 
 The code that runs each program in this article is only run if that
@@ -331,9 +331,9 @@ rbind(
   ADAMIXTURE = q_differences(anole_ada)
 )
 #>             max_abs_difference correlation
-#> gt_radmix          0.004659000   0.9999983
+#> gt_radmix          0.005020889   0.9999980
 #> fastmixture        0.005003755   0.9999981
-#> ADAMIXTURE         0.005059710   0.9999980
+#> ADAMIXTURE         0.005080578   0.9999979
 ```
 
 ## Cross-validation

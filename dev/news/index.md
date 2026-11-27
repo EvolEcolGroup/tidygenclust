@@ -3,6 +3,43 @@
 ## tidygenclust (development version)
 
 - [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
+  streams data larger than the memory: its passes read the backing file
+  in chunks, with the next chunk read ahead and alternating directions,
+  and give identical results (options `tidygenclust.radmix_stream` and
+  `tidygenclust.radmix_chunk_mb`; a source of genotype likelihoods can
+  give a prefetch function, see
+  `inst/include/tidygenclust/radmix_gl_source.h`)
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
+  is 15-20% faster on genotypes in memory with 8,192 individuals or
+  more: their passes over the individuals now take the loci in chunks
+  too
+- new `gl_curvature` argument of
+  [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md):
+  `"observed"` takes Newton steps with the curvature of the
+  log-likelihood of genotype likelihoods, about 1.5 times faster on
+  low-depth data (`"complete"`, the default, keeps the curvature of the
+  EM algorithm)
+- `gt_radmix(init = "svd")` computes its SVD with tidypopgen’s
+  [`gt_pca()`](https://evolecolgroup.github.io/tidypopgen/reference/gt_pca.html):
+  missing genotypes no longer need imputing (also for pseudohaploids),
+  it uses about 1 GB less memory, and it is faster without an optimised
+  BLAS (needs tidypopgen \>= 1.0.0.9015)
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
+  is 6-24% faster per iteration from K = 7 (more at larger K), with the
+  same results up to rounding
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
+  reports in its log the largest change of the estimates at each
+  iteration, and the new `step_tol` can require it to be small before
+  stopping; a decrease of the log-likelihood no longer counts as
+  convergence
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md):
+  fix columns that froze when a Newton step met a nearly singular
+  Hessian (e.g. a near-empty cluster at large K); the step is now taken
+  with a small ridge shift
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
+  is faster on subsets of individuals that are filtered or reordered
+  (13-27% fewer cycles per pass), with identical results
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
   also fits genotype likelihoods, with the model of NGSadmix (Skotte,
   Korneliussen & Albrechtsen 2013) and the algorithm of ADMIXTURE.
   tidygenclust does not store genotype likelihoods: a package that does
