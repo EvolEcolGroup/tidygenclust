@@ -101,6 +101,8 @@ Suggests:
     testthat (>= 3.0.0),
     tidyselect,
     withr
+Remotes:
+    EvolEcolGroup/tidypopgen@dev
 LazyData: true
 VignetteBuilder: knitr
 Config/testthat/edition: 3
