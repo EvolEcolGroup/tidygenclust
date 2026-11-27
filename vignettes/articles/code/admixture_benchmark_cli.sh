@@ -70,8 +70,45 @@ cores=(1 2 4 8)
 start_seeds=(1 2 3 4 5)
 
 ## ---- cli-functions ----
-# the wall-clock time, in seconds
-now() { date +%s.%N; }
+# the wall-clock time, in seconds (GNU date on Linux, python fallback on macOS)
+now() {
+  local t
+  t=$(date +%s.%N 2>/dev/null || true)
+  if [[ "$t" == *.* && "$t" != *N* ]]; then
+    echo "$t"
+  else
+    python3 -c 'import time; print(f"{time.time():.6f}")'
+  fi
+}
+
+# run a command redirecting its stdout+stderr to $2, and record peak RSS in $1
+# using GNU /usr/bin/time -v (Linux) or BSD /usr/bin/time -l (macOS)
+timed_exec() {
+  local time_log=$1 out_log=$2
+  shift 2
+  if /usr/bin/time -v true >/dev/null 2>&1; then
+    /usr/bin/time -v -o "$time_log" -- "$@" > "$out_log" 2>&1
+  elif /usr/bin/time -l true >/dev/null 2>&1; then
+    /usr/bin/time -l sh -c 'exec "$@" > "$0" 2>&1' "$out_log" "$@" 2> "$time_log"
+  else
+    : > "$time_log"
+    "$@" > "$out_log" 2>&1
+  fi
+}
+
+# peak resident set size in MiB from the log written by timed_exec(), or NA
+extract_peak_rss_mb() {
+  local time_log=$1 rss
+  if [[ ! -s "$time_log" ]]; then
+    echo "NA"
+    return
+  fi
+  rss=$(awk '/Maximum resident set size \(kbytes\)/ { printf "%.1f", $NF / 1024; exit }' "$time_log")
+  if [[ -z "$rss" ]]; then
+    rss=$(awk '/maximum resident set size/ { printf "%.1f", $1 / 1048576; exit }' "$time_log")
+  fi
+  echo "${rss:-NA}"
+}
 
 # the first match of a regular expression (with one group, which is
 # returned) at the start of a line of a log, or NA if there is none
@@ -90,11 +127,12 @@ extract() {
 run_admixture() {
   local n_cores=$1 crossval=$2 run_dir=$3 seed=$4
   local bed_path=$PWD/$bed
+  local time_log=$PWD/$run_dir/time.log
   local args=(-s "$seed" -j"$n_cores")
   if [[ $crossval == TRUE ]]; then
     args+=(--cv="$n_folds")
   fi
-  (cd "$run_dir" && "$admixture" "${args[@]}" "$bed_path" "$k" > admixture.log 2>&1)
+  (cd "$run_dir" && timed_exec "$time_log" admixture.log "$admixture" "${args[@]}" "$bed_path" "$k")
 }
 
 # fastmixture writes its output (Q, P and a log with its settings and
@@ -113,33 +151,27 @@ run_fastmixture() {
   if [[ $init == random ]]; then
     args+=(--random-init)
   fi
-  "$fastmixture" "${args[@]}" > "$run_dir/console.log" 2>&1
+  timed_exec "$run_dir/time.log" "$run_dir/console.log" "$fastmixture" "${args[@]}"
 }
 
-# ADAMIXTURE writes its output (Q, P and a plot, which cannot be turned off)
-# in --save_dir, named after --name and K (e.g. adamixture.5.Q), and prints
-# its progress. Its command line drops the chromosomes that are not
-# autosomes by default (hence --chrom_mode all), and -t alone does not limit
-# its number of threads (it sets OMP_NUM_THREADS after loading its OpenMP
-# library), so OMP_NUM_THREADS is set before starting it. It starts from an
-# SVD of the genotypes followed by alternating least squares (--init als,
-# its default), or from random values primed with EM steps (--init em)
+# ADAMIXTURE writes its output (Q, P and a plot) in --save_dir, named after
+# --name and K (e.g. adamixture.5.Q), and prints its progress. We pass
+# --chrom_mode all explicitly and set OMP_NUM_THREADS before starting it so
+# its OpenMP thread pool matches n_cores. In ADAMIXTURE >= 1.9, it starts
+# from an SVD of the genotypes followed by alternating least squares
+# (--init svd, its default), or from random values primed with EM steps
+# (--init random)
 run_adamixture() {
   local n_cores=$1 crossval=$2 run_dir=$3 seed=$4 init=$5
   local args=(
     --data_path "$bed" --save_dir "$run_dir" --name adamixture -k "$k"
-    -t "$n_cores" -s "$seed" --chrom_mode all
+    -t "$n_cores" -s "$seed" --chrom_mode all --device cpu --init "$init"
   )
-  if [[ $init == random ]]; then
-    args+=(--init em)
-  else
-    args+=(--init als)
-  fi
   if [[ $crossval == TRUE ]]; then
     args+=(--cv "$n_folds")
   fi
-  OMP_NUM_THREADS=$n_cores "$adamixture" "${args[@]}" \
-    > "$run_dir/console.log" 2>&1
+  timed_exec "$run_dir/time.log" "$run_dir/console.log" \
+    env OMP_NUM_THREADS="$n_cores" "$adamixture" "${args[@]}"
 }
 
 # gt_radmix() is run by a new R process, which loads tidygenclust, reads the
@@ -148,9 +180,9 @@ run_adamixture() {
 # log-likelihood and cross-validation error
 run_radmix_cli() {
   local n_cores=$1 crossval=$2 run_dir=$3 seed=$4 init=$5
-  "$rscript" code/admixture_benchmark_radmix_cli.R "$bed" "$k" "$seed" \
-    "$n_cores" "$crossval" "$n_folds" "$run_dir" "$init" \
-    > "$run_dir/console.log" 2>&1
+  timed_exec "$run_dir/time.log" "$run_dir/console.log" \
+    "$rscript" code/admixture_benchmark_radmix_cli.R "$bed" "$k" "$seed" \
+    "$n_cores" "$crossval" "$n_folds" "$run_dir" "$init"
 }
 
 # julia, with the variables that activating its conda environment would
@@ -169,17 +201,24 @@ julia_run() {
 # has no cross-validation
 run_openadmixture_cli() {
   local n_cores=$1 run_dir=$3 seed=$4
-  julia_run --threads="$n_cores,0" code/admixture_benchmark_openadmixture.jl \
-    "$bed" "$k" "$seed" "$run_dir/openadmixture" > "$run_dir/console.log" 2>&1
+  timed_exec "$run_dir/time.log" "$run_dir/console.log" \
+    env JULIA_DEPOT_PATH="$julia_prefix/share/julia:" \
+    JULIA_PROJECT="@$julia_env" JULIA_LOAD_PATH="@:@$julia_env:@stdlib" \
+    "$julia_prefix/bin/julia" --threads="$n_cores,0" \
+    code/admixture_benchmark_openadmixture.jl \
+    "$bed" "$k" "$seed" "$run_dir/openadmixture"
 }
 
 # the same, after a warm-up on the small subset of the data, so that the
 # fit, timed in Julia, does not include compiling the code
 run_openadmixture() {
   local n_cores=$1 run_dir=$3 seed=$4
-  julia_run --threads="$n_cores,0" code/admixture_benchmark_openadmixture.jl \
-    "$bed" "$k" "$seed" "$run_dir/openadmixture" "$warmup_bed" \
-    > "$run_dir/console.log" 2>&1
+  timed_exec "$run_dir/time.log" "$run_dir/console.log" \
+    env JULIA_DEPOT_PATH="$julia_prefix/share/julia:" \
+    JULIA_PROJECT="@$julia_env" JULIA_LOAD_PATH="@:@$julia_env:@stdlib" \
+    "$julia_prefix/bin/julia" --threads="$n_cores,0" \
+    code/admixture_benchmark_openadmixture.jl \
+    "$bed" "$k" "$seed" "$run_dir/openadmixture" "$warmup_bed"
 }
 
 ## ---- cli-runs ----
@@ -246,13 +285,15 @@ run_and_record() {
       ;;
   esac
   iterations=$(extract "$iterations_pattern" "$log_file")
+  local peak_rss_mb
+  peak_rss_mb=$(extract_peak_rss_mb "$run_dir/time.log")
   cp "$q_file" "$out_dir/Q/$run.Q"
   cp "$log_file" "$out_dir/logs/$run.log"
-  echo "$tool,$init,$seed,$n_cores,$crossval,$seconds,$loglik,$cv_error,$iterations" \
+  echo "$tool,$init,$seed,$n_cores,$crossval,$seconds,$loglik,$cv_error,$iterations,$peak_rss_mb" \
     >> "$table"
 }
 mkdir -p "$out_dir/Q" "$out_dir/logs"
-header=tool,init,seed,n_cores,crossval,seconds,loglik,cv_error,iterations
+header=tool,init,seed,n_cores,crossval,seconds,loglik,cv_error,iterations,peak_rss_mb
 
 ## ---- cli-random ----
 # all the programs from random starting values: each combination of

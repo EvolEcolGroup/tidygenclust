@@ -49,6 +49,8 @@ struct QPWork {
   // initial sweeps failed (used by the tests; unlike the return value of
   // qp_solve_column(), it is also set when the loop stops early)
   int passes = 0;
+  // the shifted Hessian of qp_solve_column_ridge() (K x K)
+  std::vector<double> hshift;
   // allocate the scratch for problems with K parameters
   explicit QPWork(int K);
 };
@@ -65,6 +67,19 @@ struct QPWork {
 // delta whatever the return value.
 int qp_solve_column(const double* H, const double* grad, const double* par,
                     int K, bool simplex, double* delta, QPWork& work);
+
+// The same, but when the initial sweeps fail (H, or the tableau of q, not
+// numerically positive definite, typically a nearly singular H when a
+// cluster is almost empty at a large K), the problem is solved again with
+// H + tau m I, where m is the mean of the diagonal of H, for tau = 1e-6,
+// 1e-4 and 1e-2 in turn (a Levenberg-Marquardt shift): the first that
+// succeeds gives a shorter step in the poorly determined directions,
+// rather than no step at all. A zero or negative mean diagonal still gives
+// delta = 0. Sets *shifted (if not null) to whether a shift was needed.
+int qp_solve_column_ridge(const double* H, const double* grad,
+                          const double* par, int K, bool simplex,
+                          double* delta, QPWork& work,
+                          bool* shifted = nullptr);
 
 }  // namespace radmix
 

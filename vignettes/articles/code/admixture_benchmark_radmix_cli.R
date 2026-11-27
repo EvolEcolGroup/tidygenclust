@@ -23,19 +23,15 @@ n_folds <- as.integer(args[6])
 run_dir <- args[7]
 init <- args[8]
 library(tidygenclust)
-# BLAS is limited to the cores of the run: gt_radmix() uses it for the SVD
-# of init = "svd" (and otherwise only for small k x k systems)
+# BLAS is limited to the cores of the run: gt_radmix() can use it for the
+# PCA of init = "svd" (tidypopgen's gt_pca(), which handles missing
+# genotypes without imputation), and otherwise only for small k x k systems
 bigparallelr::set_blas_ncores(n_cores)
 hgdp <- tidypopgen::gen_tibble(
   bed_file,
   backingfile = file.path(run_dir, "hgdp_bench"),
   quiet = TRUE
 )
-# the SVD of init = "svd" needs complete genotypes: the missing ones are
-# imputed with the mean, and the fit itself ignores them
-if (init == "svd") {
-  hgdp <- tidypopgen::gt_impute_simple(hgdp, method = "mean0")
-}
 fit <- gt_radmix(
   hgdp,
   k = k,

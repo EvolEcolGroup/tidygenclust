@@ -198,15 +198,25 @@ int radmix_q_segments_cpp(double I, double J) {
 // iter = the return value of qp_solve_column(): the number of iterations of
 // the active-set loop, or 0 on failure, on cycling at a vertex of the
 // simplex or at the iteration limit, passes = the number of passes of the
-// loop, also when it stopped early).
+// loop, also when it stopped early). With ridge = TRUE, the problem is
+// solved by qp_solve_column_ridge() instead, and the list also has shifted.
 // [[Rcpp::export]]
 List radmix_qp_solve_cpp(const NumericMatrix& H, const NumericVector& grad,
-                         const NumericVector& par, bool simplex) {
+                         const NumericVector& par, bool simplex,
+                         bool ridge = false) {
   const int K = grad.size();
   if (H.nrow() != K || H.ncol() != K || par.size() != K)
     stop("H must be K x K and grad, par of length K");
   QPWork work(K);
   NumericVector delta(K);
+  if (ridge) {
+    bool shifted = false;
+    int iter = qp_solve_column_ridge(H.begin(), grad.begin(), par.begin(), K,
+                                     simplex, delta.begin(), work, &shifted);
+    return List::create(Named("delta") = delta, Named("iter") = iter,
+                        Named("passes") = work.passes,
+                        Named("shifted") = shifted);
+  }
   int iter = qp_solve_column(H.begin(), grad.begin(), par.begin(), K,
                              simplex, delta.begin(), work);
   return List::create(Named("delta") = delta, Named("iter") = iter,

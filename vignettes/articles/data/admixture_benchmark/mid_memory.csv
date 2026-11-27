@@ -1,0 +1,8 @@
+run,peak_anon_gb
+memory,0.21
+capped_4G_ssd,0.21
+capped_1G_ssd,0.21
+capped_4G_500mbps,0.21
+capped_1G_500mbps,0.21
+capped_4G_150mbps,0.21
+capped_1G_150mbps,0.21

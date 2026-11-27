@@ -31,7 +31,10 @@
 // The passes then use the expected allele counts given the data (see
 // slice_gl() in radmix_kernels.cpp): the gradients are those of L, the
 // Hessians those of the expected log-likelihood of the genotypes (positive
-// semi-definite, as above), and the EM step is that of NGSadmix.
+// semi-definite, as above), and the EM step is that of NGSadmix. With the
+// option gl_curvature = "observed" of the data (see GenoView), the
+// Hessians are instead those of L, with the curvature of each term floored
+// at a quarter of that of the expected log-likelihood (see slice_coef()).
 //
 // Conventions
 // -----------

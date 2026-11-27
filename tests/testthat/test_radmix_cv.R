@@ -166,7 +166,7 @@ test_that("fold fits are identical with and without the precomputed mask", {
     radmix_fit(train, k = 3, max_iter = 5, n_cores = n_cores)
   }
   # 80 individuals (a second word of bits per locus, partly used), and a
-  # subset in another order (decoded one genotype at a time)
+  # subset in another order (gathered through the rows of its individuals)
   cases <- list(dat, radmix_prepare(sim_gt[c(80:41, 1:20), ]))
   for (d in cases) {
     hashed <- fit_fold(d, mask = FALSE)

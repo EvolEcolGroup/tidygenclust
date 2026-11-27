@@ -5,6 +5,59 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-26/27 (laptopX1, manica01): chunks for the Q side in memory; the article's fits in memory again
+
+- Andrea, 26 Nov: keep the streaming defaults (stream above 0.8 x the
+  memory available, prefetch in pieces of 128 KB, alternation on), and
+  take the Q side in chunks for data in memory too.
+- c521e36: `chunk_q`, for a Q side of one segment (8,192 individuals or
+  more) when the data are not streamed; identical results (tests with
+  chunks of one byte, K = 2 and 8, with and without fixed individuals).
+- manica01, quiet, 8 P-cores: chunks of 8-64 MB are 15-19% faster than
+  the usual layout on 10,000 x 150,000, 50,000 x 100,000 and
+  250,000 x 200,000, and within about 2% of each other; 64 MB kept
+  (79e21c4, best on the largest data). NEWS item.
+- The article's fits in memory rerun with 79e21c4 (manica01, quiet,
+  06:24-07:02; 4503fdd): 5 GB 214 s (was 255), 50 GB 1,711 s (was 2,173),
+  same log-likelihoods; the streamed runs, always chunked, now take
+  1.29-1.55 times the time in memory on the NVMe (50 GB under 8 GiB:
+  1.34, was 1.05). The first comparison understated the cost of the disk.
+- Changed: `radmix_streaming.md` ("Chunks in memory", "The article's
+  runs").
+
+## 2026-11-25/26 (laptopX1, manica01): the article's section on data larger than the memory
+
+- 524b347: the log-likelihood pass inlines `loglik_slice()` again (the
+  merge had made it two calls per slice): 7-11% faster than before the
+  merge on one thread; whole fits unchanged. The 3-4% slowdown of eur on
+  one thread in the gate did not reproduce (5 rounds: equal).
+- Version 0.1.5.9007 (870cff4). HGDP check on manica01: 5.07 s on 8
+  threads and 40.2 s on 1, as in the article (Andrea: no rerun).
+- Article (Andrea, 25 Nov: 250,000 individuals; a bed file; in memory,
+  SSD and throttled): 5 GB (50,000 x 100,000) under 4 and 1 GiB caps on
+  the NVMe, 500 and 150 MB/s; 50 GB (250,000 x 200,000) under 8 GiB on
+  the NVMe and 500 MB/s. 1 GiB of 5 GB: 30% longer than in memory on the
+  NVMe; 8 GiB of 50 GB: 5% longer, 3.4 times at 500 MB/s; identical
+  results; R at most 0.40 GB. Section written and rendered (03c7161).
+- Changed: `radmix_streaming.md` ("The article's runs").
+
+## 2026-11-24/25 (laptopX1, manica01): streaming merged and measured on the desktop
+
+- `ccr-fd217561-izn297` merged into the local `ada196_article` (349c929;
+  the blocked Hessians combined with the streaming accumulators, tests at
+  K = 2, 3, 7, 8 bit-identical: 24908ae). Nothing pushed (Andrea).
+- manica01, 8 P-cores: in memory, identical results, equal times except
+  eur on one thread, 3-4% slower (open). Out of core, identical estimates
+  in 72 runs; streaming 1.1-1.6 times its time in memory on the NVMe,
+  `dev` up to 16 times (it reads a 1.5 GB file 100 times).
+- Fixed: the prefetch read 1/16 of each chunk (madvise pieces of 2 MB,
+  128 KB honoured per call: b07f087), and `run_capped.sh` gave systemd a
+  relative path for the throttle, which it ignores (df19269).
+- The article's section on data 5 times the memory is postponed until
+  Andrea decides on the streaming changes (`handover.md`, task 0).
+- Changed: `radmix_streaming.md` ("Desktop", "Left to do"),
+  `data-raw/radmix/stream/` (desktop scripts and results).
+
 ## 2026-11-20 (laptopX1): bounds of likelihoods decided; clean-up
 
 - Andrea decided to keep `[1e-5, 1 - 1e-5]` for estimates from genotype

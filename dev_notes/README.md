@@ -21,6 +21,10 @@ Notes for developers and Claude sessions. Start with `summary.md` and
   (tags `archive/radmix-perf-verify`, `archive/newspeed`,
   `archive/supervised`); the timing of the port against `dev` (16 Nov
   2026) is in `radmix_port_timing_2026-11/`.
+- `radmix_streaming.md`: data larger than the memory: the passes walk the
+  loci in chunks, prefetch the next one and alternate their direction; the
+  design, the benchmark under memory caps and disk throttles, and what is
+  left (scripts in `../data-raw/radmix/stream/`).
 - `radmix_extensions_2026-11/`: the scripts and results of the extensions
   of 18 Nov 2026 (branch `radmix_extensions`): supervised fused pass
   timings, cross-validation of likelihoods choosing K, SVD starts of
