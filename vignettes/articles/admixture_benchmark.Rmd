@@ -997,7 +997,10 @@ pass over the genotypes reads the file in chunks, alternating its direction
 from one pass to the next (so that the end of one pass and the start of the
 next find their chunks still in memory), and asks the system to read the
 next chunk while the current one is processed. The results are identical to
-those of the same fit in memory.
+those of the same fit in memory. With 8,192 individuals or more, as here,
+the passes over the individuals take the loci in chunks in memory too, which
+is faster, so the fits in memory and out of it below do the same work in the
+same order.
 
 `r if (is.null(ooc)) "*(The runs of this section have not been done yet.)*"`
 
@@ -1084,7 +1087,10 @@ ooc_large_results <- paste0(
   format(signif(large_run_ssd$read_gb, 2), big.mark = ","), " GB from the ",
   "disk at ", formatC(large_run_ssd$read_gb / large_run_ssd$seconds,
     format = "f", digits = 1
-  ), " GB/s on average, nearly as fast as the computation used them, and ",
+  ), " GB/s on average (in memory, the same passes went through the data ",
+  "at about ", formatC(large_run_ssd$read_gb / large_run_ssd$memory_seconds,
+    format = "f", digits = 1
+  ), " GB/s), and ",
   ooc_time(ooc_large, large_cap, large_mbps), ", at ", large_mbps,
   " MB/s, as long as it takes to read its ",
   format(signif(large_run_slow$read_gb, 2), big.mark = ","), " GB at that ",
@@ -1517,7 +1523,7 @@ bind_rows(
   knitr::kable(col.names = c("", ""))
 ```
 
-`r if (!is.null(ooc)) paste0("The runs on data larger than the memory (", knitr::combine_words(unique(c(ooc$session$value[ooc$session$item == "date"], if (!is.null(ooc_large)) ooc_large$session$value[ooc_large$session$item == "date"]))), ") used the same machine, with tidygenclust ", ooc$session$value[ooc$session$item == "tidygenclust"], " and its data on a ", ooc$session$value[ooc$session$item == "disk"], ".")`
+`r if (!is.null(ooc)) paste0("The runs on data larger than the memory (", knitr::combine_words(unique(c(ooc$session$value[ooc$session$item == "date"], if (!is.null(ooc_large)) ooc_large$session$value[ooc_large$session$item == "date"]))), "; the fits in memory again on ", knitr::combine_words(unique(c(ooc$session$value[ooc$session$item == "date of the fit in memory"], if (!is.null(ooc_large)) ooc_large$session$value[ooc_large$session$item == "date of the fit in memory"]))), ", after the passes over the individuals in memory were changed to take the loci in chunks) used the same machine, with tidygenclust ", ooc$session$value[ooc$session$item == "tidygenclust"], " and its data on a ", ooc$session$value[ooc$session$item == "disk"], ".")`
 
 # References
 
