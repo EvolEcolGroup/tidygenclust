@@ -22,7 +22,7 @@ pops_path <- system.file(
 pops <- readr::read_csv(pops_path)
 anole_gt <- anole_gt %>% mutate(id = gsub("punc_", "", .data$id, ))
 anole_gt <- anole_gt %>%
-  mutate(population = pops$pop[match(pops$ID, .data$id)])
+  mutate(population = pops$pop[match(.data$id, pops$id)])
 
 
 # check a gt_admix object returned by gt_fastmixture() for anole_gt: one Q
