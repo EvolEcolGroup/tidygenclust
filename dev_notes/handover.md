@@ -16,7 +16,7 @@ are in the topic documents listed in `README.md`.
 
 | branch | purpose | base | pushed | merged |
 |---|---|---|---|---|
-| `ada196_article` | the benchmark article rerun with ADAMIXTURE 1.9.6, the review fixes (`gl_curvature`), the register-blocked Hessians, and (merged 24 Nov) streaming, with its desktop benchmarks and the scripts of the article's section on data 5 times the memory | `dev` | **no: local only** (laptopX1; on manica01 by git bundle). Andrea: keep it local | no |
+| `ada196_article` | the benchmark article rerun with ADAMIXTURE 1.9.6, the review fixes (`gl_curvature`), the register-blocked Hessians, and (merged 24 Nov) streaming, with its desktop benchmarks and the scripts of the article's section on data 5 times the memory | `dev` | yes (27 Nov, Andrea: a branch, no PR) | no |
 | `ccr-fd217561-izn297` | prototype: `gt_radmix()` streams data larger than the memory (chunks, prefetch, alternating directions), with tidypopgl's branch of the same name (its prefetch function) | `dev` (`acff37a`) | yes | into `ada196_article` (349c929) |
 | `radmix_review_fixes`, `adamixture-1.9.6-benchmark` | local branches merged into `ada196_article` | `dev` | no | into `ada196_article` |
 | `articles_revised` | revision of the pseudohaploid article (2 commits) | `dev` (old) | yes | no: conflict in `pseudohaploids.Rmd` |
@@ -56,7 +56,7 @@ in `vignettes/articles/data/admixture_benchmark/{mid,large}_*.csv` (the
   benchmark (HGDP, 1,043 individuals: chunks in memory need 8,192) is not
   rerun.
 - **Then [claude]:** a PR into `dev` only when Andrea says so
-  (`ada196_article` stays local by his instruction). Delete the article's
+  (`ada196_article` is pushed, without a PR, by his instruction). Delete the article's
   data on manica01 when he no longer needs them (below).
 - **Done when:** the article is reviewed.
 
