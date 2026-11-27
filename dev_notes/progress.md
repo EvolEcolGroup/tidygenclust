@@ -5,6 +5,22 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-26/27 (laptopX1, manica01): chunks for the Q side in memory
+
+- Andrea, 26 Nov: keep the streaming defaults (stream above 0.8 x the
+  memory available, prefetch in pieces of 128 KB, alternation on), and
+  take the Q side in chunks for data in memory too.
+- c521e36: `chunk_q`, for a Q side of one segment (8,192 individuals or
+  more) when the data are not streamed; identical results (tests with
+  chunks of one byte, K = 2 and 8, with and without fixed individuals).
+- manica01, quiet, 8 P-cores: chunks of 8-64 MB are 15-19% faster than
+  the usual layout on 10,000 x 150,000, 50,000 x 100,000 and
+  250,000 x 200,000, and within about 2% of each other; 64 MB kept
+  (79e21c4, best on the largest data). NEWS item.
+- Next: the article's in-memory fits again with 79e21c4 (its streamed runs
+  do not use chunk_q).
+- Changed: `radmix_streaming.md` ("Chunks in memory").
+
 ## 2026-11-25/26 (laptopX1, manica01): the article's section on data larger than the memory
 
 - 524b347: the log-likelihood pass inlines `loglik_slice()` again (the
