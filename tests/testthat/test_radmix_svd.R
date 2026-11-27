@@ -16,8 +16,11 @@ test_that("the SVD factors give the allele frequencies at full rank", {
   g[, 2] <- 2
   fac <- radmix_svd_factors(radmix_test_gt(g), rank = 19)
   expect_equal(fac$f, colMeans(g) / 2, ignore_attr = TRUE)
+  # (the components come from the eigenvectors of the relationship matrix,
+  # which keep about half the digits of a direct SVD: errors near 1e-8,
+  # beyond the default tolerance with the BLAS of macOS and Windows)
   expect_equal(fac$f + 0.5 * fac$z %*% t(fac$u), t(g) / 2,
-    ignore_attr = TRUE
+    ignore_attr = TRUE, tolerance = 1e-6
   )
   expect_equal(fac$z[1:2, ], matrix(0, 2, 19))
 })
