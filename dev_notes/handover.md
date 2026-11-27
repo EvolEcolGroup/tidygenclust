@@ -3,14 +3,14 @@
 Updated 2026-11-27 (laptopX1, with runs on manica01): streaming is merged
 into the local `ada196_article` (version 0.1.5.9007), measured on the
 desktop (`radmix_streaming.md`, "Desktop") and shown in the benchmark
-article, whose new section "Data larger than the memory" is written and
-renders: 5 GB under 4 and 1 GiB caps, and 50 GB under 8 GiB, identical
-results. Andrea kept the streaming defaults and asked for the Q side in
-chunks in memory too (26 Nov): done (c521e36, 79e21c4), 15-19% faster with
-8,192 individuals or more. The article's two in-memory fits are being
-rerun with it, so its ratios (streamed against in memory) will grow.
-`summary.md` first. History is in `progress.md`; designs are in the topic
-documents listed in `README.md`.
+article's section "Data larger than the memory": 5 GB under 4 and 1 GiB
+caps, and 50 GB under 8 GiB (34% longer than in memory on the NVMe, 4.3
+times at 500 MB/s), identical results. Andrea kept the streaming defaults
+and asked for the Q side in chunks in memory too (26 Nov): done (c521e36,
+79e21c4), 15-21% faster with 8,192 individuals or more; the article's
+fits in memory were rerun with it (4503fdd). The article waits for
+Andrea's review. `summary.md` first. History is in `progress.md`; designs
+are in the topic documents listed in `README.md`.
 
 ## Branches
 
@@ -37,31 +37,24 @@ local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
 
 ## Next tasks
 
-### 0. **P1** [claude] then [review] the article's in-memory fits with chunks, then the section
+### 0. **P1** [review] the article's section on data larger than the memory
 
 Read `dev_notes/radmix_streaming.md`, "The article's runs" and "Chunks in
 memory", first. Scripts and raw results: `data-raw/radmix/stream/desktop/`
 and `data-raw/radmix/stream/results/desktop_*`; the article's results are
-in `vignettes/articles/data/admixture_benchmark/{mid,large}_*.csv`.
+in `vignettes/articles/data/admixture_benchmark/{mid,large}_*.csv` (the
+`memory` rows from the rerun of 27 Nov, `phases/inmem_cq.sh` on manica01).
 
-- **[claude], manica01, quiet machine (8 P-cores, about 45 min):**
-  `nohup bash ~/project_temp/claude/tidygenclust/stream/phases/inmem_cq.sh
-  > ~/project_temp/claude/tidygenclust/stream/logs/inmem_cq.log 2>&1 &`
-  (build `work/libs/art2` = 79e21c4; it waits for a load below 1). It
-  reruns only the in-memory fits of the article's script (5 GB twice,
-  50 GB once) into `results/inmem_cq/{mid_cq,large_cq,mid_cq2}_*.csv`.
-  Replace the `memory` rows of `{mid,large}_runs.csv` and
-  `{mid,large}_memory.csv` with them (the capped runs stream, so chunk_q
-  does not change them), check the iterations and log-likelihoods are the
-  same, update the article's text where the ratios are quoted (summary
-  bullet, the section, the methods), re-render, commit.
 - **[review] (Andrea):** the section "Data larger than the memory" of
   `vignettes/articles/admixture_benchmark.Rmd` (results after "SVD and
   random starts"; code under "How the benchmark was run"; summary bullet;
-  a line in the introduction and in the memory section). Render it with
-  `rmarkdown::render("admixture_benchmark.Rmd")` from `vignettes/articles`
-  (`TMPDIR` in a work folder). The main benchmark (HGDP, 1,043
-  individuals: one Q segment is never reached) is not rerun.
+  a line in the introduction and in the memory section). Rendered copy:
+  `/media/andrea/annex/tmp/claude/tidygenclust/render_test/out/admixture_benchmark.html`
+  (laptopX1). To render again: from `vignettes/articles`,
+  `R_LIBS=<a library with tidypopgen 1.0.0.9015> TMPDIR=<work folder>
+  Rscript -e 'rmarkdown::render("admixture_benchmark.Rmd")'`. The main
+  benchmark (HGDP, 1,043 individuals: chunks in memory need 8,192) is not
+  rerun.
 - **Then [claude]:** a PR into `dev` only when Andrea says so
   (`ada196_article` stays local by his instruction). Delete the article's
   data on manica01 when he no longer needs them (below).

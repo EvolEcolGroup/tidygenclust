@@ -5,7 +5,7 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
-## 2026-11-26/27 (laptopX1, manica01): chunks for the Q side in memory
+## 2026-11-26/27 (laptopX1, manica01): chunks for the Q side in memory; the article's fits in memory again
 
 - Andrea, 26 Nov: keep the streaming defaults (stream above 0.8 x the
   memory available, prefetch in pieces of 128 KB, alternation on), and
@@ -17,9 +17,13 @@ likelihoods), and in `radmix_performance.md`.
   the usual layout on 10,000 x 150,000, 50,000 x 100,000 and
   250,000 x 200,000, and within about 2% of each other; 64 MB kept
   (79e21c4, best on the largest data). NEWS item.
-- Next: the article's in-memory fits again with 79e21c4 (its streamed runs
-  do not use chunk_q).
-- Changed: `radmix_streaming.md` ("Chunks in memory").
+- The article's fits in memory rerun with 79e21c4 (manica01, quiet,
+  06:24-07:02; 4503fdd): 5 GB 214 s (was 255), 50 GB 1,711 s (was 2,173),
+  same log-likelihoods; the streamed runs, always chunked, now take
+  1.29-1.55 times the time in memory on the NVMe (50 GB under 8 GiB:
+  1.34, was 1.05). The first comparison understated the cost of the disk.
+- Changed: `radmix_streaming.md` ("Chunks in memory", "The article's
+  runs").
 
 ## 2026-11-25/26 (laptopX1, manica01): the article's section on data larger than the memory
 

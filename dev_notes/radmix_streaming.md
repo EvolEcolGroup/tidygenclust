@@ -473,24 +473,33 @@ article's own scripts (`vignettes/articles/code/admixture_benchmark_large*`),
 
 | data | cap | disk | time (s) | times in memory | read (GB) |
 |---|---|---|---|---|---|
-| 50,000 x 100,000 (5 GB) | none | | 255 | 1.0 | 0 |
-| | 4 GiB | NVMe | 277 | 1.08 | 238 |
-| | 1 GiB | NVMe | 332 | 1.30 | 476 |
-| | 4 GiB | 500 MB/s | 547 | 2.1 | 225 |
-| | 1 GiB | 500 MB/s | 917 | 3.6 | 444 |
-| | 4 GiB | 150 MB/s | 1,648 | 6.5 | 237 |
-| | 1 GiB | 150 MB/s | 2,972 | 11.6 | 441 |
-| 250,000 x 200,000 (50 GB) | none | | 2,173 | 1.0 | 0 |
-| | 8 GiB | NVMe | 2,290 | 1.05 | 3,579 |
-| | 8 GiB | 500 MB/s | 7,330 | 3.4 | 3,532 |
+| 50,000 x 100,000 (5 GB) | none | | 214 (was 255) | 1.0 | 0 |
+| | 4 GiB | NVMe | 277 | 1.29 (was 1.08) | 238 |
+| | 1 GiB | NVMe | 332 | 1.55 (was 1.30) | 476 |
+| | 4 GiB | 500 MB/s | 547 | 2.6 | 225 |
+| | 1 GiB | 500 MB/s | 917 | 4.3 | 444 |
+| | 4 GiB | 150 MB/s | 1,648 | 7.7 | 237 |
+| | 1 GiB | 150 MB/s | 2,972 | 13.9 | 441 |
+| 250,000 x 200,000 (50 GB) | none | | 1,711 (was 2,173) | 1.0 | 0 |
+| | 8 GiB | NVMe | 2,290 | 1.34 (was 1.05) | 3,579 |
+| | 8 GiB | 500 MB/s | 7,330 | 4.3 | 3,532 |
+
+The fits in memory were rerun on 27 November with 79e21c4 (chunks for
+the Q side in memory, see "Chunks in memory"; `phases/inmem_cq.sh`, the
+article's script with `LARGE_READ_MBPS=" "`), the "was" values are those
+of 25-26 November without them. The streamed runs always took the Q side
+in chunks, so the first comparison understated the cost of the disk: the
+NVMe runs gained the chunks' 15-20% and lost it again to the reads. A
+second 5 GB fit in memory took 221.0 s (214.4 s in the article): 3%
+between two runs.
 
 Identical log-likelihoods within each data set (22 and 17 iterations);
 the capped runs peaked at their cap (R and the page cache), R itself at
 0.21 and 0.40 GB. Throttled, the time is that of the reads (3,532 GB at
 500 MB/s is 7,064 s). On the NVMe, the 50 GB fit read 1.56 GB/s on
-average, nearly the rate at which the computation used the data
-(about 1.6 GB/s), hence 5%; with 5 GB under 1 GiB, 1.43 GB/s against
-about 1.9 GB/s, hence 30%.
+average, against the 2.1 GB/s at which the same passes go through the
+data in memory, hence 34%; with 5 GB under 1 GiB, 1.43 GB/s against
+2.2 GB/s, hence 55%.
 
 The one-thread regression of the gate (eur, 3-4%) did not reproduce in
 5 rounds (base 4.89, merge 4.88, fix 4.88 s at K = 3). The merge had
