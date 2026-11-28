@@ -80,7 +80,7 @@ Imports:
     rlang,
     stats,
     tibble,
-    tidypopgen (>= 1.0.0.9015),
+    tidypopgen (>= 1.1.0),
     tidyr,
     utils,
     vctrs
@@ -101,8 +101,6 @@ Suggests:
     testthat (>= 3.0.0),
     tidyselect,
     withr
-Remotes:
-    EvolEcolGroup/tidypopgen@dev
 LazyData: true
 VignetteBuilder: knitr
 Config/testthat/edition: 3
