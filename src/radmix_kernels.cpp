@@ -1361,8 +1361,11 @@ static void q_side_stream(const GenoView& geno, const double* qT,
 #pragma omp for schedule(RADMIX_OMP_SCHEDULE)
       for (ptrdiff_t bl = 0; bl < (ptrdiff_t) nbi; bl++) {
         const size_t i0 = bl * TILE_I, i1 = std::min(I, i0 + TILE_I);
-        double* slot_g = SUMS ? &acc_g[bl * K * TILE_I] : NULL;
-        double* slot_h = NEWTON ? &acc_h[bl * n_pair * TILE_I] : NULL;
+        // the block's slots, only kept with several chunks (acc_g and acc_h
+        // are empty with one: indexing them is undefined behaviour)
+        double* slot_g = keep && SUMS ? acc_g.data() + bl * K * TILE_I : NULL;
+        double* slot_h =
+          keep && NEWTON ? acc_h.data() + bl * n_pair * TILE_I : NULL;
         if (!first) {
           if (SUMS) std::copy(slot_g, slot_g + K * TILE_I, gT.begin());
           if (NEWTON)

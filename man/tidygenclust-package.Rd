@@ -8,7 +8,7 @@
 \description{
 \if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
 
-A tidy interface for population genetic clustering. This package provides a unified workflow to estimate, compare, summarize, and visualize genetic clustering analyses, supporting both single runs and collections of replicate analyses. It is designed to work natively with diploid and pseudohaploid data, and integrates seamlessly with the tidypopgen ecosystem.
+A tidy interface for population genetic clustering. This package provides a unified workflow to estimate, compare, summarize, and visualize genetic clustering analyses, supporting both single runs and collections of replicate analyses. It is designed to work natively with diploid and pseudohaploid data, and integrates seamlessly with the 'tidypopgen' ecosystem.
 }
 \seealso{
 Useful links:
@@ -35,11 +35,11 @@ Authors:
   \item Ondrej Pelanek
   \item Nile Stephenson
   \item Margherita Colucci
+  \item Joan Saurina
 }
 
 Other contributors:
 \itemize{
-  \item Joan Saurina [contributor]
   \item Seyoon Ko (Copyright holder of OpenADMIXTURE.jl, from which parts of the C++ code of gt_radmix() are ported (see inst/COPYRIGHTS)) [copyright holder]
   \item Kenneth Lange (Copyright holder of OpenADMIXTURE.jl, from which parts of the C++ code of gt_radmix() are ported (see inst/COPYRIGHTS)) [copyright holder]
   \item Ioannidis Lab (Copyright holder of ADAMIXTURE, from which the alternating least squares of gt_radmix() are adapted (see inst/COPYRIGHTS)) [copyright holder]
