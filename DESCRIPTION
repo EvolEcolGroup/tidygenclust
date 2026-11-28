@@ -12,7 +12,7 @@ Authors@R: c(
     person("Ondrej", "Pelanek", role = c("aut")),
     person("Nile", "Stephenson", role = c("aut")),
     person("Margherita", "Colucci", role = c("aut")),
-    person("Joan", "Saurina", role = c("ctb")),
+    person("Joan", "Saurina", role = c("aut")),
     person("Andrea", "Manica", , "am315@cam.ac.uk", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-1895-450X")),
     person("Seyoon", "Ko", role = "cph",
@@ -57,7 +57,7 @@ Description: A tidy interface for population genetic clustering. This package
    visualize genetic clustering analyses, supporting both single runs and
    collections of replicate analyses. It is designed to work natively with
    diploid and pseudohaploid data, and integrates seamlessly with the
-   tidypopgen ecosystem.
+   'tidypopgen' ecosystem.
 License: GPL (>= 3)
 URL: https://github.com/EvolEcolGroup/tidygenclust,
     https://evolecolgroup.github.io/tidygenclust/
