@@ -1,4 +1,4 @@
-# tidygenclust (development version)
+# tidygenclust 0.2.0
 * `gt_radmix()` streams data larger than the memory: its passes read the
   backing file in chunks, with the next chunk read ahead and alternating
   directions, and give identical results (options
@@ -15,7 +15,7 @@
 * `gt_radmix(init = "svd")` computes its SVD with tidypopgen's `gt_pca()`:
   missing genotypes no longer need imputing (also for pseudohaploids), it
   uses about 1 GB less memory, and it is faster without an optimised BLAS
-  (needs tidypopgen >= 1.0.0.9015)
+  (needs tidypopgen >= 1.1.0)
 * `gt_radmix()` is 6-24% faster per iteration from K = 7 (more at larger
   K), with the same results up to rounding
 * `gt_radmix()` reports in its log the largest change of the estimates at

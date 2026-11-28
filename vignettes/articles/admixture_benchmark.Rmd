@@ -46,9 +46,9 @@ This article compares `gt_radmix()`
 with four programs that fit the same model: ADMIXTURE itself; OpenADMIXTURE.jl
 (Ko et al. 2023), a Julia implementation of the algorithm
 of ADMIXTURE (run without its selection of ancestry informative markers);
-fastmixture (Santander et al. 2024), and ADAMIXTURE 
-(Saurina-i-Ricos et al. 2026). Note that OpenADMIXTURE.jl and ADAMIXTURE can 
-also run on GPUs; 
+fastmixture (Santander et al. 2024), and ADAMIXTURE
+(Saurina-i-Ricos et al. 2026). Note that OpenADMIXTURE.jl and ADAMIXTURE can
+also run on GPUs;
 this comparison is limited to the CPU implementations
 of the programs, which are all multithreaded. The actual speeds will depend
 on the exact set up and operating system, so these values should be interpreted
@@ -60,14 +60,13 @@ parts:
 
 - [Random starts](#random-starts): all the programs start from random
   values (ADMIXTURE and OpenADMIXTURE.jl have no other start, and
-  fastmixture and ADAMIXTURE are run with their option to do so). It checks
+  fastmixture and ADAMIXTURE are run with their option to do so). This part checks
   that the programs find the same ancestry proportions, and measures how
   long each takes on different numbers of cores, with and without
   cross-validation (which OpenADMIXTURE.jl does not have).
 - [SVD and random starts](#svd-and-random-starts): `gt_radmix()`,
   fastmixture and ADAMIXTURE can also start from a truncated singular value
-  decomposition (SVD) of the genotypes, which fastmixture and ADAMIXTURE do
-  by default (`gt_radmix()` does so with `init = "svd"`). Each of them is run
+  decomposition (SVD) of the genotypes, which is the default for fastmixture and ADAMIXTURE (`gt_radmix()` does so with `init = "svd"`). Each of them is run
   from both starts, with several seeds, to compare their times and the
   log-likelihoods they reach.
 
@@ -75,7 +74,7 @@ We also compare the memory used by the programs, which is important for large
 dataset. The other packages store the genotypes in a 2-bit
 packed encoding, whilst gt_radmix() use a byte per genotype with memory mapping,
 meaning that, whilst it uses more memory, it can also effectively stream data
-when it runs out of memory. The section 
+when it runs out of memory. The section
 [Data larger than the memory](#data-larger-than-the-memory),
 runs `gt_radmix()` alone on simulated data, with its memory capped below
 their size, to show what working out of memory costs.
@@ -86,7 +85,7 @@ process that starts the program, reads the data and saves the results.
 Julia session, in which the package is already loaded (see
 [How long do they take?](#how-long-do-they-take)).
 
-The [results](#results) come first. The second part,
+The [results](#results) come first. A final section,
 [How the benchmark was run](#how-the-benchmark-was-run), describes the data
 and the runs, with their code, and how to run the benchmark again.
 
