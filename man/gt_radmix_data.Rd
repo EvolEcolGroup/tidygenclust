@@ -64,17 +64,6 @@ method for a \code{gen_tibble}, when it is \code{TRUE}).
 The list for a \code{gen_tibble} is internal to tidygenclust, and may
 change.
 }
-\examples{
-bed_file <-
-  system.file("extdata", "pop_a.bed", package = "tidypopgen")
-pop_a <- tidypopgen::gen_tibble(bed_file,
-  backingfile = tempfile("pop_a"),
-  quiet = TRUE
-)
-# the internal description of a gen_tibble for the kernels of gt_radmix()
-radmix_data <- gt_radmix_data(pop_a)
-radmix_data[c("kind", "n_indiv", "n_loci")]
-}
 \seealso{
 \code{\link[=gt_radmix]{gt_radmix()}}, whose details describe the model of genotype
 likelihoods
