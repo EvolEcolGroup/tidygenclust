@@ -5,7 +5,7 @@ provides a unified workflow to estimate, compare, summarize, and
 visualize genetic clustering analyses, supporting both single runs and
 collections of replicate analyses. It is designed to work natively with
 diploid and pseudohaploid data, and integrates seamlessly with the
-tidypopgen ecosystem.
+'tidypopgen' ecosystem.
 
 ## See also
 
@@ -47,9 +47,9 @@ Authors:
 
 - Margherita Colucci
 
-Other contributors:
+- Joan Saurina
 
-- Joan Saurina \[contributor\]
+Other contributors:
 
 - Seyoon Ko (Copyright holder of OpenADMIXTURE.jl, from which parts of
   the C++ code of gt_radmix() are ported (see inst/COPYRIGHTS))

@@ -22,7 +22,7 @@
 
 - **Margherita Colucci**. Author.
 
-- **Joan Saurina**. Contributor.
+- **Joan Saurina**. Author.
 
 - **Andrea Manica**. Author, maintainer.
   [](https://orcid.org/0000-0003-1895-450X)
@@ -70,13 +70,14 @@ Source:
 [`DESCRIPTION`](https://github.com/EvolEcolGroup/tidygenclust/blob/main/DESCRIPTION)
 
 Tysall E, Hovhannisyan A, Carter E, Pozzi A, Padilla-Iglesias C,
-Leonardi M, Fatima A, Pelanek O, Stephenson N, Colucci M, Manica A
-(2026). *tidygenclust: Clustering for Population Genetics in R*. R
-package version 0.2.0, <https://github.com/EvolEcolGroup/tidygenclust>.
+Leonardi M, Fatima A, Pelanek O, Stephenson N, Colucci M, Saurina J,
+Manica A (2026). *tidygenclust: Clustering for Population Genetics in
+R*. R package version 0.2.0,
+<https://github.com/EvolEcolGroup/tidygenclust>.
 
     @Manual{,
       title = {tidygenclust: Clustering for Population Genetics in R},
-      author = {Eirlys Tysall and Anahit Hovhannisyan and Evie Carter and Andrea Pozzi and Cecilia Padilla-Iglesias and Michela Leonardi and Aramish Fatima and Ondrej Pelanek and Nile Stephenson and Margherita Colucci and Andrea Manica},
+      author = {Eirlys Tysall and Anahit Hovhannisyan and Evie Carter and Andrea Pozzi and Cecilia Padilla-Iglesias and Michela Leonardi and Aramish Fatima and Ondrej Pelanek and Nile Stephenson and Margherita Colucci and Joan Saurina and Andrea Manica},
       year = {2026},
       note = {R package version 0.2.0},
       url = {https://github.com/EvolEcolGroup/tidygenclust},
