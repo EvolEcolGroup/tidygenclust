@@ -5,6 +5,21 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-28 (laptopX1): 0.2.0 on main, ready for CRAN
+
+- #43 (merge commit into `dev`): `main`'s #40 merged with `-s ours`, its
+  article edits applied on top (squash of `articles_revised`, own changes
+  after #32 only); `dev`'s description of `gt_radmix()` (#33, #41) kept
+  where they conflicted. Conda snapshots of 1 Nov taken from `main`.
+- tidypopgen (>= 1.1.0), from CRAN, no `Remotes`; version 0.2.0;
+  `cran-comments.md` (build-ignored).
+- `R CMD check --as-cran` (tidypopgen 1.1.0 from CRAN): 0 errors, 0
+  warnings, 3 notes (new submission; local flag; V8 missing). Tests with
+  `NOT_CRAN=true`: 4053 passed. CI green on all platforms.
+- #44 (`dev` into `main`, merge commit): `main` = `dev` (same tree).
+- The annex USB drive kept disconnecting (lost writes); work done in a
+  clone on the internal drive, removed afterwards.
+
 ## 2026-11-28 (laptopX1): old branches deleted; tidypopgl's prefetch merged
 
 - Checked that `ccr-fd217561-izn297` is in `dev` (its tip inside #41's

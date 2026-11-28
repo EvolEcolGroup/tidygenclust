@@ -1,13 +1,11 @@
 # tidygenclust: handover
 
-Updated 2026-11-28 (laptopX1): `ada196_article` was squash-merged into
-`dev` as #41 (27 Nov, 6e33825): streaming of data larger than the memory,
-the Q side in chunks in memory, the review fixes (`gl_curvature`), the
-register-blocked Hessians and the benchmark article with its section on
-data larger than the memory. `dev` is at 0.1.5.9010 (#42 after it).
-tidypopgl's prefetch function for streaming is in its `dev` (#91), which
-requires tidygenclust >= 0.1.5.9010. `summary.md` first. History is in
-`progress.md`; designs are in the topic documents listed in `README.md`.
+Updated 2026-11-28 (laptopX1): 0.2.0 is on `main` (#44) and `dev`, ready
+for the first CRAN submission: `main`'s #40 merged into `dev` (#43),
+tidypopgen (>= 1.1.0) from CRAN without `Remotes`, `cran-comments.md`.
+`R CMD check --as-cran` gives only the new-submission note; CI green.
+`summary.md` first. History is in `progress.md`; designs are in the topic
+documents listed in `README.md`.
 
 ## Branches
 
@@ -16,8 +14,8 @@ requires tidygenclust >= 0.1.5.9010. `summary.md` first. History is in
 | `hgdp_plots` | Eirlys's HGDP plotting script (Jan 2025); `dev` has her later version (June 2025) | old `dev` | yes | no: kept until some runs are redone (Andrea, 28 Nov) |
 | `windows` | Ondra's experimental Windows support through WSL2 (`R/wsl_backend.R`, `vignettes/windows.Rmd`, a CI workflow, tests; Oct 2026); its adamixture commits are in `dev` (#30) | `dev` (June) | yes | no PR |
 
-`main` holds #40 (`articles_revised`, the revised articles, merged into
-`main` on 27 Nov) and two "Update conda snapshot" commits that `dev` lacks.
+`main` and `dev` have the same tree (0.2.0; `main` has one extra merge
+commit).
 
 Deleted 28 Nov (Andrea's go-ahead): `ccr-fd217561-izn297` and
 `adamixture-1.9.6-benchmark` (origin; the first is in `dev` through #41,
@@ -32,15 +30,25 @@ Nov: see `progress.md`.
 
 ## Next tasks
 
-### 1. **P2** [claude] bring `main`'s #40 into `dev`
+### 1. **P2** [claude] examples for the exported functions
 
-- `git merge origin/main` into a branch from `dev` (#40 revised
-  `vignettes/articles/pseudohaploids.Rmd` and the vignette; the conda
-  snapshot commits), resolve the conflicts, render the articles (`TMPDIR`
-  in a work folder), then a PR into `dev`.
-- **Done when:** `main` is an ancestor of `dev` again.
+- On a branch from `dev`: add `@examples` to the exported functions that
+  have none (`gt_radmix_data()`, `autoplot_gt_clumppling()`,
+  `subset_gt_clumppling()`, `tidy_gt_clumppling()`, `gt_fastmixture()`,
+  `gt_adamixture()`, the `tgc_*` installers and `tgc_tools_version()`),
+  with `\donttest{}` for those that need python; CRAN usually asks for them
+  on a first submission. Bump to 0.2.0.9000 (or 0.2.1 if resubmitting).
+- **Done when:** every exported function has examples and
+  `R CMD check --as-cran` stays clean.
 
-### 2. **P3** [cleanup] the article's data on manica01
+### 2. **P2** [andrea] submit 0.2.0 to CRAN
+
+- `devtools::submit_cran()` from `main` (after task 1 if wanted);
+  `cran-comments.md` is ready. After acceptance: tag the release, then
+  bump `dev` to 0.2.0.9000 (re-add `Remotes: EvolEcolGroup/tidypopgen@dev`
+  only if `dev` needs unreleased tidypopgen).
+
+### 3. **P3** [cleanup] the article's data on manica01
 
 - `~/project_temp/claude/tidygenclust/stream/` (about 75 GB: builds,
   benchmark data, the article's `mid/` and `large/`): delete when Andrea
