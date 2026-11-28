@@ -15,10 +15,17 @@ genetics with a focus on genetic clustering.
 
 Its core functionality is provided by native R and C++ code:
 
-- `gt_radmix()` to estimate ancestry proportions with the ADMIXTURE
-  method. It is a heavily optimized implementation of the algorithm 
-  of OpenADMIXTURE (Ko et al. 2023), ported to C++ from
-  [OpenADMIXTURE.jl](https://github.com/OpenMendel/OpenADMIXTURE.jl);
+- `gt_radmix()` to estimate ancestry proportions with the method of
+  ADMIXTURE (Alexander et al. 2009). It is a heavily optimized,
+  multithreaded C++ implementation of the algorithm of ADMIXTURE (block
+  relaxation with quasi-Newton acceleration), which works directly on a
+  `gen_tibble`, supports pseudohaploid data, and includes the
+  cross-validation of ADMIXTURE to choose K (Alexander & Lange 2011). Its
+  code started as a port of
+  [OpenADMIXTURE.jl](https://github.com/OpenMendel/OpenADMIXTURE.jl)
+  (Ko et al. 2023) and has since been extensively rewritten; its optional
+  SVD start adapts the alternating least squares of
+  [ADAMIXTURE](https://github.com/AI-sandbox/ADAMIXTURE);
 - `gt_clumppling()` to align multiple clustering runs within and across K
   with the method of clumppling (Liu, Kopelman & Rosenberg 2024), ported to
   R and C++, with modifications, from the python package
@@ -66,13 +73,21 @@ section of the website of the package:
 can bias the results of clustering (and how `gt_radmix()` can handle 
 pseudohaploids correctly).
 
+The [website](https://evolecolgroup.github.io/tidygenclust/) documents the
+version on the `main` branch; the documentation of the development version,
+on the `dev` branch, is at
+<https://evolecolgroup.github.io/tidygenclust/dev/>.
+
 ## References
 
 Alexander DH, Novembre J, Lange K (2009) Fast model-based estimation of
 ancestry in unrelated individuals. Genome Research, 19(9), 1655-1664.
 
+Alexander DH, Lange K (2011) Enhancements to the ADMIXTURE algorithm for
+individual ancestry estimation. BMC Bioinformatics, 12, 246.
+
 Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH, Sobel EM, Zhou H,
-Lange KL (2023) Unsupervised discovery of ancestry informative markers and
+Lange KL (2023) Unsupervised discovery of ancestry-informative markers and
 genetic admixture proportions in biobank-scale datasets. The American
 Journal of Human Genetics, 110(2), 314-325.
 

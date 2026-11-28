@@ -4,7 +4,7 @@
 \alias{tgc_adamixture_install}
 \title{Add \code{ADAMIXTURE} to the conda environment of \code{tidygenclust}}
 \usage{
-tgc_adamixture_install(adamixture_version = "1.8.9")
+tgc_adamixture_install(adamixture_version = "1.9.6")
 }
 \arguments{
 \item{adamixture_version}{a string with the version of \code{ADAMIXTURE} to

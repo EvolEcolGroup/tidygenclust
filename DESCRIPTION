@@ -1,6 +1,6 @@
 Package: tidygenclust
 Title: Clustering for Population Genetics in R
-Version: 0.1.5.9005
+Version: 0.2.0
 Authors@R: c(
     person("Eirlys", "Tysall", role = c("aut")),
     person("Anahit", "Hovhannisyan", role = c("aut")),
@@ -12,16 +12,25 @@ Authors@R: c(
     person("Ondrej", "Pelanek", role = c("aut")),
     person("Nile", "Stephenson", role = c("aut")),
     person("Margherita", "Colucci", role = c("aut")),
+    person("Joan", "Saurina", role = c("ctb")),
     person("Andrea", "Manica", , "am315@cam.ac.uk", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-1895-450X")),
     person("Seyoon", "Ko", role = "cph",
            comment = paste("Copyright holder of OpenADMIXTURE.jl, from which",
-                           "much of the C++ code of gt_radmix() is ported",
-                           "(see inst/COPYRIGHTS)")),
+                           "parts of the C++ code of gt_radmix() are",
+                           "ported (see inst/COPYRIGHTS)")),
     person("Kenneth", "Lange", role = "cph",
            comment = paste("Copyright holder of OpenADMIXTURE.jl, from which",
-                           "much of the C++ code of gt_radmix() is ported",
-                           "(see inst/COPYRIGHTS)")),
+                           "parts of the C++ code of gt_radmix() are",
+                           "ported (see inst/COPYRIGHTS)")),
+    person("Ioannidis Lab", role = "cph",
+           comment = paste("Copyright holder of ADAMIXTURE, from which the",
+                           "alternating least squares of gt_radmix() are",
+                           "adapted (see inst/COPYRIGHTS)")),
+    person("Jonas", "Meisner", role = "cph",
+           comment = paste("Author of fastmixture, from which the python",
+                           "code of gt_fastmixture() is derived (see",
+                           "inst/COPYRIGHTS)")),
     person("Xiran", "Liu", role = "cph",
            comment = paste("Author of clumppling, from which the code of",
                            "gt_clumppling() is ported (see inst/COPYRIGHTS)")),
@@ -32,7 +41,16 @@ Authors@R: c(
     person("Guy", "Allard", role = "cph",
            comment = paste("Copyright holder of markov_clustering, from",
                            "which the Markov clustering of gt_clumppling()",
-                           "is ported (see inst/COPYRIGHTS)"))
+                           "is ported (see inst/COPYRIGHTS)")),
+    person("Andrey", "Lopatin", role = "cph",
+           comment = paste("Author of the implementation of the Hungarian",
+                           "algorithm of cp-algorithms (CC BY-SA 4.0), from",
+                           "which the assignment solver of gt_clumppling()",
+                           "is adapted (see inst/COPYRIGHTS)")),
+    person("Alboukadel", "Kassambara", role = "cph",
+           comment = paste("Author of ggpubr, from which a helper of the",
+                           "plots of gt_clumppling() is copied (see",
+                           "inst/COPYRIGHTS)"))
     )
 Description: A tidy interface for population genetic clustering. This package
    provides a unified workflow to estimate, compare, summarize, and
@@ -41,8 +59,12 @@ Description: A tidy interface for population genetic clustering. This package
    diploid and pseudohaploid data, and integrates seamlessly with the
    tidypopgen ecosystem.
 License: GPL (>= 3)
-Copyright: See inst/COPYRIGHTS for the code ported from OpenADMIXTURE.jl,
-    clumppling, python-louvain and markov_clustering.
+URL: https://github.com/EvolEcolGroup/tidygenclust,
+    https://evolecolgroup.github.io/tidygenclust/
+BugReports: https://github.com/EvolEcolGroup/tidygenclust/issues
+Copyright: See inst/COPYRIGHTS for the code derived from OpenADMIXTURE.jl,
+    ADAMIXTURE, fastmixture, clumppling, python-louvain, markov_clustering,
+    cp-algorithms and ggpubr.
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends: 
@@ -58,7 +80,7 @@ Imports:
     rlang,
     stats,
     tibble,
-    tidypopgen,
+    tidypopgen (>= 1.1.0),
     tidyr,
     utils,
     vctrs

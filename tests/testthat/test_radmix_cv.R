@@ -82,11 +82,12 @@ test_that("invalid masks are rejected", {
 
 test_that("the deviance kernel matches the R reference", {
   # random q (columns on the simplex) and p, in the layout of the kernels
-  set.seed(1)
   k <- 3
-  q <- matrix(stats::runif(k * dat$n_indiv), k)
-  q <- sweep(q, 2, colSums(q), "/")
-  p <- matrix(stats::runif(k * dat$n_loci, 0.01, 0.99), k)
+  st <- radmix_ref_start(dat$n_indiv, dat$n_loci, k,
+    seed = 1, p_range = c(0.01, 0.99)
+  )
+  q <- st$q
+  p <- st$p
   cv <- list(mode = "held_out", fold = 2, n_folds = 5, seed = 11)
   held_out <- radmix_set_cv(dat, cv = cv)
   g_held_out <- radmix_decode(dat, cv = cv)
@@ -108,16 +109,13 @@ test_that("the deviance kernel matches the R reference", {
 })
 
 test_that("the deviance handles pseudohaploids", {
-  hap_genotypes <- sim$genotypes
-  hap_genotypes[1:20, ] <- 2 * (hap_genotypes[1:20, ] >= 1)
-  pseudo_dat <- radmix_prepare(
-    tidypopgen::gt_pseudohaploid(radmix_test_gt(hap_genotypes))
-  )
-  set.seed(2)
+  pseudo_dat <- radmix_prepare(radmix_pseudohaploid_gt(sim$genotypes, 1:20))
   k <- 2
-  q <- matrix(stats::runif(k * pseudo_dat$n_indiv), k)
-  q <- sweep(q, 2, colSums(q), "/")
-  p <- matrix(stats::runif(k * pseudo_dat$n_loci, 0.01, 0.99), k)
+  st <- radmix_ref_start(pseudo_dat$n_indiv, pseudo_dat$n_loci, k,
+    seed = 2, p_range = c(0.01, 0.99)
+  )
+  q <- st$q
+  p <- st$p
   expect_equal(
     radmix_deviance_cpp(pseudo_dat, q, p, 1),
     ref_deviance(radmix_decode(pseudo_dat), pseudo_dat$n_trials, q, p),
@@ -155,6 +153,121 @@ test_that("gt_radmix computes the cross-validation error", {
   # run of adm2 comes after those of adm with K = 2 and 3)
   expect_s3_class(ggplot2::autoplot(adm, type = "cv"), "ggplot")
   expect_identical(c(adm, adm2)$cv, c(adm$cv[1:2], adm2$cv, adm$cv[3]))
+})
+
+# The fit of a training view precomputes the genotypes it hides as a bit
+# mask (build_cv_mask() in src/radmix_geno_access.h)
+test_that("fold fits are identical with and without the precomputed mask", {
+  fit_fold <- function(d, mask, n_cores = 1) {
+    train <- radmix_set_cv(d, list(
+      mode = "train", fold = 2, n_folds = 5, seed = 7, mask = mask
+    ))
+    set.seed(1)
+    radmix_fit(train, k = 3, max_iter = 5, n_cores = n_cores)
+  }
+  # 80 individuals (a second word of bits per locus, partly used), and a
+  # subset in another order (gathered through the rows of its individuals)
+  cases <- list(dat, radmix_prepare(sim_gt[c(80:41, 1:20), ]))
+  for (d in cases) {
+    hashed <- fit_fold(d, mask = FALSE)
+    expect_identical(fit_fold(d, mask = TRUE), hashed)
+    expect_identical(fit_fold(d, mask = TRUE, n_cores = 2), hashed)
+  }
+})
+
+# A supervised fold fit reads the free individuals through their indices,
+# which may not start at a word of the bit mask: the bits are then read one
+# by one (slice_geno() in src/radmix_kernels.cpp)
+test_that("supervised fold fits are identical with and without the mask", {
+  # references in a run and scattered, so that the slices of free
+  # individuals are sometimes consecutive and sometimes not
+  labels <- rep(NA_character_, 80)
+  labels[c(1:10, 21:30, seq(43, 80, by = 4))] <- "A"
+  labels[c(11:15, seq(44, 80, by = 4))] <- "B"
+  labels[c(16:20, seq(45, 80, by = 4))] <- "C"
+  sup <- radmix_check_supervised(labels, 80, 3)
+  fit_fold <- function(mask, n_cores = 1) {
+    train <- radmix_set_cv(dat, list(
+      mode = "train", fold = 2, n_folds = 5, seed = 7, mask = mask
+    ))
+    set.seed(1)
+    radmix_fit(train, k = 3, sup_q = sup$q, max_iter = 5, n_cores = n_cores)
+  }
+  hashed <- fit_fold(mask = FALSE)
+  expect_identical(hashed$q[!is.na(labels), ], sup$q[!is.na(labels), ])
+  expect_identical(fit_fold(mask = TRUE), hashed)
+  expect_identical(fit_fold(mask = TRUE, n_cores = 2), hashed)
+})
+
+# Genotype likelihoods (through the example source of tidygenclust, see
+# radmix_test_gl()): the folds are drawn over the same individuals and loci,
+# and the deviance of a held-out individual and locus is
+# log max_x f(x) - log f(qp) (deviance() in src/radmix_kernels.cpp)
+test_that("cross-validation works with genotype likelihoods", {
+  k <- 3
+  st <- radmix_ref_start(dat$n_indiv, dat$n_loci, k,
+    seed = 3, p_range = c(0.01, 0.99)
+  )
+  cv <- list(mode = "held_out", fold = 2, n_folds = 5, seed = 11)
+  # the likelihoods of hard calls give the deviance of the genotypes (up
+  # to the likelihoods of 1e-14 of the other genotypes, see
+  # radmix_test_gl()), in the same folds
+  hard_ll <- array(-Inf, c(dim(sim$genotypes), 3))
+  for (gg in 0:2) hard_ll[, , gg + 1][sim$genotypes == gg] <- 0
+  hard_ll[is.na(sim$genotypes)] <- 0
+  hard <- radmix_test_gl(hard_ll)
+  expect_equal(
+    radmix_deviance_cpp(radmix_set_cv(hard, cv), st$q, st$p, 1),
+    radmix_deviance_cpp(radmix_set_cv(dat, cv), st$q, st$p, 1),
+    tolerance = 1e-8
+  )
+  # uncertain likelihoods, against the maximum of f found numerically, for
+  # the individuals and loci with data in the fold (the fold of each one is
+  # that of the genotypes of a dataset of the same size without missing
+  # genotypes)
+  set.seed(5)
+  ll <- radmix_simulate_gl(sim$genotypes, depth = 2)
+  gl_dat <- radmix_test_gl(ll)
+  full <- radmix_prepare(radmix_test_gt(
+    matrix(0L, dat$n_indiv, dat$n_loci)
+  ))
+  in_fold <- !is.na(radmix_decode(full, cv = cv)) & gl_dat$obs
+  f <- function(x, e1, e2) (1 - x)^2 + 2 * e1 * x * (1 - x) + e2 * x^2
+  qp <- t(st$q) %*% st$p
+  ref <- vapply(which(in_fold), function(t) {
+    best <- stats::optimize(f, c(0, 1),
+      e1 = gl_dat$e1[t], e2 = gl_dat$e2[t], maximum = TRUE, tol = 1e-10
+    )$objective
+    best <- max(best, f(0, gl_dat$e1[t], gl_dat$e2[t]),
+                f(1, gl_dat$e1[t], gl_dat$e2[t]))
+    log(best / f(qp[t], gl_dat$e1[t], gl_dat$e2[t]))
+  }, numeric(1))
+  dev <- radmix_deviance_cpp(radmix_set_cv(gl_dat, cv), st$q, st$p, 1)
+  expect_identical(dev[2], as.numeric(sum(in_fold)))
+  expect_equal(dev[1], sum(ref), tolerance = 1e-9)
+  expect_identical(
+    radmix_deviance_cpp(radmix_set_cv(gl_dat, cv), st$q, st$p, 2), dev
+  )
+  # the fits of a training view are identical with and without the bit
+  # mask, with and without references
+  labels <- rep(NA_character_, 80)
+  labels[c(1:10, seq(43, 80, by = 4))] <- "A"
+  labels[c(11:15, seq(44, 80, by = 4))] <- "B"
+  labels[c(16:20, seq(45, 80, by = 4))] <- "C"
+  sup <- radmix_check_supervised(labels, 80, 3)
+  for (sup_q in list(NULL, sup$q)) {
+    fit_fold <- function(mask, n_cores = 1) {
+      train <- radmix_set_cv(gl_dat, list(
+        mode = "train", fold = 2, n_folds = 5, seed = 7, mask = mask
+      ))
+      set.seed(1)
+      radmix_fit(train, k = 3, sup_q = sup_q, max_iter = 5,
+                 n_cores = n_cores)
+    }
+    hashed <- fit_fold(mask = FALSE)
+    expect_identical(fit_fold(mask = TRUE), hashed)
+    expect_identical(fit_fold(mask = TRUE, n_cores = 2), hashed)
+  }
 })
 
 test_that("invalid cross-validation arguments are caught", {

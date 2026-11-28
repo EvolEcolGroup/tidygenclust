@@ -8,7 +8,7 @@ tgc_tools_install(
   tools = c("fastmixture", "admixture", "adamixture"),
   reset = FALSE,
   fastmixture_hash = "1f03a8980be4872341e5faca9d6f2dfc7ccbfe35",
-  adamixture_version = "1.8.9",
+  adamixture_version = "1.9.6",
   conda_yaml = "auto",
   ci_install = FALSE
 )
@@ -37,7 +37,8 @@ NULL, it is also possible to provide a vector of length one, and the value
 will apply to all the conda environments (e.g. \code{conda_yaml="auto"} is
 equivalent to \code{conda_yaml = c("auto", "auto")} in osx); a single path is
 used for \code{ctidygenclust} (and "auto" for the environment of ADMIXTURE on
-osx). Tools that are not in \code{tools} are left out of the yaml files.}
+osx). Tools that are not in \code{tools} are left out of the yaml files, as
+is \code{fastmixture}, which is always installed from github.}
 
 \item{ci_install}{a boolean indicating if the installation is being run on
 continuous integration (CI) services. Default is FALSE. If TRUE, the

@@ -2,16 +2,21 @@
 #'
 #' This function aligns multiple runs of a clustering algorithm (e.g.
 #' ADMIXTURE or STRUCTURE) with the method of clumppling (Liu, Kopelman and
-#' Rosenberg 2024). `gt_clumppling()` is anative R and C++ code port, with
-#' modifications to enhance performance, from the
+#' Rosenberg 2024). `gt_clumppling()` is a native R and C++ port, with
+#' modifications to enhance performance, of the
 #' python package clumppling (version 2.0.10, by Xiran Liu;
 #' <https://github.com/PopGenClustering/Clumppling>), and gives the same
 #' results without the need for Python. The main modifications are that the
 #' alignment of each pair of runs, an integer linear program in clumppling,
-#' is solved exactly as an equivalent assignment problem, and that community
+#' is solved exactly as an equivalent assignment problem (with an
+#' implementation of the Hungarian algorithm adapted from cp-algorithms),
+#' and that community
 #' detection uses ports of the implementations that clumppling uses through
 #' cdlib (python-louvain, in C++, and markov_clustering, in R) or the
-#' `igraph` package. If you use this function, make sure that
+#' `igraph` package. The licences of the ported code are in the file
+#' `COPYRIGHTS` of the package
+#' (`system.file("COPYRIGHTS", package = "tidygenclust")`). If you use this
+#' function, make sure that
 #' you cite the paper on clumppling by Liu, Kopelman, and Rosenberg (2024).
 #'
 #' The example data (`capeverde_admix.rds` and `chicken_admix.rds` in
@@ -156,11 +161,8 @@ gt_clumppling <- function(
   # the other options are single values: NA or non-finite values would make
   # community detection fail in obscure ways (a non-finite resolution made
   # louvain loop forever)
-  for (arg in c("use_rep", "merge", "use_best_pair", "test_comm")) {
-    value <- get(arg)
-    if (!is.logical(value) || length(value) != 1 || is.na(value)) {
-      stop("'", arg, "' must be TRUE or FALSE")
-    }
+  for (flag in c("use_rep", "merge", "use_best_pair", "test_comm")) {
+    check_flag(get(flag), flag)
   }
   is_number <- function(value) {
     is.numeric(value) && length(value) == 1 && is.finite(value)
@@ -316,9 +318,7 @@ subset_gt_clumppling <- function(x, k = NULL, indivs = NULL) {
         "K in K_range"
       )
     }
-    # the K of each mode, from its name (e.g. 12 for "K12M3"); selecting modes
-    # by matching the text "K1" would also select K10, K11, ...
-    mode_k <- function(mode) as.integer(sub("^K(\\d+)M\\d+$", "\\1", mode))
+    # the K of each mode, from its name (see mode_k())
     keep_modes <- mode_k(names(x$aligned_modes)) %in% k
     x$K_range <- x$K_range[x$K_range %in% k]
     x$aligned_modes <- x$aligned_modes[keep_modes]

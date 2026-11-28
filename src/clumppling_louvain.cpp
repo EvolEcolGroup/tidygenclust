@@ -1,14 +1,21 @@
 // Louvain community detection for the native clumppling port.
 //
 // clumppling detects modes with cdlib's louvain(), which calls
-// best_partition() from python-louvain (Thomas Aynaud, BSD-3-Clause,
-// https://github.com/taynaud/python-louvain; see inst/COPYRIGHTS). This is a
-// C++ port of that implementation: the same local moving phase (nodes and
+// best_partition() from python-louvain, version 0.16
+// (https://github.com/taynaud/python-louvain):
+//   Copyright (c) 2009-2018, Thomas Aynaud <thomas.aynaud@lip6.fr>
+//   All rights reserved.
+// python-louvain is distributed under the BSD 3-clause licence, whose full
+// text (with its conditions and disclaimer) is in inst/COPYRIGHTS. This file
+// is a C++ port of best_partition(), generate_dendrogram(),
+// partition_at_level(), induced_graph(), __one_level() (with __neighcom(),
+// __insert() and __remove()), __modularity(), __randomize() and
+// __renumber() of community/community_louvain.py, and of the Status class
+// of community/community_status.py: the same local moving phase (nodes and
 // candidate communities are visited in random order, a node only moves for a
 // strictly positive gain, a level stops when modularity improves by less than
-// 1e-7),
-// the same aggregation into an induced graph, and the partition at the top
-// level of the dendrogram is returned. Random orders are drawn from R's RNG
+// 1e-7), the same aggregation into an induced graph, and the partition at the
+// top level of the dendrogram is returned. Random orders are drawn from R's RNG
 // rather than numpy's, so results for a given seed are not identical to the
 // python ones when the community structure is ambiguous.
 //
@@ -53,13 +60,16 @@ namespace {
 // (__MIN in python-louvain)
 const double clumppling_louvain_min = 0.0000001;
 
-// An undirected weighted graph, stored as a dense matrix
+// An undirected weighted graph, stored as a dense matrix; degree and
+// total_weight are only valid after finalise()
 struct clumppling_graph {
-  int n;
+  int n; // number of nodes
   std::vector<double> w; // n x n symmetric weights, diagonal = self loops
   std::vector<double> degree; // weighted degree, self loops counted twice
   double total_weight; // sum of the weights of all edges (self loops once)
 
+  // the weight of edge (i, j), 0 if there is no edge (w is row-major, but
+  // symmetric)
   double weight(int i, int j) const { return w[static_cast<size_t>(i) * n + j]; }
 
   // compute the degrees and total weight once the weights are set, as
@@ -84,7 +94,7 @@ struct clumppling_status {
   std::vector<double> gdegrees; // degree of each node
   std::vector<double> loops; // self loop of each node
   std::vector<double> internals; // internal weight of each community
-  double total_weight;
+  double total_weight; // total weight of the graph (m in the formulas)
 
   // every node in its own community (Status.init() without a partition)
   void init(const clumppling_graph& g) {
@@ -113,7 +123,8 @@ void clumppling_shuffle(std::vector<int>& x) {
 }
 
 // Modularity of the current partition (__modularity() in python-louvain, see
-// the top of the file), summed over the communities that have nodes
+// the top of the file), summed over the communities that have nodes; 0 for a
+// graph without edges. Every node must be in a community (no -1 labels).
 double clumppling_modularity(const clumppling_status& s, double resolution) {
   const double links = s.total_weight;
   std::vector<char> present(s.node2com.size(), 0);
@@ -128,7 +139,10 @@ double clumppling_modularity(const clumppling_status& s, double resolution) {
   return result;
 }
 
-// One level of local moving (__one_level() in python-louvain)
+// One level of local moving (__one_level() in python-louvain): starting from
+// the partition in s (every node in its own community after init()), moves
+// nodes between communities as described at the top of the file, updating s
+// in place; on return, s.node2com is the partition of this level.
 void clumppling_one_level(const clumppling_graph& g, clumppling_status& s,
                           double resolution) {
   const int n = g.n;

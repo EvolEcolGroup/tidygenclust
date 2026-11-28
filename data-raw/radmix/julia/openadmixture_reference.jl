@@ -12,8 +12,8 @@
 #
 # q0 (K x I) and p0 (K x J) are the starting values, written by R as plain
 # comma-separated matrices. Starting from them, we call the internal functions
-# of OpenADMIXTURE.jl that gt_radmix() reimplements, and write each result
-# to <output dir> for R to compare:
+# of OpenADMIXTURE.jl for the computations that the test compares with
+# gt_radmix(), and write each result to <output dir> for R to compare:
 #   loglik.csv        log-likelihood at (q0, p0)
 #   em_q.csv/em_p.csv one FRAPPE EM step (em_q!/em_p! in :base mode)
 #   upd_q.csv         one Newton update of Q (update_q!)

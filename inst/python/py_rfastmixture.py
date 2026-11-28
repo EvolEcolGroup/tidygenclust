@@ -1,6 +1,16 @@
-# this is derived from https://github.com/Rosemeis/fastmixture/blob/main/fastmixture/main.py
-# @author of the original file Jonas Meisner
-# modified by Andrea Manica for use with tidygenclust
+# This file is derived from fastmixture
+# (https://github.com/Rosemeis/fastmixture; Santander, Refoyo-Martinez and
+# Meisner 2024): its command line parser
+# (fastmixture/main.py) and its main function (fastmixture/fastmixture.py,
+# version 1.3.0), whose author is Jonas Meisner. fastmixture is distributed
+# under the GNU General Public License version 3 (GPL-3.0-only), and so is
+# this file, as modified (see inst/COPYRIGHTS).
+#
+# Modified by Andrea Manica for use with tidygenclust, September 2024 to
+# November 2026: the arguments come from R instead of the command line, the
+# estimates are returned to R instead of being written to files, the
+# genotypes can be read from the backing file of a gen_tibble, and the
+# numbers of threads are limited with threadpoolctl.
 #
 # fastmixture_run() follows the main function of fastmixture (version 1.3.0,
 # fastmixture/fastmixture.py), but it returns the estimates to R instead of

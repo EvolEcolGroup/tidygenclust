@@ -1,15 +1,84 @@
+#' Provide the data of gt_radmix() for a class (for package developers)
+#'
+#' [gt_radmix()] reads the data of `x` through `gt_radmix_data()`, a generic
+#' with a method for a [`tidypopgen::gen_tibble`]. Packages that store their
+#' data differently can provide methods for their own classes: this is how
+#' `gt_radmix()` fits genotype likelihoods, without tidygenclust depending
+#' on the packages that store them. Users do not need to call it.
+#'
+#' @details A method for genotype likelihoods returns a list with the
+#'   elements:
+#'   - `kind`: `"gl_source"`;
+#'   - `version`: `1L`, the version of the interface;
+#'   - `fill`: an external pointer (made with `R_MakeExternalPtrFn()`) to a
+#'   C function that fills the likelihoods of a block of individuals at one
+#'   locus, tagged with the symbol `tidygenclust_gl_fill`;
+#'   - `ctx`: an external pointer to the data that the function reads (its
+#'   context);
+#'   - `n_indiv`, `n_loci`: the numbers of individuals and loci, in the order
+#'   of the rows of `x` and of [tidypopgen::show_loci()] (which label the
+#'   rows of Q and of P);
+#'
+#'   and any other element that must stay alive while `gt_radmix()` uses
+#'   the source (e.g. the file-backed matrix that the context points into).
+#'   The C function is specified in the header
+#'   `include/tidygenclust/radmix_gl_source.h` of the installed package,
+#'   which a package can copy (or use with `LinkingTo: tidygenclust`):
+#'   it gives the likelihoods of 1 and 2 copies of `allele2` relative to
+#'   that of 0 copies, and whether each individual has data, and it is
+#'   called from several threads, so it must not call R. The file
+#'   `src/radmix_gl_source.cpp` of tidygenclust's sources is an example,
+#'   used by its tests. `P` then gives the frequency of `allele2`.
+#'   Starts from the SVD and imputed genotypes are not available for
+#'   genotype likelihoods: `gt_radmix()` checks them itself,
+#'   and calls a method with `x` alone (`use_imputed` is only given to the
+#'   method for a `gen_tibble`, when it is `TRUE`).
+#'
+#'   The list for a `gen_tibble` is internal to tidygenclust, and may
+#'   change.
+#'
+#' @param x the object given to [gt_radmix()]
+#' @param ... further arguments for methods
+#' @returns a list (see the details)
+#' @seealso [gt_radmix()], whose details describe the model of genotype
+#'   likelihoods
+#' @keywords internal
+#' @export
+gt_radmix_data <- function(x, ...) {
+  UseMethod("gt_radmix_data")
+}
+
+#' @rdname gt_radmix_data
+#' @export
+gt_radmix_data.default <- function(x, ...) {
+  stop(
+    "'x' should be a gen_tibble, or an object for which a package provides ",
+    "a method of gt_radmix_data()",
+    call. = FALSE
+  )
+}
+
+#' @rdname gt_radmix_data
+#' @param use_imputed boolean; for a `gen_tibble`, whether imputed genotypes
+#'   should be used, as in [gt_radmix()]
+#' @export
+gt_radmix_data.gen_tbl <- function(x, use_imputed = FALSE, ...) {
+  radmix_prepare(x, use_imputed = use_imputed)
+}
+
 #' Prepare a gen_tibble for the kernels of gt_radmix()
 #'
 #' Extracts the FBM, the row (individual) and column (locus) indices of the
 #' current selection, the lookup table used to decode the raw bytes, and the
-#' number of trials (allele copies) per individual.
+#' number of trials (allele copies) per individual. This is the method of
+#' `gt_radmix_data()` for a `gen_tibble`.
 #'
 #' @param x a [`tidypopgen::gen_tibble`]
 #' @param use_imputed boolean; if `TRUE`, imputed genotypes (bytes 4-6 in
 #'   bigsnpr's `CODE_IMPUTE_PRED`) are used as observed genotypes; otherwise
 #'   they are treated as missing.
-#' @returns a list with elements `fbm`, `rows`, `cols`, `lut`, `n_trials`,
-#'   `scale`, `n_indiv` and `n_loci`
+#' @returns a list with elements `fbm`, `rows`, `cols`, `kind` ("code256"),
+#'   `lut`, `n_trials`, `scale`, `n_indiv` and `n_loci`
 #' @keywords internal
 #' @noRd
 radmix_prepare <- function(x, use_imputed = FALSE) {
@@ -88,10 +157,13 @@ radmix_prepare <- function(x, use_imputed = FALSE) {
 
   # The C++ code reads the elements it needs by name; n_indiv and n_loci are
   # only used in R (the C++ code takes the dimensions from rows and cols).
+  # `kind` tells genotypes from the genotype likelihoods of other packages
+  # (see gt_radmix_data()).
   list(
     fbm = fbm,
     rows = as.integer(rows),
     cols = as.integer(cols),
+    kind = "code256",
     lut = lut,
     n_trials = n_trials,
     scale = scale,
@@ -126,7 +198,10 @@ radmix_decode <- function(data, cv = NULL) {
 #' @param data the output of `radmix_prepare()`
 #' @param cv `NULL` (no mask) or a list with elements `mode` ("train" or
 #'   "held_out"), `fold` (1 to `n_folds`), `n_folds` and `seed` (a
-#'   non-negative integer, stored as a double)
+#'   non-negative integer, stored as a double), and optionally `mask`
+#'   (`TRUE` by default): whether the fit of a training view may precompute
+#'   which genotypes it hides, as a bit mask (src/radmix_geno_access.h); the
+#'   results are the same either way
 #' @returns `data`, with an element `cv` holding the integer `mode`
 #'   (0 = none, 1 = train, 2 = held out) and the other elements, as expected
 #'   by the C++ functions
@@ -156,7 +231,8 @@ radmix_set_cv <- function(data, cv = NULL) {
     mode = match(cv$mode, c("train", "held_out")),
     fold = as.integer(cv$fold),
     n_folds = as.integer(cv$n_folds),
-    seed = as.numeric(cv$seed)
+    seed = as.numeric(cv$seed),
+    mask = if (is.null(cv$mask)) TRUE else isTRUE(cv$mask)
   )
   data
 }

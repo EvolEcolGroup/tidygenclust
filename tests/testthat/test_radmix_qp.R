@@ -44,8 +44,8 @@ test_that("QP matches quadprog with and without the sum constraint", {
       info <- paste("simplex =", simplex, "rep =", rep)
       expect_equal(res$delta, ref, tolerance = 1e-6, info = info)
       est <- prob$par + res$delta
-      # as in Julia, a vertex of the simplex (one entry at 1) is reached but
-      # the active set then cycles until the iteration limit, returning 0
+      # a vertex of the simplex (one entry at 1) is reached, but the active
+      # set then cycles, which is detected and reported as 0
       vertex <- simplex && max(est) > 1 - 1e-8
       if (!vertex) expect_gt(res$iter, 0)
       expect_true(all(est >= -1e-10 & est <= 1 + 1e-10), info = info)
@@ -94,6 +94,35 @@ test_that("zero or indefinite Hessians fail with a zero step", {
   res <- radmix_qp_solve_cpp(matrix(0, 3, 3), grad, par, simplex = TRUE)
   expect_identical(res$iter, 0L)
   expect_identical(res$delta, rep(0, 3))
+})
+
+test_that("nearly singular Hessians are shifted rather than giving no step", {
+  grad <- c(1, -1, 0.5)
+  par <- c(0.2, 0.3, 0.5)
+  # positive semi-definite of rank 2: the pivot of the third parameter
+  # vanishes, so the plain solver gives up
+  v <- cbind(c(1, 2, 3), c(0, 1, -1))
+  h <- v %*% t(v)
+  for (simplex in c(FALSE, TRUE)) {
+    plain <- radmix_qp_solve_cpp(h, grad, par, simplex = simplex)
+    if (!simplex) expect_identical(plain$delta, rep(0, 3))
+    res <- radmix_qp_solve_cpp(h, grad, par, simplex = simplex, ridge = TRUE)
+    expect_identical(res$shifted, plain$passes == 0L)
+    # without a failure, the plain step; otherwise the step of the problem
+    # with the smallest shift that succeeds
+    shifted <- h + diag(1e-6 * mean(diag(h)) * res$shifted, 3)
+    expect_identical(
+      res$delta,
+      radmix_qp_solve_cpp(shifted, grad, par, simplex = simplex)$delta
+    )
+  }
+  expect_true(any(res$delta != 0))
+  # a zero or indefinite Hessian still gives no step
+  for (bad in list(matrix(0, 3, 3), diag(c(-1, -1, 1)))) {
+    res <- radmix_qp_solve_cpp(bad, grad, par, simplex = FALSE, ridge = TRUE)
+    expect_identical(res$delta, rep(0, 3))
+    expect_false(res$shifted)
+  }
 })
 
 test_that("mismatched dimensions are rejected", {

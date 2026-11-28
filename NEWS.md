@@ -1,4 +1,43 @@
-# tidygenclust (development version)
+# tidygenclust 0.2.0
+* `gt_radmix()` streams data larger than the memory: its passes read the
+  backing file in chunks, with the next chunk read ahead and alternating
+  directions, and give identical results (options
+  `tidygenclust.radmix_stream` and `tidygenclust.radmix_chunk_mb`; a source
+  of genotype likelihoods can give a prefetch function, see
+  `inst/include/tidygenclust/radmix_gl_source.h`)
+* `gt_radmix()` is 15-20% faster on genotypes in memory with 8,192
+  individuals or more: their passes over the individuals now take the loci
+  in chunks too
+* new `gl_curvature` argument of `gt_radmix()`: `"observed"` takes Newton
+  steps with the curvature of the log-likelihood of genotype likelihoods,
+  about 1.5 times faster on low-depth data (`"complete"`, the default,
+  keeps the curvature of the EM algorithm)
+* `gt_radmix(init = "svd")` computes its SVD with tidypopgen's `gt_pca()`:
+  missing genotypes no longer need imputing (also for pseudohaploids), it
+  uses about 1 GB less memory, and it is faster without an optimised BLAS
+  (needs tidypopgen >= 1.1.0)
+* `gt_radmix()` is 6-24% faster per iteration from K = 7 (more at larger
+  K), with the same results up to rounding
+* `gt_radmix()` reports in its log the largest change of the estimates at
+  each iteration, and the new `step_tol` can require it to be small before
+  stopping; a decrease of the log-likelihood no longer counts as
+  convergence
+* `gt_radmix()`: fix columns that froze when a Newton step met a nearly
+  singular Hessian (e.g. a near-empty cluster at large K); the step is now
+  taken with a small ridge shift
+* `gt_radmix()` is faster on subsets of individuals that are filtered or
+  reordered (13-27% fewer cycles per pass), with identical results
+* `gt_radmix()` also fits genotype likelihoods, with the model of NGSadmix
+  (Skotte, Korneliussen & Albrechtsen 2013) and the algorithm of ADMIXTURE.
+  tidygenclust does not store genotype likelihoods: a package that does can
+  provide a method of the new generic `gt_radmix_data()`, which gives the
+  kernels a C function that reads its likelihoods (see
+  `inst/include/tidygenclust/radmix_gl_source.h`), so tidygenclust does not
+  depend on it. `P` then gives the frequency of
+  `allele2`. Cross-validation (with the deviance of the held-out
+  likelihoods) and starts from the SVD (of the posterior dosages under the
+  emMAF allele frequencies, with `svd_power` power iterations) are
+  available; `use_imputed` is not.
 * New `gt_adamixture()`: ancestry estimation with the python package
   ADAMIXTURE (Saurina-i-Ricos, Mas Montserrat & Ioannidis 2026), run with
   `reticulate` like `gt_fastmixture()`, on a `gen_tibble` (including subsets)
@@ -6,18 +45,56 @@
   is installed by default by `tgc_tools_install()`, or added to an existing
   environment with the new `tgc_adamixture_install()`, and its version is
   reported by `tgc_tools_version()`.
-* New `gt_radmix()`: ancestry estimation with the ADMIXTURE method, using a
-  modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023).
-  Its results are checked
-  against OpenADMIXTURE.jl and ADMIXTURE in the test suite.
+* New `gt_radmix()`: ancestry estimation with the ADMIXTURE method
+  (Alexander, Novembre & Lange 2009) and the algorithm of ADMIXTURE (EM
+  priming, block relaxation with constrained Newton steps, and the
+  quasi-Newton acceleration of Zhou, Alexander & Lange 2011), in
+  multithreaded C++ that reads the `gen_tibble` directly, with the
+  cross-validation of ADMIXTURE (Alexander & Lange 2011) and support for
+  pseudohaploids. Its results are checked against ADMIXTURE and
+  OpenADMIXTURE.jl in the test suite.
   It stops when the log-likelihood changes by less than a relative 1e-8
-  (`rtol`), a stricter threshold than OpenADMIXTURE.jl's 1e-7.
+  (`rtol`).
   With `init = "svd"`, runs start from the SVD of the genotypes, as in
   fastmixture and ADAMIXTURE, for a faster single fit of large datasets.
+  The refits of the folds of cross-validation stop at a relative change of
+  1e-7 (`cv_rtol`), which halves the cost of cross-validation on data whose
+  refits are slow to converge, with errors lower by at most 2e-4 in our
+  tests and the same K chosen; `cv_max_iter` and a larger `cv_rtol` shorten
+  them further (faster, but with errors biased downwards, more so at larger
+  K), and `cv_rtol = rtol` refits each fold to convergence.
   Its computations were sped up by cheaper decoding of the genotypes and
   likelihood terms and by processing two loci at a time (about 1.3-1.4x),
   and, on x86-64 Linux, by also compiling them for AVX2 and FMA (about 1.6x
-  in all).
+  in all). A later reorganisation of the computations made fits slightly
+  faster (a few percent), with the same numbers of iterations and estimates
+  that differ from those of earlier development versions only by rounding.
+  Each iteration now reads the genotypes four times instead of five: the
+  log-likelihood of the point an iteration ends at is computed in the same
+  pass as the first update of the next iteration, with the same iterations
+  and estimates. With `crossval = TRUE`, the fit of each fold computes once
+  which genotypes it hides (a bit mask, one bit per genotype) instead of in
+  every pass, so its passes cost as much as those of the main fit instead of
+  about 1.5 times as much; the cross-validation errors are identical. On
+  x86-64 Linux, the computation of the expected genotypes and of the
+  log-likelihood in each pass is now also compiled for AVX2 and FMA, and
+  the log-likelihood is cheaper; with the fused pass, an iteration takes
+  about 0.8 of the time it took on one core (HGDP, 1043 x 130,943, K = 5),
+  with the same iterations and estimates that differ only by rounding.
+  The work on Q of datasets with fewer than 8,192 individuals is split into
+  more tasks (128 rather than 32), which makes fits on 8 threads 3-6%
+  faster (estimates differ only by rounding).
+  `?gt_radmix` describes the algorithm, the reproducibility of the results,
+  and how they compare with those of ADMIXTURE.
+  Supervised analyses, as ADMIXTURE's `--supervised` option, are run with
+  the new argument `supervised`: the population of each reference
+  individual (`NA` for the individuals to estimate), whose ancestry is then
+  fixed. As in ADMIXTURE, `k` must equal the number of reference
+  populations, and the columns of Q follow the order of their first
+  appearance (or the levels of a factor); the result lists them in
+  `ref_pops`. Cross-validation is available, and the fit skips the work of
+  the reference individuals. The estimates are checked against ADMIXTURE in
+  the test suite. Supervised analyses also work with genotype likelihoods.
 * `gt_clumppling()` is now a native R and C++ port, with modifications, of
   clumppling 2.0.10 (Liu, Kopelman & Rosenberg 2024, by Xiran Liu).
 * The conda environment is no longer needed by default, as the core

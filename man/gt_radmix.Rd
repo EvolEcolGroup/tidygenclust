@@ -11,22 +11,30 @@ gt_radmix(
   seed = NULL,
   max_iter = 1000,
   rtol = 1e-08,
+  step_tol = NULL,
   n_em_iter = 5,
   n_qn = 3,
+  gl_curvature = c("complete", "observed"),
   init = c("random", "svd"),
+  svd_power = 3,
   init_q = NULL,
   init_p = NULL,
   fix_q = FALSE,
   fix_p = FALSE,
+  supervised = NULL,
   use_imputed = FALSE,
   crossval = FALSE,
   n_folds = 5,
+  cv_max_iter = max_iter,
+  cv_rtol = max(rtol, 1e-07),
   n_cores = 1,
   verbose = FALSE
 )
 }
 \arguments{
-\item{x}{a \code{\link[tidypopgen:gen_tibble]{tidypopgen::gen_tibble}} (possibly grouped)}
+\item{x}{a \code{\link[tidypopgen:gen_tibble]{tidypopgen::gen_tibble}}, or genotype likelihoods from
+another package (see "Genotype likelihoods" in the details), possibly
+grouped}
 
 \item{k}{an integer vector giving the number(s) of ancestral populations}
 
@@ -40,30 +48,51 @@ state is restored on exit.}
 \item{max_iter}{the maximum number of iterations (defaults to 1000)}
 
 \item{rtol}{the convergence threshold on the relative change in
-log-likelihood between iterations (defaults to 1e-8). OpenADMIXTURE.jl
-uses 1e-7, which takes 10-20\% less time but can stop a few
-log-likelihood units short of convergence, with ancestry proportions up
-to about 0.05 away from the converged ones}
+log-likelihood between iterations (defaults to 1e-8). A threshold of
+1e-7 takes 10-20\% less time, but can stop a few log-likelihood units
+short of convergence, with ancestry proportions up to about 0.05 away
+from the converged ones}
+
+\item{step_tol}{optional second convergence threshold: the largest change
+of any ancestry proportion or allele frequency in the first round of
+block updates of an iteration (e.g. 1e-4). If given, the fit stops only
+when both this change and the relative change in log-likelihood fall
+below their thresholds. Defaults to \code{NULL}, to stop on \code{rtol} alone.
+Not used by the refits of cross-validation.}
 
 \item{n_em_iter}{the number of EM iterations used to prime the estimates
-(defaults to 5); not used with \code{init = "svd"}}
+(defaults to 5, as in ADMIXTURE); not used with \code{init = "svd"}}
 
 \item{n_qn}{the number of secant pairs used by the quasi-Newton
-acceleration (defaults to 3)}
+acceleration (defaults to 3, as in ADMIXTURE)}
+
+\item{gl_curvature}{the curvature used by the Newton steps for genotype
+likelihoods: \code{"complete"} (the default), that of the expected
+log-likelihood of the genotypes; or \code{"observed"}, that of the
+log-likelihood itself (floored), usually faster on low-depth data (see
+"Genotype likelihoods" in the details). Not used with genotypes, for
+which the two are the same}
 
 \item{init}{how the starting values of each run are chosen: \code{"random"}
 (the default), random values followed by \code{n_em_iter} EM iterations, as
-in ADMIXTURE and OpenADMIXTURE; or \code{"svd"}, from a truncated SVD of the
+in ADMIXTURE; or \code{"svd"}, from a truncated SVD of the
 genotypes, which needs fewer iterations but is not suited to exploring
 the modes of the likelihood with several runs (see "Starting values
 from the SVD" in the details). \code{"svd"} cannot be combined with \code{init_q}
 or \code{init_p}.}
 
+\item{svd_power}{the number of power iterations of the randomised SVD of
+genotype likelihoods used by \code{init = "svd"} (defaults to 3; see
+"Starting values from the SVD" in the details). Not used with
+genotypes, whose truncated SVD is computed by
+\code{\link[tidypopgen:gt_pca_partialSVD]{tidypopgen::gt_pca_partialSVD()}}}
+
 \item{init_q}{optional matrix (individuals x k) of starting ancestry
 proportions; only allowed with a single value of \code{k}}
 
 \item{init_p}{optional matrix (loci x k) of starting allele frequencies
-(of the alternate allele, as in the P matrices returned by this
+(of the alternate allele, or of \code{allele2} for genotype likelihoods, as
+in the P matrices returned by this
 function; those of \code{\link[tidypopgen:gt_admixture]{tidypopgen::gt_admixture()}} give the frequency of
 the reference allele, so use \code{1 - P}); only allowed with a single value
 of \code{k}. If it has row names (as the P matrices returned by this
@@ -74,16 +103,33 @@ in the order of the loci of \code{x}}
 \item{fix_q, fix_p}{booleans; if \code{TRUE}, Q (respectively P) is kept at the
 value given in \code{init_q} (respectively \code{init_p})}
 
+\item{supervised}{optional vector (character or factor) with one element
+per individual of \code{x}, for a supervised analysis (as ADMIXTURE's
+\code{--supervised}): the population of each reference individual, whose
+ancestry is then fixed, and \code{NA} for the individuals to estimate. \code{k}
+must be a single value, equal to the number of populations. See
+"Supervised analyses" in the details.}
+
 \item{use_imputed}{boolean; if \code{TRUE}, imputed genotypes are used as if
-they were observed; otherwise they are treated as missing (the default)}
+they were observed; otherwise they are treated as missing (the default).
+Only for genotypes.}
 
 \item{crossval}{boolean; should the cross-validation error be computed
-(defaults to \code{FALSE})? See the details.}
+(defaults to \code{FALSE})? See the details (for genotype likelihoods, the
+error is the deviance of the held-out likelihoods).}
 
 \item{n_folds}{the number of folds used for cross-validation (defaults to
 5, as in ADMIXTURE)}
 
-\item{n_cores}{the number of cores to use (defaults to 1)}
+\item{cv_max_iter, cv_rtol}{the maximum number of iterations and the
+convergence threshold of the refit of each fold in cross-validation
+(default to \code{max_iter}, as for the full data, and to 1e-7, or \code{rtol} if
+it is larger). Smaller \code{cv_max_iter} or larger \code{cv_rtol} make
+cross-validation faster but bias its errors downwards (see
+"Cross-validation" in the details).}
+
+\item{n_cores}{the number of cores to use (defaults to 1); the results
+do not depend on it}
 
 \item{verbose}{boolean; should progress be printed (defaults to \code{FALSE})?
 With \code{verbose = TRUE}, the log-likelihood is also computed (and logged)
@@ -97,12 +143,15 @@ an object of class \code{gt_admix}, a list with elements:
 \item \code{Q} a list of \code{\link[tidypopgen:q_matrix]{tidypopgen::q_matrix()}} objects with the ancestry
 proportions
 \item \code{P} a list of matrices (loci x k) with the alternate allele frequencies
+(frequencies of \code{allele2} for genotype likelihoods)
 \item \code{log} a list with the log of each run
 \item \code{loglik} the log-likelihood of each run
 \item \code{converged} whether each run converged
 \item \code{cv} the cross-validation error of each run (if \code{crossval} is \code{TRUE})
 \item \code{id} the id column of \code{x}
 \item \code{group} the group column of \code{x} (if \code{x} is grouped)
+\item \code{ref_pops} the reference population of each column of Q and P (only for
+a supervised analysis)
 \item \code{algorithm} "radmix"
 }
 }
@@ -110,25 +159,36 @@ proportions
 This function estimates individual ancestry proportions (Q) and the allele
 frequencies of the ancestral populations (P) with the method of ADMIXTURE
 (Alexander et al. 2009), i.e. by maximum likelihood under the ADMIXTURE
-model. It uses a modified version of the algorithm of OpenADMIXTURE (Ko et
-al. 2023): EM priming, block-wise Newton updates solved as constrained
-quadratic programs, and quasi-Newton acceleration. Much of its C++ code is
-ported from the Julia implementation of OpenADMIXTURE,
-\href{https://github.com/OpenMendel/OpenADMIXTURE.jl}{OpenADMIXTURE.jl}, by Ko
-et al. The function has a different name because it differs from
-OpenADMIXTURE: it does not include the selection of ancestry informative
-markers (sparse K-means) that is a central part of OpenADMIXTURE; we
-implemented the cross-validation of ADMIXTURE, to choose K, which is not
-part of OpenADMIXTURE; it supports pseudohaploid data; and it changes some
-details of the computations (see "Differences from OpenADMIXTURE.jl"
-below). If you use this function, please cite Ko et al. (2023) for the
-algorithm, as well as Alexander et al. (2009) for the method.
+model. It uses the optimisation strategy of ADMIXTURE: a few EM
+iterations to prime a random start, then block-wise Newton updates of Q
+and P, each solved as a constrained quadratic program, accelerated by the
+quasi-Newton scheme of Zhou, Alexander and Lange (2011). It also offers
+the cross-validation of ADMIXTURE to choose K (Alexander and Lange 2011),
+a start from a truncated singular value decomposition (SVD) of the
+genotypes, supervised analyses with individuals of known ancestry, and
+support for pseudohaploid data. With genotype likelihoods (given by
+another package, see \code{\link[=gt_radmix_data]{gt_radmix_data()}}), it fits the model of NGSadmix
+(Skotte et al. 2013), the ADMIXTURE model for low-depth sequencing data,
+with the same algorithm. If you use this function,
+please cite Alexander et al. (2009) for the method, and, if you use
+cross-validation, Alexander and Lange (2011); with genotype likelihoods,
+also cite Skotte et al. (2013).
 }
 \details{
 Genotypes are read directly from the backing file of the \code{gen_tibble}
 (respecting any filtering of individuals and selection of loci), so no
-intermediate PLINK file is written. Computation is multithreaded with
-OpenMP.
+intermediate PLINK file is written; the same holds for genotype
+likelihoods, which the package that stores them gives to \code{gt_radmix()}
+through a method of \code{\link[=gt_radmix_data]{gt_radmix_data()}}. Computation is in C++, multithreaded
+with OpenMP. The C++ code started as a port of the Julia package
+\href{https://github.com/OpenMendel/OpenADMIXTURE.jl}{OpenADMIXTURE.jl}
+(Ko et al. 2023), and has since been extensively rewritten; its solver
+of the quadratic programs, its projections, its quasi-Newton step and the
+structure of its fitting loop are still derived from OpenADMIXTURE.jl,
+and the alternating least squares of \code{init = "svd"} are adapted from
+\href{https://github.com/AI-sandbox/ADAMIXTURE}{ADAMIXTURE} (see the file
+\code{COPYRIGHTS} of the package,
+\code{system.file("COPYRIGHTS", package = "tidygenclust")}).
 
 Missing genotypes are ignored in the likelihood. Pseudohaploid
 individuals (see \code{\link[tidypopgen:gt_pseudohaploid]{tidypopgen::gt_pseudohaploid()}}) contribute a single
@@ -136,7 +196,9 @@ allele per locus. Only diploid and pseudohaploid \code{gen_tibble}s are
 supported.
 
 \code{P} gives the frequency of the \strong{alternate} allele (\code{allele_alt} in
-\code{\link[tidypopgen:show_loci]{tidypopgen::show_loci()}}) in each ancestral population.
+\code{\link[tidypopgen:show_loci]{tidypopgen::show_loci()}}) in each ancestral population (for genotype
+likelihoods, of \code{allele2}, often the minor allele; see
+"Genotype likelihoods" below).
 
 Supplying \code{init_p} together with \code{fix_p = TRUE} estimates the ancestry of
 new individuals given the allele frequencies of a reference panel (a
@@ -144,33 +206,145 @@ new individuals given the allele frequencies of a reference panel (a
 \code{init_p}.
 \subsection{Algorithm}{
 
-As in OpenADMIXTURE.jl, each run consists of:
+As in ADMIXTURE (Alexander et al. 2009; Alexander and Lange 2011), each
+run consists of:
 \enumerate{
-\item a random initialisation followed by a few EM (FRAPPE) iterations
-(\code{n_em_iter}), or, with \code{init = "svd"}, a start from the SVD of the
-genotypes (see below);
-\item block-wise Newton updates of Q (one individual at a time, on the
-simplex) and P (one locus at a time, in the unit interval), each
-solved exactly as a small quadratic program with K. Lange's
-sweep-operator active-set method;
-\item quasi-Newton acceleration (Zhou, Alexander and Lange 2011) using the
-last \code{n_qn} secant pairs, accepted only when it improves the
-log-likelihood.
+\item a random initialisation followed by a few EM iterations
+(\code{n_em_iter}; the EM algorithm of FRAPPE, Tang et al. 2005), or,
+with \code{init = "svd"}, a start from the SVD of the genotypes (see
+below);
+\item block-wise Newton updates (block relaxation): all of Q given P (one
+individual at a time, on the simplex), then all of P given the new
+Q (one locus at a time, in the unit interval). Each Newton step is
+solved exactly as a small quadratic program, by an active-set method
+based on the sweep operator (Lange 2010);
+\item quasi-Newton acceleration (Zhou, Alexander and Lange 2011): each
+iteration applies two rounds of block updates, and the changes that
+they made in the last \code{n_qn} iterations (secant pairs) give a
+quasi-Newton step, which is accepted only when it improves the
+log-likelihood of the previous iteration (otherwise the iteration
+ends with the plain block updates).
 }
 
 Iterations stop when the relative change in log-likelihood falls below
-\code{rtol}. All estimates are kept within [1e-5, 1 - 1e-5], as in ADMIXTURE
-and OpenADMIXTURE.jl.
+\code{rtol} (a decrease of the log-likelihood, which can happen after a
+rejected quasi-Newton point, never counts as convergence) and, if
+\code{step_tol} is given, when the first round of block updates of the
+iteration changes no ancestry proportion or allele frequency by more
+than \code{step_tol}. That change, reported in the log of each iteration as
+"step", shows how far the estimates still are from converged, in their
+own units. All estimates are kept within [1e-5, 1 - 1e-5], as in
+ADMIXTURE. The log of each run (element \code{log} of the result) reports the
+log-likelihood at each iteration, together with that of the
+quasi-Newton point ("QN") and that of the plain block updates
+("basic"). The latter is only computed when the quasi-Newton point is
+rejected (otherwise it is reported as "not computed"), which saves a
+pass over the genotypes in most iterations.
 
-On x86-64 Linux, when the package is compiled with GCC 12 or later, the
-main computations are also compiled for processors with the AVX2 and
-FMA instructions (most processors made since 2015), and the faster
-version is chosen when the package is loaded. Results are reproducible
-on a given machine, but can differ in the last digits between machines
-with and without these instructions. Compiling the package with
-\code{-DRADMIX_NO_MULTIVERSION} (e.g. added to \code{CXXFLAGS} in
-\verb{~/.R/Makevars}) builds only the portable version, whose results are the
-same on every x86-64 machine.
+A few numerical safeguards handle degenerate cases, without changing
+the results when the computations are well behaved: for example, a
+Newton step that is not finite (because a genotype is impossible under
+the current estimates) is discarded, and the individual or locus keeps
+its current value for that iteration.
+}
+
+\subsection{Genotype likelihoods}{
+
+With genotype likelihoods, the genotypes are not observed: each
+individual has the likelihoods of its data (its reads) given each of
+the three genotypes at a locus, with 0, 1 and 2 copies of \code{allele2}.
+tidygenclust does not store them: a package that does can provide a
+method of \code{\link[=gt_radmix_data]{gt_radmix_data()}} for its class. The model is that of
+NGSadmix (Skotte et al. 2013): the genotypes follow the ADMIXTURE
+model, with \code{P} the frequency of \code{allele2}, and the log-likelihood is
+\deqn{\sum_{ij} \log \sum_{g=0}^{2} P(D_{ij} | g) P(g | x_{ij}),}{
+  sum_ij log sum_g P(D_ij | g) P(g | x_ij),}
+where \eqn{x_{ij} = \sum_k q_{ik} p_{kj}}{x_ij = sum_k q_ik p_kj},
+\eqn{P(g | x)}{P(g | x)} is binomial (Hardy-Weinberg proportions), and
+the likelihoods \eqn{P(D_{ij} | g)}{P(D_ij | g)} of each individual are
+normalised to sum to 1, as in the beagle files read by NGSadmix.
+Individuals without data at a locus do not contribute to it, whereas
+NGSadmix counts \eqn{\log(1/3)}{log(1/3)} for each of them (they have
+three equal likelihoods): otherwise, the log-likelihoods of the two
+programs are the same.
+
+The algorithm is the same as for genotypes: every step uses the
+expected numbers of copies of each allele given the likelihoods and the
+current estimates in place of the observed ones. EM steps are then
+those of NGSadmix, and the gradients of the block updates are exact; as
+the log-likelihood of genotype likelihoods is not concave in each block,
+the Newton steps use by default the curvature of the expected
+log-likelihood of the genotypes (that of the EM algorithm), which keeps
+every quadratic program convex. That curvature exceeds the curvature of
+the log-likelihood itself by the missing information (the uncertainty
+about the genotypes), so the steps are short where genotypes are
+uncertain. With \code{gl_curvature = "observed"}, the Newton steps use the
+curvature of the log-likelihood instead, floored at a quarter of the
+complete one for each individual and locus (which keeps the programs
+convex). On simulated data at depths of 1-2 reads per site, with K
+from 3 to 10, this made fits about 1.5 times faster (fewer
+iterations, at the same cost each), and the fits reached maxima at
+least as good; as it changes the path of each fit, the maxima found by
+a given run can differ. The quasi-Newton steps are accepted on the
+log-likelihood above. Cross-validation (\code{crossval}) is available (see
+"Cross-validation"), and so are starts from the SVD (\code{init = "svd"}):
+the SVD is then that of the posterior dosages of the genotypes (their
+expected numbers of copies of \code{allele2}) under Hardy-Weinberg
+proportions with the allele frequencies estimated from the likelihoods
+(emMAF, Kim et al. 2011), as in the first step of PCAngsd (Meisner and
+Albrechtsen 2018), computed by a randomised SVD (Halko et al. 2011)
+whose products are passes over the likelihoods; individuals without
+data at a locus get the mean dosage. \code{use_imputed} is not available
+for genotype likelihoods. Unlike NGSadmix, which by default drops loci
+with a minor allele frequency below 0.05 (its option \code{-minMaf}),
+\code{gt_radmix()} uses all the loci of \code{x}: select them beforehand if
+needed.
+}
+
+\subsection{Supervised analyses}{
+
+As with ADMIXTURE's \code{--supervised} option, the ancestry of some
+individuals can be given rather than estimated: \code{supervised} gives the
+population of each of these reference individuals (and \code{NA} for the
+individuals to estimate), and each population is one of the \code{k}
+ancestral populations, so \code{k} must equal the number of populations in
+\code{supervised}. The ancestry proportions of each reference individual
+are fixed at 1 for its population and 0 for the others (moved inside
+the feasible set like every estimate, i.e. 1 - (k - 1) 1e-5 and 1e-5,
+as reported by ADMIXTURE); the allele frequencies of the ancestral
+populations (P) are estimated from all the individuals, and the ancestry
+of the other individuals is estimated given them. Each column of Q and
+P is one reference population: in the order of the levels of
+\code{supervised} if it is a factor, or of their first appearance otherwise
+(the order used by ADMIXTURE for the populations of its \code{.pop} file).
+The populations are listed in the element \code{ref_pops} of the result (the
+columns of Q keep the names \code{.Q1}, \code{.Q2}, ..., which tidypopgen's
+methods expect).
+
+The fit is the same as in an unsupervised analysis (random start, EM
+priming, block updates and quasi-Newton steps), with the reference
+individuals fixed from the start; their ancestry proportions are never
+updated, and the passes over the genotypes skip the work that only
+serves them, so a supervised fit with many reference individuals is
+faster than an unsupervised one. Cross-validation (\code{crossval = TRUE})
+is available, as in ADMIXTURE: the reference individuals stay fixed in
+the fit of each fold, and their genotypes belong to the folds and are
+predicted like the others (ADMIXTURE does not document this detail).
+\code{init_q} (whose rows for the reference individuals are ignored) and
+\code{init_p} can give starting values; \code{fix_q}, \code{fix_p} and \code{init = "svd"}
+cannot be combined with \code{supervised}. Supervised analyses are also
+available for genotype likelihoods.
+
+When the reference individuals are many, starting P from the allele
+frequencies of the reference populations, as fastmixture does in its
+supervised mode, can save iterations: pass them as \code{init_p} (the
+frequency of the alternate allele, e.g. from
+\code{\link[tidypopgen:loci_alt_freq]{tidypopgen::loci_alt_freq()}} on the individuals of each population,
+in the order of the columns), with \code{n_em_iter = 0} (the individuals to
+estimate then start from random values). On the HGDP data (K = 5, 660
+of 1043 individuals as references), this took 7 iterations instead of
+11 and 5 EM steps, to the same log-likelihood; with fewer references
+(\code{EUR_subset}, 102 of 379), it made no difference.
 }
 
 \subsection{Starting values from the SVD}{
@@ -179,10 +353,10 @@ With \code{init = "svd"}, each run starts from the principal components of
 the genotypes rather than from random values, as in ADAMIXTURE
 (Saurina-i-Ricos et al. 2026) and fastmixture (Santander et al. 2024):
 \enumerate{
-\item a partial SVD of the genotypes, centred and scaled as by
-\code{\link[tidypopgen:gt_pca_partialSVD]{tidypopgen::gt_pca_partialSVD()}}, with \code{max(k) + 5} components, is
-computed once and shared by all the runs (monomorphic loci, which
-the default scaling of tidypopgen rejects, are left unscaled);
+\item a truncated SVD of the genotypes, computed by
+\code{\link[tidypopgen:gt_pca]{tidypopgen::gt_pca()}} (centred and scaled as by default there) with
+\code{max(k) + 5} components, is computed once and shared by all the runs
+(monomorphic loci are left unscaled);
 \item for each run, alternating least squares (ALS) find Q and P whose
 product approximates the allele frequencies predicted by the first
 \code{k + 5} components, starting from random allele frequencies. As in
@@ -194,11 +368,22 @@ SVD, not the genotypes, so it is fast;
 without EM priming (\code{n_em_iter} is not used).
 }
 
-The SVD cannot use missing genotypes, so they must be imputed first
-(e.g. with \code{\link[tidypopgen:gt_impute_simple]{tidypopgen::gt_impute_simple()}}); the imputed genotypes are
-only used for the SVD, and the fit ignores them (unless
+Missing genotypes need no imputation: as in \code{gt_pca()} (and PLINK
+1.9), each pair of individuals is compared over the loci genotyped in
+both, and pseudohaploids enter the SVD as homozygous diploids. With
+more than 20,000 individuals, the SVD is a randomised SVD
+(\code{gt_pca(method = "random")}), which cannot use missing genotypes, so
+they must then be imputed first (e.g. with
+\code{\link[tidypopgen:gt_impute_simple]{tidypopgen::gt_impute_simple()}}). Imputed genotypes, if any, are only
+used for the SVD, and the fit ignores them (unless
 \code{use_imputed = TRUE}). The SVD also needs more individuals and loci than
-\code{max(k) + 5}.
+\code{max(k) + 5}. With genotype likelihoods, the SVD is that of the
+posterior dosages (see "Genotype likelihoods"), and needs no imputation;
+its random test matrix is drawn after setting the first value of
+\code{seed}, and its number of power iterations is \code{svd_power} (3 by
+default, enough for the leading components, those of the structure;
+each further iteration makes the trailing components more accurate at
+the cost of two more passes over the likelihoods).
 
 Fits from the SVD need fewer iterations (often less than half as many as
 from random starts in our tests), and usually reach a good fit (though,
@@ -230,7 +415,9 @@ averaged over all the masked genotypes of all folds. Where ADMIXTURE does
 not document the details, we made the following choices:
 \itemize{
 \item each fold is fitted starting from the estimates for the full data, with
-the same convergence criteria (\code{max_iter} and \code{rtol});
+at most \code{max_iter} iterations and a convergence threshold of 1e-7
+(or \code{rtol}, if larger) by default (see below for \code{cv_max_iter} and
+\code{cv_rtol});
 \item genotypes are assigned to folds by a hash of their position and of a
 seed drawn from the random number generator (reproducible with
 \code{seed}), so the folds differ from those of ADMIXTURE and the errors
@@ -238,66 +425,115 @@ agree with ADMIXTURE's closely but not exactly;
 \item pseudohaploid individuals use \eqn{n = 1}.
 }
 
+With genotype likelihoods, the folds are drawn over the individuals and
+loci with data, in the same way, and the error of a masked individual
+and locus is the deviance of its likelihoods,
+\deqn{d = \log \max_x f(x) - \log f(x_{ij}),}{
+  d = log max_x f(x) - log f(x_ij),}
+where \eqn{f(x) = \sum_{g} P(D_{ij} | g) P(g | x)}{
+  f(x) = sum_g P(D_ij | g) P(g | x)} is the likelihood of its data given a
+frequency \eqn{x} of \code{allele2} (see "Genotype likelihoods"), maximised
+over \eqn{x} in \eqn{[0, 1]}, and \eqn{x_{ij}}{x_ij} is the prediction
+of the refitted model. For the likelihoods of a hard call, this is the
+binomial deviance above (with \eqn{n = 2}); with uncertain genotypes,
+the errors are smaller, as the data say less about each genotype, so
+they can be compared across values of \code{k} but not with those of
+genotypes.
+
 Cross-validation does not change the estimates of Q and P, but requires
 \code{n_folds} additional fits for each run (each usually converging in a few
 iterations).
+
+The refits of the folds stop earlier than the fit to the full data
+(\code{cv_rtol = 1e-7}, against \code{rtol = 1e-8}), and can be shortened further
+with \code{cv_max_iter} (at most that many iterations per fold; ADAMIXTURE
+refits each fold with 5) or a larger \code{cv_rtol}. This saves time, but
+biases the errors downwards: each refit starts from the estimates for
+the full data, which have seen the masked genotypes, and a refit stopped
+early still predicts them too well, the more so at larger \code{k}. In our
+tests, the default halved the cost of cross-validation on EUR_subset
+(379 individuals, 54,051 loci, \code{k} = 1-6, 5 seeds), where refits run to
+\code{rtol} took 24 iterations on average, and lowered the errors by at most
+1.5e-5 up to \code{k} = 4, and by 1.2e-4 and 2e-4 at \code{k} = 5 and 6, while
+the errors of successive values of \code{k} differed by 5e-4 to 3e-3. On the
+HGDP (1,043 individuals, 130,943 loci, \code{k} = 2-10, 3 seeds), where
+refits converge in about 7 iterations, it saved 11\% of the passes and
+changed the errors by less than 1e-6. Shorter refits save more on
+EUR_subset (\code{cv_rtol = 1e-6}: 74\%; \code{cv_max_iter = 5}: 80\%) with larger
+biases (up to 6.7e-4 and 1e-3 at \code{k} = 6). None of these choices changed
+the value of \code{k} with the lowest error, for any seed. To refit each fold
+to convergence, set \code{cv_rtol = rtol}.
+}
+
+\subsection{Reproducibility}{
+
+The random starting values (and the folds of cross-validation) are
+drawn from R's random number generator, so runs are reproducible with
+\code{seed} (or \code{\link[=set.seed]{set.seed()}}). The work is divided between threads in a way
+that depends only on the dimensions of the data, so the results are
+identical for any \code{n_cores}.
+
+On x86-64 Linux, when the package is compiled with GCC 12 or later, the
+main computations are also compiled for processors with the AVX2 and
+FMA instructions (most processors made since 2015), and the faster
+version is chosen when the package is loaded. Results are reproducible
+on a given machine, but can differ in the last digits between machines
+with and without these instructions. Compiling the package with
+\code{-DRADMIX_NO_MULTIVERSION} (e.g. added to \code{CXXFLAGS} in
+\verb{~/.R/Makevars}) builds only the portable version, whose results are the
+same on every x86-64 machine.
+}
+
+\subsection{Data larger than the memory}{
+
+The genotypes (or likelihoods) are read from their memory-mapped backing
+file at every pass, and never copied into memory, so data larger than
+the memory can be analysed: the operating system reads the file again
+as needed. When the file read by a pass is larger than 0.8 times the
+memory available (on Linux, \code{MemAvailable} or the limit of the control
+group), the passes stream it: all the threads work on one chunk of loci
+at a time, a helper thread asks the operating system to read the next
+chunk meanwhile, and the passes that can take the chunks in any order
+alternate their direction, so that each starts with the data that the
+previous one left in memory. Genotypes that fit in memory, with 8,192
+individuals or more, have the passes over the individuals in chunks of
+loci too (all the threads reading the same part of the file), which is
+faster. The results are identical. The option
+\code{tidygenclust.radmix_stream} forces streaming on (\code{TRUE}) or off
+(\code{FALSE}, which also turns off the chunks in memory), and
+\code{tidygenclust.radmix_chunk_mb} sets the size of the chunks (by default
+a sixteenth of the memory available, between 16 and 256 MB, when
+streaming, and 64 MB in memory). Each pass still reads the part of the
+file that is not in memory, so a fit runs at the speed of the disk once
+the data are much larger than the memory.
 }
 
 \subsection{Comparison with ADMIXTURE}{
 
-The model and the log-likelihood are those of ADMIXTURE (Alexander et al.
-2009), and the optimisation is closely related (block updates with
-constrained Newton steps and quasi-Newton acceleration), so both programs
-reach the same maximum likelihood estimates, up to local optima and the
-convergence tolerance. The test suite checks this on the \code{EUR_subset}
-data used in the OpenADMIXTURE.jl tests. Note that:
+The model, the log-likelihood and the optimisation strategy are those of
+ADMIXTURE (Alexander et al. 2009; Alexander and Lange 2011), so both
+programs reach the same maximum likelihood estimates, up to local optima
+and the convergence criterion (ADMIXTURE stops when the log-likelihood
+increases by less than 1e-4 between iterations). The test suite checks
+this on the \code{EUR_subset} data of SnpArrays.jl. Note that:
 \itemize{
 \item ADMIXTURE reports the frequency of the second allele in the PLINK bim
 file, which for a \code{gen_tibble} is the reference allele, so its P
 matrices are 1 - P of those returned here;
 \item cross-validation follows ADMIXTURE (see above), and the test suite
 checks that the errors agree with those of ADMIXTURE on \code{EUR_subset};
-\item bootstrap standard errors and supervised analyses with individuals of
-known ancestry, available in ADMIXTURE, are not implemented (a fixed
-reference panel can be used with \code{init_p} and \code{fix_p}).
-}
-}
-
-\subsection{Differences from OpenADMIXTURE.jl}{
-
-\code{gt_radmix()} uses a modified version of the algorithm of
-OpenADMIXTURE.jl. Starting from the same values, it reproduces the
-computations of OpenADMIXTURE.jl to numerical precision (this is checked
-by the test suite), except for the following:
-\itemize{
-\item there is no GPU (CUDA) support;
-\item the start from the SVD (\code{init = "svd"}, see above) is not part of
-OpenADMIXTURE;
-\item we implemented cross-validation, as in ADMIXTURE (see above), which
-is not part of OpenADMIXTURE;
-\item sparse K-means selection of ancestry informative markers (SKFR) is not
-implemented; loci can be selected beforehand with
-\code{\link[tidypopgen:select_loci]{tidypopgen::select_loci()}};
-\item pseudohaploid individuals are supported (they contribute one allele
-per locus, whereas OpenADMIXTURE.jl assumes every individual is
-diploid);
-\item with missing data, the EM update of Q is normalised by the number of
-loci observed in each individual (OpenADMIXTURE.jl divides by the
-total number of loci, so that Q is pushed off the simplex);
-\item the log-likelihood is only computed when the algorithm needs it: not
-after each EM step (unless \code{verbose = TRUE}), and, in the main
-iterations, the log-likelihood after two plain updates only when the
-quasi-Newton step is rejected (OpenADMIXTURE.jl computes both every
-time). This saves about one pass over the genotypes in seven, without
-changing the estimates; the log then reports "basic = not computed";
-\item a few numerical safeguards that the Julia code lacks: the conditioning
-penalty of the quadratic program for Q is never negative, the
-active-set solver never pivots on a vanishing element, Newton steps
-that are not finite are discarded (the individual or locus keeps its
-current value for that iteration), and the projections onto the
-feasible set tolerate non-finite values. None of these changes the
-results when the computations are well behaved; each is documented in
-the C++ source.
+\item ADMIXTURE treats the autosomal genotypes of every individual as
+diploid, whereas \code{gt_radmix()} counts a single allele per locus for
+pseudohaploid individuals (see above);
+\item supervised analyses (\code{supervised}) follow ADMIXTURE's \code{--supervised}
+option: the same fixed ancestry of the reference individuals, the
+same order of the populations, and the same requirement that \code{k}
+equals their number; \code{supervised} gives the populations as a vector
+(with \code{NA} for the individuals to estimate) instead of a \code{.pop} file
+(with \code{-}). The test suite checks the estimates against those of
+ADMIXTURE on \code{EUR_subset};
+\item bootstrap standard errors, available in ADMIXTURE, are not
+implemented.
 }
 }
 }
@@ -314,15 +550,20 @@ adm$Q[[1]]
 # choose k by cross-validation
 adm_cv <- gt_radmix(pop_a, k = 1:3, seed = 1, crossval = TRUE)
 adm_cv$cv
+
+# supervised analysis: the first two individuals are references of
+# population "A" and the next two of population "B"; the ancestry of the
+# others is estimated
+pops <- rep(NA, nrow(pop_a))
+pops[1:4] <- c("A", "A", "B", "B")
+adm_sup <- gt_radmix(pop_a, k = 2, seed = 1, supervised = pops)
+adm_sup$ref_pops
+adm_sup$Q[[1]]
 }
 \references{
-Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH,
-Sobel EM, Zhou H, Lange KL (2023) Unsupervised discovery of ancestry
-informative markers and genetic admixture proportions in biobank-scale
-datasets. The American Journal of Human Genetics, 110(2), 314-325.
-
-Alexander DH, Novembre J, Lange K (2009) Fast model-based estimation of
-ancestry in unrelated individuals. Genome Research, 19(9), 1655-1664.
+Alexander DH, Novembre J, Lange K (2009) Fast model-based
+estimation of ancestry in unrelated individuals. Genome Research, 19(9),
+1655-1664.
 
 Alexander DH, Lange K (2011) Enhancements to the ADMIXTURE algorithm for
 individual ancestry estimation. BMC Bioinformatics, 12, 246.
@@ -331,12 +572,42 @@ Zhou H, Alexander D, Lange K (2011) A quasi-Newton acceleration for
 high-dimensional optimization algorithms. Statistics and Computing,
 21(2), 261-273.
 
+Tang H, Peng J, Wang P, Risch NJ (2005) Estimation of individual
+admixture: analytical and study design considerations. Genetic
+Epidemiology, 28(4), 289-301.
+
+Lange K (2010) Numerical Analysis for Statisticians, 2nd edition.
+Springer, New York.
+
+Ko S, Chu BB, Peterson D, Okenwa C, Papp JC, Alexander DH, Sobel EM,
+Zhou H, Lange KL (2023) Unsupervised discovery of ancestry-informative
+markers and genetic admixture proportions in biobank-scale datasets.
+The American Journal of Human Genetics, 110(2), 314-325.
+
 Saurina-i-Ricos J, Mas Montserrat D, Ioannidis AG (2026) ADAMIXTURE:
 adaptive first-order optimization for biobank-scale genetic clustering.
 Bioinformatics, 42(Supplement_1). doi:
 https://doi.org/10.1093/bioinformatics/btag236
 
 Santander CG, Refoyo Martinez A, Meisner J (2024) Faster model-based
-estimation of ancestry proportions. bioRxiv 2024.07.08.602454. doi:
-https://doi.org/10.1101/2024.07.08.602454
+estimation of ancestry proportions. Peer Community Journal, 4, e115.
+doi: https://doi.org/10.24072/pcjournal.503
+
+Skotte L, Korneliussen TS, Albrechtsen A (2013) Estimating individual
+admixture proportions from next generation sequencing data. Genetics,
+195(3), 693-702.
+
+Kim SY, Lohmueller KE, Albrechtsen A, Li Y, Korneliussen T, Tian G,
+Grarup N, Jiang T, Andersen G, Witte D, Jorgensen T, Hansen T,
+Pedersen O, Wang J, Nielsen R (2011) Estimation of allele frequency and
+association mapping using next-generation sequencing data. BMC
+Bioinformatics, 12, 231.
+
+Meisner J, Albrechtsen A (2018) Inferring population structure and
+admixture proportions in low-depth NGS data. Genetics, 210(2),
+719-731.
+
+Halko N, Martinsson PG, Tropp JA (2011) Finding structure with
+randomness: probabilistic algorithms for constructing approximate
+matrix decompositions. SIAM Review, 53(2), 217-288.
 }

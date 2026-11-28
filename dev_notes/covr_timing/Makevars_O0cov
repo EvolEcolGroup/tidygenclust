@@ -1,0 +1,8 @@
+CFLAGS += -O0 --coverage
+CXXFLAGS += -O0 --coverage
+CXX11FLAGS += -O0 --coverage
+CXX14FLAGS += -O0 --coverage
+CXX17FLAGS += -O0 --coverage
+CXX20FLAGS += -O0 --coverage
+LDFLAGS += --coverage
+FLIBS += -lgcov

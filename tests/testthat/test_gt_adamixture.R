@@ -22,7 +22,7 @@ pops_path <- system.file(
 pops <- readr::read_csv(pops_path, show_col_types = FALSE)
 anole_gt <- anole_gt %>% mutate(id = gsub("punc_", "", .data$id, ))
 anole_gt <- anole_gt %>%
-  mutate(population = pops$pop[match(pops$ID, .data$id)])
+  mutate(population = pops$pop[match(.data$id, pops$id)])
 
 # check a gt_admix object returned by gt_adamixture() for anole_gt: one Q
 # matrix (and one P matrix, with `freqs`) per combination of k and run, in
@@ -167,16 +167,20 @@ test_that("gt_adamixture uses the requested number of threads", {
     "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
     "NUMEXPR_NUM_THREADS"
   )
-  # unset the variables for this test (earlier calls may have set them)
-  withr::local_envvar(stats::setNames(rep(NA, length(omp_vars)), omp_vars))
+  # the variables before the fit, whatever they are (they are not unset
+  # here: python keeps its own copy of the environment, taken when it
+  # starts, and the wrapper restores the variables from that copy, so a
+  # variable that was set when python started, e.g. OMP_NUM_THREADS on a
+  # cluster, and then unset from R would come back)
+  before <- Sys.getenv(omp_vars, unset = NA)
   timing <- system.time(
     gt_adamixture(anole_gt,
       k = 6, n_runs = 2, seed = 1:2, threads = 1, verbose = FALSE
     )
   )
   # the environment of the R session is not changed (ADAMIXTURE sets these
-  # variables)
-  expect_true(all(is.na(Sys.getenv(omp_vars, unset = NA))))
+  # variables, and the wrapper restores them)
+  expect_identical(Sys.getenv(omp_vars, unset = NA), before)
   # with a single thread, the CPU time cannot exceed the elapsed time by
   # much
   cpu <- timing[["user.self"]] + timing[["sys.self"]]

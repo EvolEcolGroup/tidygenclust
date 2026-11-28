@@ -1,17 +1,38 @@
 tidygenclust is distributed under the GPL (>= 3). It includes code derived
-from the following software, distributed under other licences: OpenADMIXTURE.jl
-(in gt_radmix()), and clumppling, python-louvain and markov_clustering (in
-gt_clumppling()).
+from the following software: OpenADMIXTURE.jl (MIT licence) and ADAMIXTURE
+(BSD 3-clause licence), in gt_radmix(); fastmixture (GPL-3), in
+gt_fastmixture(); clumppling (MIT licence), python-louvain (BSD 3-clause
+licence), markov_clustering (MIT licence) and the Hungarian algorithm of
+cp-algorithms (CC BY-SA 4.0), in gt_clumppling(); and ggpubr (GPL (>= 2)),
+in its plots. Each source file that holds such code says so at its top.
+The sections below give, for each source, the files concerned and its
+licence.
 
 OpenADMIXTURE.jl
 ----------------
 
-gt_radmix() uses a modified version of the algorithm of OpenADMIXTURE (Ko et
-al. 2023), and much of its C++ code (src/radmix_*.cpp and src/radmix_*.h) is
-ported from the Julia package OpenADMIXTURE.jl
+The C++ code of gt_radmix() (src/radmix_*.cpp and src/radmix_*.h) started
+as a port of the Julia package OpenADMIXTURE.jl
 (https://github.com/OpenMendel/OpenADMIXTURE.jl, commit
-401ac5c4056f0f6f2a7ea6ffc3af69c2b1e56fdc), which is distributed under the
-MIT licence:
+401ac5c4056f0f6f2a7ea6ffc3af69c2b1e56fdc; Ko et al. 2023), and has since
+been extensively rewritten. These parts remain translations of its code,
+with the modifications listed in each file:
+
+- src/radmix_qp_sweep.cpp: sweep(), create_tableau() and qp_solve_column()
+  translate sweep!(), create_tableau!() and quadratic_program!() (src/qp.jl,
+  K. Lange's sweep-operator solver of the quadratic programs, modified by
+  S. Ko);
+- src/radmix_projections.cpp: project_q() and project_p() translate
+  project_q!() and project_p!() (src/projections.jl);
+- src/radmix_quasi_newton.cpp: the quasi-Newton step implements
+  update_UV!() and update_QN!() (src/quasi_newton.jl);
+- src/radmix_fit.cpp: the fitting loop follows init_em!() and
+  admixture_qn!() (src/algorithms_outer.jl).
+
+The passes over the genotypes (src/radmix_kernels.cpp), first ported from
+src/algorithms_inner.jl and src/loops.jl, have been rewritten; they call
+the quadratic programs and projections above. OpenADMIXTURE.jl is
+distributed under the MIT licence:
 
 MIT License
 
@@ -36,6 +57,63 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
+ADAMIXTURE
+----------
+
+The alternating least squares of the SVD start of gt_radmix()
+(init = "svd"; src/radmix_als.cpp, with its inputs prepared by
+radmix_svd_start() in R/radmix_svd.R) are adapted from ALS() in
+adamixture/model/als.py of the python package ADAMIXTURE, version 1.8.9
+(https://github.com/AI-sandbox/ADAMIXTURE; Saurina-i-Ricos, Mas Montserrat
+and Ioannidis 2026), with the modifications listed in src/radmix_als.cpp.
+ADAMIXTURE is distributed under the following licence:
+
+BSD 3-Clause License
+
+Copyright (c) 2024, Ioannidis Lab
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+fastmixture
+-----------
+
+inst/python/py_rfastmixture.py, which gt_fastmixture() runs in python, is
+derived from the command line parser (fastmixture/main.py) and the main
+function (fastmixture/fastmixture.py, version 1.3.0) of the python package
+fastmixture (https://github.com/Rosemeis/fastmixture; Santander,
+Refoyo-Martinez and Meisner 2024), whose author is Jonas Meisner, as
+modified by Andrea Manica (the changes are listed at the top of the file).
+fastmixture is distributed under the GNU General Public License version 3
+only (GPL-3.0-only), and so is that file: unlike the rest of tidygenclust,
+it cannot be redistributed under a later version of the GPL. The text of
+the licence is at https://www.gnu.org/licenses/gpl-3.0.txt (and in
+share/licenses/GPL-3 of the R installation).
+
+
 clumppling
 ----------
 
@@ -44,6 +122,16 @@ Rosenberg 2024), and its R and C++ code (R/gt_clumppling.R,
 R/clumppling_*.R, src/clumppling_assignment.cpp) is ported, with
 modifications, from the python package clumppling, version 2.0.10
 (https://github.com/PopGenClustering/Clumppling), whose author is Xiran Liu.
+The exceptions are the solver of the assignment problems (clumppling_lsap()
+in src/clumppling_assignment.cpp; see "Hungarian algorithm" below), which
+replaces clumppling's integer linear programs, and the community detection
+methods ported from python-louvain and markov_clustering (below). The
+critical values of its Tracy-Widom test (R/clumppling_community.R) are
+those computed by clumppling, and the example data of gt_clumppling()
+(inst/extdata/capeverde_admix.rds, inst/extdata/chicken_admix.rds and the
+dataset capeverde_pops) are made from its example data. The plots of
+gt_clumppling() (R/autoplot_gt_clumppling.R, R/plot_modes.R) follow the
+design of clumppling's figures, but none of its plotting code is used.
 clumppling is distributed under the MIT licence (as stated in its
 pyproject.toml; its repository includes no licence file with a copyright
 notice), whose terms are:
@@ -71,7 +159,9 @@ python-louvain
 --------------
 
 The default community detection method of gt_clumppling() ('louvain',
-src/clumppling_louvain.cpp) is a C++ port of best_partition() of the python
+src/clumppling_louvain.cpp) is a C++ port of best_partition() and the
+functions it calls (community/community_louvain.py and
+community/community_status.py, listed at the top of the file) of the python
 package python-louvain, version 0.16 (https://github.com/taynaud/python-louvain),
 which clumppling uses through cdlib. python-louvain is distributed under the
 following licence:
@@ -111,11 +201,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 markov_clustering
 -----------------
 
-The 'markov_clustering' community detection method of gt_clumppling()
-(clumppling_mcl() in R/clumppling_community.R) is a port of the python
-package markov_clustering (https://github.com/GuyAllard/markov_clustering),
-which clumppling uses through cdlib. markov_clustering is distributed under
-the MIT licence:
+The 'markov_clustering' and 'custom' community detection methods of
+gt_clumppling() (clumppling_mcl() in R/clumppling_community.R) are a port
+of run_mcl() and get_clusters() (markov_clustering/mcl.py) of the python
+package markov_clustering, version 0.0.6.dev0
+(https://github.com/GuyAllard/markov_clustering), which clumppling uses
+through cdlib (only the defaults of its parameters come from cdlib, whose
+code is not used). markov_clustering is distributed under the MIT licence:
 
 Copyright (c) 2017 Guy Allard <w.g.allard@lumc.nl>
 
@@ -137,3 +229,45 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+Hungarian algorithm (cp-algorithms)
+-----------------------------------
+
+The solver of the linear assignment problems of gt_clumppling()
+(clumppling_lsap() in src/clumppling_assignment.cpp) is adapted from the
+O(n^3) implementation of the Hungarian algorithm "developed by Andrey
+Lopatin", given in the article "Hungarian algorithm for solving the
+assignment problem" of cp-algorithms
+(https://cp-algorithms.com/graph/hungarian-algorithm.html, translated from
+e-maxx.ru, https://e-maxx.ru/algo/assignment_hungary), with the changes
+listed in that file. The content of cp-algorithms is Copyright (c)
+2014-2025 by cp-algorithms contributors, and is licensed under the Creative
+Commons Attribution-ShareAlike 4.0 International licence (CC BY-SA 4.0,
+https://creativecommons.org/licenses/by-sa/4.0/legalcode). Creative Commons
+lists the GNU GPL version 3 as a compatible licence for adaptations of
+CC BY-SA 4.0 material (https://creativecommons.org/compatiblelicenses), so
+the adapted code is distributed under the GNU GPL version 3, with this
+notice. The material is provided as is, without warranties, as stated in
+the licence.
+
+
+ggpubr
+------
+
+.get_legend() in R/plot_modes.R, used by the plots of gt_clumppling(), is
+copied from the unexported function of the same name of the R package
+ggpubr (https://CRAN.R-project.org/package=ggpubr), whose author is
+Alboukadel Kassambara. ggpubr is distributed under the GPL (>= 2), so the
+copied code is distributed under the GPL (>= 3) as the rest of
+tidygenclust.
+
+
+splitmix64
+----------
+
+The hash that assigns genotypes to the folds of the cross-validation of
+gt_radmix() (fold() in src/radmix_geno_access.h) uses the finaliser of
+splitmix64 (Steele, Lea and Flood 2014), with the shifts and multipliers of
+the implementation by Sebastiano Vigna (https://prng.di.unimi.it/splitmix64.c),
+which its author has dedicated to the public domain (CC0 1.0).

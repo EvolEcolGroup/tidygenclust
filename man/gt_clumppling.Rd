@@ -78,16 +78,21 @@ similarity among replicates) of each mode
 \description{
 This function aligns multiple runs of a clustering algorithm (e.g.
 ADMIXTURE or STRUCTURE) with the method of clumppling (Liu, Kopelman and
-Rosenberg 2024). \code{gt_clumppling()} is anative R and C++ code port, with
-modifications to enhance performance, from the
+Rosenberg 2024). \code{gt_clumppling()} is a native R and C++ port, with
+modifications to enhance performance, of the
 python package clumppling (version 2.0.10, by Xiran Liu;
 \url{https://github.com/PopGenClustering/Clumppling}), and gives the same
 results without the need for Python. The main modifications are that the
 alignment of each pair of runs, an integer linear program in clumppling,
-is solved exactly as an equivalent assignment problem, and that community
+is solved exactly as an equivalent assignment problem (with an
+implementation of the Hungarian algorithm adapted from cp-algorithms),
+and that community
 detection uses ports of the implementations that clumppling uses through
 cdlib (python-louvain, in C++, and markov_clustering, in R) or the
-\code{igraph} package. If you use this function, make sure that
+\code{igraph} package. The licences of the ported code are in the file
+\code{COPYRIGHTS} of the package
+(\code{system.file("COPYRIGHTS", package = "tidygenclust")}). If you use this
+function, make sure that
 you cite the paper on clumppling by Liu, Kopelman, and Rosenberg (2024).
 }
 \details{

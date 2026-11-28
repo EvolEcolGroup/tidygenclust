@@ -27,16 +27,33 @@ knitr::read_chunk("code/pseudohaploid_runs.R")
 results_dir <- params$results_dir
 ```
 
-Diploid genotypes cannot be called reliably from low-coverage data, which includes most ancient genomes. A common workaround is to sample a single allele at random at each site, so that the individual is treated as “pseudohaploid”. `tidypopgen` encodes each pseudohaploid call as a homozygous genotype (0 or 2), and `tidypopgen::gt_pseudohaploid()` marks the individuals with no heterozygous genotypes as pseudohaploids (with a ploidy of 1). `gt_radmix()`estimates ancestry proportions with the ADMIXTURE method (Alexander et al. 2009), using a modified version of the OpenADMIXTURE algorithm (Ko et al. 2023), to which we added ADMIXTURE’s cross-validation procedure. For pseudohaploid individuals, it counts a single copy of the allele at each genotype.
+Diploid genotypes cannot be called reliably from low-coverage data, which
+includes most ancient genomes. A common workaround is to sample a single
+allele at random at each site, so that the individual is treated as
+"pseudohaploid". `tidypopgen` encodes each pseudohaploid call as a
+homozygous genotype (0 or 2), and `tidypopgen::gt_pseudohaploid()` marks
+the individuals with no heterozygous genotypes as pseudohaploids (with a
+ploidy of 1). `gt_radmix()` estimates ancestry proportions with the method
+and the algorithm of ADMIXTURE (Alexander et al. 2009), including its
+cross-validation procedure (Alexander & Lange 2011). For pseudohaploid
+individuals, it counts a single copy of the allele at each genotype.
 
-If the pseudohaploid individuals are not declared as such, each genotype is treated as a true diploid call. This happens in programs such as ADMIXTURE, which assume diploid genotypes for autosomes. Using simulated data, we show below the consequences of this approach. In summary, we show that:
+If the pseudohaploid individuals are not declared as such, each genotype is
+treated as a true diploid call. This happens in programs such as ADMIXTURE,
+which assume diploid genotypes for autosomes. Using simulated data, we show
+below the consequences of this approach. In summary, we show that:
 
-- the log-likelihood of every pseudohaploid is doubled. Likelihood-based criteria for choosing K (such as the Akaike information criterion,
-  AIC) tend to favour an increasing number of clusters, whereas cross-validation generally identifies the correct K;
+- the log-likelihood of every pseudohaploid is doubled. Likelihood-based
+  criteria for choosing K (such as the Akaike information criterion, AIC)
+  tend to favour an increasing number of clusters, whereas cross-validation
+  generally identifies the correct K;
 - when the population structure is weak, cross-validation can support too
   few clusters;
-- even at the correct K, diploid individuals from the population containing pseudohaploid individuals appear artificially admixed.
-- when K is too large, the additional clusters artificially divide the pseudohaploid individuals into groups that do not reflect genuine population structure.
+- even at the correct K, diploid individuals from the population containing
+  pseudohaploid individuals appear artificially admixed;
+- when K is too large, the additional clusters artificially divide the
+  pseudohaploid individuals into groups that do not reflect genuine
+  population structure.
 
 All of these artefacts disappear once the pseudohaploids are declared with
 `gt_pseudohaploid()`.
@@ -69,7 +86,7 @@ from a few populations:
    and a variance of `fst * p * (1 - p)`. The larger `fst` is, the more the
    populations differ.
 3. Each diploid individual carries two independently sampled alleles at each locus, with the probability of sampling the alternate allele given by its population-specific frequency. The resulting genotype therefore follows a binomial distribution with two trials, and takes the values 0, 1 or 2.
-4. Each pseudohaploid individual carries a single sampled allele at each locus, drawn according to the population-specific allele frequency. This mimics the random selection of a single allele at each site: At a heterozygous site, either allele is equally likely to be selected. Consequently, across individuals, the probability of observing the alternate allele is equal to its population frequency. The genotype is stored as 0 or 2. 
+4. Each pseudohaploid individual carries a single sampled allele at each locus, drawn according to the population-specific allele frequency. This mimics the random selection of a single allele at each site: At a heterozygous site, either allele is equally likely to be selected. Consequently, across individuals, the probability of observing the alternate allele is equal to its population frequency. The genotype is stored as 0 or 2.
 
 The simulated data contain no missing genotypes, no linkage between loci and no admixture, so the true number of clusters equals the number of populations. The function
 `simulate_pseudohaploids()` implements these steps. The populations and
@@ -140,9 +157,9 @@ therefore exactly doubled. We can check this by computing the log-likelihood of 
 individual from the estimates of the declared fit:
 
 ```{r loglik-by-hand}
-# the log-likelihood of each individual, given the  genotypes `gt`,  the ancestry proportions q
-# (individuals x K), the allele frequencies p (loci x K) and the number of
-# allele copies of each individual
+# the log-likelihood of each individual, given the genotypes `gt`, the
+# ancestry proportions q (individuals x K), the allele frequencies p
+# (loci x K) and the number of allele copies of each individual
 loglik_individuals <- function(gt, q, p, n_copies) {
   # copies of the alternate allele out of n_copies (the pseudohaploids are
   # coded 0/2)
@@ -171,7 +188,8 @@ Given the allele frequencies, the ancestry proportions of the pseudohaploids max
 
 ```{r plot-q-function}
 # the ancestry proportions of a gt_admix object with a single run, as a
-# data frame with one row per individual and cluster, labelled with the treatment ("declared" or "undeclared")
+# data frame with one row per individual and cluster, labelled with the
+# treatment ("declared" or "undeclared")
 
 q_long <- function(fit, gt, treatment) {
   q <- unclass(fit$Q[[1]])
@@ -812,9 +830,3 @@ for individual ancestry estimation. *BMC Bioinformatics*, 12, 246.
 Balding, D. J. & Nichols, R. A. (1995). A method for quantifying
 differentiation between populations at multi-allelic loci and its
 implications for investigating identity and paternity. *Genetica*, 96, 3-12.
-
-Ko, S., Chu, B. B., Peterson, D., Okenwa, C., Papp, J. C., Alexander, D. H.,
-Sobel, E. M., Zhou, H. & Lange, K. L. (2023). Unsupervised discovery of
-ancestry informative markers and genetic admixture proportions in
-biobank-scale datasets. *The American Journal of Human Genetics*, 110,
-314-325.

@@ -22,14 +22,8 @@ test_that("kernels match the reference on unsorted rows and columns", {
 })
 
 test_that("kernels match the reference with pseudohaploids", {
-  hap_genotypes <- sim$genotypes
-  # make the first 15 individuals fully homozygous
-  hom <- 1:15
-  hap_genotypes[hom, ] <- 2 * (hap_genotypes[hom, ] >= 1)
-  pseudo_gt <- tidypopgen::gt_pseudohaploid(
-    radmix_test_gt(hap_genotypes)
-  )
-  inp <- radmix_ref_inputs(pseudo_gt)
+  # the first 15 individuals are pseudohaploid
+  inp <- radmix_ref_inputs(radmix_pseudohaploid_gt(sim$genotypes, 1:15))
   expect_true(any(inp$n == 1))
   expect_true(any(inp$n == 2))
   radmix_expect_ref_match(inp, k = 3)
@@ -44,6 +38,33 @@ test_that("kernels handle tiles at the edges and tiny data", {
   )
   inp <- radmix_ref_inputs(radmix_test_gt(tiny$genotypes))
   radmix_expect_ref_match(inp, k = 2)
+})
+
+test_that("blocked Hessians (K >= 7) match the reference", {
+  # 70 individuals (a partial second tile) and 301 loci (more than the 16
+  # loci of a Q-side block and the 64 of a P-side block, partial last
+  # blocks and an odd last pair of loci)
+  big <- radmix_simulate_admixed(
+    n = 70, m = 301, k = 3, missing = 0.05, seed = 7
+  )
+  inp <- radmix_ref_inputs(radmix_test_gt(big$genotypes))
+  for (k in c(7, 9)) {
+    st <- radmix_ref_start(70, 301, k)
+    gq <- radmix_grad_q_cpp(inp$geno, st$q, st$p, 1)
+    gp <- radmix_grad_p_cpp(inp$geno, st$q, st$p, 1)
+    expect_equal(gq, radmix_ref_grad_q(inp$g, inp$n, st$q, st$p),
+      tolerance = 1e-10
+    )
+    expect_equal(gp, radmix_ref_grad_p(inp$g, inp$n, st$q, st$p),
+      tolerance = 1e-10
+    )
+    # each Hessian is symmetric, and the results do not depend on the
+    # number of threads
+    expect_identical(gq$hess[, , 5], t(gq$hess[, , 5]))
+    expect_identical(gp$hess[, , 5], t(gp$hess[, , 5]))
+    expect_identical(radmix_grad_q_cpp(inp$geno, st$q, st$p, 3), gq)
+    expect_identical(radmix_grad_p_cpp(inp$geno, st$q, st$p, 3), gp)
+  }
 })
 
 test_that("loglik handles extreme frequencies and non-integer dosages", {
@@ -73,10 +94,17 @@ test_that("loglik handles extreme frequencies and non-integer dosages", {
   expect_equal(ll, radmix_ref_loglik(inp$g, inp$n, st$q, p),
     tolerance = 1e-10
   )
+  # (the same from the pass that also updates q)
+  expect_equal(radmix_update_q_loglik_cpp(inp$geno, st$q, p, 2)$loglik, ll,
+    tolerance = 1e-12
+  )
   # a qp of exactly 0 for an observed alt allele gives -Inf, not NaN
   p[, 1] <- 0
   expect_true(any(inp$g[, 1] > 0, na.rm = TRUE))
   expect_identical(radmix_loglik_cpp(inp$geno, st$q, p, 2), -Inf)
+  expect_identical(
+    radmix_update_q_loglik_cpp(inp$geno, st$q, p, 2)$loglik, -Inf
+  )
   # dosages that are not hard calls use the direct formula
   # (decoding byte 1 as 0.7 instead of 1 turns heterozygotes into
   # non-integer dosages)
@@ -90,27 +118,25 @@ test_that("loglik handles extreme frequencies and non-integer dosages", {
     radmix_ref_loglik(g, inp$n, st$q, st$p),
     tolerance = 1e-10
   )
+  expect_equal(
+    radmix_update_q_loglik_cpp(geno, st$q, st$p, 2)$loglik,
+    radmix_ref_loglik(g, inp$n, st$q, st$p),
+    tolerance = 1e-10
+  )
 })
 
 test_that("gradients and Hessians match numerical derivatives", {
   small <- radmix_simulate_admixed(
     n = 7, m = 12, k = 2, missing = 0.1, seed = 5
   )
-  hom <- 1:2
-  small$genotypes[hom, ] <- 2 * (small$genotypes[hom, ] >= 1)
-  inp <- radmix_ref_inputs(tidypopgen::gt_pseudohaploid(
-    radmix_test_gt(small$genotypes)
-  ))
+  inp <- radmix_ref_inputs(radmix_pseudohaploid_gt(small$genotypes, 1:2))
   st <- radmix_ref_start(7, 12, 3)
   q <- st$q
   p <- st$p
   gq <- radmix_grad_q_cpp(inp$geno, q, p, 1)
   gp <- radmix_grad_p_cpp(inp$geno, q, p, 1)
-  # Like OpenADMIXTURE.jl, the Q block differentiates the log-likelihood written
-  # as a homogeneous function of q (1 - qp = sum_k q_k (1 - p_k) on the
-  # simplex), which only changes the gradient by a constant across k
   ll_q <- function(x) {
-    radmix_ref_loglik_homog(inp$g, inp$n, matrix(x, nrow(q)), p)
+    radmix_ref_loglik(inp$g, inp$n, matrix(x, nrow(q)), p)
   }
   ll_p <- function(x) {
     radmix_ref_loglik(inp$g, inp$n, q, matrix(x, nrow(p)))
@@ -121,19 +147,10 @@ test_that("gradients and Hessians match numerical derivatives", {
   expect_equal(as.vector(gp$grad), numDeriv::grad(ll_p, as.vector(p)),
     tolerance = 1e-6
   )
-  # on the simplex, the two forms have the same directional derivatives
-  true_grad <- matrix(numDeriv::grad(
-    function(x) radmix_ref_loglik(inp$g, inp$n, matrix(x, nrow(q)), p),
-    as.vector(q)
-  ), nrow(q))
-  shift <- gq$grad - true_grad
-  expect_equal(shift, matrix(shift[1, ], nrow(q), ncol(q), byrow = TRUE),
-    tolerance = 1e-6
-  )
   # the kernels return the negative Hessian of each column
   ll_qi <- function(x, i) {
     q[, i] <- x
-    radmix_ref_loglik_homog(inp$g, inp$n, q, p)
+    radmix_ref_loglik(inp$g, inp$n, q, p)
   }
   ll_pj <- function(x, j) {
     p[, j] <- x
@@ -234,16 +251,15 @@ test_that("update_q followed by update_p increases the log-likelihood", {
   st <- radmix_ref_start(60, 200, 3)
   q <- st$q
   p <- st$p
-  # prime with a few EM steps, as in OpenADMIXTURE.jl
+  # prime with a few EM steps, as the fit does
   for (it in 1:5) {
     em <- radmix_em_cpp(inp$geno, q, p, 2)
     q <- em$q
     p <- em$p
   }
-  # with missing data, the EM step (like OpenADMIXTURE.jl's) leaves the columns
-  # of q summing to less than 1, and the Q block quadratic model is only
-  # valid on the simplex
-  q <- radmix_project_q_cpp(q)
+  # (EM keeps q on the simplex, but can take entries below the floor of
+  # 1e-5 that the Newton updates keep)
+  q <- radmix_project_cpp(q, TRUE)
   ll0 <- radmix_loglik_cpp(inp$geno, q, p, 2)
   q <- radmix_update_q_cpp(inp$geno, q, p, 2)
   ll1 <- radmix_loglik_cpp(inp$geno, q, p, 2)
@@ -256,8 +272,8 @@ test_that("update_q followed by update_p increases the log-likelihood", {
   )
 })
 
-# Deviation from OpenADMIXTURE.jl: non-finite Newton steps are discarded
-# (see discard_nonfinite_step() in src/radmix_kernels.cpp)
+# Non-finite Newton steps are discarded (see newton_column() in
+# src/radmix_kernels.cpp)
 test_that("update kernels keep a column whose Newton step is not finite", {
   geno <- rbind(c(2, 0, 1), c(0, 1, 2), c(1, 2, 0), c(2, 2, 1))
   dat <- radmix_prepare(radmix_test_gt(geno))
@@ -281,13 +297,15 @@ test_that("update kernels keep a column whose Newton step is not finite", {
 })
 
 # With few individuals, the Q-side kernels also split the loci into segments
-# (two-dimensional blocking, see accum_q_segmented() in
+# (two-dimensional blocking, see q_segments() and q_side() in
 # src/radmix_kernels.cpp)
 test_that("kernels are correct when the loci are split into segments", {
   # 70 individuals (2 blocks) and 2000 loci: 7 segments
   expect_identical(radmix_q_segments_cpp(70, 2000), 7L)
   # many individuals, or few loci, use a single pass
-  expect_identical(radmix_q_segments_cpp(5000, 2000), 1L)
+  expect_identical(radmix_q_segments_cpp(10000, 2000), 1L)
+  # the HGDP (1043 individuals, 17 blocks): 8 segments, for 136 tasks
+  expect_identical(radmix_q_segments_cpp(1043, 130943), 8L)
   expect_identical(radmix_q_segments_cpp(70, 300), 1L)
   seg <- radmix_simulate_admixed(
     n = 70, m = 2000, k = 3, missing = 0.03, seed = 8
@@ -305,7 +323,7 @@ test_that("kernels are correct when the loci are split into segments", {
     )
     q_ref[, i] <- st$q[, i] + step$delta
   }
-  q_ref <- radmix_project_q_cpp(q_ref)
+  q_ref <- radmix_project_cpp(q_ref, TRUE)
   expect_equal(
     radmix_update_q_cpp(inp$geno, st$q, st$p, 1), q_ref,
     tolerance = 1e-8
@@ -321,11 +339,164 @@ test_that("kernels are correct when the loci are split into segments", {
   }
 })
 
+# The fitting loop evaluates a point and computes the first update of the
+# next iteration in one pass (update_q_loglik() in src/radmix_kernels.cpp)
+test_that("the fused update of q and log-likelihood match the two passes", {
+  # one dataset with a single segment of loci and one with several (and
+  # missing genotypes), a cross-validation view with a fold hidden, and
+  # genotype likelihoods (with several segments)
+  big <- radmix_simulate_admixed(n = 130, m = 150, k = 3, seed = 6)
+  seg <- radmix_simulate_admixed(
+    n = 70, m = 2000, k = 3, missing = 0.03, seed = 8
+  )
+  seg_geno <- radmix_prepare(radmix_test_gt(seg$genotypes))
+  cases <- list(
+    list(
+      geno = radmix_prepare(radmix_test_gt(big$genotypes)), n = 130, m = 150
+    ),
+    list(geno = seg_geno, n = 70, m = 2000),
+    list(geno = radmix_set_cv(seg_geno, list(
+      mode = "train", fold = 2, n_folds = 5, seed = 3
+    )), n = 70, m = 2000),
+    list(
+      geno = radmix_test_gl(radmix_simulate_gl(seg$genotypes, depth = 3)),
+      n = 70, m = 2000
+    )
+  )
+  for (cs in cases) {
+    st <- radmix_ref_start(cs$n, cs$m, 3)
+    fused <- radmix_update_q_loglik_cpp(cs$geno, st$q, st$p, 1)
+    # the same update, and the same log-likelihood up to rounding (the terms
+    # are added up in another order)
+    expect_identical(fused$q, radmix_update_q_cpp(cs$geno, st$q, st$p, 1))
+    expect_equal(fused$loglik, radmix_loglik_cpp(cs$geno, st$q, st$p, 1),
+      tolerance = 1e-12
+    )
+    # identical for any number of threads
+    expect_identical(radmix_update_q_loglik_cpp(cs$geno, st$q, st$p, 3), fused)
+    expect_identical(radmix_update_q_loglik_cpp(cs$geno, st$q, st$p, 4), fused)
+  }
+})
+
+test_that("the Q side keeps fixed individuals and updates the others", {
+  # (supervised analyses) 130 individuals (3 blocks), and 70 individuals x
+  # 2000 loci (7 segments); the fixed individuals form a run and are also
+  # scattered, so the free individuals of a slice are sometimes
+  # consecutive (read directly from the backing file) and sometimes not
+  for (dims in list(c(130, 150), c(70, 2000))) {
+    n <- dims[1]
+    sim_f <- radmix_simulate_admixed(
+      n = n, m = dims[2], k = 3, missing = 0.03, seed = 9
+    )
+    inp <- radmix_ref_inputs(radmix_test_gt(sim_f$genotypes))
+    st <- radmix_ref_start(n, dims[2], 3)
+    fixed <- rep(FALSE, n)
+    fixed[c(1:40, seq(45, n, by = 3))] <- TRUE
+    # the fixed columns are copied, the others updated as without a mask
+    # (the same sums, accumulated in the same order)
+    q_all <- radmix_update_q_cpp(inp$geno, st$q, st$p, 1)
+    q_sup <- radmix_update_q_cpp(inp$geno, st$q, st$p, 1, fixed)
+    expect_identical(q_sup[, fixed], st$q[, fixed])
+    expect_equal(q_sup[, !fixed], q_all[, !fixed], tolerance = 1e-12)
+    # the same for EM, whose P block uses every individual
+    em_all <- radmix_em_cpp(inp$geno, st$q, st$p, 1)
+    em_sup <- radmix_em_cpp(inp$geno, st$q, st$p, 1, fixed)
+    expect_identical(em_sup$q[, fixed], st$q[, fixed])
+    expect_equal(em_sup$q[, !fixed], em_all$q[, !fixed], tolerance = 1e-12)
+    expect_identical(em_sup$p, em_all$p)
+    # results do not depend on the number of cores
+    expect_identical(
+      radmix_update_q_cpp(inp$geno, st$q, st$p, 3, fixed), q_sup
+    )
+    expect_identical(radmix_em_cpp(inp$geno, st$q, st$p, 3, fixed), em_sup)
+    # the fused pass of supervised fits gives the same update, and the
+    # log-likelihood of all the individuals (the free ones from their Q
+    # side, the fixed ones from a pass over their genotypes alone)
+    ll <- radmix_loglik_cpp(inp$geno, st$q, st$p, 1)
+    fused <- radmix_update_q_loglik_cpp(inp$geno, st$q, st$p, 1, fixed)
+    expect_identical(fused$q, q_sup)
+    expect_equal(fused$loglik, ll, tolerance = 1e-12)
+    expect_identical(
+      radmix_update_q_loglik_cpp(inp$geno, st$q, st$p, 3, fixed), fused
+    )
+    # nothing to update when every individual is fixed, and no individual
+    # fixed is the same as no mask
+    expect_identical(
+      radmix_update_q_cpp(inp$geno, st$q, st$p, 2, rep(TRUE, n)), st$q
+    )
+    fused_all <- radmix_update_q_loglik_cpp(
+      inp$geno, st$q, st$p, 2, rep(TRUE, n)
+    )
+    expect_identical(fused_all$q, st$q)
+    expect_equal(fused_all$loglik, ll, tolerance = 1e-12)
+    expect_identical(
+      radmix_update_q_loglik_cpp(inp$geno, st$q, st$p, 2, rep(FALSE, n)),
+      radmix_update_q_loglik_cpp(inp$geno, st$q, st$p, 2)
+    )
+    # with the training view of cross-validation (the free individuals read
+    # through their indices are hidden by the same folds)
+    train <- radmix_set_cv(inp$geno, cv = list(
+      mode = "train", fold = 2, n_folds = 5, seed = 3
+    ))
+    expect_equal(
+      radmix_update_q_cpp(train, st$q, st$p, 1, fixed)[, !fixed],
+      radmix_update_q_cpp(train, st$q, st$p, 1)[, !fixed],
+      tolerance = 1e-12
+    )
+    expect_equal(
+      radmix_update_q_loglik_cpp(train, st$q, st$p, 1, fixed)$loglik,
+      radmix_loglik_cpp(train, st$q, st$p, 1),
+      tolerance = 1e-12
+    )
+    # with genotype likelihoods (the source fills a run of free individuals
+    # in one call, and scattered ones one at a time)
+    gl_dat <- radmix_test_gl(radmix_simulate_gl(sim_f$genotypes, depth = 3))
+    expect_equal(
+      radmix_update_q_cpp(gl_dat, st$q, st$p, 1, fixed)[, !fixed],
+      radmix_update_q_cpp(gl_dat, st$q, st$p, 1)[, !fixed],
+      tolerance = 1e-12
+    )
+    fused_gl <- radmix_update_q_loglik_cpp(gl_dat, st$q, st$p, 1, fixed)
+    expect_identical(
+      fused_gl$q, radmix_update_q_cpp(gl_dat, st$q, st$p, 1, fixed)
+    )
+    expect_equal(fused_gl$loglik, radmix_loglik_cpp(gl_dat, st$q, st$p, 1),
+      tolerance = 1e-12
+    )
+    em_gl <- radmix_em_cpp(gl_dat, st$q, st$p, 1, fixed)
+    expect_identical(em_gl$q[, fixed], st$q[, fixed])
+    expect_equal(em_gl$q[, !fixed],
+      radmix_em_cpp(gl_dat, st$q, st$p, 1)$q[, !fixed],
+      tolerance = 1e-12
+    )
+  }
+  # with pseudohaploids (decoded individual by individual), the free
+  # individuals are read through the general paths
+  hap <- radmix_simulate_admixed(n = 130, m = 150, k = 3, seed = 9)$genotypes
+  hap[1:15, ] <- 2 * (hap[1:15, ] >= 1)
+  inp <- radmix_ref_inputs(
+    tidypopgen::gt_pseudohaploid(radmix_test_gt(hap))
+  )
+  expect_true(any(inp$n == 1))
+  st <- radmix_ref_start(130, 150, 3)
+  fixed <- rep(FALSE, 130)
+  fixed[c(1:40, seq(45, 130, by = 3))] <- TRUE
+  expect_equal(
+    radmix_update_q_cpp(inp$geno, st$q, st$p, 1, fixed)[, !fixed],
+    radmix_update_q_cpp(inp$geno, st$q, st$p, 1)[, !fixed],
+    tolerance = 1e-12
+  )
+  expect_error(
+    radmix_update_q_cpp(inp$geno, st$q, st$p, 1, fixed[-1]),
+    "'fixed' must have one value per individual"
+  )
+})
+
 test_that("empty inputs give errors rather than crashes", {
   # these used to divide by zero (killing R) or read out of bounds
   expect_identical(radmix_q_segments_cpp(0, 1000), 1L)
   expect_error(
-    radmix_project_q_cpp(matrix(0, 0, 3)),
+    radmix_project_cpp(matrix(0, 0, 3), TRUE),
     "at least one row"
   )
   gt <- radmix_test_gt(sim$genotypes)
@@ -345,4 +516,200 @@ test_that("empty inputs give errors rather than crashes", {
     gt_radmix(gt[0, ], k = 3, init_p = t(sim$p), fix_p = TRUE),
     "at least one individual and one locus"
   )
+})
+
+# Genotype likelihoods, from a source (here the example source of
+# src/radmix_gl_source.cpp, which holds them in memory; see
+# radmix_test_gl()): the kernels use the expected allele counts given the
+# likelihoods (see slice_gl() in src/radmix_kernels.cpp)
+test_that("kernels match the reference with genotype likelihoods", {
+  # depth 2: many genotypes without reads (no data), and many uncertain ones
+  gl_ll <- radmix_simulate_gl(sim$genotypes, depth = 2)
+  inp <- radmix_ref_gl_inputs(radmix_test_gl(gl_ll))
+  expect_true(any(!inp$g$obs))
+  radmix_expect_ref_match(inp, k = 3)
+  radmix_expect_ref_match(inp, k = 1)
+  # tiles at the edges, and results that do not depend on the number of
+  # cores
+  big <- radmix_simulate_admixed(n = 130, m = 150, k = 3, seed = 6)
+  inp <- radmix_ref_gl_inputs(radmix_test_gl(
+    radmix_simulate_gl(big$genotypes, depth = 3)
+  ))
+  radmix_expect_ref_match(inp, k = 4)
+  st <- radmix_ref_start(130, 150, 3)
+  kernels <- list(
+    radmix_loglik_cpp, radmix_em_cpp,
+    radmix_update_q_cpp, radmix_update_p_cpp
+  )
+  for (kernel in kernels) {
+    res1 <- kernel(inp$geno, st$q, st$p, 1)
+    expect_identical(kernel(inp$geno, st$q, st$p, 3), res1)
+  }
+})
+
+test_that("gradients of likelihoods are exact, Hessians bound the curvature", {
+  small <- radmix_simulate_admixed(
+    n = 7, m = 12, k = 2, missing = 0.1, seed = 5
+  )
+  inp <- radmix_ref_gl_inputs(radmix_test_gl(
+    radmix_simulate_gl(small$genotypes, depth = 2)
+  ))
+  st <- radmix_ref_start(7, 12, 3)
+  q <- st$q
+  p <- st$p
+  gq <- radmix_grad_q_cpp(inp$geno, q, p, 1)
+  gp <- radmix_grad_p_cpp(inp$geno, q, p, 1)
+  ll_q <- function(x) {
+    radmix_ref_loglik(inp$g, inp$n, matrix(x, nrow(q)), p)
+  }
+  ll_p <- function(x) {
+    radmix_ref_loglik(inp$g, inp$n, q, matrix(x, nrow(p)))
+  }
+  # the gradients are those of the log-likelihood of the genotype
+  # likelihoods
+  expect_equal(as.vector(gq$grad), numDeriv::grad(ll_q, as.vector(q)),
+    tolerance = 1e-6
+  )
+  expect_equal(as.vector(gp$grad), numDeriv::grad(ll_p, as.vector(p)),
+    tolerance = 1e-6
+  )
+  # the negative Hessians are those of the expected log-likelihood of the
+  # genotypes: they exceed the negative Hessians of the log-likelihood by a
+  # positive semi-definite matrix (the missing information)
+  ll_pj <- function(x, j) {
+    p[, j] <- x
+    radmix_ref_loglik(inp$g, inp$n, q, p)
+  }
+  for (j in c(2, 12)) {
+    excess <- gp$hess[, , j] + numDeriv::hessian(ll_pj, p[, j], j = j)
+    expect_gt(min(eigen(excess, symmetric = TRUE)$values), -1e-6)
+  }
+})
+
+test_that("gl_curvature = \"observed\" gives the floored observed curvature", {
+  # depth 2 (many uncertain genotypes, and some without data), with 70
+  # individuals and 301 loci for partial tiles and blocks
+  big <- radmix_simulate_admixed(
+    n = 70, m = 301, k = 3, missing = 0.05, seed = 7
+  )
+  inp <- radmix_ref_gl_inputs(radmix_test_gl(
+    radmix_simulate_gl(big$genotypes, depth = 2)
+  ))
+  obs_dat <- inp$dat
+  obs_dat$gl_curvature <- "observed"
+  e1 <- inp$g$e1
+  e2 <- inp$g$e2
+  # K = 3 uses the plain loops, K = 8 the register-blocked Hessians
+  for (k in c(3, 8)) {
+    st <- radmix_ref_start(70, 301, k)
+    q <- st$q
+    p <- st$p
+    # the negative second derivative of log f(x), from f and its
+    # derivatives, and the complete-data curvature of the default
+    qp <- t(q) %*% p
+    f <- (1 - qp)^2 + 2 * e1 * qp * (1 - qp) + e2 * qp^2
+    f1 <- -2 * (1 - qp) + 2 * e1 * (1 - 2 * qp) + 2 * e2 * qp
+    f2 <- 2 * (1 - 2 * e1 + e2)
+    d2_obs <- (f1 / f)^2 - f2 / f
+    tt <- radmix_ref_terms(inp$g, inp$n, q, p)
+    d2_em <- tt$a / tt$qp + tt$b / (1 - tt$qp)
+    # floored at a quarter of the complete-data curvature, 0 without data
+    w <- ifelse(inp$g$obs, pmax(d2_obs, 0.25 * d2_em), 0)
+    hess_q <- array(0, c(k, k, 70))
+    for (i in 1:70) hess_q[, , i] <- p %*% (w[i, ] * t(p))
+    hess_p <- array(0, c(k, k, 301))
+    for (j in 1:301) hess_p[, , j] <- q %*% (w[, j] * t(q))
+    gq <- radmix_grad_q_cpp(obs_dat, q, p, 1)
+    gp <- radmix_grad_p_cpp(obs_dat, q, p, 1)
+    # the gradients are unchanged
+    expect_equal(gq$grad, radmix_ref_grad_q(inp$g, inp$n, q, p)$grad,
+      tolerance = 1e-10
+    )
+    expect_equal(gp$grad, radmix_ref_grad_p(inp$g, inp$n, q, p)$grad,
+      tolerance = 1e-10
+    )
+    expect_equal(gq$hess, hess_q, tolerance = 1e-10)
+    expect_equal(gp$hess, hess_p, tolerance = 1e-10)
+    expect_identical(radmix_grad_q_cpp(obs_dat, q, p, 3), gq)
+    expect_identical(radmix_grad_p_cpp(obs_dat, q, p, 3), gp)
+  }
+  # the floor binds for some genotypes, and not for others
+  has_data <- inp$g$obs
+  expect_true(any(has_data & d2_obs < 0.25 * d2_em))
+  expect_true(any(has_data & d2_obs > 0.25 * d2_em))
+  # genotypes ignore the option (their two curvatures are the same)
+  geno_dat <- radmix_prepare(radmix_test_gt(big$genotypes))
+  geno_obs <- geno_dat
+  geno_obs$gl_curvature <- "observed"
+  expect_identical(
+    radmix_grad_q_cpp(geno_obs, q, p, 1),
+    radmix_grad_q_cpp(geno_dat, q, p, 1)
+  )
+  obs_dat$gl_curvature <- "expected"
+  expect_error(
+    radmix_grad_q_cpp(obs_dat, q, p, 1),
+    "'gl_curvature' must be"
+  )
+})
+
+test_that("genotype likelihoods of hard calls give the results of genotypes", {
+  # likelihood 1 for the observed genotype and 0 for the others (clamped to
+  # about exp(-32) by radmix_test_gl()), and no data for missing genotypes
+  hard_ll <- array(-Inf, c(dim(sim$genotypes), 3))
+  for (gg in 0:2) {
+    hard_ll[, , gg + 1][sim$genotypes == gg] <- 0
+  }
+  hard_ll[is.na(sim$genotypes)] <- 0
+  gl_dat <- radmix_test_gl(hard_ll)
+  geno_dat <- radmix_prepare(radmix_test_gt(sim$genotypes))
+  st <- radmix_ref_start(60, 200, 3)
+  for (kernel in list(radmix_em_cpp, radmix_grad_q_cpp, radmix_grad_p_cpp)) {
+    expect_equal(kernel(gl_dat, st$q, st$p, 2),
+      kernel(geno_dat, st$q, st$p, 2),
+      tolerance = 1e-9
+    )
+  }
+  # the log-likelihood of the genotype likelihoods includes the binomial
+  # coefficients that the log-likelihood of genotypes leaves out: 2 for each
+  # heterozygote
+  expect_equal(
+    radmix_loglik_cpp(gl_dat, st$q, st$p, 2),
+    radmix_loglik_cpp(geno_dat, st$q, st$p, 2) +
+      sum(sim$genotypes == 1, na.rm = TRUE) * log(2),
+    tolerance = 1e-9
+  )
+})
+
+test_that("invalid datasets of genotype likelihoods are errors", {
+  gl_dat <- radmix_test_gl(radmix_simulate_gl(sim$genotypes))
+  st <- radmix_ref_start(60, 200, 3)
+  # decoding into genotypes is only for genotypes (cross-validation and the
+  # deviance of likelihoods are tested in test_radmix_cv.R)
+  expect_error(radmix_decode(gl_dat), "cannot be decoded")
+  # lists that do not follow the interface of a source (see
+  # inst/include/tidygenclust/radmix_gl_source.h)
+  bad <- gl_dat
+  bad$version <- 2L
+  expect_error(radmix_loglik_cpp(bad, st$q, st$p, 1), "version 2")
+  # the external pointer of the context is not that of a function
+  bad <- gl_dat
+  bad$fill <- bad$ctx
+  expect_error(radmix_loglik_cpp(bad, st$q, st$p, 1), "tagged")
+  bad <- gl_dat
+  bad$ctx <- 1
+  expect_error(radmix_loglik_cpp(bad, st$q, st$p, 1), "'ctx' must be")
+  bad <- gl_dat
+  bad$n_loci <- NULL
+  expect_error(radmix_loglik_cpp(bad, st$q, st$p, 1), "'n_loci'")
+  bad <- gl_dat
+  bad$n_indiv <- 59.5
+  expect_error(radmix_loglik_cpp(bad, st$q, st$p, 1), "non-negative integers")
+  bad$n_indiv <- 0
+  expect_error(
+    radmix_loglik_cpp(bad, st$q[, 0, drop = FALSE], st$p, 1),
+    "at least one individual"
+  )
+  bad <- gl_dat
+  bad$kind <- "gl8"
+  expect_error(radmix_loglik_cpp(bad, st$q, st$p, 1), "'kind' must be")
 })

@@ -1,13 +1,14 @@
 # data-raw/radmix
 
-`gt_radmix()` estimates ancestry proportions with the method of ADMIXTURE,
-using a modified version of the algorithm of OpenADMIXTURE (Ko et al. 2023),
-much of it ported from OpenADMIXTURE.jl, to which we added the
-cross-validation of ADMIXTURE (see `data-raw/admixture_implementation.md`). This directory holds the scripts
-used to validate `gt_radmix()` against the original implementations
-(OpenADMIXTURE.jl and ADMIXTURE), and to create the reference results
-(fixtures) used by the test suite. Run every script from the root of the
-package. None of this is needed to use the package or to run its tests.
+`gt_radmix()` estimates ancestry proportions with the method and the
+algorithm of ADMIXTURE, including its cross-validation (see
+`dev_notes/admixture_implementation.md`). This directory holds the scripts used
+to validate `gt_radmix()` against two independent implementations of the
+same model, ADMIXTURE and OpenADMIXTURE.jl (from which the C++ code of
+`gt_radmix()` started, before it was extensively rewritten), and to create
+the reference results (fixtures) used by the test suite. Run every script
+from the root of the package. None of this is needed to use the package or
+to run its tests.
 
 ## Test fixtures
 
@@ -19,7 +20,8 @@ changes (e.g. different data, values of K or seeds).
 
 ### OpenADMIXTURE.jl: `fixtures/openadmixture_julia_reference.rds`
 
-Used by `tests/testthat/test_radmix_vs_julia.R`. On a small simulated dataset (150
+Used by `tests/testthat/test_radmix_vs_julia.R`, an external check of the
+computations of `gt_radmix()`. On a small simulated dataset (150
 individuals, 300 loci, K = 4, 3% missing genotypes), and starting from fixed
 values of Q and P, it holds the results of OpenADMIXTURE.jl for: the
 log-likelihood, one EM step, one round of Newton updates of Q and P, and the
@@ -27,6 +29,13 @@ full quasi-Newton algorithm (with the log-likelihood at each iteration). The
 simulated genotypes and the starting values are stored too, so the test does
 not depend on R's random number generator. It also records the versions of
 Julia and OpenADMIXTURE.jl that were used.
+
+The two implementations compute some steps differently, so the test allows
+for the differences: the EM step of Q is normalised differently when
+genotypes are missing (OpenADMIXTURE.jl divides by the total number of
+loci, so its Q leaves the simplex), and the derivatives of the Q block are
+computed in a different but equivalent form, so the Newton updates and the
+path of the full algorithm agree up to rounding.
 
 To regenerate it:
 
@@ -38,7 +47,8 @@ To regenerate it:
    bash data-raw/radmix/setup_julia_env.sh
    ```
 
-   OpenADMIXTURE.jl is pinned to the commit used for the port. Julia is
+   OpenADMIXTURE.jl is pinned to the commit from which the C++ code of
+   `gt_radmix()` was first ported. Julia is
    pinned to 1.12.7: conda-forge's Julia 1.10.4 crashes when downloading
    packages on recent Linux kernels, and conda-forge has no 1.11 builds.
    The benchmark of the article `vignettes/articles/admixture_benchmark.Rmd`
@@ -113,6 +123,59 @@ ADMIXTURE reports the frequency of the second allele of the bim file
 position; this is the order of the input for `EUR_subset`, which the test
 checks.
 
+### ADMIXTURE, supervised: `fixtures/admixture_eur_supervised.rds`
+
+Also used by `tests/testthat/test_radmix_vs_admixture.R`, and made by the
+same script (`Rscript data-raw/radmix/regenerate_admixture_fixtures.R
+supervised` makes only this one, from the stored unsupervised fixture; the
+`admixture` binary must be on the PATH). It holds a run of ADMIXTURE
+`--supervised --cv` (seed 1, K = 3, 1 thread) on `EUR_subset`, which has no
+population labels: the references are the individuals with an ancestry
+proportion above 0.9 in a cluster of the unsupervised ADMIXTURE fit at
+K = 3 (15, 59 and 28 individuals), labelled `mid`, `zeta` and `alpha` for
+clusters 1 to 3, so that the order of first appearance in the `.pop` file,
+which ADMIXTURE uses for its columns, differs from the alphabetical order.
+It stores the labels, Q (in millionths), the log-likelihood, the number of
+iterations, the cross-validation error and the log (P is not stored).
+
+### NGSadmix: `fixtures/ngsadmix_gl_reference.rds`
+
+Used by `tests/testthat/test_radmix_vs_ngsadmix.R`, which checks
+`gt_radmix()` on genotype likelihoods against NGSadmix (Skotte et al.
+2013), as distributed with ANGSD 0.940. It holds simulated genotype
+likelihoods (60 individuals, 600 loci from 3 ancestral populations, reads at
+a mean depth of 3 with an error rate of 0.01, simulated with the helpers of
+`tests/testthat/helper-radmix-data.R`), stored compactly as 16-bit codes
+(which the test decodes in R), and, for K = 2 and 3, the estimates of the best of 10
+runs of NGSadmix (seeds 1 to 10): Q, F (the frequency of allele2, as the P
+matrices of `gt_radmix()` for genotype likelihoods) and the log-likelihood,
+with the log of the run. NGSadmix read the likelihoods decoded from the
+codes, so both programs fit the same data, and the test does not need
+NGSadmix.
+
+To regenerate it, install NGSadmix (it comes with ANGSD; put it on the
+`PATH`, or set `NGSADMIX` to the path of the executable), then run (a few
+seconds):
+
+```bash
+Rscript data-raw/radmix/regenerate_ngsadmix_fixtures.R
+```
+
+NGSadmix is run without its filter on the minor allele frequency
+(`-minMaf 0`; by default it drops loci below 0.05) and with stringent
+convergence criteria (`-tol 1e-10 -tolLike50 1e-8 -maxiter 10000`; by
+default it stops when the log-likelihood changes by less than 0.1 in 50
+iterations). Two details matter when comparing the programs, and are
+handled by the test:
+
+- NGSadmix counts log(1/3) in its log-likelihood for each individual
+  without data at a locus (three equal likelihoods), which `gt_radmix()`
+  leaves out;
+- NGSadmix keeps its estimates within [1e-9, 1 - 1e-9], and `gt_radmix()`,
+  as ADMIXTURE, within [1e-5, 1 - 1e-5], so the maximum of `gt_radmix()` is
+  slightly lower (by 0.02 and 0.08 log-likelihood units here), and the
+  estimates differ slightly where they are close to 0 or 1.
+
 ## Other scripts
 
 These scripts use the `EUR_subset` data downloaded by
@@ -140,13 +203,24 @@ version control), and need `tidygenclust` to be installed (timings from
   true one), and shows that the diploids of the population of the
   pseudohaploids do appear admixed at K = 2.
 
+`gl/` holds the benchmarks of genotype likelihoods (given by the example
+source of tidygenclust): `benchmark_gl.R` times the passes over
+likelihoods and over genotypes (and NGSadmix) on simulated data, and
+`perf_gl.R` counts their instructions and cycles. Their results are in
+`gl/results/`, and `gl/REPORT.md` summarises them.
+
 ## Speed-ups
 
-`speedups/` holds the record of the work that sped up `gt_radmix()` (the
-SVD start, the faster kernels, and the default convergence threshold of
-1e-8): the plan, the experiments, and the report of their verification on
-a second machine (see `speedups/README.md`). The SVD start was explored
-with:
+`dev_notes/radmix_performance.md` records the work that sped up `gt_radmix()`
+(the faster passes for cross-validation, the SVD start, the faster
+kernels, and the default convergence threshold of 1e-8), with what was
+tried and rejected. The full reports of that work, with its scripts,
+patches and results, are archived under the git tag
+`archive/radmix-perf-verify`; see "Full records" at the end of
+`dev_notes/radmix_performance.md` for what is there and how to read it (for
+example, `git show
+archive/radmix-perf-verify:data-raw/radmix/perf_verification/desktop_results/REPORT.md`).
+The SVD start was explored with:
 
 - `explore_svd_start.R`: starts from a randomised SVD followed by
   alternating least squares (ALS), as in fastmixture and ADAMIXTURE,

@@ -7,5 +7,9 @@
 codecov.yml
 ^\.positai$
 ^\.claude$
-^dev$
+^dev_notes$
 ^vignettes/articles$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^cran-comments\.md$

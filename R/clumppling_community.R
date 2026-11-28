@@ -1,7 +1,10 @@
 # Community detection for the native clumppling port, used to group
 # replicates with the same K into modes (cd_default() and detect_communities()
 # in clumppling/core.py, cost_to_adj() and test_comm_struc() in
-# clumppling/detectMode/utils.py).
+# clumppling/detectMode/utils.py, with the critical values of the
+# Tracy-Widom test computed by clumppling). Ported from clumppling 2.0.10
+# (Xiran Liu, MIT licence), except clumppling_mcl(), ported from
+# markov_clustering (Guy Allard, MIT licence); see inst/COPYRIGHTS.
 
 # community detection methods available in clumppling
 clumppling_cd_methods <- c(
@@ -230,10 +233,14 @@ clumppling_cd_default <- function(adj_mat, method = "louvain", res = 1) {
 #' Markov clustering (MCL)
 #'
 #' A port of the implementation of MCL used by cdlib (and by the 'custom'
-#' example in clumppling), from the 'markov_clustering' python package (Guy
-#' Allard, MIT license; see inst/COPYRIGHTS). Nodes that belong to more than
-#' one cluster are assigned to the last one, and nodes that belong to none get
-#' the label -1, as in cdlib.
+#' example in clumppling): run_mcl() and get_clusters() (with normalize(),
+#' inflate(), expand(), add_self_loops(), prune() and converged()) of
+#' markov_clustering/mcl.py in the 'markov_clustering' python package,
+#' version 0.0.6.dev0 (Copyright (c) 2017 Guy Allard, MIT licence; see
+#' inst/COPYRIGHTS). The defaults of the parameters are those of cdlib's
+#' markov_clustering() (whose code is not used). Nodes that belong to more
+#' than one cluster are assigned to the last one, and nodes that belong to
+#' none get the label -1, as in cdlib.
 #' @param adj_mat the adjacency matrix of the graph
 #' @param expansion,inflation,loop_value,iterations parameters of MCL
 #'   (defaults as in cdlib)

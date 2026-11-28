@@ -3,6 +3,8 @@
 # following clumppling/parseInput/utils.py and _prepare_q_list() in
 # data-raw/clumppling/py_rclumppling.py (the python wrapper used by previous
 # versions of tidygenclust). Q files are read by tidypopgen.
+# Ported from clumppling 2.0.10 (Xiran Liu, MIT licence; see
+# inst/COPYRIGHTS).
 
 #' Prepare the Q matrices of a gt_admix object
 #'

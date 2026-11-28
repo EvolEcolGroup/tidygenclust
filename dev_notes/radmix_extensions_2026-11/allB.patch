@@ -1,0 +1,39 @@
+--- src/dev/src/radmix_fit.cpp	2026-11-18 14:57:21.000000000 +0000
++++ src/allB/src/radmix_fit.cpp	2026-11-18 16:28:21.849400121 +0000
+@@ -248,9 +248,10 @@
+   if (!ISNAN(ll_after_em)) {
+     // (the last EM step of a verbose fit has already computed it)
+     ll_new = ll_after_em;
+-  } else if (!fix_q && fx == nullptr && max_iter > 0) {
++  } else if (!fix_q && max_iter > 0) {
+     ll_new = update_q_loglik(geno, q.data(), p.data(), k, q1.data(),
+                              n_cores);
++    if (fx != nullptr) set_fixed(q1);
+     q1_ready = true;
+   } else {
+     ll_new = loglik(geno, q.data(), p.data(), k, n_cores);
+@@ -294,7 +295,7 @@
+     // log-likelihood of the point that the iteration ends at (see above):
+     // not after the last iteration allowed, nor with q fixed, nor with
+     // reference individuals
+-    const bool speculate = !fix_q && fx == nullptr && iter < max_iter;
++    const bool speculate = !fix_q && iter < max_iter;
+     if (qn_step(pairs.U.data(), pairs.V.data(), nq + np, n_used, q.data(),
+                 p.data(), q1.data(), p1.data(), k, I, J, q.data(), p.data(),
+                 n_cores)) {
+@@ -309,6 +310,7 @@
+       if (speculate) {
+         ll_qn = update_q_loglik(geno, q.data(), p.data(), k, q1.data(),
+                                 n_cores);
++        if (fx != nullptr) set_fixed(q1);
+       } else {
+         ll_qn = loglik(geno, q.data(), p.data(), k, n_cores);
+       }
+@@ -330,6 +332,7 @@
+       if (speculate) {
+         ll_basic = update_q_loglik(geno, q2.data(), p2.data(), k, q1.data(),
+                                    n_cores);
++        if (fx != nullptr) set_fixed(q1);
+       } else {
+         ll_basic = loglik(geno, q2.data(), p2.data(), k, n_cores);
+       }

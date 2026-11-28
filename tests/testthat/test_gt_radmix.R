@@ -3,20 +3,6 @@ sim <- radmix_simulate_admixed(
 )
 sim_gt <- radmix_test_gt(sim$genotypes)
 
-# best match between estimated and true clusters, by correlation of Q columns
-# (K = 3: of the 6 permutations, the one that maximises the summed
-# correlations between matched columns)
-match_clusters <- function(q_est, q_true) {
-  perms <- list(
-    c(1, 2, 3), c(1, 3, 2), c(2, 1, 3),
-    c(2, 3, 1), c(3, 1, 2), c(3, 2, 1)
-  )
-  scores <- vapply(perms, function(x) {
-    sum(diag(stats::cor(q_est[, x], q_true)))
-  }, numeric(1))
-  perms[[which.max(scores)]]
-}
-
 test_that("gt_radmix returns a valid gt_admix object", {
   adm <- gt_radmix(sim_gt, k = 2:3, n_runs = 2, seed = c(1, 2))
   expect_s3_class(adm, "gt_admix")
@@ -49,7 +35,7 @@ test_that("the log-likelihood is monotone and estimates recover the truth", {
   expect_true(fit$converged)
   # (a small relative tolerance allows for rounding)
   expect_true(all(diff(fit$loglik_history) >= -1e-6 * abs(fit$loglik)))
-  perm <- match_clusters(fit$q, sim$q)
+  perm <- radmix_match_clusters(fit$q, sim$q)
   expect_gt(min(diag(stats::cor(fit$q[, perm], sim$q))), 0.9)
   expect_lt(mean(abs(fit$q[, perm] - sim$q)), 0.08)
 })
@@ -112,12 +98,8 @@ test_that("fixing Q estimates allele frequencies", {
 })
 
 test_that("pseudohaploid data can be analysed", {
-  hap_genotypes <- sim$genotypes
-  # make the first 20 individuals pseudohaploid (homozygous)
-  hap_genotypes[1:20, ] <- 2 * (hap_genotypes[1:20, ] >= 1)
-  pseudo_gt <- tidypopgen::gt_pseudohaploid(
-    radmix_test_gt(hap_genotypes)
-  )
+  # the first 20 individuals are pseudohaploid
+  pseudo_gt <- radmix_pseudohaploid_gt(sim$genotypes, 1:20)
   expect_identical(tidypopgen::show_ploidy(pseudo_gt), -2)
   adm <- gt_radmix(pseudo_gt, k = 3, seed = 1)
   expect_true(adm$converged)
@@ -182,6 +164,31 @@ test_that("verbose progress is reported as messages", {
   expect_false(adm0$converged)
   # the log ends with "Failed to converge after ..." and "Loglikelihood: ..."
   expect_match(utils::tail(adm0$log[[1]], 2)[1], "after 0 iterations")
+})
+
+test_that("step_tol adds a threshold on the changes of the estimates", {
+  small <- radmix_test_gt(sim$genotypes[1:40, 1:200])
+  data <- radmix_prepare(small)
+  set.seed(1)
+  fit <- radmix_fit(data, k = 2, rtol = 1e-4)
+  # one step per iteration, also reported in the log
+  expect_length(fit$step_history, fit$n_iter)
+  iter_lines <- grep("^Iteration", fit$log, value = TRUE)
+  expect_true(all(grepl("step = ", iter_lines)))
+  # a threshold below the last step makes the fit run longer, until the
+  # step falls below it
+  last_step <- utils::tail(fit$step_history, 1)
+  set.seed(1)
+  fit_s <- radmix_fit(data, k = 2, rtol = 1e-4, step_tol = last_step / 10)
+  expect_true(fit_s$converged)
+  expect_gt(fit_s$n_iter, fit$n_iter)
+  expect_lt(utils::tail(fit_s$step_history, 1), last_step / 10)
+  # the first iterations are the same
+  expect_identical(
+    fit_s$loglik_history[seq_len(fit$n_iter + 1)], fit$loglik_history
+  )
+  expect_error(gt_radmix(small, k = 2, step_tol = 0), "step_tol")
+  expect_error(gt_radmix(small, k = 2, step_tol = NA), "step_tol")
 })
 
 test_that("the log-likelihood is only computed when needed", {
@@ -272,6 +279,45 @@ test_that("cross-validation does not change the estimates, without seed", {
   expect_length(adm_cv$cv, 4)
 })
 
+test_that("the refits of cross-validation can be shortened", {
+  adm <- gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE)
+  # the iterations of the refit of each fold, from the "CV fold" lines of
+  # the log
+  fold_iter <- function(a) {
+    lines <- grep("^CV fold", a$log[[1]], value = TRUE)
+    as.integer(sub(".*, ([0-9]+) iterations,.*", "\\1", lines))
+  }
+  # by default, the folds are refitted with max_iter and a threshold of
+  # 1e-7 (rtol if larger)
+  adm_explicit <- gt_radmix(sim_gt,
+    k = 3, seed = 1, crossval = TRUE, cv_max_iter = 1000, cv_rtol = 1e-7
+  )
+  expect_identical(adm_explicit$cv, adm$cv)
+  loose_main <- gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE,
+    rtol = 1e-4
+  )
+  expect_identical(
+    loose_main$cv,
+    gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE, rtol = 1e-4,
+      cv_rtol = 1e-4
+    )$cv
+  )
+  # refits to convergence (cv_rtol = rtol) take at least as many iterations
+  conv <- gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE, cv_rtol = 1e-8)
+  expect_true(all(fold_iter(conv) >= fold_iter(adm)))
+  # a single iteration per fold: the main fit is unchanged, the error is not
+  short <- gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE, cv_max_iter = 1)
+  expect_identical(short$Q, adm$Q)
+  expect_identical(short$loglik, adm$loglik)
+  expect_identical(fold_iter(short), rep(1L, 5))
+  expect_gt(min(fold_iter(adm)), 1)
+  expect_false(identical(short$cv, adm$cv))
+  # a looser threshold stops each refit no later than the default one
+  loose <- gt_radmix(sim_gt, k = 3, seed = 1, crossval = TRUE, cv_rtol = 1e-4)
+  expect_true(all(fold_iter(loose) <= fold_iter(adm)))
+  expect_lt(sum(fold_iter(loose)), sum(fold_iter(adm)))
+})
+
 test_that("all the arguments are validated", {
   # flags must be TRUE or FALSE (fix_q = NA was taken as TRUE)
   expect_error(
@@ -289,6 +335,7 @@ test_that("all the arguments are validated", {
   # rtol = NA or a negative value disabled convergence
   for (bad in list(NA, -1, Inf, "0.1")) {
     expect_error(gt_radmix(sim_gt, k = 2, rtol = bad), "'rtol'")
+    expect_error(gt_radmix(sim_gt, k = 2, cv_rtol = bad), "'cv_rtol'")
   }
   # counts are checked in R, with a message naming the argument
   expect_error(
@@ -296,6 +343,7 @@ test_that("all the arguments are validated", {
     "'max_iter' should be an integer of at least 0"
   )
   expect_error(gt_radmix(sim_gt, k = 2, n_qn = 0), "'n_qn'")
+  expect_error(gt_radmix(sim_gt, k = 2, cv_max_iter = 1.5), "'cv_max_iter'")
   expect_error(gt_radmix(sim_gt, k = 2, n_cores = NA), "'n_cores'")
   expect_error(gt_radmix(sim_gt, k = 2, n_em_iter = 1.5), "'n_em_iter'")
   # non-integer values are not truncated
@@ -343,4 +391,271 @@ test_that("a fixed Q is kept exactly at its starting value", {
   q_fit <- matrix(as.numeric(adm$Q[[1]]), nrow(sim$q))
   # the quasi-Newton step used to move it by rounding errors
   expect_identical(q_fit, q_start)
+})
+
+test_that("gt_radmix() fits genotype likelihoods given by another package", {
+  # A package that stores genotype likelihoods gives them to gt_radmix()
+  # through its method of gt_radmix_data(). Here, a grouped gen_tibble with a
+  # class of its own,
+  # whose method gives the likelihoods of hard calls of its genotypes
+  # (likelihood 1 for the observed genotype and 0 for the others, no data
+  # for a missing one), so that the fit is that of the genotypes.
+  sim <- radmix_simulate_admixed(n = 30, m = 150, k = 2, seed = 2)
+  hard_ll <- array(-Inf, c(dim(sim$genotypes), 3))
+  for (gg in 0:2) {
+    hard_ll[, , gg + 1][sim$genotypes == gg] <- 0
+  }
+  hard_ll[is.na(sim$genotypes)] <- 0
+  test_gt <- dplyr::group_by(radmix_test_gt(sim$genotypes), population)
+  test_gl <- test_gt
+  class(test_gl) <- c("test_likelihoods", class(test_gl))
+  local_mocked_s3_method(
+    "gt_radmix_data", "test_likelihoods",
+    function(x, ...) radmix_test_gl(hard_ll)
+  )
+  # (the log-likelihoods differ by a constant, which changes the relative
+  # changes that the convergence criterion tests, hence a stringent rtol for
+  # both, so that both fits are close to the maximum)
+  adm_gl <- gt_radmix(test_gl, k = 2, seed = 1, rtol = 1e-12)
+  adm_gt <- gt_radmix(test_gt, k = 2, seed = 1, rtol = 1e-12)
+  expect_s3_class(adm_gl, "gt_admix")
+  expect_true(adm_gl$converged)
+  expect_identical(adm_gl$id, test_gt$id)
+  expect_identical(adm_gl$group, test_gt$population)
+  expect_identical(rownames(adm_gl$P[[1]]), rownames(adm_gt$P[[1]]))
+  expect_equal(adm_gl$Q[[1]], adm_gt$Q[[1]], tolerance = 1e-5)
+  expect_equal(adm_gl$P[[1]], adm_gt$P[[1]], tolerance = 1e-5)
+  # the log-likelihood of genotype likelihoods includes the binomial
+  # coefficient of each heterozygote
+  expect_equal(adm_gl$loglik,
+    adm_gt$loglik + sum(sim$genotypes == 1, na.rm = TRUE) * log(2),
+    tolerance = 1e-8
+  )
+  # the results do not depend on the number of cores
+  adm2 <- gt_radmix(test_gl, k = 2, seed = 1, rtol = 1e-12, n_cores = 2)
+  expect_identical(adm2$Q[[1]], adm_gl$Q[[1]])
+  # hard calls carry no missing information, so the observed curvature is
+  # the complete one
+  adm_obs <- gt_radmix(test_gl,
+    k = 2, seed = 1, rtol = 1e-12, gl_curvature = "observed"
+  )
+  expect_equal(adm_obs$Q[[1]], adm_gt$Q[[1]], tolerance = 1e-5)
+  # supervised analyses give the results of the genotypes too (the
+  # references are scattered, so the source is read one individual at a time
+  # for the others)
+  sup_gl <- rep(NA_character_, 30)
+  sup_gl[c(1, 2, 7, 9)] <- c("A", "A", "B", "B")
+  sup_ll <- gt_radmix(test_gl,
+    k = 2, seed = 1, rtol = 1e-12, supervised = sup_gl
+  )
+  sup_gt <- gt_radmix(test_gt,
+    k = 2, seed = 1, rtol = 1e-12, supervised = sup_gl
+  )
+  expect_identical(sup_ll$ref_pops, c("A", "B"))
+  expect_equal(sup_ll$Q[[1]], sup_gt$Q[[1]], tolerance = 1e-5)
+  expect_equal(sup_ll$P[[1]], sup_gt$P[[1]], tolerance = 1e-5)
+  # cross-validation gives the errors of the genotypes (the same folds,
+  # and deviances equal for hard calls; the refits run to convergence, as
+  # the paths of the two fits differ by rounding)
+  cv_ll <- gt_radmix(test_gl,
+    k = 2, seed = 1, rtol = 1e-12, crossval = TRUE, cv_rtol = 1e-12
+  )
+  cv_gt <- gt_radmix(test_gt,
+    k = 2, seed = 1, rtol = 1e-12, crossval = TRUE, cv_rtol = 1e-12
+  )
+  expect_equal(cv_ll$cv, cv_gt$cv, tolerance = 1e-7)
+  # imputed genotypes mean nothing for likelihoods (the SVD start is tested
+  # in test_radmix_svd.R)
+  expect_error(
+    gt_radmix(test_gl, k = 2, use_imputed = TRUE),
+    "'use_imputed' is not available for genotype likelihoods"
+  )
+  # a method that gives data for other individuals than those of x
+  local_mocked_s3_method(
+    "gt_radmix_data", "test_likelihoods",
+    function(x, ...) radmix_test_gl(hard_ll[-1, , ])
+  )
+  expect_error(gt_radmix(test_gl, k = 2), "gave data for 29 individuals")
+  # an object without a method
+  expect_error(
+    gt_radmix(data.frame(a = 1), k = 2),
+    "a method of gt_radmix_data"
+  )
+})
+
+test_that("gl_curvature = \"observed\" reaches the same maximum, faster", {
+  # depth 1.5: many uncertain genotypes, where the two curvatures differ
+  sim <- radmix_simulate_admixed(n = 40, m = 300, k = 2, seed = 3)
+  ll <- radmix_simulate_gl(sim$genotypes, depth = 1.5)
+  test_gl <- radmix_test_gt(sim$genotypes)
+  class(test_gl) <- c("test_likelihoods", class(test_gl))
+  local_mocked_s3_method(
+    "gt_radmix_data", "test_likelihoods",
+    function(x, ...) radmix_test_gl(ll)
+  )
+  adm_c <- gt_radmix(test_gl, k = 2, seed = 1, rtol = 1e-10)
+  adm_o <- gt_radmix(test_gl,
+    k = 2, seed = 1, rtol = 1e-10, gl_curvature = "observed"
+  )
+  expect_true(adm_o$converged)
+  expect_equal(adm_o$loglik, adm_c$loglik, tolerance = 1e-8)
+  expect_equal(adm_o$Q[[1]], adm_c$Q[[1]], tolerance = 1e-4)
+  # the observed curvature reaches it in fewer iterations
+  n_iter <- function(adm) sum(grepl("^Iteration", adm$log[[1]]))
+  expect_lt(n_iter(adm_o), n_iter(adm_c))
+  # genotypes give the same fit with either curvature
+  test_gt <- radmix_test_gt(sim$genotypes)
+  expect_identical(
+    gt_radmix(test_gt, k = 2, seed = 1, gl_curvature = "observed")$Q,
+    gt_radmix(test_gt, k = 2, seed = 1)$Q
+  )
+  expect_error(
+    gt_radmix(test_gl, k = 2, gl_curvature = "exact"),
+    "should be one of"
+  )
+})
+
+# Supervised analyses: the individuals with more than 90% of their simulated
+# ancestry from one population are references of that population, labelled
+# so that the order of first appearance (a, c, b: the order of the columns)
+# differs from the alphabetical order; the others are estimated
+sup_names <- c("c", "a", "b")
+sup_is_ref <- apply(sim$q, 1, max) > 0.9
+sup_labels <- ifelse(sup_is_ref, sup_names[apply(sim$q, 1, which.max)], NA)
+
+test_that("supervised analyses fix the ancestry of the references", {
+  # (grouped, to check tidypopgen's methods below; the groups do not change
+  # the fit)
+  grouped_gt <- dplyr::group_by(sim_gt, population)
+  adm <- gt_radmix(grouped_gt, k = 3, supervised = sup_labels, seed = 1)
+  expect_s3_class(adm$Q[[1]], "q_matrix")
+  expect_true(adm$converged)
+  expect_match(adm$log[[1]][1], paste0(
+    "^Supervised analysis: ", sum(sup_is_ref), " reference individuals"
+  ))
+  # the columns follow the order of first appearance, as in ADMIXTURE
+  expect_identical(adm$ref_pops, unique(sup_labels[sup_is_ref]))
+  q <- unname(unclass(adm$Q[[1]]))
+  # the references keep exactly their fixed value: 1 for their population,
+  # 0 for the others, moved inside the feasible set (1 - 2e-5 and 1e-5,
+  # the values reported by ADMIXTURE)
+  col <- match(sup_labels[sup_is_ref], adm$ref_pops)
+  q_fixed <- matrix(1e-5, sum(sup_is_ref), 3)
+  q_fixed[cbind(seq_along(col), col)] <- 1 - 2e-5
+  expect_equal(q[sup_is_ref, ], q_fixed, tolerance = 1e-12)
+  sup <- radmix_check_supervised(sup_labels, nrow(sim_gt), 3)
+  expect_identical(q[sup_is_ref, ], sup$q[sup_is_ref, ])
+  # the log-likelihood is that of all the individuals, references included
+  # (the fused pass computes that of the references separately)
+  expect_equal(adm$loglik, radmix_loglik_cpp(
+    radmix_prepare(sim_gt), t(q), t(adm$P[[1]]), 1
+  ), tolerance = 1e-12)
+  # the others recover their simulated ancestry, whose columns are matched
+  # to the populations by their labels (no relabelling of the clusters)
+  truth <- sim$q[, match(adm$ref_pops, sup_names)]
+  expect_lt(mean(abs(q[!sup_is_ref, ] - truth[!sup_is_ref, ])), 0.05)
+  # the order of the levels of a factor is used instead, giving the same
+  # estimates up to the order of the columns (and the path of the fit)
+  adm_f <- gt_radmix(sim_gt,
+    k = 3, seed = 1,
+    supervised = factor(sup_labels, levels = c("a", "b", "c"))
+  )
+  expect_identical(adm_f$ref_pops, c("a", "b", "c"))
+  expect_equal(unname(unclass(adm_f$Q[[1]])),
+    q[, match(c("a", "b", "c"), adm$ref_pops)],
+    tolerance = 1e-3
+  )
+  # results do not depend on the number of cores
+  adm2 <- gt_radmix(sim_gt,
+    k = 3, supervised = sup_labels, seed = 1, n_cores = 2
+  )
+  expect_identical(adm2$Q, adm$Q)
+  expect_identical(adm2$P, adm$P)
+  # the result works with tidypopgen's methods
+  expect_s3_class(
+    ggplot2::autoplot(adm, k = 3, run = 1, type = "barplot"),
+    "ggplot"
+  )
+  q_mat <- tidypopgen::get_q_matrix(adm, k = 3, run = 1)
+  expect_identical(nrow(generics::tidy(q_mat, grouped_gt)), 80L * 3L)
+  expect_identical(
+    as.numeric(generics::augment(q_mat, grouped_gt)$.Q2),
+    as.numeric(q_mat[, 2])
+  )
+})
+
+test_that("supervised analyses support cross-validation and init_q", {
+  adm <- gt_radmix(sim_gt, k = 3, supervised = sup_labels, seed = 1)
+  adm_cv <- gt_radmix(sim_gt,
+    k = 3, supervised = sup_labels, seed = 1, crossval = TRUE
+  )
+  # cross-validation does not change the estimates
+  expect_identical(adm_cv$Q, adm$Q)
+  expect_true(is.finite(adm_cv$cv) && adm_cv$cv > 0)
+  # the references stay fixed in the fit of each fold
+  sup <- radmix_check_supervised(sup_labels, nrow(sim_gt), 3)
+  dat <- radmix_prepare(sim_gt)
+  train <- radmix_set_cv(dat, cv = list(
+    mode = "train", fold = 1, n_folds = 5, seed = 1
+  ))
+  fold_fit <- radmix_fit(train,
+    k = 3, init_q = unclass(adm$Q[[1]]), init_p = adm$P[[1]],
+    sup_q = sup$q
+  )
+  expect_identical(fold_fit$q[sup_is_ref, ], sup$q[sup_is_ref, ])
+  # init_q gives the start of the individuals to estimate; its rows for the
+  # references are ignored
+  init_q <- matrix(1 / 3, nrow(sim_gt), 3)
+  adm_q <- gt_radmix(sim_gt,
+    k = 3, supervised = sup_labels, init_q = init_q, seed = 1
+  )
+  expect_identical(
+    unclass(adm_q$Q[[1]])[sup_is_ref, ],
+    unclass(adm$Q[[1]])[sup_is_ref, ]
+  )
+  expect_equal(adm_q$loglik, adm$loglik, tolerance = 1e-6)
+})
+
+test_that("invalid supervised analyses are caught", {
+  n <- nrow(sim_gt)
+  expect_error(
+    gt_radmix(sim_gt, k = 3, supervised = sup_labels[-1]),
+    "'supervised' should have one element per individual of 'x' \\(80\\)"
+  )
+  expect_error(
+    gt_radmix(sim_gt, k = 3, supervised = rep(NA_character_, n)),
+    "it only contains NA"
+  )
+  expect_error(
+    gt_radmix(sim_gt, k = 3, supervised = rep(1, n)),
+    "'supervised' should be a character vector or a factor"
+  )
+  # as in ADMIXTURE, k must equal the number of reference populations
+  expect_error(
+    gt_radmix(sim_gt, k = 2, supervised = sup_labels),
+    paste0(
+      "'k' should equal the number of reference populations in ",
+      "'supervised' \\(3: a, c, b\\), not 2"
+    )
+  )
+  expect_error(
+    gt_radmix(sim_gt, k = 2:3, supervised = sup_labels),
+    "'supervised' can only be used with a single 'k'"
+  )
+  expect_error(
+    gt_radmix(sim_gt,
+      k = 3, supervised = factor(sup_labels, levels = c("a", "b", "c", "d"))
+    ),
+    "the level\\(s\\) d of 'supervised' have no reference individual"
+  )
+  expect_error(
+    gt_radmix(sim_gt,
+      k = 3, supervised = sup_labels, init_p = t(sim$p), fix_p = TRUE
+    ),
+    "'supervised' cannot be combined with 'fix_q' or 'fix_p'"
+  )
+  expect_error(
+    gt_radmix(sim_gt, k = 3, supervised = sup_labels, init = "svd"),
+    "'supervised' cannot be combined with 'init = \"svd\"'"
+  )
 })

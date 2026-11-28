@@ -1,0 +1,13 @@
+tool,init,seed,n_cores,crossval,seconds,loglik,cv_error,iterations,peak_rss_mb
+adamixture,random,1,8,FALSE,10.576,-100805639.1,NA,25,193.2
+adamixture,random,2,8,FALSE,13.797,-100734045.3,NA,32,193.3
+adamixture,random,3,8,FALSE,10.644,-100805639.1,NA,25,193.3
+adamixture,svd,1,8,FALSE,9.346,-100734045.3,NA,15,214.1
+adamixture,svd,2,8,FALSE,9.440,-100734045.3,NA,15,214.3
+adamixture,svd,3,8,FALSE,9.162,-100744122.0,NA,15,219.2
+radmix_cli,random,1,8,FALSE,10.297,-100744121.978202,NA,25,595.6
+radmix_cli,random,2,8,FALSE,10.409,-100734045.454458,NA,25,595.8
+radmix_cli,random,3,8,FALSE,9.891,-100744122.267096,NA,23,595.8
+radmix_cli,svd,1,8,FALSE,8.793,-100744122.057817,NA,12,817.8
+radmix_cli,svd,2,8,FALSE,8.993,-100744122.037545,NA,12,817.7
+radmix_cli,svd,3,8,FALSE,8.486,-100734045.364535,NA,13,816.8

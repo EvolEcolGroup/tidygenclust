@@ -2,6 +2,8 @@
 # native clumppling port (community_labels_to_modes() in
 # clumppling/detectMode/utils.py, find_repr_modes() and
 # extract_modes_and_stats() in clumppling/core.py).
+# Ported from clumppling 2.0.10 (Xiran Liu, MIT licence; see
+# inst/COPYRIGHTS).
 
 #' Convert community labels into modes
 #'
