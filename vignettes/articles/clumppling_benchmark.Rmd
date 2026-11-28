@@ -165,7 +165,7 @@ agreement %>%
   )
 ```
 
-Where the modes are the same, the remaining differences are rounding
+Where the modes are the same, the remaining differences are due to rounding
 errors. Grouping runs into modes uses community detection (the Louvain
 method, by default), which draws random numbers. `gt_clumppling()` draws
 them from R's generator, so the same seed does not give the same random
@@ -184,8 +184,8 @@ matrices are usually already in memory, in a `gt_admix` object returned by
 returns its results as an R object. The python clumppling is usually run
 as a command-line tool, which starts python, loads its packages, reads the
 Q files, and writes its results to files. Timing `gt_clumppling()` on a
-`gt_admix` object against the command-line tool would flatter
-`gt_clumppling()`. So we timed each implementation in three settings:
+`gt_admix` object against the command-line tool would favour
+`gt_clumppling()`. We therefore timed each implementation in three settings:
 
 - **In memory**: the Q matrices are already in memory, and R or python is
   already running, with the packages loaded. This times the method alone.
