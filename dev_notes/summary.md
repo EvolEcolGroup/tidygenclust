@@ -9,7 +9,7 @@ paragraph, status and next steps are copied into the issue
 
 tidygenclust: `gt_radmix()`, the native implementation of ADMIXTURE's method (port, speed-ups, consolidation), and its extension to genotype likelihoods. Earlier log of the likelihoods: dramanica/claude_jobs#12.
 
-**Status (2026-11-28).** 0.2.0, with examples for the exported functions (#45-#47) and the fixes of the remote checks (#50: undefined behaviour found by R-hub's m1-san), is on `main` and `dev`, ready for the first CRAN submission: `main`'s #40 merged into `dev` (#43), tidypopgen (>= 1.1.0) from CRAN, `R CMD check --as-cran` with only the new-submission note relevant to CRAN (two more from the laptop's R), 4053 tests passing, CI green. Streaming of data larger than the memory (#41): 50 GB of genotypes under an 8 GiB cap took 1.34 times the time in memory. Handover: `dev_notes/handover.md`.
+**Status (2026-11-28).** 0.2.0 is on `main` and `dev`, ready for Andrea to submit to CRAN: examples added (#45-#47), undefined behaviour found by R-hub's m1-san fixed (#50), Joan Saurina as author, `cran-comments.md` written (#52, #53). Local `--as-cran`, win-builder (1 note: new submission), R-hub (linux, m1-san, macos-arm64, windows) and CI all pass. Handover: `dev_notes/handover.md`.
 
 PR #38 (`radmix_extensions`, squash-merged into `dev` as df747aa on 18 Nov, CI green) added a fused pass for supervised fits (fits 0.88-0.89 of the time, the same estimates), cross-validation and SVD starts for genotype likelihoods, and inlined likelihood helpers; with tidypopgl's faster source (its branch `radmix_source_speed`), fits of likelihoods take 0.80-0.83 of the time. `dev` is now 0.1.5.9006, which tidypopgl's `gl_workflow` requires since its PR #47.
 
@@ -41,13 +41,14 @@ The designs are in `admixture_implementation.md`, the timings in
 `radmix_performance.md` and `radmix_extensions_2026-11/`.
 
 **Next steps**
-- [ ] **P2** [andrea] submit 0.2.0 to CRAN (`devtools::submit_cran()` from `main`; `cran-comments.md` ready), then, once CRAN accepts it, tag it and bump `dev` to 0.2.0.9000.
+- [ ] **P2** [andrea] submit 0.2.0 to CRAN (`devtools::submit_cran()` from `main`; `cran-comments.md` ready), then, once CRAN accepts it, tag it, bump `dev` to 0.2.0.9000 and delete the branch `cran_submission`.
 - [ ] **P2** [desktop] run ASan/UBSan (and valgrind on small fits) on medium data with forced streaming, K up to 12 and 8 threads (details in the handover's desktop queue): after the submission.
 - [ ] **P3** [cleanup] delete the article's data and the builds on manica01 (`~/project_temp/claude/tidygenclust/stream/`, about 75 GB) when Andrea no longer needs them.
 
 Backlog (P3, in `handover.md`): `-fprofile-update=single` under covr, the vignette's P comparison as code, P as a matrix or a data.frame (decide), bootstrap standard errors, the remaining speed leads, an EM-based PCA for the SVD start of likelihoods.
 
 **Done**
+- Remote checks and fixes for CRAN (#48-#53): win-builder, R-hub with m1-san, UBSan fix, `cran-comments.md`. 28 Nov 2026.
 - Examples for the exported functions (#45, #47), on `main` (#46); version still 0.2.0. 28 Nov 2026.
 - 0.2.0 on `main` for CRAN: #40 merged into `dev` (#43), CRAN tidypopgen, `dev` into `main` (#44). 28 Nov 2026.
 - The benchmark article with streaming reviewed and merged into `dev` (#41, 27 Nov); tidypopgl's prefetch function (tidypopgl#91, 28 Nov); old branches deleted (28 Nov).

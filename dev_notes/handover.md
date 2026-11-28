@@ -1,10 +1,12 @@
 # tidygenclust: handover
 
-Updated 2026-11-28 (laptopX1): 0.2.0 is on `main` (#44) and `dev`, ready
-for the first CRAN submission: `main`'s #40 merged into `dev` (#43),
-tidypopgen (>= 1.1.0) from CRAN without `Remotes`, `cran-comments.md`.
-`R CMD check --as-cran`: only the new-submission note would show on
-CRAN (the other two notes come from the laptop's R); CI green.
+Updated 2026-11-28 (laptopX1): 0.2.0 is on `main` and `dev` (same tree),
+ready for Andrea to submit to CRAN: `main`'s #40 merged into `dev` (#43),
+tidypopgen (>= 1.1.0) from CRAN, examples (#45, #47), the fix of undefined
+behaviour found by R-hub's m1-san (#50), Joan Saurina as author, the R-hub
+workflow (#48) and `cran-comments.md` (#52, #53). Checks: `--as-cran`
+locally, win-builder (1 note: new submission, spelling), R-hub linux,
+m1-san, macos-arm64 and windows (all OK), CI green.
 `summary.md` first. History is in `progress.md`; designs are in the topic
 documents listed in `README.md`.
 
@@ -13,10 +15,11 @@ documents listed in `README.md`.
 | branch | purpose | base | pushed | merged |
 |---|---|---|---|---|
 | `hgdp_plots` | Eirlys's HGDP plotting script (Jan 2025); `dev` has her later version (June 2025) | old `dev` | yes | no: kept until some runs are redone (Andrea, 28 Nov) |
+| `cran_submission` | `main` at the R-hub run (rhub_check needs a branch) | `main` | yes | delete after the submission |
 | `windows` | Ondra's experimental Windows support through WSL2 (`R/wsl_backend.R`, `vignettes/windows.Rmd`, a CI workflow, tests; Oct 2026); its adamixture commits are in `dev` (#30) | `dev` (June) | yes | no PR |
 
-`main` and `dev` have the same tree (0.2.0; `main` has one extra merge
-commit).
+`main` and `dev` have the same tree (0.2.0; `main` has extra merge
+commits).
 
 Deleted 28 Nov (Andrea's go-ahead): `ccr-fd217561-izn297` and
 `adamixture-1.9.6-benchmark` (origin; the first is in `dev` through #41,
@@ -34,7 +37,8 @@ Nov: see `progress.md`.
 ### 1. **P2** [andrea] submit 0.2.0 to CRAN
 
 - `devtools::submit_cran()` from `main` (the examples, #45-#47, are on `main`);
-  `cran-comments.md` is ready. After acceptance: tag the release, then
+  `cran-comments.md` is ready. Then delete the branch `cran_submission`.
+  After acceptance: tag the release, then
   bump `dev` to 0.2.0.9000 (re-add `Remotes: EvolEcolGroup/tidypopgen@dev`
   only if `dev` needs unreleased tidypopgen).
 

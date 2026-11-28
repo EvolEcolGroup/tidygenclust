@@ -542,6 +542,18 @@ K = 20 with 8,192 individuals and 64 MB) may outgrow the L2 cache. The
 streamed runs of the article are unchanged (chunk_q is off when
 streaming); its in-memory baselines are rerun with this build.
 
+## Undefined behaviour with a single chunk (fixed 28 November 2026)
+
+R-hub's m1-san (clang ASan + UBSan) flagged the example of `gt_radmix()`:
+with one chunk of loci, `q_side_stream()` keeps no accumulators between
+chunks (`acc_g`, `acc_h` are empty), but each block took its slot as
+`&acc_g[bl * K * TILE_I]`, indexing an empty vector. The slots are only
+used with several chunks, so results were never affected. Fixed in #50
+(slots taken from `data()` only when `keep`); a local GCC UBSan build ran
+the tests (NOT_CRAN=true) and the examples clean, and R-hub m1-san passed
+on `main`. A sanitizer run at scale (several chunks, large K, 8 threads)
+is queued for manica01 (handover, "Desktop queue").
+
 ## Left to do
 
 - The SVD start of genotype likelihoods (`init = "svd"`) has the same

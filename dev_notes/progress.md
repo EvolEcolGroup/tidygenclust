@@ -5,6 +5,13 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-28 (laptopX1): cran-comments.md; ready to submit
+
+- `cran-comments.md` with the test environments and the notes of the
+  remote checks (Andrea approved the draft): #52 into `dev`, #53 into
+  `main` (merged without waiting for the last CI jobs: build-ignored file
+  only). `main` = `dev`, 0.2.0, for Andrea to submit.
+
 ## 2026-11-28 (laptopX1): remote checks for CRAN; UBSan fix (#50)
 
 - R-hub workflow added (#48, #49); win-builder (R-devel): only the
