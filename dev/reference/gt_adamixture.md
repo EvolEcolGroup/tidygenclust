@@ -108,3 +108,31 @@ Saurina-i-Ricos, J., Mas Montserrat, D., & Ioannidis, A. G. (2026).
 ADAMIXTURE: adaptive first-order optimization for biobank-scale genetic
 clustering. Bioinformatics, 42(Supplement_1). doi:
 https://doi.org/10.1093/bioinformatics/btag236
+
+## Examples
+
+``` r
+# \donttest{
+# ADAMIXTURE is optional: this example only runs if it is installed (see
+# tgc_tools_install(), only on Linux at the moment)
+if (!is.na(tgc_tools_version()$adamixture)) {
+  # the lizard Anolis punctatus, an example dataset of tidypopgen
+  vcf_path <- system.file("extdata", "anolis",
+    "punctatus_t70_s10_n46_filtered.recode.vcf.gz",
+    package = "tidypopgen"
+  )
+  anole_gt <- tidypopgen::gen_tibble(vcf_path,
+    quiet = TRUE, backingfile = tempfile("anolis_")
+  )
+  anole_ada <- gt_adamixture(anole_gt, k = 2:3, seed = 1, verbose = FALSE)
+  anole_ada$Q[[2]]
+
+  # choose K by cross-validation
+  anole_ada_cv <- gt_adamixture(anole_gt, k = 2:4, seed = 1, cv = 5,
+    verbose = FALSE
+  )
+  autoplot(anole_ada_cv, type = "cv")
+}
+
+# }
+```

@@ -7,6 +7,16 @@ collections of replicate analyses. It is designed to work natively with
 diploid and pseudohaploid data, and integrates seamlessly with the
 tidypopgen ecosystem.
 
+## See also
+
+Useful links:
+
+- <https://github.com/EvolEcolGroup/tidygenclust>
+
+- <https://evolecolgroup.github.io/tidygenclust/>
+
+- Report bugs at <https://github.com/EvolEcolGroup/tidygenclust/issues>
+
 ## Author
 
 **Maintainer**: Andrea Manica <am315@cam.ac.uk>

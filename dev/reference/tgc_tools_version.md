@@ -15,3 +15,20 @@ tgc_tools_version()
 
 A list with the version of the optional tools installed by
 `tidygenclust`
+
+## Examples
+
+``` r
+# \donttest{
+tgc_tools_version()
+#> $fastmixture
+#> [1] "v1.3.0"
+#> 
+#> $admixture
+#> [1] "1.3.0"
+#> 
+#> $adamixture
+#> [1] "1.9.6"
+#> 
+# }
+```

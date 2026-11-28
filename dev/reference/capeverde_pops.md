@@ -23,3 +23,12 @@ data of Verdu P, Jewett EM, Pemberton TJ, Rosenberg NA, Baptista M
 (2017) Parallel trajectories of genetic and linguistic admixture in a
 genetically admixed creole population. Current Biology, 27(16),
 2529-2535.
+
+## Examples
+
+``` r
+table(capeverde_pops)
+#> capeverde_pops
+#>      British Cape Verdean       French      Gambian      Iberian     Mandenka 
+#>           89           44           28          109          107           22 
+```
