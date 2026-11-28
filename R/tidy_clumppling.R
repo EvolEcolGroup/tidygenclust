@@ -19,6 +19,21 @@
 #'   only.
 #' @returns a [tibble::tibble] of the information of interest (for "Q_modes"
 #'   and "Q_major_modes", a named list of tibbles, one per mode)
+#' @examples
+#' # the runs of ADMIXTURE for K = 2 to 5 of the Cape Verde example of
+#' # clumppling, aligned into modes
+#' capeverde <- readRDS(
+#'   system.file("extdata", "capeverde_admix.rds", package = "tidygenclust")
+#' )
+#' clump_res <- gt_clumppling(capeverde, seed = 1)
+#'
+#' # the modes, with their K, their rank within K and their label
+#' tidy(clump_res, matrix = "modes")
+#'
+#' # the ancestry proportions of the major modes, one tibble per mode
+#' q_major <- tidy(clump_res, matrix = "Q_major_modes")
+#' names(q_major)
+#' q_major[["K3M1"]]
 #' @rdname tidy_gt_clumppling
 #' @export
 

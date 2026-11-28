@@ -58,6 +58,27 @@
 #' in scaled log-likelihood units (1e-7)
 #' @return an object of class `gt_admix`. See [tidypopgen::gt_admixture()] for
 #'   details.
+#' @examples
+#' \donttest{
+#' # fastmixture is optional: this example only runs if it is installed (see
+#' # tgc_tools_install(), only on Linux at the moment)
+#' if (!is.na(tgc_tools_version()$fastmixture)) {
+#'   # the lizard Anolis punctatus, an example dataset of tidypopgen
+#'   vcf_path <- system.file("extdata", "anolis",
+#'     "punctatus_t70_s10_n46_filtered.recode.vcf.gz",
+#'     package = "tidypopgen"
+#'   )
+#'   anole_gt <- tidypopgen::gen_tibble(vcf_path,
+#'     quiet = TRUE, backingfile = tempfile("anolis_")
+#'   )
+#'   anole_fm <- gt_fastmixture(anole_gt, k = 2:3, seed = 1)
+#'   anole_fm$Q[[2]]
+#'
+#'   # choose K by cross-validation
+#'   anole_fm_cv <- gt_fastmixture(anole_gt, k = 2:4, seed = 1, cv = 5)
+#'   autoplot(anole_fm_cv, type = "cv")
+#' }
+#' }
 #' @export
 
 gt_fastmixture <- function(

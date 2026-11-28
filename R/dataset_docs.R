@@ -5,6 +5,8 @@
 #' clumppling (Liu, Kopelman and Rosenberg 2024), whose runs of ADMIXTURE
 #' are in `extdata/capeverde_admix.rds`.
 #'
+#' @examples
+#' table(capeverde_pops)
 #' @format A vector of length 399
 #' @source The example data of clumppling
 #'   (<https://github.com/PopGenClustering/Clumppling>), from the Cape Verde

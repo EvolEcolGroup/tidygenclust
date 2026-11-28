@@ -4,6 +4,10 @@
 #'   `ADAMIXTURE`. Tools that are not installed have version NA.
 #' @return A list with the version of the optional tools installed by
 #' `tidygenclust`
+#' @examples
+#' \donttest{
+#' tgc_tools_version()
+#' }
 #' @export
 
 tgc_tools_version <- function() {

@@ -21,3 +21,9 @@ version, used by \code{\link[=gt_adamixture]{gt_adamixture()}}, does not need Py
 optional tools, it is only available on Linux at the moment (see
 \code{\link[=tgc_tools_install]{tgc_tools_install()}}).
 }
+\examples{
+\dontrun{
+# installs software in a conda environment (only on Linux at the moment)
+tgc_adamixture_install()
+}
+}

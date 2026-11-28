@@ -28,3 +28,9 @@ This function adds it to an existing \code{ctidygenclust} environment (created
 with \code{\link[=tgc_tools_install]{tgc_tools_install()}}). Like the other optional tools, it is only
 available on Linux at the moment (see \code{\link[=tgc_tools_install]{tgc_tools_install()}}).
 }
+\examples{
+\dontrun{
+# installs software in a conda environment (only on Linux at the moment)
+tgc_admixture_install()
+}
+}

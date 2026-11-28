@@ -48,6 +48,29 @@
 #'   details. As for [gt_radmix()], the P matrices give the frequency of the
 #'   alternate allele of each locus (for PLINK files, of the first allele in
 #'   the bim file).
+#' @examples
+#' \donttest{
+#' # ADAMIXTURE is optional: this example only runs if it is installed (see
+#' # tgc_tools_install(), only on Linux at the moment)
+#' if (!is.na(tgc_tools_version()$adamixture)) {
+#'   # the lizard Anolis punctatus, an example dataset of tidypopgen
+#'   vcf_path <- system.file("extdata", "anolis",
+#'     "punctatus_t70_s10_n46_filtered.recode.vcf.gz",
+#'     package = "tidypopgen"
+#'   )
+#'   anole_gt <- tidypopgen::gen_tibble(vcf_path,
+#'     quiet = TRUE, backingfile = tempfile("anolis_")
+#'   )
+#'   anole_ada <- gt_adamixture(anole_gt, k = 2:3, seed = 1, verbose = FALSE)
+#'   anole_ada$Q[[2]]
+#'
+#'   # choose K by cross-validation
+#'   anole_ada_cv <- gt_adamixture(anole_gt, k = 2:4, seed = 1, cv = 5,
+#'     verbose = FALSE
+#'   )
+#'   autoplot(anole_ada_cv, type = "cv")
+#' }
+#' }
 #' @export
 
 gt_adamixture <- function(

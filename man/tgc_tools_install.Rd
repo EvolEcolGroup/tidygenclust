@@ -90,3 +90,14 @@ environment with \code{reticulate::conda_run2()}. If the installation fails
 with the tested yaml, you can try \code{conda_yaml = NULL} to let conda
 install the latest available packages.
 }
+\examples{
+\dontrun{
+# installs software in a conda environment (only on Linux at the moment):
+# all the tools
+tgc_tools_install()
+
+# or, alternatively, only fastmixture (other tools already in the
+# environment are kept)
+tgc_tools_install(tools = "fastmixture")
+}
+}

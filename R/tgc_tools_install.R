@@ -64,6 +64,16 @@
 #'   the package source directory, rather than in the installed package
 #'   directory. This is useful when testing the package on CI services.
 #' @returns NULL (invisibly)
+#' @examples
+#' \dontrun{
+#' # installs software in a conda environment (only on Linux at the moment):
+#' # all the tools
+#' tgc_tools_install()
+#'
+#' # or, alternatively, only fastmixture (other tools already in the
+#' # environment are kept)
+#' tgc_tools_install(tools = "fastmixture")
+#' }
 #' @export
 
 tgc_tools_install <-
@@ -185,6 +195,11 @@ tgc_tools_install <-
 #'
 #' @inheritParams tgc_tools_install
 #' @returns NULL (invisibly)
+#' @examples
+#' \dontrun{
+#' # installs software in a conda environment (only on Linux at the moment)
+#' tgc_fastmixture_install()
+#' }
 #' @export
 
 tgc_fastmixture_install <-
@@ -242,6 +257,11 @@ tgc_fastmixture_install <-
 #'   `ADMIXTURE` in bioconda). See [tgc_tools_install()].
 #' @inheritParams tgc_tools_install
 #' @returns NULL (invisibly)
+#' @examples
+#' \dontrun{
+#' # installs software in a conda environment (only on Linux at the moment)
+#' tgc_admixture_install()
+#' }
 #' @export
 
 tgc_admixture_install <- function(conda_yaml = "auto", ci_install = FALSE) {
@@ -308,6 +328,11 @@ tgc_admixture_install <- function(conda_yaml = "auto", ci_install = FALSE) {
 #'
 #' @inheritParams tgc_tools_install
 #' @returns NULL (invisibly)
+#' @examples
+#' \dontrun{
+#' # installs software in a conda environment (only on Linux at the moment)
+#' tgc_adamixture_install()
+#' }
 #' @export
 
 tgc_adamixture_install <- function(adamixture_version = "1.9.6") {
