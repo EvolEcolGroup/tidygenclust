@@ -3,7 +3,8 @@
 Updated 2026-11-28 (laptopX1): 0.2.0 is on `main` (#44) and `dev`, ready
 for the first CRAN submission: `main`'s #40 merged into `dev` (#43),
 tidypopgen (>= 1.1.0) from CRAN without `Remotes`, `cran-comments.md`.
-`R CMD check --as-cran` gives only the new-submission note; CI green.
+`R CMD check --as-cran`: only the new-submission note would show on
+CRAN (the other two notes come from the laptop's R); CI green.
 `summary.md` first. History is in `progress.md`; designs are in the topic
 documents listed in `README.md`.
 
@@ -40,7 +41,7 @@ Nov: see `progress.md`.
 
 ### 2. **P2** [andrea] submit 0.2.0 to CRAN
 
-- `devtools::submit_cran()` from `main` (after task 1 if wanted);
+- `devtools::submit_cran()` from `main` (after task 1, which must be merged first);
   `cran-comments.md` is ready. After acceptance: tag the release, then
   bump `dev` to 0.2.0.9000 (re-add `Remotes: EvolEcolGroup/tidypopgen@dev`
   only if `dev` needs unreleased tidypopgen).

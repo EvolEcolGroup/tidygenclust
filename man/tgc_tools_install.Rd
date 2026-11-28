@@ -92,10 +92,12 @@ install the latest available packages.
 }
 \examples{
 \dontrun{
-# installs software in a conda environment (only on Linux at the moment)
+# installs software in a conda environment (only on Linux at the moment):
+# all the tools
 tgc_tools_install()
 
-# only fastmixture
+# or, alternatively, only fastmixture (other tools already in the
+# environment are kept)
 tgc_tools_install(tools = "fastmixture")
 }
 }

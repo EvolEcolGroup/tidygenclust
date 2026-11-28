@@ -27,7 +27,7 @@
 #' )
 #' clump_res <- gt_clumppling(capeverde, seed = 1)
 #'
-#' # the modes, with the number of runs in each and their cost
+#' # the modes, with their K, their rank within K and their label
 #' tidy(clump_res, matrix = "modes")
 #'
 #' # the ancestry proportions of the major modes, one tibble per mode
