@@ -268,6 +268,23 @@ clumppling_local_seed <- function(seed, envir = parent.frame()) {
 #'   `K_range` (e.g. `c(17, 19)` if `K_range` is 17, 19 and 21), in increasing
 #'   order
 #' @returns a gt_clumppling object subsetted to the individuals specified
+#' @examples
+#' # the runs of ADMIXTURE for K = 2 to 5 of the Cape Verde example of
+#' # clumppling, aligned into modes
+#' capeverde <- readRDS(
+#'   system.file("extdata", "capeverde_admix.rds", package = "tidygenclust")
+#' )
+#' clump_res <- gt_clumppling(capeverde, seed = 1)
+#'
+#' # the modes with K = 3 and 4
+#' clump_k34 <- subset_gt_clumppling(clump_res, k = c(3, 4))
+#' autoplot(clump_k34, type = "modes")
+#'
+#' # the Cape Verdean individuals only, e.g. for an inset (their modes are
+#' # still those of all the individuals, and autoplot() warns about it)
+#' cape_verdeans <- which(capeverde_pops == "Cape Verdean")
+#' clump_cv <- subset_gt_clumppling(clump_res, indivs = cape_verdeans)
+#' clump_cv$N
 #' @export
 subset_gt_clumppling <- function(x, k = NULL, indivs = NULL) {
   if (!is.null(indivs)) {

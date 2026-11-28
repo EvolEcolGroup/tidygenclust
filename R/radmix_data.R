@@ -42,6 +42,16 @@
 #' @returns a list (see the details)
 #' @seealso [gt_radmix()], whose details describe the model of genotype
 #'   likelihoods
+#' @examples
+#' bed_file <-
+#'   system.file("extdata", "pop_a.bed", package = "tidypopgen")
+#' pop_a <- tidypopgen::gen_tibble(bed_file,
+#'   backingfile = tempfile("pop_a"),
+#'   quiet = TRUE
+#' )
+#' # the internal description of a gen_tibble for the kernels of gt_radmix()
+#' radmix_data <- gt_radmix_data(pop_a)
+#' radmix_data[c("kind", "n_indiv", "n_loci")]
 #' @keywords internal
 #' @export
 gt_radmix_data <- function(x, ...) {

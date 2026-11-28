@@ -25,3 +25,21 @@ subset of individuals during data analysis. To understand the modes within a
 subset of individuals in your data, you should subset your \code{gt_admix} object
 and re-run \code{gt_clumppling}.
 }
+\examples{
+# the runs of ADMIXTURE for K = 2 to 5 of the Cape Verde example of
+# clumppling, aligned into modes
+capeverde <- readRDS(
+  system.file("extdata", "capeverde_admix.rds", package = "tidygenclust")
+)
+clump_res <- gt_clumppling(capeverde, seed = 1)
+
+# the modes with K = 3 and 4
+clump_k34 <- subset_gt_clumppling(clump_res, k = c(3, 4))
+autoplot(clump_k34, type = "modes")
+
+# the Cape Verdean individuals only, e.g. for an inset (their modes are
+# still those of all the individuals, and autoplot() warns about it)
+cape_verdeans <- which(capeverde_pops == "Cape Verdean")
+clump_cv <- subset_gt_clumppling(clump_res, indivs = cape_verdeans)
+clump_cv$N
+}

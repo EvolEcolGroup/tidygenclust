@@ -24,4 +24,7 @@ Cape Verdean. These are the populations of the Cape Verde example of
 clumppling (Liu, Kopelman and Rosenberg 2024), whose runs of ADMIXTURE
 are in \code{extdata/capeverde_admix.rds}.
 }
+\examples{
+table(capeverde_pops)
+}
 \keyword{datasets}

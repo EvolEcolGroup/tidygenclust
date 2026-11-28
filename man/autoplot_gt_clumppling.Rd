@@ -54,3 +54,23 @@ individuals from the same population are adjacent to one another in the
 Q-matrix or gt_admix object supplied to gt_clumppling. Autoplot 'group'
 argument requires that all individuals from the same group are adjacent.
 }
+\examples{
+# the runs of ADMIXTURE for K = 2 to 5 of the Cape Verde example of
+# clumppling, aligned into modes
+capeverde <- readRDS(
+  system.file("extdata", "capeverde_admix.rds", package = "tidygenclust")
+)
+clump_res <- gt_clumppling(capeverde, seed = 1)
+
+# all the modes, linked by the costs of their alignment
+\donttest{
+autoplot(clump_res, type = "modes")
+}
+
+# the major mode of each K, labelled with the populations (whose
+# individuals are adjacent in the Q matrices)
+autoplot(clump_res, type = "major_modes", group = capeverde_pops)
+
+# the modes with K = 3
+autoplot(clump_res, type = "modes_within_k", k = 3)
+}

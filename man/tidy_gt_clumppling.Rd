@@ -39,3 +39,19 @@ subsetted to only the
 major modes.
 }
 }
+\examples{
+# the runs of ADMIXTURE for K = 2 to 5 of the Cape Verde example of
+# clumppling, aligned into modes
+capeverde <- readRDS(
+  system.file("extdata", "capeverde_admix.rds", package = "tidygenclust")
+)
+clump_res <- gt_clumppling(capeverde, seed = 1)
+
+# the modes, with the number of runs in each and their cost
+tidy(clump_res, matrix = "modes")
+
+# the ancestry proportions of the major modes, one tibble per mode
+q_major <- tidy(clump_res, matrix = "Q_major_modes")
+names(q_major)
+q_major[["K3M1"]]
+}
