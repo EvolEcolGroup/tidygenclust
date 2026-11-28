@@ -1,71 +1,50 @@
 # tidygenclust: handover
 
-Updated 2026-11-27 (laptopX1, with runs on manica01): streaming is merged
-into the local `ada196_article` (version 0.1.5.9007), measured on the
-desktop (`radmix_streaming.md`, "Desktop") and shown in the benchmark
-article's section "Data larger than the memory": 5 GB under 4 and 1 GiB
-caps, and 50 GB under 8 GiB (34% longer than in memory on the NVMe, 4.3
-times at 500 MB/s), identical results. Andrea kept the streaming defaults
-and asked for the Q side in chunks in memory too (26 Nov): done (c521e36,
-79e21c4), 15-21% faster with 8,192 individuals or more; the article's
-fits in memory were rerun with it (4503fdd). The article waits for
-Andrea's review. `summary.md` first. History is in `progress.md`; designs
-are in the topic documents listed in `README.md`.
+Updated 2026-11-28 (laptopX1): `ada196_article` was squash-merged into
+`dev` as #41 (27 Nov, 6e33825): streaming of data larger than the memory,
+the Q side in chunks in memory, the review fixes (`gl_curvature`), the
+register-blocked Hessians and the benchmark article with its section on
+data larger than the memory. `dev` is at 0.1.5.9010 (#42 after it).
+tidypopgl's prefetch function for streaming is in its `dev` (#91), which
+requires tidygenclust >= 0.1.5.9010. `summary.md` first. History is in
+`progress.md`; designs are in the topic documents listed in `README.md`.
 
 ## Branches
 
 | branch | purpose | base | pushed | merged |
 |---|---|---|---|---|
-| `ada196_article` | the benchmark article rerun with ADAMIXTURE 1.9.6, the review fixes (`gl_curvature`), the register-blocked Hessians, and (merged 24 Nov) streaming, with its desktop benchmarks and the scripts of the article's section on data 5 times the memory | `dev` | yes (27 Nov, Andrea: a branch, no PR) | no |
-| `ccr-fd217561-izn297` | prototype: `gt_radmix()` streams data larger than the memory (chunks, prefetch, alternating directions), with tidypopgl's branch of the same name (its prefetch function) | `dev` (`acff37a`) | yes | into `ada196_article` (349c929) |
-| `radmix_review_fixes`, `adamixture-1.9.6-benchmark` | local branches merged into `ada196_article` | `dev` | no | into `ada196_article` |
-| `articles_revised` | revision of the pseudohaploid article (2 commits) | `dev` (old) | yes | no: conflict in `pseudohaploids.Rmd` |
-| `hgdp_plots`, `windows` (origin) | not part of the radmix work; commits not in `dev` | | yes | no: ask Andrea before touching |
+| `hgdp_plots` | Eirlys's HGDP plotting script (Jan 2025); `dev` has her later version (June 2025) | old `dev` | yes | no: kept until some runs are redone (Andrea, 28 Nov) |
+| `windows` | Ondra's experimental Windows support through WSL2 (`R/wsl_backend.R`, `vignettes/windows.Rmd`, a CI workflow, tests; Oct 2026); its adamixture commits are in `dev` (#30) | `dev` (June) | yes | no PR |
 
+`main` holds #40 (`articles_revised`, the revised articles, merged into
+`main` on 27 Nov) and two "Update conda snapshot" commits that `dev` lacks.
+
+Deleted 28 Nov (Andrea's go-ahead): `ccr-fd217561-izn297` and
+`adamixture-1.9.6-benchmark` (origin; the first is in `dev` through #41,
+the second, PR #39, was integrated in the article's rewrite), and the
+local `ada196_article`, `radmix_review_fixes` and
+`adamixture-1.9.6-benchmark` (all inside #41).
 Deleted 20 Nov: the local `radmix_extensions` and
-`data-raw/radmix/perf_verification/` (laptopX1; its one file not in the tag
-`archive/radmix-perf-verify`, `svd_vs_random_q_hgdp.rds`, moved to
-`/media/andrea/annex/tmp/claude/tidygenclust/kept/`), and the scratch
-folders of 16-18 Nov and the article's `hgdp/runs` (manica01).
-Deleted 18 Nov (laptopX1): 17 local branches without origin and the
-`coverage-speed` worktree; tips in
-`/media/andrea/annex/tmp/claude/tidygenclust/deleted_branches_2026-11-18.txt`.
-Deleted 17 Nov (origin and manica01): `newspeed`, `supervised` (tags
-`archive/newspeed` ec96315, `archive/supervised` fc43f9b),
-`newspeed_supervised`, `coverage-speed`, `newspeed_port` (#36), and the
-local `adamixture`, `rewrite`, `openadmixture`, `rclump`.
+`data-raw/radmix/perf_verification/` (its one file not in the tag
+`archive/radmix-perf-verify` moved to
+`/media/andrea/annex/tmp/claude/tidygenclust/kept/`). Deleted 18 and 17
+Nov: see `progress.md`.
 
 ## Next tasks
 
-### 0. **P1** [review] the article's section on data larger than the memory
+### 1. **P2** [claude] bring `main`'s #40 into `dev`
 
-Read `dev_notes/radmix_streaming.md`, "The article's runs" and "Chunks in
-memory", first. Scripts and raw results: `data-raw/radmix/stream/desktop/`
-and `data-raw/radmix/stream/results/desktop_*`; the article's results are
-in `vignettes/articles/data/admixture_benchmark/{mid,large}_*.csv` (the
-`memory` rows from the rerun of 27 Nov, `phases/inmem_cq.sh` on manica01).
+- `git merge origin/main` into a branch from `dev` (#40 revised
+  `vignettes/articles/pseudohaploids.Rmd` and the vignette; the conda
+  snapshot commits), resolve the conflicts, render the articles (`TMPDIR`
+  in a work folder), then a PR into `dev`.
+- **Done when:** `main` is an ancestor of `dev` again.
 
-- **[review] (Andrea):** the section "Data larger than the memory" of
-  `vignettes/articles/admixture_benchmark.Rmd` (results after "SVD and
-  random starts"; code under "How the benchmark was run"; summary bullet;
-  a line in the introduction and in the memory section). Rendered copy:
-  `/media/andrea/annex/tmp/claude/tidygenclust/render_test/out/admixture_benchmark.html`
-  (laptopX1). To render again: from `vignettes/articles`,
-  `R_LIBS=<a library with tidypopgen 1.0.0.9015> TMPDIR=<work folder>
-  Rscript -e 'rmarkdown::render("admixture_benchmark.Rmd")'`. The main
-  benchmark (HGDP, 1,043 individuals: chunks in memory need 8,192) is not
-  rerun.
-- **Then [claude]:** a PR into `dev` only when Andrea says so
-  (`ada196_article` is pushed, without a PR, by his instruction). Delete the article's
-  data on manica01 when he no longer needs them (below).
-- **Done when:** the article is reviewed.
+### 2. **P3** [cleanup] the article's data on manica01
 
-### 1. **P2** [claude] then [review] `articles_revised`
-
-- **Branch:** `articles_revised`; rebase or merge `dev` into it and resolve
-  the conflict in `vignettes/articles/pseudohaploids.Rmd`.
-- **Check:** render the article (`TMPDIR` in a work folder).
-- **Done when:** a PR into `dev` is open for Andrea's review.
+- `~/project_temp/claude/tidygenclust/stream/` (about 75 GB: builds,
+  benchmark data, the article's `mid/` and `large/`): delete when Andrea
+  no longer needs them.
 
 ## Desktop queue
 

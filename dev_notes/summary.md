@@ -1,6 +1,6 @@
 # tidygenclust: summary
 
-Updated 2026-11-27 (laptopX1, on the local branch `ada196_article`). One section: the package's issue in
+Updated 2026-11-28 (laptopX1). One section: the package's issue in
 dramanica/claude_jobs, with the single list of its tasks. Its first
 paragraph, status and next steps are copied into the issue
 (`scripts/sync_issue.py` of the dev-notes skill).
@@ -9,7 +9,7 @@ paragraph, status and next steps are copied into the issue
 
 tidygenclust: `gt_radmix()`, the native implementation of ADMIXTURE's method (port, speed-ups, consolidation), and its extension to genotype likelihoods. Earlier log of the likelihoods: dramanica/claude_jobs#12.
 
-**Status.** `gt_radmix()` streams data larger than the memory: merged into the branch `ada196_article` (version 0.1.5.9007; pushed on 27 Nov, no PR yet, by Andrea's choice), measured on manica01, and shown in the benchmark article's new section: 50 GB of genotypes under an 8 GiB cap took 34% longer than in memory on an NVMe SSD, with identical results. The Q side now takes chunks in memory too (Andrea, 26 Nov), 15-21% faster with 8,192 individuals or more; the article's fits in memory were rerun with it, and the section waits for Andrea's review. Handover: `dev_notes/handover.md`.
+**Status (2026-11-28).** `gt_radmix()` streams data larger than the memory, with the Q side in chunks in memory too, and the benchmark article shows it: all merged into `dev` as #41 (27 Nov; `dev` at 0.1.5.9010), and tidypopgl's prefetch function for it as tidypopgl#91. 50 GB of genotypes under an 8 GiB cap took 1.34 times the time in memory on an NVMe SSD, with identical results. Old branches cleaned up (28 Nov); `main` has #40 that `dev` lacks. Handover: `dev_notes/handover.md`.
 
 PR #38 (`radmix_extensions`, squash-merged into `dev` as df747aa on 18 Nov, CI green) added a fused pass for supervised fits (fits 0.88-0.89 of the time, the same estimates), cross-validation and SVD starts for genotype likelihoods, and inlined likelihood helpers; with tidypopgl's faster source (its branch `radmix_source_speed`), fits of likelihoods take 0.80-0.83 of the time. `dev` is now 0.1.5.9006, which tidypopgl's `gl_workflow` requires since its PR #47.
 
@@ -41,13 +41,13 @@ The designs are in `admixture_implementation.md`, the timings in
 `radmix_performance.md` and `radmix_extensions_2026-11/`.
 
 **Next steps**
-- [ ] **P1** [review] the section "Data larger than the memory" of the benchmark article (`ada196_article`, `vignettes/articles/admixture_benchmark.Rmd`; in-memory fits rerun with chunks on 27 Nov): then the PR into `dev` when Andrea says so.
-- [ ] **P3** [cleanup] delete the article's data and the builds on manica01 (`~/project_temp/claude/tidygenclust/stream/`, about 75 GB) once the article is final.
-- [ ] **P2** [claude] then [review] `articles_revised`: resolve its conflict in `pseudohaploids.Rmd`, then review and merge.
+- [ ] **P2** [claude] bring `main`'s #40 (the revised articles, merged into `main`) and its conda snapshot commits into `dev`: done when `main` is an ancestor of `dev`.
+- [ ] **P3** [cleanup] delete the article's data and the builds on manica01 (`~/project_temp/claude/tidygenclust/stream/`, about 75 GB) when Andrea no longer needs them.
 
 Backlog (P3, in `handover.md`): `-fprofile-update=single` under covr, the vignette's P comparison as code, P as a matrix or a data.frame (decide), bootstrap standard errors, the remaining speed leads, an EM-based PCA for the SVD start of likelihoods.
 
 **Done**
+- The benchmark article with streaming reviewed and merged into `dev` (#41, 27 Nov); tidypopgl's prefetch function (tidypopgl#91, 28 Nov); old branches deleted (28 Nov).
 - Streaming defaults kept (stream above 0.8 times the memory available, prefetch in pieces of 128 KB, alternation on), and the Q side in chunks for data in memory too (c521e36, 79e21c4). Andrea, 26 Nov 2026.
 - Bounds of likelihood estimates: keep `[1e-5, 1 - 1e-5]`, as for genotypes, not NGSadmix's 1e-9 (`admixture_implementation.md`). Andrea, 20 Nov 2026.
 - Clean-up: local `radmix_extensions` and untracked `data-raw/radmix/perf_verification/` deleted on laptopX1; `~/tgc_newspeed_work`, `~/tgc_bench_article`, `~/tgc_supfused_work` and `vignettes/articles/data/hgdp/runs` (about 6.4 GB) deleted on manica01. 20 Nov 2026.

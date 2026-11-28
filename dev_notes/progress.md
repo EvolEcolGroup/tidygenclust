@@ -5,6 +5,20 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-28 (laptopX1): old branches deleted; tidypopgl's prefetch merged
+
+- Checked that `ccr-fd217561-izn297` is in `dev` (its tip inside #41's
+  head, whose tree is 6e33825) and deleted it on origin (Andrea).
+  tidypopgl's branch of that name, with the prefetch function, was not
+  merged: ported (pieces of 128 KB, as here) and merged as tidypopgl#91,
+  which requires tidygenclust >= 0.1.5.9010.
+- Deleted (Andrea's go-ahead): `adamixture-1.9.6-benchmark` (origin and
+  local; PR #39 closed, integrated in the article), the local
+  `ada196_article` and `radmix_review_fixes` (inside #41). Kept:
+  `hgdp_plots` (until some runs are redone, Andrea) and `windows` (WSL
+  support, not in `dev`).
+- Found: `main` has #40 and two conda snapshot commits not in `dev`.
+
 ## 2026-11-26/27 (laptopX1, manica01): chunks for the Q side in memory; the article's fits in memory again
 
 - Andrea, 26 Nov: keep the streaming defaults (stream above 0.8 x the
