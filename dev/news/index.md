@@ -1,6 +1,6 @@
 # Changelog
 
-## tidygenclust (development version)
+## tidygenclust 0.2.0
 
 - [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
   streams data larger than the memory: its passes read the backing file
@@ -23,7 +23,7 @@
   [`gt_pca()`](https://evolecolgroup.github.io/tidypopgen/reference/gt_pca.html):
   missing genotypes no longer need imputing (also for pseudohaploids),
   it uses about 1 GB less memory, and it is faster without an optimised
-  BLAS (needs tidypopgen \>= 1.0.0.9015)
+  BLAS (needs tidypopgen \>= 1.1.0)
 - [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
   is 6-24% faster per iteration from K = 7 (more at larger K), with the
   same results up to rounding

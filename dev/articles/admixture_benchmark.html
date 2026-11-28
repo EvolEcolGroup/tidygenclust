@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">tidygenclust</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.1.5.9010</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -91,16 +91,16 @@ has two parts:</p>
 <li>
 <a href="#random-starts">Random starts</a>: all the programs start
 from random values (ADMIXTURE and OpenADMIXTURE.jl have no other start,
-and fastmixture and ADAMIXTURE are run with their option to do so). It
-checks that the programs find the same ancestry proportions, and
+and fastmixture and ADAMIXTURE are run with their option to do so). This
+part checks that the programs find the same ancestry proportions, and
 measures how long each takes on different numbers of cores, with and
 without cross-validation (which OpenADMIXTURE.jl does not have).</li>
 <li>
 <a href="#svd-and-random-starts">SVD and random starts</a>:
 <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>, fastmixture and ADAMIXTURE can also start from
 a truncated singular value decomposition (SVD) of the genotypes, which
-fastmixture and ADAMIXTURE do by default (<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> does
-so with <code>init = "svd"</code>). Each of them is run from both
+is the default for fastmixture and ADAMIXTURE (<code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>
+does so with <code>init = "svd"</code>). Each of them is run from both
 starts, with several seeds, to compare their times and the
 log-likelihoods they reach.</li>
 </ul>
@@ -117,7 +117,7 @@ results. <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> is a
 OpenADMIXTURE.jl in a Julia session, in which the package is already
 loaded (see <a href="#how-long-do-they-take">How long do they
 take?</a>).</p>
-<p>The <a href="#results">results</a> come first. The second part, <a href="#how-the-benchmark-was-run">How the benchmark was run</a>,
+<p>The <a href="#results">results</a> come first. A final section, <a href="#how-the-benchmark-was-run">How the benchmark was run</a>,
 describes the data and the runs, with their code, and how to run the
 benchmark again.</p>
 <div class="section level2">

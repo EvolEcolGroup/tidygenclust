@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">tidygenclust</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.1.5.9010</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -40,14 +40,14 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="development version" id="tidygenclust-development-version">tidygenclust (development version)<a class="anchor" aria-label="anchor" href="#tidygenclust-development-version"></a></h2>
+<h2 class="pkg-version" data-toc-text="0.2.0" id="tidygenclust-020">tidygenclust 0.2.0<a class="anchor" aria-label="anchor" href="#tidygenclust-020"></a></h2>
 <ul><li>
 <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> streams data larger than the memory: its passes read the backing file in chunks, with the next chunk read ahead and alternating directions, and give identical results (options <code>tidygenclust.radmix_stream</code> and <code>tidygenclust.radmix_chunk_mb</code>; a source of genotype likelihoods can give a prefetch function, see <code>inst/include/tidygenclust/radmix_gl_source.h</code>)</li>
 <li>
 <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> is 15-20% faster on genotypes in memory with 8,192 individuals or more: their passes over the individuals now take the loci in chunks too</li>
 <li>new <code>gl_curvature</code> argument of <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>: <code>"observed"</code> takes Newton steps with the curvature of the log-likelihood of genotype likelihoods, about 1.5 times faster on low-depth data (<code>"complete"</code>, the default, keeps the curvature of the EM algorithm)</li>
 <li>
-<code>gt_radmix(init = "svd")</code> computes its SVD with tidypopgen’s <code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_pca.html" class="external-link">gt_pca()</a></code>: missing genotypes no longer need imputing (also for pseudohaploids), it uses about 1 GB less memory, and it is faster without an optimised BLAS (needs tidypopgen &gt;= 1.0.0.9015)</li>
+<code>gt_radmix(init = "svd")</code> computes its SVD with tidypopgen’s <code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_pca.html" class="external-link">gt_pca()</a></code>: missing genotypes no longer need imputing (also for pseudohaploids), it uses about 1 GB less memory, and it is faster without an optimised BLAS (needs tidypopgen &gt;= 1.1.0)</li>
 <li>
 <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> is 6-24% faster per iteration from K = 7 (more at larger K), with the same results up to rounding</li>
 <li>

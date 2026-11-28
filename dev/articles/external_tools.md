@@ -6,7 +6,7 @@ with
 It also provides interfaces to three external programs that fit the same
 model: the original ADMIXTURE program (Alexander et al. 2009), run with
 [`tidypopgen::gt_admixture()`](https://evolecolgroup.github.io/tidypopgen/reference/gt_admixture.html),
-and the python packages fastmixture (Santander et al. 2024), run with
+and two Python packages - fastmixture (Santander et al. 2024), run with
 [`gt_fastmixture()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_fastmixture.md),
 and ADAMIXTURE (Saurina-i-Ricos et al. 2026), run with
 [`gt_adamixture()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_adamixture.md).
@@ -16,11 +16,11 @@ These programs are optional: they are not needed by the rest of
 In this article, we show how to install the three programs and how to
 run them, alongside
 [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md),
-on the dataset of the lizard *Anolis punctatus* (Prates et al. 2018)
-used in the main vignette, and we check that the four programs give
-consistent ancestry proportions. For a comparison of their performance,
-see the article “Benchmarking gt_radmix() against ADMIXTURE, fastmixture
-and ADAMIXTURE”.
+on the lizard *Anolis punctatus* dataset (Prates et al. 2018) used in
+the main vignette, and we check that the four programs give consistent
+ancestry proportions. For a comparison of their performance, see the
+article “Benchmarking gt_radmix() against ADMIXTURE, fastmixture and
+ADAMIXTURE”.
 
 [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
 estimates individual ancestry proportions (Q) and ancestral allele
@@ -39,14 +39,14 @@ al. (2009).
 ## Installing the external tools
 
 We use `reticulate` to install the three programs in a conda
-environment, `ctidygenclust`, so you, as a user, should not need to
-worry about the details of the python packages or their dependencies.
-This only works on Linux at the moment: on Windows, the programs can be
-used through the WSL; on macOS, they are not available, as the OpenMP
-library that they use conflicts with that of R (used by packages such as
-`bigstatsr`), which crashes the R session. ADAMIXTURE is installed from
-PyPI in its CPU version, which does not need PyTorch. You can install
-all three programs with:
+environment, `ctidygenclust`, so the details of the Python packages and
+their dependencies are handled automatically. This only works on Linux
+at the moment: on Windows, the programs can be used through the WSL; on
+macOS, they are not available, as the OpenMP library that they use
+conflicts with the one used by R (by packages such as `bigstatsr`),
+which crashes the R session. ADAMIXTURE is installed from PyPI in its
+CPU version, which does not need PyTorch. You can install all three
+programs with:
 
 ``` r
 
@@ -185,12 +185,13 @@ or on a set of PLINK files. Its arguments follow those of fastmixture,
 so some differ from those of
 [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md):
 the number of cores is set with `threads`, and cross-validation with
-`cv`, the number of folds. By default, it only returns the Q matrices
-(set `no_freqs = FALSE` to also keep the P matrices). As the fastmixture
-program does, it starts from a randomised SVD of the genotypes, which
-needs all the loci to be polymorphic (`random_init = TRUE` starts from
-random values instead, but can take much longer to converge).
-fastmixture prints its progress, which we hide here:
+`cv`, which gives the number of folds. By default, it only returns the Q
+matrices (set `no_freqs = FALSE` to also keep the P matrices). As the
+fastmixture program does, it starts from a randomised SVD of the
+genotypes, which needs all the loci to be polymorphic
+(`random_init = TRUE` starts from random values instead, but can take
+much longer to converge). fastmixture prints its progress, which we hide
+here:
 
 ``` r
 
@@ -332,8 +333,8 @@ rbind(
 )
 #>             max_abs_difference correlation
 #> gt_radmix          0.005020889   0.9999980
-#> fastmixture        0.005003755   0.9999981
-#> ADAMIXTURE         0.005080578   0.9999979
+#> fastmixture        0.005003754   0.9999981
+#> ADAMIXTURE         0.005074944   0.9999979
 ```
 
 ## Cross-validation
@@ -357,12 +358,14 @@ gt_adamixture(anole_gt, k = 2:4, n_runs = 3, cv = 5)
 ```
 
 [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
-implements the procedure of ADMIXTURE, which hides random genotypes.
-ADAMIXTURE also hides random genotypes, but it refits each fold with
-only 5 iterations, starting from the estimates of the full data.
-fastmixture instead hides whole individuals. The errors of the programs
-are therefore on different scales, and only the values of K that they
-favour can be compared.
+implements the procedure of ADMIXTURE, which holds out randomly chosen
+genotypes, fits the model to the remaining genotypes, and scores its
+predictions of the held-out ones. ADAMIXTURE also holds out random
+genotypes, but it refits each fold with only 5 iterations, starting from
+the estimates of the full data. fastmixture instead holds out whole
+individuals. Because of these differences, the errors are not comparable
+between programs, and only the K favoured by each program can be
+compared.
 
 ## References
 

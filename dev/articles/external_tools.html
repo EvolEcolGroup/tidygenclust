@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">tidygenclust</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.1.5.9010</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -72,16 +72,16 @@
 natively, with <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>. It also provides interfaces to
 three external programs that fit the same model: the original ADMIXTURE
 program (Alexander et al. 2009), run with
-<code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_admixture.html" class="external-link">tidypopgen::gt_admixture()</a></code>, and the python packages
+<code><a href="https://evolecolgroup.github.io/tidypopgen/reference/gt_admixture.html" class="external-link">tidypopgen::gt_admixture()</a></code>, and two Python packages -
 fastmixture (Santander et al. 2024), run with
 <code><a href="../reference/gt_fastmixture.html">gt_fastmixture()</a></code>, and ADAMIXTURE (Saurina-i-Ricos et
 al. 2026), run with <code><a href="../reference/gt_adamixture.html">gt_adamixture()</a></code>. These programs are
 optional: they are not needed by the rest of
 <code>tidygenclust</code>.</p>
 <p>In this article, we show how to install the three programs and how to
-run them, alongside <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>, on the dataset of the
-lizard <em>Anolis punctatus</em> (Prates et al. 2018) used in the main
-vignette, and we check that the four programs give consistent ancestry
+run them, alongside <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>, on the lizard <em>Anolis
+punctatus</em> dataset (Prates et al. 2018) used in the main vignette,
+and we check that the four programs give consistent ancestry
 proportions. For a comparison of their performance, see the article
 “Benchmarking gt_radmix() against ADMIXTURE, fastmixture and
 ADAMIXTURE”.</p>
@@ -100,14 +100,14 @@ ADMIXTURE, Alexander et al. (2009).</p>
 <h2 id="installing-the-external-tools">Installing the external tools<a class="anchor" aria-label="anchor" href="#installing-the-external-tools"></a>
 </h2>
 <p>We use <code>reticulate</code> to install the three programs in a
-conda environment, <code>ctidygenclust</code>, so you, as a user, should
-not need to worry about the details of the python packages or their
-dependencies. This only works on Linux at the moment: on Windows, the
-programs can be used through the WSL; on macOS, they are not available,
-as the OpenMP library that they use conflicts with that of R (used by
-packages such as <code>bigstatsr</code>), which crashes the R session.
-ADAMIXTURE is installed from PyPI in its CPU version, which does not
-need PyTorch. You can install all three programs with:</p>
+conda environment, <code>ctidygenclust</code>, so the details of the
+Python packages and their dependencies are handled automatically. This
+only works on Linux at the moment: on Windows, the programs can be used
+through the WSL; on macOS, they are not available, as the OpenMP library
+that they use conflicts with the one used by R (by packages such as
+<code>bigstatsr</code>), which crashes the R session. ADAMIXTURE is
+installed from PyPI in its CPU version, which does not need PyTorch. You
+can install all three programs with:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/EvolEcolGroup/tidygenclust" class="external-link">tidygenclust</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/tgc_tools_install.html">tgc_tools_install</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
@@ -226,13 +226,13 @@ vignette).</p>
 of PLINK files. Its arguments follow those of fastmixture, so some
 differ from those of <code><a href="../reference/gt_radmix.html">gt_radmix()</a></code>: the number of cores is
 set with <code>threads</code>, and cross-validation with
-<code>cv</code>, the number of folds. By default, it only returns the Q
-matrices (set <code>no_freqs = FALSE</code> to also keep the P
-matrices). As the fastmixture program does, it starts from a randomised
-SVD of the genotypes, which needs all the loci to be polymorphic
-(<code>random_init = TRUE</code> starts from random values instead, but
-can take much longer to converge). fastmixture prints its progress,
-which we hide here:</p>
+<code>cv</code>, which gives the number of folds. By default, it only
+returns the Q matrices (set <code>no_freqs = FALSE</code> to also keep
+the P matrices). As the fastmixture program does, it starts from a
+randomised SVD of the genotypes, which needs all the loci to be
+polymorphic (<code>random_init = TRUE</code> starts from random values
+instead, but can take much longer to converge). fastmixture prints its
+progress, which we hide here:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">anole_fm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gt_fastmixture.html">gt_fastmixture</a></span><span class="op">(</span><span class="va">anole_gt</span>, k <span class="op">=</span> <span class="fl">3</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
@@ -353,8 +353,8 @@ proportions of each individual with those estimated by ADMIXTURE:</p>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;             max_abs_difference correlation</span></span>
 <span><span class="co">#&gt; gt_radmix          0.005020889   0.9999980</span></span>
-<span><span class="co">#&gt; fastmixture        0.005003755   0.9999981</span></span>
-<span><span class="co">#&gt; ADAMIXTURE         0.005080578   0.9999979</span></span></code></pre></div>
+<span><span class="co">#&gt; fastmixture        0.005003754   0.9999981</span></span>
+<span><span class="co">#&gt; ADAMIXTURE         0.005074944   0.9999979</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="cross-validation">Cross-validation<a class="anchor" aria-label="anchor" href="#cross-validation"></a>
@@ -370,11 +370,13 @@ and <code><a href="../reference/gt_adamixture.html">gt_adamixture()</a></code>:<
 <span><span class="fu"><a href="../reference/gt_fastmixture.html">gt_fastmixture</a></span><span class="op">(</span><span class="va">anole_gt</span>, k <span class="op">=</span> <span class="fl">2</span><span class="op">:</span><span class="fl">4</span>, n_runs <span class="op">=</span> <span class="fl">3</span>, cv <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/gt_adamixture.html">gt_adamixture</a></span><span class="op">(</span><span class="va">anole_gt</span>, k <span class="op">=</span> <span class="fl">2</span><span class="op">:</span><span class="fl">4</span>, n_runs <span class="op">=</span> <span class="fl">3</span>, cv <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></code></pre></div>
 <p><code><a href="../reference/gt_radmix.html">gt_radmix()</a></code> implements the procedure of ADMIXTURE, which
-hides random genotypes. ADAMIXTURE also hides random genotypes, but it
-refits each fold with only 5 iterations, starting from the estimates of
-the full data. fastmixture instead hides whole individuals. The errors
-of the programs are therefore on different scales, and only the values
-of K that they favour can be compared.</p>
+holds out randomly chosen genotypes, fits the model to the remaining
+genotypes, and scores its predictions of the held-out ones. ADAMIXTURE
+also holds out random genotypes, but it refits each fold with only 5
+iterations, starting from the estimates of the full data. fastmixture
+instead holds out whole individuals. Because of these differences, the
+errors are not comparable between programs, and only the K favoured by
+each program can be compared.</p>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>

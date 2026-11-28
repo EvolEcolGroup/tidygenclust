@@ -71,9 +71,9 @@ are the same, the largest absolute differences between the aligned
 ancestry proportions of the modes, and between the costs of the
 alignments across K. {.table}
 
-Where the modes are the same, the remaining differences are rounding
-errors. Grouping runs into modes uses community detection (the Louvain
-method, by default), which draws random numbers.
+Where the modes are the same, the remaining differences are due to
+rounding errors. Grouping runs into modes uses community detection (the
+Louvain method, by default), which draws random numbers.
 [`gt_clumppling()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_clumppling.md)
 draws them from R’s generator, so the same seed does not give the same
 random choices as in python. This does not change the modes when the
@@ -97,9 +97,9 @@ returns its results as an R object. The python clumppling is usually run
 as a command-line tool, which starts python, loads its packages, reads
 the Q files, and writes its results to files. Timing
 [`gt_clumppling()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_clumppling.md)
-on a `gt_admix` object against the command-line tool would flatter
+on a `gt_admix` object against the command-line tool would favour
 [`gt_clumppling()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_clumppling.md).
-So we timed each implementation in three settings:
+We therefore timed each implementation in three settings:
 
 - **In memory**: the Q matrices are already in memory, and R or python
   is already running, with the packages loaded. This times the method

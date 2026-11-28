@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">tidygenclust</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.1.5.9010</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -220,9 +220,9 @@ alignments across K.</caption>
 </tr>
 </tbody>
 </table>
-<p>Where the modes are the same, the remaining differences are rounding
-errors. Grouping runs into modes uses community detection (the Louvain
-method, by default), which draws random numbers.
+<p>Where the modes are the same, the remaining differences are due to
+rounding errors. Grouping runs into modes uses community detection (the
+Louvain method, by default), which draws random numbers.
 <code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code> draws them from R’s generator, so the same
 seed does not give the same random choices as in python. This does not
 change the modes when the community structure of the runs is clear, as
@@ -243,9 +243,9 @@ object returned by <code><a href="https://evolecolgroup.github.io/tidypopgen/ref
 python clumppling is usually run as a command-line tool, which starts
 python, loads its packages, reads the Q files, and writes its results to
 files. Timing <code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code> on a <code>gt_admix</code>
-object against the command-line tool would flatter
-<code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code>. So we timed each implementation in three
-settings:</p>
+object against the command-line tool would favour
+<code><a href="../reference/gt_clumppling.html">gt_clumppling()</a></code>. We therefore timed each implementation in
+three settings:</p>
 <ul>
 <li>
 <strong>In memory</strong>: the Q matrices are already in memory,

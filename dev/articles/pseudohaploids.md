@@ -1,38 +1,39 @@
 # Why pseudohaploids must be declared
 
-In low-coverage data, such as most ancient genomes, diploid genotypes
-cannot be called reliably. A common approach is to draw a single read at
-random at each site, and to record the allele that it carries: the
-individual is then “pseudohaploid”, with one allele per locus.
-`tidypopgen` stores such an allele as a homozygous genotype (0 or 2),
-and
+Diploid genotypes cannot be called reliably from low-coverage data,
+which includes most ancient genomes. A common workaround is to sample a
+single allele at random at each site, so that the individual is treated
+as “pseudohaploid”. `tidypopgen` encodes each pseudohaploid call as a
+homozygous genotype (0 or 2), and
 [`tidypopgen::gt_pseudohaploid()`](https://evolecolgroup.github.io/tidypopgen/reference/gt_pseudohaploid.html)
 marks the individuals with no heterozygous genotypes as pseudohaploids
 (with a ploidy of 1).
-[`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md),
-which estimates ancestry proportions with the method and the algorithm
-of ADMIXTURE (Alexander et al. 2009), including its cross-validation
-(Alexander & Lange 2011), then counts a single copy of the allele for
-each of their genotypes.
+[`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
+estimates ancestry proportions with the method and the algorithm of
+ADMIXTURE (Alexander et al. 2009), including its cross-validation
+procedure (Alexander & Lange 2011). For pseudohaploid individuals, it
+counts a single copy of the allele at each genotype.
 
-If the pseudohaploids are not declared, each of their genotypes counts
-as two copies of the same allele, as if every read had been seen twice.
-This is also what happens with programs that assume diploid genotypes,
-such as ADMIXTURE for the autosomes. This article uses simulated data to
-show the consequences:
+If the pseudohaploid individuals are not declared as such, each genotype
+is treated as a true diploid call. This happens in programs such as
+ADMIXTURE, which assume diploid genotypes for autosomes. Using simulated
+data, we show below the consequences of this approach. In summary, we
+show that:
 
-- the log-likelihood counts every pseudohaploid twice. Any choice of K
-  based on the log-likelihood (such as the Akaike information criterion,
-  AIC) keeps adding clusters, whereas cross-validation usually picks the
-  correct K;
-- when the population structure is weak, cross-validation can pick too
-  few clusters;
-- even at the correct K, the diploids of the population of the
-  pseudohaploids appear admixed;
-- when K is too large, the extra clusters split the pseudohaploids into
-  groups that do not exist.
+- the log-likelihood of every pseudohaploid is doubled. Likelihood-based
+  criteria for choosing K (such as the Akaike information criterion,
+  AIC) tend to favour an increasing number of clusters, whereas
+  cross-validation generally identifies the correct K;
+- when the population structure is weak, cross-validation can support
+  too few clusters;
+- even at the correct K, diploid individuals from the population
+  containing pseudohaploid individuals appear artificially admixed;
+- when K is too large, the additional clusters artificially divide the
+  pseudohaploid individuals into groups that do not reflect genuine
+  population structure.
 
-All of these disappear once the pseudohaploids are declared with
+All of these artefacts disappear once the pseudohaploids are declared
+with
 [`gt_pseudohaploid()`](https://evolecolgroup.github.io/tidypopgen/reference/gt_pseudohaploid.html).
 
 The first sections analyse a single simulated dataset, with code that
@@ -42,6 +43,9 @@ simulations were run](#how-the-replicated-simulations-were-run).
 
 ## Simulating the data
 
+First, we load the packages required for the simulations and subsequent
+analyses.
+
 ``` r
 
 library(tidygenclust)
@@ -50,34 +54,39 @@ library(dplyr)
 library(ggplot2)
 ```
 
-The simulations follow the model of ADMIXTURE, with unadmixed
-individuals from a few populations:
+The simulations follow the ADMIXTURE model, with unadmixed individuals
+from a few populations:
 
-1.  The frequency of the alternate allele of each of `n_loci`
-    independent loci is drawn from a uniform distribution between 0.05
-    and 0.95, in a common ancestral population.
-2.  Each population drifts from the ancestral population: the frequency
-    of each locus is drawn from the Balding-Nichols model (Balding &
+1.  For each of `n_loci` independent loci, the frequency of the
+    alternate allele is drawn from a uniform distribution between 0.05
+    and 0.95 in a common ancestral population.
+2.  Each population drifts from the ancestral population: the
+    alternative allele frequency of each locus is drawn independently
+    for each population from the Balding-Nichols model (Balding &
     Nichols 1995), a beta distribution with the ancestral frequency `p`
-    as its mean and a variance of `fst * p * (1 - p)`. The larger `fst`,
-    the more the populations differ.
-3.  A diploid individual carries two copies of each locus, each of them
-    drawn independently with the frequency of its population: its
-    genotype is binomial, with 2 trials.
-4.  A pseudohaploid individual carries a single copy, drawn in the same
-    way. This is what the random choice of a read gives: at a
-    heterozygous site, each allele is drawn with probability 1/2, so
-    overall the allele is the alternate one with the frequency of the
-    population. Its genotype is stored as 0 or 2.
+    as its mean and a variance of `fst * p * (1 - p)`. The larger `fst`
+    is, the more the populations differ.
+3.  Each diploid individual carries two independently sampled alleles at
+    each locus, with the probability of sampling the alternate allele
+    given by its population-specific frequency. The resulting genotype
+    therefore follows a binomial distribution with two trials, and takes
+    the values 0, 1 or 2.
+4.  Each pseudohaploid individual carries a single sampled allele at
+    each locus, drawn according to the population-specific allele
+    frequency. This mimics the random selection of a single allele at
+    each site: At a heterozygous site, either allele is equally likely
+    to be selected. Consequently, across individuals, the probability of
+    observing the alternate allele is equal to its population frequency.
+    The genotype is stored as 0 or 2.
 
-There are no missing genotypes, no linkage between loci, and no
-admixture, so the true number of clusters is the number of populations.
-The function `simulate_pseudohaploids()` implements these steps. The
-populations and their numbers of diploid and pseudohaploid individuals
-are given as named vectors. It returns a `gen_tibble` in which the
-pseudohaploids are coded 0/2 but not declared, as when they are read
-from a file (with the true allele frequencies of the populations in its
-attribute “frequencies”):
+The simulated data contain no missing genotypes, no linkage between loci
+and no admixture, so the true number of clusters equals the number of
+populations. The function `simulate_pseudohaploids()` implements these
+steps. The populations and their numbers of diploid and pseudohaploid
+individuals are given as named vectors. It returns a `gen_tibble` in
+which the pseudohaploids are coded 0/2 but not declared, as when they
+are read from a file (with the true allele frequencies of the
+populations in its attribute “frequencies”):
 
 ``` r
 
@@ -158,14 +167,16 @@ simulate_pseudohaploids <- function(n_diploid, n_pseudohaploid = c(),
 }
 ```
 
-The function is in `vignettes/articles/code/pseudohaploid_simulation.R`
-(in the source code of the package), and can be loaded with
+The function is defined in
+`vignettes/articles/code/pseudohaploid_simulation.R` (in the source code
+of the package), and can be loaded with
 [`source()`](https://rdrr.io/r/base/source.html) to simulate other
 designs.
 
-As a first example, we simulate two populations, A and B, with an F_ST
-of 0.1 from their ancestor, typed at 5,000 loci: 20 diploids from each
-population, and 40 pseudohaploids from population A.
+As a first example, we simulate two populations, A and B, that have each
+diverged from their common ancestor with an F_ST of 0.1. The dataset
+comprises 5,000 loci, 20 diploid individuals from each of populations A
+and B, and an additional 40 pseudohaploid individuals from population A.
 
 ``` r
 
@@ -208,9 +219,9 @@ tapply(heterozygosity, gt$type, mean)
 #>      0.323615      0.000000
 ```
 
-and
+The function
 [`gt_pseudohaploid()`](https://evolecolgroup.github.io/tidypopgen/reference/gt_pseudohaploid.html)
-finds them:
+identifies them:
 
 ``` r
 
@@ -236,27 +247,32 @@ c(undeclared = fit_undeclared$loglik, declared = fit_declared$loglik)
 #>  -382540.8  -286929.4
 ```
 
-The two log-likelihoods are very different. In the model of ADMIXTURE,
-the genotype `g` of an individual at a locus is the number of copies of
-the alternate allele among its `n` copies (2 for a diploid, 1 for a
-pseudohaploid), and is binomial, with a probability `qp = sum_k q_k p_k`
-(where `q_k` is the proportion of the ancestry of the individual from
-cluster `k`, and `p_k` the frequency of the allele in that cluster). Its
-contribution to the log-likelihood is
+The two log-likelihoods are very different. In the ADMIXTURE model, the
+genotype g at a given locus is the number of alternate-allele copies
+carried by an individual, out of n total allele copies. The number of
+alternate-allele copies follows a binomial distribution with n trials
+and a probability of observing the alternate allele given by
+`qp = sum_k q_k p_k` (where `q_k` is the proportion of the ancestry of
+the individual from cluster `k`, and `p_k` the frequency of the allele
+in that cluster). The log-likelihood contribution of this genotype is
+therefore
 
     g log(qp) + (n - g) log(1 - qp)
 
-A pseudohaploid that carries the allele has `g = 1` out of `n = 1`, and
-contributes `log(qp)`. Undeclared, it has `g = 2` out of `n = 2`, and
-contributes `2 log(qp)`: the log-likelihood of every pseudohaploid is
-exactly doubled. We can check this by computing the log-likelihood of
-each individual from the estimates of the declared fit:
+A declared pseudohaploid individual carrying the alternate allele at a
+locus has `g = 1` out of `n = 1`, and contributes `log(qp)`. Undeclared,
+it has `g = 2` out of `n = 2`, and contributes `2 log(qp)`. The same
+holds for the reference allele: `g = 0` contributes `log(1 - qp)` when
+declared and `2 log(1 - qp)` when undeclared. The log-likelihood of
+every pseudohaploid is therefore exactly doubled. We can check this by
+computing the log-likelihood of each individual from the estimates of
+the declared fit:
 
 ``` r
 
-# the log-likelihood of each individual, given the ancestry proportions q
-# (individuals x K), the allele frequencies p (loci x K) and the number of
-# allele copies of each individual
+# the log-likelihood of each individual, given the genotypes `gt`, the
+# ancestry proportions q (individuals x K), the allele frequencies p
+# (loci x K) and the number of allele copies of each individual
 loglik_individuals <- function(gt, q, p, n_copies) {
   # copies of the alternate allele out of n_copies (the pseudohaploids are
   # coded 0/2)
@@ -282,23 +298,25 @@ rbind(
 #> undeclared -190883.8    -192091.24
 ```
 
-The diploids contribute the same, and the pseudohaploids twice as much
-when undeclared. The model believes it has twice as much information
-about the pseudohaploids as it really has. The rest of this article
-shows the consequences.
+The diploids contribute the same log-likelihood in both cases, but the
+pseudohaploids contribute twice as much when undeclared. The model
+behaves as if it had twice as much information about the pseudohaploids
+as it really has. The rest of this article shows the consequences.
 
 ### Ancestry proportions at the true K
 
-The ancestry proportions of the pseudohaploids, given the allele
-frequencies, maximise their own log-likelihood, and doubling it does not
-move its maximum. However, the pseudohaploids also affect the allele
-frequencies of the clusters, and through them the ancestry of the other
-individuals:
+Given the allele frequencies, the ancestry proportions of the
+pseudohaploids maximise their own log-likelihood, and doubling that
+log-likelihood does not change where the maximum is. However, the
+pseudohaploids also affect the allele frequencies of the clusters, and
+through them the ancestry of the other individuals:
 
 ``` r
 
 # the ancestry proportions of a gt_admix object with a single run, as a
-# data frame with one row per individual and cluster
+# data frame with one row per individual and cluster, labelled with the
+# treatment ("declared" or "undeclared")
+
 q_long <- function(fit, gt, treatment) {
   q <- unclass(fit$Q[[1]])
   data.frame(
@@ -380,15 +398,16 @@ cluster of B, and none of B from that of A, but this is due to the
 larger sample of A (60 individuals against 20), not to its
 pseudohaploids (see [Why population A looks slightly
 admixed](#why-population-a-looks-slightly-admixed)). Undeclared, the
-pseudohaploids still are, but the diploids of population A appear
-slightly admixed with population B. Treated as diploids, the
-pseudohaploids are homozygous at every locus, which the model can only
-partly explain, with allele frequencies closer to 0 and 1. As they make
-up most of the information on population A (counted twice, they carry 80
-of its 120 allele copies per locus), the cluster of population A takes
-more extreme frequencies than those of the population. The diploids of
-population A, which do carry heterozygotes, then fit better as a mixture
-of this cluster with that of population B.
+pseudohaploids are still assigned to their own cluster, but the diploids
+of population A appear slightly admixed with population B. Treated as
+diploids, the pseudohaploids are homozygous at every locus, which the
+model can only partly explain, with allele frequencies closer to 0
+and 1. As they make up most of the information on population A (counted
+twice, they carry 80 of its 120 allele copies per locus), the cluster of
+population A takes more extreme frequencies than the true frequencies of
+the population. The diploids of population A, which do carry
+heterozygotes, then fit better as a mixture of this cluster with that of
+population B.
 
 The replicated simulations (see [Choosing K](#choosing-k) for their
 design) show the same bias, which is stronger when the structure is
@@ -409,16 +428,16 @@ from the cluster of the other population, at K = 2:
 Mean ancestry (%) of each group of individuals from the cluster of the
 other population at K = 2, over 5 replicates. {.table}
 
-Undeclared pseudohaploids make the diploids of their population appear
-four to five times more admixed than when the pseudohaploids are
+When undeclared, the pseudohaploids make the diploids of their
+population appear four to five times more admixed than when they are
 declared. The pseudohaploids themselves, and the other population, are
-unaffected. There is no bias when a population is made only of
-pseudohaploids (the third scenario), as there are no diploids in it to
-appear admixed.
+almost unaffected. There is no bias when one population is made up only
+of pseudohaploids (the third scenario), as there are no diploids in it
+to appear admixed.
 
 Even when the pseudohaploids are declared, the individuals of population
-A get a little more ancestry from the other cluster than those of B. As
-explained below, this is not due to the pseudohaploids.
+A get a little more ancestry from the other cluster than those of B do.
+As explained below, this is not due to the pseudohaploids.
 
 #### Why population A looks slightly admixed
 
@@ -426,14 +445,14 @@ The ancestry of an individual is estimated from a finite number of loci,
 and cannot be negative, so the noise of the estimate shows up as a
 little ancestry from the other cluster, even in an unadmixed individual.
 In the scenarios above, this is larger in population A than in B. Two
-differences between them could explain this: A has more individuals (60
-against 20), and two thirds of them are pseudohaploids, whose ancestry
-is estimated with more noise, as they carry half as many allele copies
-as diploids. To separate the two, we simulated two populations of
-different or equal sizes, with and without pseudohaploids (F_ST = 0.1,
-10 replicates). We fitted K = 2 with the allele frequencies estimated,
-as usual, and with them fixed at their true values (the attribute
-“frequencies” of the simulated data, given to
+differences between the populations could explain this: A has more
+individuals (60 against 20), and two thirds of them are pseudohaploids,
+whose ancestry is estimated with more noise. To separate the two, we
+simulated two populations of different or equal sizes, with and without
+pseudohaploids (F_ST = 0.1, 10 replicates). We fitted K = 2 in two ways:
+with the allele frequencies estimated, as usual, and with them fixed at
+their true values (stored in the “frequencies” of the simulated data,
+and passed to
 [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
 with `init_p` and `fix_p = TRUE`):
 
@@ -460,16 +479,19 @@ or fixed at their true values. {.table}
   of their population: this is the noise of the estimates. The
   pseudohaploids, with half as many allele copies, get a little more
   (0.9%).
-- With the frequencies estimated, the difference between the populations
+- With the estimated frequencies, the difference between the populations
   follows their sizes, not the pseudohaploids. Without any
-  pseudohaploids, 60 diploids in A and 20 in B give the same difference
-  as the first scenario; with the pseudohaploids in A but 60 diploids in
-  B, the two populations look alike. The allele frequencies of a cluster
-  are estimated from the individuals assigned to it. With few
-  individuals, they fit each of them closely, and the individuals appear
-  less admixed than with the true frequencies (as in B, with 20
-  individuals). With many, they fit each individual less closely, and
-  the individuals appear more admixed (as in A, with 60).
+  pseudohaploids, A (60 diploids) still looks more admixed than B (20
+  diploids), by about the same amount as in the original scenario (A: 20
+  diploids and 40 pseudohaploids; B: 20 diploids). Conversely, when the
+  pseudohaploids are kept in A but B is enlarged to 60 diploids, the two
+  populations look alike. The allele frequencies of a cluster are
+  estimated from the individuals assigned to it. With few individuals,
+  the estimated frequencies are pulled towards each of them and fit them
+  closely, so they appear less admixed than with the true frequencies
+  (as in B, with 20 individuals). With many, each individual has less
+  influence on the frequencies, which fit them less closely, so they
+  appear more admixed (as in A, with 60).
 - The pseudohaploids themselves appear a little more admixed than the
   diploids of their population, because of the larger noise of their
   estimates.
@@ -481,7 +503,7 @@ or fixed at their true values. {.table}
 So, when the pseudohaploids are declared, the slight admixture of
 population A comes mostly from its larger sample, and only a little from
 its pseudohaploids. It is a property of the maximum-likelihood estimates
-of the model of ADMIXTURE, with or without pseudohaploids, and the
+of the ADMIXTURE model, with or without pseudohaploids, and the
 differences are small (about 1%).
 
 ## Choosing K
@@ -492,9 +514,9 @@ each with two populations (so the true K is 2), and 5,000 loci:
 - **Pseudohaploids in A, F_ST = 0.1**: as above, 20 diploids from each
   population, and 40 pseudohaploids from population A;
 - **Pseudohaploids in A, F_ST = 0.05**: the same, with weaker structure;
-- **B only pseudohaploids, F_ST = 0.1**: 20 diploids from population A,
-  and 40 pseudohaploids from population B, e.g. a population known only
-  from ancient samples.
+- **Pseudohaploids in B only, F_ST = 0.1**: 20 diploids from population
+  A, and 40 pseudohaploids from population B, e.g. a population known
+  only from ancient samples.
 
 Each dataset is analysed with
 [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
@@ -506,8 +528,8 @@ undeclared and declared.
 Adding a cluster always increases the log-likelihood, as the extra
 parameters can fit some of the noise of the sample. Criteria based on
 the log-likelihood, such as AIC, only add a cluster if the increase is
-large enough. AIC is `-2 log-likelihood + 2 x (number of parameters)`,
-and each cluster adds the allele frequencies of every locus and an
+large enough. AIC is `-2 log-likelihood + 2 x (number of parameters)`.
+Each additional cluster adds one allele frequency per locus and an
 ancestry proportion for every individual, so a cluster lowers AIC if it
 increases the log-likelihood by more than the number of loci plus the
 number of individuals:
@@ -515,19 +537,20 @@ number of individuals:
 ![](pseudohaploids_files/figure-html/loglik-gain-1.png)
 
 Each point is a replicate, and the dashed line is the increase that a
-cluster needs to lower AIC. The second cluster, which separates the two
-populations, increases the log-likelihood far above the line with both
-treatments. Further clusters only fit noise. Declared, they gain little
-more than half of what AIC requires; undeclared, the noise of the
-pseudohaploids counts twice, and every further cluster passes the line.
+cluster needs to lower AIC. The second cluster (K=2), which separates
+the two populations, increases the log-likelihood far above the line
+with both treatments. Further clusters only fit noise. Declared, they
+gain little more than half of what AIC requires; undeclared, the noise
+of the pseudohaploids counts twice, and every further cluster passes the
+line.
 
-### Cross-validation is not fooled by the doubled log-likelihood
+### Cross-validation is unaffected by the inflated log-likelihood
 
 Cross-validation (Alexander & Lange 2011) holds out a fold of the
-genotypes, fits the model to the others, and scores the predictions of
-the held-out genotypes. A cluster that fits noise does not predict new
-genotypes better, so the cross-validation error stops decreasing at the
-true K, whatever the size of the log-likelihood:
+genotypes, fits the model to the remaining ones, and scores how well it
+predicts the held-out genotypes. A cluster that fits only noise does not
+improve these predictions, so the cross-validation error stops
+decreasing at the true K, whatever the size of the log-likelihood:
 
 ![](pseudohaploids_files/figure-html/cv-error-1.png)
 
@@ -544,7 +567,7 @@ each K:
 | B only pseudohaploids, F_ST = 0.1 | Undeclared | 6 (5) | 2 (5) |
 | B only pseudohaploids, F_ST = 0.1 | Declared | 2 (5) | 2 (5) |
 
-K with the lowest AIC and cross-validation error, as “K (number of
+K with the lowest AIC and cross-validation error, shown as “K (number of
 replicates)”, out of 5 replicates. The true K is 2. {.table}
 
 With moderate structure (F_ST = 0.1), cross-validation picks the true K
@@ -598,16 +621,16 @@ K) to K = 1, with 20 diploids from each population and 0 to 80
 pseudohaploids from population A. {.table}
 
 At F_ST = 0.03, cross-validation misses the structure even without
-pseudohaploids, and at F_ST = 0.1 it always finds it. In between,
-declared pseudohaploids add information, and 40 of them are enough for
-cross-validation to detect the two populations in every replicate.
-Undeclared, 20 or 40 pseudohaploids hide the structure. With 80,
-cross-validation finds it again: the cluster of population A then fits
-its pseudohaploids, which make up most of it (its diploids appear
-admixed instead), and at K = 1 the allele frequencies of the whole
-sample, dominated by population A, predict population B poorly. Whether
-undeclared pseudohaploids hide weak structure thus depends on the
-composition of the sample.
+pseudohaploids, and at F_ST = 0.1 it always finds it. At the
+intermediate value, declared pseudohaploids add information, and 40 of
+them are enough for cross-validation to detect the two populations in
+every replicate. When undeclared, 20 or 40 pseudohaploids hide the
+structure. With 80, cross-validation finds it again: the cluster of
+population A then fits its pseudohaploids, which make up most of it (its
+diploids appear admixed instead), and at K = 1 the allele frequencies of
+the whole sample, dominated by population A, predict population B
+poorly. Whether undeclared pseudohaploids hide weak structure thus
+depends on the composition of the sample.
 
 ## Too many clusters: ghost clusters among the pseudohaploids
 
@@ -641,14 +664,16 @@ population spread evenly over K clusters:
 ![](pseudohaploids_files/figure-html/plot-ghost-spread-1.png)
 
 Each point is a replicate, and the lines join the means. The dashed line
-marks K - 1 clusters, all but one of the K clusters. Undeclared, in
-every replicate, the pseudohaploid population is spread over almost all
-the clusters but one, and the diploid population stays in that one;
+marks K - 1 clusters, i.e. all clusters but one. Undeclared, in every
+replicate, the pseudohaploid population is spread over almost all the
+clusters but one, and the diploid population stays in that one;
 declared, the two populations share the ghost clusters from K = 4. An
 analysis with undeclared pseudohaploids would suggest structure among
 the ancient samples, and none in the modern ones, when neither has any.
 
 ## Recommendations
+
+Based on these results, we recommend the following:
 
 - Declare pseudohaploids with
   [`gt_pseudohaploid()`](https://evolecolgroup.github.io/tidypopgen/reference/gt_pseudohaploid.html)

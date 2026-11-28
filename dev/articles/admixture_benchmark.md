@@ -25,15 +25,15 @@ two parts:
 
 - [Random starts](#random-starts): all the programs start from random
   values (ADMIXTURE and OpenADMIXTURE.jl have no other start, and
-  fastmixture and ADAMIXTURE are run with their option to do so). It
-  checks that the programs find the same ancestry proportions, and
+  fastmixture and ADAMIXTURE are run with their option to do so). This
+  part checks that the programs find the same ancestry proportions, and
   measures how long each takes on different numbers of cores, with and
   without cross-validation (which OpenADMIXTURE.jl does not have).
 - [SVD and random starts](#svd-and-random-starts):
   [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md),
   fastmixture and ADAMIXTURE can also start from a truncated singular
-  value decomposition (SVD) of the genotypes, which fastmixture and
-  ADAMIXTURE do by default
+  value decomposition (SVD) of the genotypes, which is the default for
+  fastmixture and ADAMIXTURE
   ([`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/dev/reference/gt_radmix.md)
   does so with `init = "svd"`). Each of them is run from both starts,
   with several seeds, to compare their times and the log-likelihoods
@@ -56,7 +56,7 @@ is also timed in an R session, and OpenADMIXTURE.jl in a Julia session,
 in which the package is already loaded (see [How long do they
 take?](#how-long-do-they-take)).
 
-The [results](#results) come first. The second part, [How the benchmark
+The [results](#results) come first. A final section, [How the benchmark
 was run](#how-the-benchmark-was-run), describes the data and the runs,
 with their code, and how to run the benchmark again.
 
