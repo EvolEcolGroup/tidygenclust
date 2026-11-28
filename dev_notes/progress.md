@@ -5,6 +5,14 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-28 (laptopX1): examples for CRAN (PR #45)
+
+- `cran_examples`, PR #45 into `dev`: examples for every exported function
+  that had none (Cape Verde runs for clumppling; tidypopgen's Anolis for
+  fastmixture and ADAMIXTURE, in `\donttest`, only if installed; installers
+  in `\dontrun`). `--as-cran` examples OK, also with `--run-donttest`; CI
+  green. Version kept at 0.2.0 (not yet submitted).
+
 ## 2026-11-28 (laptopX1): 0.2.0 on main, ready for CRAN
 
 - #43 (merge commit into `dev`): `main`'s #40 merged with `-s ours`, its

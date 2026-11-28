@@ -41,7 +41,7 @@ The designs are in `admixture_implementation.md`, the timings in
 `radmix_performance.md` and `radmix_extensions_2026-11/`.
 
 **Next steps**
-- [ ] **P2** [claude] add examples to the exported functions without them (`\donttest{}` for python tools): CRAN usually asks on a first submission.
+- [ ] **P2** [review] review and merge PR #45 (examples for CRAN, CI green), then `dev` into `main` again: blocks the submission.
 - [ ] **P2** [andrea] submit 0.2.0 to CRAN (`devtools::submit_cran()` from `main`; `cran-comments.md` ready), then tag it and bump `dev` to 0.2.0.9000.
 - [ ] **P3** [cleanup] delete the article's data and the builds on manica01 (`~/project_temp/claude/tidygenclust/stream/`, about 75 GB) when Andrea no longer needs them.
 
