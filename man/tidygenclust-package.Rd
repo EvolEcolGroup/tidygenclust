@@ -10,6 +10,15 @@
 
 A tidy interface for population genetic clustering. This package provides a unified workflow to estimate, compare, summarize, and visualize genetic clustering analyses, supporting both single runs and collections of replicate analyses. It is designed to work natively with diploid and pseudohaploid data, and integrates seamlessly with the tidypopgen ecosystem.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/EvolEcolGroup/tidygenclust}
+  \item \url{https://evolecolgroup.github.io/tidygenclust/}
+  \item Report bugs at \url{https://github.com/EvolEcolGroup/tidygenclust/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Andrea Manica \email{am315@cam.ac.uk} (\href{https://orcid.org/0000-0003-1895-450X}{ORCID})
 
