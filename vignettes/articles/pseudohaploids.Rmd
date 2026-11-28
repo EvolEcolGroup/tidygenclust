@@ -157,9 +157,9 @@ therefore exactly doubled. We can check this by computing the log-likelihood of 
 individual from the estimates of the declared fit:
 
 ```{r loglik-by-hand}
-# the log-likelihood of each individual, given the  genotypes `gt`,  the ancestry proportions q
-# (individuals x K), the allele frequencies p (loci x K) and the number of
-# allele copies of each individual
+# the log-likelihood of each individual, given the genotypes `gt`, the
+# ancestry proportions q (individuals x K), the allele frequencies p
+# (loci x K) and the number of allele copies of each individual
 loglik_individuals <- function(gt, q, p, n_copies) {
   # copies of the alternate allele out of n_copies (the pseudohaploids are
   # coded 0/2)
@@ -188,7 +188,8 @@ Given the allele frequencies, the ancestry proportions of the pseudohaploids max
 
 ```{r plot-q-function}
 # the ancestry proportions of a gt_admix object with a single run, as a
-# data frame with one row per individual and cluster, labelled with the treatment ("declared" or "undeclared")
+# data frame with one row per individual and cluster, labelled with the
+# treatment ("declared" or "undeclared")
 
 q_long <- function(fit, gt, treatment) {
   q <- unclass(fit$Q[[1]])
