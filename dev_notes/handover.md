@@ -13,7 +13,6 @@ documents listed in `README.md`.
 | branch | purpose | base | pushed | merged |
 |---|---|---|---|---|
 | `hgdp_plots` | Eirlys's HGDP plotting script (Jan 2025); `dev` has her later version (June 2025) | old `dev` | yes | no: kept until some runs are redone (Andrea, 28 Nov) |
-| `cran_examples` | examples for CRAN (PR #45) | `dev` | yes | no: in review |
 | `windows` | Ondra's experimental Windows support through WSL2 (`R/wsl_backend.R`, `vignettes/windows.Rmd`, a CI workflow, tests; Oct 2026); its adamixture commits are in `dev` (#30) | `dev` (June) | yes | no PR |
 
 `main` and `dev` have the same tree (0.2.0; `main` has one extra merge
@@ -32,21 +31,14 @@ Nov: see `progress.md`.
 
 ## Next tasks
 
-### 1. **P2** [review] PR #45, examples for CRAN
+### 1. **P2** [andrea] submit 0.2.0 to CRAN
 
-- Branch `cran_examples` (pushed): examples for the exported functions
-  that had none; CI green. Version kept at 0.2.0. After merging (merge
-  commit), open a PR `dev` into `main` and merge it the same way.
-- **Done when:** #45 is merged and `main` has the examples.
-
-### 2. **P2** [andrea] submit 0.2.0 to CRAN
-
-- `devtools::submit_cran()` from `main` (after task 1, which must be merged first);
+- `devtools::submit_cran()` from `main` (the examples, #45-#47, are on `main`);
   `cran-comments.md` is ready. After acceptance: tag the release, then
   bump `dev` to 0.2.0.9000 (re-add `Remotes: EvolEcolGroup/tidypopgen@dev`
   only if `dev` needs unreleased tidypopgen).
 
-### 3. **P3** [cleanup] the article's data on manica01
+### 2. **P3** [cleanup] the article's data on manica01
 
 - `~/project_temp/claude/tidygenclust/stream/` (about 75 GB: builds,
   benchmark data, the article's `mid/` and `large/`): delete when Andrea

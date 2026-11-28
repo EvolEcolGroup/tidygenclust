@@ -7,6 +7,9 @@ likelihoods), and in `radmix_performance.md`.
 
 ## 2026-11-28 (laptopX1): examples for CRAN (PR #45)
 
+- Merged #45 and #47 (CodeRabbit's corrections to two examples' comments;
+  `gt_radmix_data()` left without example: exported for tidypopgl only,
+  internal) into `dev`, and `dev` into `main` (#46); version 0.2.0.
 - `cran_examples`, PR #45 into `dev`: examples for every exported function
   that had none (Cape Verde runs for clumppling; tidypopgen's Anolis for
   fastmixture and ADAMIXTURE, in `\donttest`, only if installed; installers
