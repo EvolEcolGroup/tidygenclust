@@ -1,0 +1,213 @@
+# Changelog
+
+## tidygenclust 0.2.0
+
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_radmix.md)
+  streams data larger than the memory: its passes read the backing file
+  in chunks, with the next chunk read ahead and alternating directions,
+  and give identical results (options `tidygenclust.radmix_stream` and
+  `tidygenclust.radmix_chunk_mb`; a source of genotype likelihoods can
+  give a prefetch function, see
+  `inst/include/tidygenclust/radmix_gl_source.h`)
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_radmix.md)
+  is 15-20% faster on genotypes in memory with 8,192 individuals or
+  more: their passes over the individuals now take the loci in chunks
+  too
+- new `gl_curvature` argument of
+  [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_radmix.md):
+  `"observed"` takes Newton steps with the curvature of the
+  log-likelihood of genotype likelihoods, about 1.5 times faster on
+  low-depth data (`"complete"`, the default, keeps the curvature of the
+  EM algorithm)
+- `gt_radmix(init = "svd")` computes its SVD with tidypopgen’s
+  [`gt_pca()`](https://evolecolgroup.github.io/tidypopgen/reference/gt_pca.html):
+  missing genotypes no longer need imputing (also for pseudohaploids),
+  it uses about 1 GB less memory, and it is faster without an optimised
+  BLAS (needs tidypopgen \>= 1.1.0)
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_radmix.md)
+  is 6-24% faster per iteration from K = 7 (more at larger K), with the
+  same results up to rounding
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_radmix.md)
+  reports in its log the largest change of the estimates at each
+  iteration, and the new `step_tol` can require it to be small before
+  stopping; a decrease of the log-likelihood no longer counts as
+  convergence
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_radmix.md):
+  fix columns that froze when a Newton step met a nearly singular
+  Hessian (e.g. a near-empty cluster at large K); the step is now taken
+  with a small ridge shift
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_radmix.md)
+  is faster on subsets of individuals that are filtered or reordered
+  (13-27% fewer cycles per pass), with identical results
+- [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_radmix.md)
+  also fits genotype likelihoods, with the model of NGSadmix (Skotte,
+  Korneliussen & Albrechtsen 2013) and the algorithm of ADMIXTURE.
+  tidygenclust does not store genotype likelihoods: a package that does
+  can provide a method of the new generic
+  [`gt_radmix_data()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_radmix_data.md),
+  which gives the kernels a C function that reads its likelihoods (see
+  `inst/include/tidygenclust/radmix_gl_source.h`), so tidygenclust does
+  not depend on it. `P` then gives the frequency of `allele2`.
+  Cross-validation (with the deviance of the held-out likelihoods) and
+  starts from the SVD (of the posterior dosages under the emMAF allele
+  frequencies, with `svd_power` power iterations) are available;
+  `use_imputed` is not.
+- New
+  [`gt_adamixture()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_adamixture.md):
+  ancestry estimation with the python package ADAMIXTURE
+  (Saurina-i-Ricos, Mas Montserrat & Ioannidis 2026), run with
+  `reticulate` like
+  [`gt_fastmixture()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_fastmixture.md),
+  on a `gen_tibble` (including subsets) or on PLINK files. ADAMIXTURE
+  (version 1.8.9, from PyPI, without PyTorch) is installed by default by
+  [`tgc_tools_install()`](https://evolecolgroup.github.io/tidygenclust/reference/tgc_tools_install.md),
+  or added to an existing environment with the new
+  [`tgc_adamixture_install()`](https://evolecolgroup.github.io/tidygenclust/reference/tgc_adamixture_install.md),
+  and its version is reported by
+  [`tgc_tools_version()`](https://evolecolgroup.github.io/tidygenclust/reference/tgc_tools_version.md).
+- New
+  [`gt_radmix()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_radmix.md):
+  ancestry estimation with the ADMIXTURE method (Alexander, Novembre &
+  Lange 2009) and the algorithm of ADMIXTURE (EM priming, block
+  relaxation with constrained Newton steps, and the quasi-Newton
+  acceleration of Zhou, Alexander & Lange 2011), in multithreaded C++
+  that reads the `gen_tibble` directly, with the cross-validation of
+  ADMIXTURE (Alexander & Lange 2011) and support for pseudohaploids. Its
+  results are checked against ADMIXTURE and OpenADMIXTURE.jl in the test
+  suite. It stops when the log-likelihood changes by less than a
+  relative 1e-8 (`rtol`). With `init = "svd"`, runs start from the SVD
+  of the genotypes, as in fastmixture and ADAMIXTURE, for a faster
+  single fit of large datasets. The refits of the folds of
+  cross-validation stop at a relative change of 1e-7 (`cv_rtol`), which
+  halves the cost of cross-validation on data whose refits are slow to
+  converge, with errors lower by at most 2e-4 in our tests and the same
+  K chosen; `cv_max_iter` and a larger `cv_rtol` shorten them further
+  (faster, but with errors biased downwards, more so at larger K), and
+  `cv_rtol = rtol` refits each fold to convergence. Its computations
+  were sped up by cheaper decoding of the genotypes and likelihood terms
+  and by processing two loci at a time (about 1.3-1.4x), and, on x86-64
+  Linux, by also compiling them for AVX2 and FMA (about 1.6x in all). A
+  later reorganisation of the computations made fits slightly faster (a
+  few percent), with the same numbers of iterations and estimates that
+  differ from those of earlier development versions only by rounding.
+  Each iteration now reads the genotypes four times instead of five: the
+  log-likelihood of the point an iteration ends at is computed in the
+  same pass as the first update of the next iteration, with the same
+  iterations and estimates. With `crossval = TRUE`, the fit of each fold
+  computes once which genotypes it hides (a bit mask, one bit per
+  genotype) instead of in every pass, so its passes cost as much as
+  those of the main fit instead of about 1.5 times as much; the
+  cross-validation errors are identical. On x86-64 Linux, the
+  computation of the expected genotypes and of the log-likelihood in
+  each pass is now also compiled for AVX2 and FMA, and the
+  log-likelihood is cheaper; with the fused pass, an iteration takes
+  about 0.8 of the time it took on one core (HGDP, 1043 x 130,943, K =
+  5), with the same iterations and estimates that differ only by
+  rounding. The work on Q of datasets with fewer than 8,192 individuals
+  is split into more tasks (128 rather than 32), which makes fits on 8
+  threads 3-6% faster (estimates differ only by rounding).
+  [`?gt_radmix`](https://evolecolgroup.github.io/tidygenclust/reference/gt_radmix.md)
+  describes the algorithm, the reproducibility of the results, and how
+  they compare with those of ADMIXTURE. Supervised analyses, as
+  ADMIXTURE’s `--supervised` option, are run with the new argument
+  `supervised`: the population of each reference individual (`NA` for
+  the individuals to estimate), whose ancestry is then fixed. As in
+  ADMIXTURE, `k` must equal the number of reference populations, and the
+  columns of Q follow the order of their first appearance (or the levels
+  of a factor); the result lists them in `ref_pops`. Cross-validation is
+  available, and the fit skips the work of the reference individuals.
+  The estimates are checked against ADMIXTURE in the test suite.
+  Supervised analyses also work with genotype likelihoods.
+- [`gt_clumppling()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_clumppling.md)
+  is now a native R and C++ port, with modifications, of clumppling
+  2.0.10 (Liu, Kopelman & Rosenberg 2024, by Xiran Liu).
+- The conda environment is no longer needed by default, as the core
+  functionality is native.
+  [`tgc_tools_install()`](https://evolecolgroup.github.io/tidygenclust/reference/tgc_tools_install.md)
+  gains a `tools` argument to choose which optional tools to install
+  (`fastmixture` and ADMIXTURE), and
+  [`tgc_fastmixture_install()`](https://evolecolgroup.github.io/tidygenclust/reference/tgc_fastmixture_install.md)
+  and
+  [`tgc_admixture_install()`](https://evolecolgroup.github.io/tidygenclust/reference/tgc_admixture_install.md)
+  add a tool to an existing environment.
+- Fixed the colours of the clusters in the plots of `gt_clumppling`
+  objects with K \>= 10: clusters were ordered as text (“1”, “10”, “2”,
+  …), so the same aligned cluster was drawn in a different colour (and
+  position) for different values of K.
+- The optional tools (fastmixture, ADMIXTURE and ADAMIXTURE) are only
+  available on Linux at the moment:
+  [`tgc_tools_install()`](https://evolecolgroup.github.io/tidygenclust/reference/tgc_tools_install.md)
+  and the other installers explain this on macOS and Windows (on
+  Windows, they said that tidygenclust did not work at all), as the rest
+  of the package does not need conda. On macOS, the OpenMP library of
+  the python tools conflicts with that of R (used by packages such as
+  bigstatsr), which crashes the R session; on Windows, the tools can be
+  used through the WSL.
+- [`gt_fastmixture()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_fastmixture.md)
+  now starts from the SVD-based initialisation of fastmixture by default
+  (`random_init = FALSE`).
+- [`gt_fastmixture()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_fastmixture.md)
+  now uses the individuals and loci selected in a `gen_tibble`.
+- `gt_fastmixture(threads = )` now limits the number of threads (with
+  the python package threadpoolctl, which
+  [`tgc_fastmixture_install()`](https://evolecolgroup.github.io/tidygenclust/reference/tgc_fastmixture_install.md)
+  now installs): the environment variables used before had no effect
+  once R had started OpenMP, and they stayed set in the R session.
+- `subset_gt_clumppling(k = )` selects the right values of K: it failed
+  when `k` covered all of `K_range`, selected K = 20 to 29 together with
+  K = 2 (and so on), could not select values of K with gaps (e.g. 17 and
+  19 in the chicken example), and silently returned an empty object for
+  values of K that were not in `K_range`.
+- `subset_gt_clumppling(indivs = )` checks that the individuals are
+  between 1 and N, rather than silently returning rows of NA.
+- Plots of `gt_clumppling` objects subset by individuals draw the group
+  boundaries and labels (and the number of runs of each mode) in the
+  right place.
+- The `group` argument of the plots of `gt_clumppling` objects can be a
+  factor.
+- `autoplot(type = "modes_within_k")` checks that `k` is a single value
+  of `K_range`: other values gave an empty plot that failed when
+  printed.
+- `autoplot(type = "modes")` no longer warns for a `gt_clumppling`
+  object with a single value of K.
+- The vignette and the documentation of
+  [`autoplot()`](https://ggplot2.tidyverse.org/reference/autoplot.html)
+  no longer say that the edges of the ‘modes’ plot are labelled with
+  their cost: they are coloured by it.
+- [`gt_fastmixture()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_fastmixture.md)
+  checks its arguments before starting python, with error messages
+  naming the right arguments, and a single `seed` (such as the default)
+  can be used with `n_runs > 1`: it is incremented for each run.
+- On Intel Macs, fastmixture is compiled with the llvm installed by
+  Homebrew (its location was hard-coded for Apple silicon).
+- The `safety` argument of
+  [`gt_fastmixture()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_fastmixture.md)
+  is deprecated: it was never passed on to fastmixture, which turns on
+  its safety updates by itself when an update is unstable.
+
+## tidygenclust 0.1.4
+
+- Updated clumppling to v2.0.10, which is now installed in the same
+  conda environment as fastmixture (`ctidygenclust`); the separate
+  `cclumppling` environment is no longer needed.
+
+## tidygenclust 0.1.3
+
+- Fixed
+  [`gt_fastmixture()`](https://evolecolgroup.github.io/tidygenclust/reference/gt_fastmixture.md)
+  wrapper for fastmixture 1.3.0: P matrices are now returned in the
+  original locus order, and `gen_tibble` input is shuffled and
+  normalised as in fastmixture, giving the same results as PLINK input.
+
+## tidygenclust 0.1.2
+
+- Updated version of fastmixture to 1.3.0
+- Use pre-tested conda environments to avoid dependency hell.
+
+## tidygenclust 0.1.1
+
+- Updated versions of fastmixture and clumppling
+
+## tidygenclust 0.1.0
+
+- Initial public version
