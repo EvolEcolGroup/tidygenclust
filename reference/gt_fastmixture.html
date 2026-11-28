@@ -211,6 +211,31 @@ model-based estimation of ancestry proportions. bioRxiv 2024.07.08.602454;
 doi: https://doi.org/10.1101/2024.07.08.602454</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
+<span class="r-in"><span><span class="co"># fastmixture is optional: this example only runs if it is installed (see</span></span></span>
+<span class="r-in"><span><span class="co"># tgc_tools_install(), only on Linux at the moment)</span></span></span>
+<span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="fu"><a href="tgc_tools_version.html">tgc_tools_version</a></span><span class="op">(</span><span class="op">)</span><span class="op">$</span><span class="va">fastmixture</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
+<span class="r-in"><span>  <span class="co"># the lizard Anolis punctatus, an example dataset of tidypopgen</span></span></span>
+<span class="r-in"><span>  <span class="va">vcf_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"anolis"</span>,</span></span>
+<span class="r-in"><span>    <span class="st">"punctatus_t70_s10_n46_filtered.recode.vcf.gz"</span>,</span></span>
+<span class="r-in"><span>    package <span class="op">=</span> <span class="st">"tidypopgen"</span></span></span>
+<span class="r-in"><span>  <span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="va">anole_gt</span> <span class="op">&lt;-</span> <span class="fu">tidypopgen</span><span class="fu">::</span><span class="fu"><a href="https://evolecolgroup.github.io/tidypopgen/reference/gen_tibble.html" class="external-link">gen_tibble</a></span><span class="op">(</span><span class="va">vcf_path</span>,</span></span>
+<span class="r-in"><span>    quiet <span class="op">=</span> <span class="cn">TRUE</span>, backingfile <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span><span class="st">"anolis_"</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="va">anole_fm</span> <span class="op">&lt;-</span> <span class="fu">gt_fastmixture</span><span class="op">(</span><span class="va">anole_gt</span>, k <span class="op">=</span> <span class="fl">2</span><span class="op">:</span><span class="fl">3</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="va">anole_fm</span><span class="op">$</span><span class="va">Q</span><span class="op">[[</span><span class="fl">2</span><span class="op">]</span><span class="op">]</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span>  <span class="co"># choose K by cross-validation</span></span></span>
+<span class="r-in"><span>  <span class="va">anole_fm_cv</span> <span class="op">&lt;-</span> <span class="fu">gt_fastmixture</span><span class="op">(</span><span class="va">anole_gt</span>, k <span class="op">=</span> <span class="fl">2</span><span class="op">:</span><span class="fl">4</span>, seed <span class="op">=</span> <span class="fl">1</span>, cv <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span><span class="va">anole_fm_cv</span>, type <span class="op">=</span> <span class="st">"cv"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">}</span></span></span>
+<span class="r-plt img"><img src="gt_fastmixture-1.png" alt="" width="700" height="433"></span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

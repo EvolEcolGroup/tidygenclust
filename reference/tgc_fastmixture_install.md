@@ -27,3 +27,12 @@ tgc_fastmixture_install(
 ## Value
 
 NULL (invisibly)
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# installs software in a conda environment (only on Linux at the moment)
+tgc_fastmixture_install()
+} # }
+```

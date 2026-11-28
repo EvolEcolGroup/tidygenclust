@@ -84,6 +84,28 @@ order</p></dd>
     <p>a gt_clumppling object subsetted to the individuals specified</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># the runs of ADMIXTURE for K = 2 to 5 of the Cape Verde example of</span></span></span>
+<span class="r-in"><span><span class="co"># clumppling, aligned into modes</span></span></span>
+<span class="r-in"><span><span class="va">capeverde</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"capeverde_admix.rds"</span>, package <span class="op">=</span> <span class="st">"tidygenclust"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">clump_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="gt_clumppling.html">gt_clumppling</a></span><span class="op">(</span><span class="va">capeverde</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># the modes with K = 3 and 4</span></span></span>
+<span class="r-in"><span><span class="va">clump_k34</span> <span class="op">&lt;-</span> <span class="fu">subset_gt_clumppling</span><span class="op">(</span><span class="va">clump_res</span>, k <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/autoplot.html" class="external-link">autoplot</a></span><span class="op">(</span><span class="va">clump_k34</span>, type <span class="op">=</span> <span class="st">"modes"</span><span class="op">)</span></span></span>
+<span class="r-plt img"><img src="subset_gt_clumppling-1.png" alt="" width="700" height="433"></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># the Cape Verdean individuals only, e.g. for an inset (their modes are</span></span></span>
+<span class="r-in"><span><span class="co"># still those of all the individuals, and autoplot() warns about it)</span></span></span>
+<span class="r-in"><span><span class="va">cape_verdeans</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">capeverde_pops</span> <span class="op">==</span> <span class="st">"Cape Verdean"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">clump_cv</span> <span class="op">&lt;-</span> <span class="fu">subset_gt_clumppling</span><span class="op">(</span><span class="va">clump_res</span>, indivs <span class="op">=</span> <span class="va">cape_verdeans</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">clump_cv</span><span class="op">$</span><span class="va">N</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 44</span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

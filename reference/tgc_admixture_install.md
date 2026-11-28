@@ -36,3 +36,12 @@ tgc_admixture_install(conda_yaml = "auto", ci_install = FALSE)
 ## Value
 
 NULL (invisibly)
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# installs software in a conda environment (only on Linux at the moment)
+tgc_admixture_install()
+} # }
+```

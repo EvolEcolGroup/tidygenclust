@@ -114,3 +114,17 @@ environment with
 [`reticulate::conda_run2()`](https://rstudio.github.io/reticulate/reference/conda_run2.html).
 If the installation fails with the tested yaml, you can try
 `conda_yaml = NULL` to let conda install the latest available packages.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# installs software in a conda environment (only on Linux at the moment):
+# all the tools
+tgc_tools_install()
+
+# or, alternatively, only fastmixture (other tools already in the
+# environment are kept)
+tgc_tools_install(tools = "fastmixture")
+} # }
+```

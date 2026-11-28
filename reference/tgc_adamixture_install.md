@@ -27,3 +27,12 @@ tgc_adamixture_install(adamixture_version = "1.9.6")
 ## Value
 
 NULL (invisibly)
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# installs software in a conda environment (only on Linux at the moment)
+tgc_adamixture_install()
+} # }
+```
