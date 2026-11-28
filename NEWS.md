@@ -1,4 +1,4 @@
-# tidygenclust (development version)
+# tidygenclust 0.2.0
 * `gt_radmix()` streams data larger than the memory: its passes read the
   backing file in chunks, with the next chunk read ahead and alternating
   directions, and give identical results (options
