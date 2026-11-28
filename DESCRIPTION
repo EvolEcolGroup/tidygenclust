@@ -57,7 +57,7 @@ Description: A tidy interface for population genetic clustering. This package
    visualize genetic clustering analyses, supporting both single runs and
    collections of replicate analyses. It is designed to work natively with
    diploid and pseudohaploid data, and integrates seamlessly with the
-   tidypopgen ecosystem.
+   'tidypopgen' ecosystem.
 License: GPL (>= 3)
 URL: https://github.com/EvolEcolGroup/tidygenclust,
     https://evolecolgroup.github.io/tidygenclust/
