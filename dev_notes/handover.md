@@ -46,7 +46,20 @@ Nov: see `progress.md`.
 
 ## Desktop queue
 
-- Nothing queued. On manica01, `~/project_temp/claude/tidygenclust/stream/`
+- **P2** sanitizers at scale (after the submission; Andrea, 28 Nov):
+  build `dev` with GCC ASan + UBSan (`-O1 -g -fsanitize=address,undefined`,
+  in a separate library, `LD_PRELOAD` of libasan) and run, unattended,
+  fits of about 2,000 individuals x 50,000 loci (simulated with
+  `tidypopgen::gt_simulate_bn()`), K = 2-12, 1 and 8 threads: forced
+  streaming and small chunks (`tidygenclust.radmix_stream`,
+  `tidygenclust.radmix_chunk_mb`), cross-validation, supervised fits, SVD
+  starts, and genotype likelihoods through tidypopgl's source. Then
+  valgrind memcheck on a few small single-threaded fits (uninitialised
+  reads). Skip ThreadSanitizer (false positives with libgomp). About 2-3
+  h on 8 cores; report every sanitizer message with its stack. R-hub's
+  m1-san and a local GCC UBSan run (28 Nov) only covered the small test
+  data.
+- On manica01, `~/project_temp/claude/tidygenclust/stream/`
   holds the builds (`work/`), the 1.5 GB benchmark data (`data/`), the
   article's data (`mid/`, 6 GB; `large/`, 62 GB) and the driver: delete
   them once the article is final.

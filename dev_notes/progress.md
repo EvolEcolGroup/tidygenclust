@@ -5,6 +5,19 @@ correction as a new entry. Earlier history (before 15 Nov 2026) is in the
 comments of dramanica/claude_jobs#3 (radmix) and #12 (genotype
 likelihoods), and in `radmix_performance.md`.
 
+## 2026-11-28 (laptopX1): remote checks for CRAN; UBSan fix (#50)
+
+- R-hub workflow added (#48, #49); win-builder (R-devel): only the
+  new-submission note and possibly misspelled words (natively,
+  pseudohaploid, tidypopgen: now quoted). R-hub linux, macos-arm64,
+  windows OK; m1-san found undefined behaviour in `q_side_stream()`
+  (`&acc_g[...]` of an empty vector with one chunk), fixed in #50 (results
+  unchanged; local GCC UBSan: tests with NOT_CRAN=true and examples clean).
+- Joan Saurina as author (Andrea). #51 brought #50 to `main`; R-hub
+  re-run on it (linux, m1-san, macos-arm64, windows): all OK, no
+  sanitizer reports.
+- Skill `submit-to-cran` updated: add the R-hub workflow in the pre-checks.
+
 ## 2026-11-28 (laptopX1): examples for CRAN (PR #45)
 
 - Merged #45 and #47 (CodeRabbit's corrections to two examples' comments;
